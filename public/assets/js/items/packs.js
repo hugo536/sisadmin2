@@ -529,22 +529,6 @@
         });
     }
 
-    // --- LÓGICA DE TOM SELECT ---
-    if (selectComponente) {
-        window.tomSelectInstance = new TomSelect(selectComponente, {
-            create: false,
-            sortField: { field: "text", direction: "asc" },
-            placeholder: 'Buscar producto, envase o insumo...',
-            allowEmptyOption: true,
-            maxOptions: 100,
-            // ¡NUEVO!: Corrección del texto atascado
-            onBlur: function() {
-                // Al perder el foco, si el usuario no escogió nada (o escribió basura), se limpia el texto
-                this.setTextboxValue(''); 
-            }
-        });
-    }
-
     async function cargarComponentesDisponibles(termino = '') {
         try {
             const response = await fetch(buildUrl('buscar_componentes', { q: termino }), {
@@ -555,20 +539,36 @@
 
             const items = Array.isArray(data.items) ? data.items : [];
 
-            if (window.tomSelectInstance) {
-                window.tomSelectInstance.clearOptions();
-                const opciones = items.map(item => ({
-                    value: String(item.id),
-                    text: `${item.nombre} - [${(item.tipo_item || 'Ítem').toUpperCase()}]`
-                }));
-                window.tomSelectInstance.addOptions(opciones);
-                window.tomSelectInstance.refreshOptions(false);
-            }
+            return items.map(item => ({
+                value: String(item.id),
+                text: `${item.nombre} - [${(item.tipo_item || 'Ítem').toUpperCase()}]`
+            }));
         } catch (error) {
             console.error('Error al poblar Tom Select:', error.message);
+            return [];
         }
     }
 
-    cargarComponentesDisponibles('');
+    // --- LÓGICA DE TOM SELECT ---
+    if (selectComponente) {
+        window.tomSelectInstance = new TomSelect(selectComponente, {
+            create: false,
+            sortField: { field: "text", direction: "asc" },
+            placeholder: 'Buscar producto, envase o insumo...',
+            allowEmptyOption: true,
+            maxOptions: 100,
+            preload: true,
+            loadThrottle: 250,
+            load: async function(query, callback) {
+                const opciones = await cargarComponentesDisponibles(query || '');
+                callback(opciones);
+            },
+            onBlur: function() {
+                // Al perder el foco, si el usuario no escogió nada (o escribió basura), se limpia el texto
+                this.setTextboxValue('');
+            }
+        });
+    }
+
     setEstadoBotonEliminar(idPackSeleccionadoInput?.value || 0);
 })();
