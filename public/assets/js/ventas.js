@@ -1,4 +1,24 @@
 (async function initVentas() {
+    // --- VARIABLES GLOBALES DE IMPRESIÓN ---
+    window.pedidoIdPendienteImpresion = window.pedidoIdPendienteImpresion || 0;
+
+    window.imprimirPedido = function(id) {
+        const app = document.getElementById('ventasApp');
+        if (!app) return;
+
+        window.pedidoIdPendienteImpresion = Number(id) || 0;
+
+        const inputPaginas = document.getElementById('cantidadPaginasPedido');
+        const selectTipo = document.getElementById('tipoDocumentoImprimir');
+        if (inputPaginas) inputPaginas.value = 1;
+        if (selectTipo) selectTipo.value = 'imprimir'; // Por defecto Pedido Interno
+
+        const modalEl = document.getElementById('modalImpresionPedido');
+        if (!modalEl || typeof bootstrap === 'undefined') return;
+
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    };
+
     // --- EVENTO NUEVA VENTA ---
     const btnNuevaVenta = document.getElementById('btnNuevaVenta');
     if (btnNuevaVenta) {
@@ -151,7 +171,6 @@
     // --- LÓGICA VENTA (CALCULOS E IMPUESTOS) ---
     function filaVentaPayload(fila) {
         const selectElement = fila.querySelector('.detalle-item');
-        // MODIFICACIÓN CLAVE: Extraemos el valor directamente de TomSelect si está activo
         const idValue = selectElement && selectElement.tomselect ? selectElement.tomselect.getValue() : (selectElement ? selectElement.value : '');
 
         return {
@@ -509,7 +528,6 @@
             const ids = new Set();
             let excedeStock = false; 
 
-            // Validaciones con la nueva data segura
             for (let i = 0; i < filasArray.length; i++) {
                 const fila = filasArray[i];
                 const data = detalle[i];
@@ -671,7 +689,6 @@
                 const stockDisponible = Number.parseFloat(alm.stock_actual || 0) || 0;
                 opcionesHTML += `<option value="${alm.id}" data-stock="${stockDisponible}">${alm.nombre} (Dispo: ${stockDisponible})</option>`;
                 
-                // Encontramos el almacén con el stock más alto para autoseleccionarlo
                 if (stockDisponible > maxStock) {
                     maxStock = stockDisponible;
                     mejorAlmacenId = alm.id;
@@ -862,11 +879,8 @@
 
         actualizarModoGrupo();
 
-        // ¡LA MAGIA DE LA AUTOSELECCIÓN!
-        // Si es la fila principal (no fue dividida por el usuario) y hay un almacén sugerido, lo preseleccionamos
         if (!filaReferencia && mejorAlmacenId) {
             selectAlmacen.value = mejorAlmacenId;
-            // Simulamos el evento "change" para que la función de arriba haga su magia y autocompleta la cantidad
             setTimeout(() => {
                 selectAlmacen.dispatchEvent(new Event('change'));
             }, 50);
@@ -997,6 +1011,7 @@
         }
     });
     
+    // --- EVENTO DE CLICS EN LA TABLA (EDICIÓN, ANULACIÓN, IMPRESIÓN) ---
     document.querySelector('#tablaVentas tbody')?.addEventListener('click', async (e) => {
         const btn = e.target.closest('button');
         if (!btn) return;
@@ -1108,11 +1123,13 @@
         if (btn.classList.contains('btn-devolucion')) {
             try { await abrirModalDevolucionVenta(id); } catch (err) { Swal.fire('Error', err.message, 'error'); }
         }
-    });
 
-    tbodyDevolucionVenta?.addEventListener('input', (e) => {
-        if (!e.target.classList.contains('input-devolver-venta')) return;
-        recalcularTotalDevolucionVenta();
+        // LÓGICA DEL BOTÓN DE IMPRESIÓN (NUEVO)
+        // Ya no necesitamos la función global, lo controlamos todo desde aquí
+        const btnImprimir = btn.closest('.btn-imprimir-modal'); // Asume que le pondremos una clase al botón de imprimir de la tabla
+        if (btnImprimir) {
+            window.imprimirPedido(id);
+        }
     });
 
     document.getElementById('btnConfirmarDevolucionVenta')?.addEventListener('click', async () => {
@@ -1148,4 +1165,26 @@
             Swal.fire('Error', error.message, 'error');
         }
     });
+
+    // LÓGICA DEL BOTÓN CONFIRMAR IMPRESIÓN (NUEVO - EXTRAÍDO Y REORDENADO)
+    const btnConfirmarImpresion = document.getElementById('btnConfirmarImpresionPedido');
+    if (btnConfirmarImpresion) {
+        btnConfirmarImpresion.addEventListener('click', () => {
+            const inputPaginas = document.getElementById('cantidadPaginasPedido');
+            const selectTipo = document.getElementById('tipoDocumentoImprimir');
+            
+            if (!app || !inputPaginas || window.pedidoIdPendienteImpresion <= 0) return;
+
+            const baseUrl = app.dataset.urlIndex;
+            const paginas = Math.max(1, Math.min(20, Number(inputPaginas.value) || 1));
+            const accionImpresion = selectTipo ? selectTipo.value : 'imprimir';
+
+            const modalEl = document.getElementById('modalImpresionPedido');
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getInstance(modalEl)?.hide();
+            }
+
+            window.open(`${baseUrl}&accion=${accionImpresion}&id=${window.pedidoIdPendienteImpresion}&paginas=${paginas}`, '_blank');
+        });
+    }
 })();
