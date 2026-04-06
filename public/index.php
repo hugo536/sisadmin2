@@ -25,7 +25,7 @@ if (file_exists(BASE_PATH . '/.env') && class_exists(\Dotenv\Dotenv::class)) {
 
 $sessionCookieLifetime = filter_var($_ENV['SESSION_COOKIE_LIFETIME'] ?? getenv('SESSION_COOKIE_LIFETIME'), FILTER_VALIDATE_INT);
 if ($sessionCookieLifetime === false || $sessionCookieLifetime <= 0) {
-    $sessionCookieLifetime = 28800; // 8 horas
+    $sessionCookieLifetime = 28800; // 8 horas por defecto
 }
 
 $sessionCookieName = trim((string) ($_ENV['SESSION_COOKIE_NAME'] ?? getenv('SESSION_COOKIE_NAME') ?: ''));
@@ -37,11 +37,8 @@ if ($sessionCookieName === '') {
     $sessionCookieName = $projectSlug . '_SESSID';
 }
 
-$rawScriptName = (string) ($_SERVER['SCRIPT_NAME'] ?? '/');
-$sessionCookiePath = rtrim(str_replace('\\', '/', dirname($rawScriptName)), '/');
-if ($sessionCookiePath === '' || $sessionCookiePath === '.') {
-    $sessionCookiePath = '/';
-}
+// MODIFICACIÓN CLAVE 1: Forzamos el path a la raíz para evitar pérdida de sesión al cambiar de URL
+$sessionCookiePath = '/';
 
 $sessionSameSite = strtoupper(trim((string) ($_ENV['SESSION_COOKIE_SAMESITE'] ?? getenv('SESSION_COOKIE_SAMESITE') ?: 'LAX')));
 if (!in_array($sessionSameSite, ['LAX', 'STRICT', 'NONE'], true)) {
@@ -65,7 +62,7 @@ if (session_status() === PHP_SESSION_NONE) {
         || str_contains($forwardedProto, 'https')
         || $forwardedSsl === 'on';
 
-    // En HTTP, SameSite=None es rechazado por los navegadores modernos
+    // En HTTP (como suele ser localhost), SameSite=None es rechazado por los navegadores modernos
     $cookieSameSite = $sessionSameSite;
     if ($cookieSameSite === 'None' && !$isSecure) {
         $cookieSameSite = 'Lax';
@@ -83,8 +80,11 @@ if (session_status() === PHP_SESSION_NONE) {
         'samesite' => $cookieSameSite,
     ];
 
-    // Solo asignar dominio si no es localhost/IP para evitar problemas locales
-    if ($host !== '' && filter_var($host, FILTER_VALIDATE_IP) === false && $host !== 'localhost') {
+    // MODIFICACIÓN CLAVE 2: Comprobar si estamos en localhost o usando una IP local
+    $isLocalhost = in_array($host, ['localhost', '127.0.0.1', '[::1]'], true) || filter_var($host, FILTER_VALIDATE_IP) !== false;
+    
+    // Solo asignar dominio si estamos en un hosting real con dominio, para no romper localhost
+    if ($host !== '' && !$isLocalhost) {
         $cookieParams['domain'] = $host;
     }
 
@@ -94,8 +94,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Configuración de Errores (Hardcoded a development para que puedas ver errores)
-$env = 'development';
+// Configuración de Errores
+// NOTA: Recuerda cambiar esto a 'production' cuando subas al hosting final si no quieres que los usuarios vean errores de código
+$env = $_ENV['APP_ENV'] ?? getenv('APP_ENV') ?: 'development';
 
 if ($env === 'development') {
     ini_set('display_errors', '1');
