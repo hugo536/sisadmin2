@@ -125,6 +125,7 @@
     const filtroEstado = document.getElementById('filtroEstado');
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
     const filtroFechaHasta = document.getElementById('filtroFechaHasta');
+    const filtroOrdenFecha = document.getElementById('filtroOrdenFecha');
 
     const estadoBusquedaItems = { tieneAcuerdo: false, listaVacia: false };
 
@@ -985,11 +986,12 @@
         if (filtroEstado.value !== '') params.set('estado', filtroEstado.value);
         if (filtroFechaDesde.value) params.set('fecha_desde', filtroFechaDesde.value);
         if (filtroFechaHasta.value) params.set('fecha_hasta', filtroFechaHasta.value);
+        if (filtroOrdenFecha && filtroOrdenFecha.value) params.set('orden_fecha', filtroOrdenFecha.value);
         
         window.location.href = `${urls.index}&${params.toString()}`;
     }
 
-    [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta].forEach(el => {
+    [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta, filtroOrdenFecha].forEach(el => {
         if(el) {
             el.addEventListener('change', recargarTabla);
         }
