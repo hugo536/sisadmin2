@@ -415,7 +415,7 @@ class VentasDocumentoModel extends Modelo
                          FROM comercial_acuerdos_precios cap
                          INNER JOIN items i ON i.id = cap.id_presentacion
                          WHERE cap.id_acuerdo = ? AND cap.estado = 1 AND i.estado = 1 AND i.deleted_at IS NULL
-                           AND i.tipo_item IN ('producto', 'producto_terminado')";
+                           AND " . $this->condicionTipoItemVenta('i') . "";
             $params[] = $acuerdo['id_acuerdo'];
         } else {
             $sqlItems = "SELECT CONCAT('ITEM-', i.id) AS id, i.sku, i.nombre,
@@ -427,7 +427,7 @@ class VentasDocumentoModel extends Modelo
                                 COALESCE($stockSqlItems, 0) AS stock_actual
                          FROM items i
                          WHERE i.estado = 1 AND i.deleted_at IS NULL
-                           AND i.tipo_item IN ('producto', 'producto_terminado')";
+                           AND " . $this->condicionTipoItemVenta('i') . "";
             $params[] = $cantidad;
         }
 
@@ -586,7 +586,7 @@ class VentasDocumentoModel extends Modelo
                 WHERE s.id_item = :id_item
                   AND i.deleted_at IS NULL
                   AND i.estado = 1
-                  AND i.tipo_item IN ('producto', 'producto_terminado')";
+                  AND " . $this->condicionTipoItemVenta('i') . "";
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_item' => $idItem]);
@@ -633,6 +633,12 @@ class VentasDocumentoModel extends Modelo
         $cache[$tabla] = (bool) $stmt->fetchColumn();
 
         return $cache[$tabla];
+    }
+
+    private function condicionTipoItemVenta(string $alias = 'i'): string
+    {
+        $campo = $alias . '.tipo_item';
+        return "LOWER(REPLACE(TRIM(COALESCE($campo, '')), ' ', '_')) IN ('producto', 'producto_terminado')";
     }
 
     private function columnaExiste(string $tabla, string $columna): bool
