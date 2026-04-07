@@ -156,4 +156,26 @@ class TesoreriaTransferenciaModel extends Modelo
 
         $this->db()->exec($sql);
     }
+
+    /**
+     * Cambia el estado de una transferencia a 'ANULADA'.
+     *
+     * @param int $idTransferencia El ID de la transferencia a anular.
+     * @param int $userId El ID del usuario que realiza la acción.
+     * @return void
+     */
+    public function anular(int $idTransferencia, int $userId): void
+    {
+        $sql = 'UPDATE tesoreria_transferencias 
+                SET estado = "ANULADA", 
+                    updated_by = :user_id,
+                    updated_at = NOW()
+                WHERE id = :id AND deleted_at IS NULL';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
+            'id' => $idTransferencia,
+            'user_id' => $userId
+        ]);
+    }
 }
