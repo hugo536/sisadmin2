@@ -23,6 +23,12 @@ if (file_exists(BASE_PATH . '/.env') && class_exists(\Dotenv\Dotenv::class)) {
     $dotenv->safeLoad();
 }
 
+// Zona horaria de la aplicación (evita desfases de fecha por timezone del servidor)
+$appTimezone = trim((string) ($_ENV['APP_TIMEZONE'] ?? getenv('APP_TIMEZONE') ?: 'America/Lima'));
+if ($appTimezone === '' || !@date_default_timezone_set($appTimezone)) {
+    date_default_timezone_set('America/Lima');
+}
+
 $sessionCookieLifetime = filter_var($_ENV['SESSION_COOKIE_LIFETIME'] ?? getenv('SESSION_COOKIE_LIFETIME'), FILTER_VALIDATE_INT);
 if ($sessionCookieLifetime === false || $sessionCookieLifetime <= 0) {
     $sessionCookieLifetime = 28800; // 8 horas por defecto
