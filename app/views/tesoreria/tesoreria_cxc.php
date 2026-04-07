@@ -91,21 +91,28 @@ if (!empty($_GET['error'])) {
                     </select>
                 </div>
                 
-                <div class="col-12 col-md-4">
-                    <label class="form-label small text-muted fw-bold mb-1">Moneda</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="moneda">
-                        <option value="">Todas las monedas</option>
-                        <option value="PEN" <?php echo (($filtros['moneda'] ?? '') === 'PEN') ? 'selected' : ''; ?>>PEN (Soles)</option>
-                        <option value="USD" <?php echo (($filtros['moneda'] ?? '') === 'USD') ? 'selected' : ''; ?>>USD (Dólares)</option>
-                    </select>
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted fw-bold mb-1">Desde (Vencimiento)</label>
+                    <input
+                        type="date"
+                        class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium"
+                        name="fecha_desde"
+                        value="<?php echo e((string) ($filtros['fecha_desde'] ?? date('Y-m-d'))); ?>">
                 </div>
                 
-                <div class="col-12 col-md-4">
-                    <label class="form-label small text-muted fw-bold mb-1">Vencimiento</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="vencimiento">
-                        <option value="">Todos los registros</option>
-                        <option value="vencidas" <?php echo (($filtros['vencimiento'] ?? '') === 'vencidas') ? 'selected' : ''; ?>>Solo cuentas vencidas</option>
-                    </select>
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted fw-bold mb-1">Hasta (Vencimiento)</label>
+                    <input
+                        type="date"
+                        class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium"
+                        name="fecha_hasta"
+                        value="<?php echo e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d'))); ?>">
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <button type="submit" class="btn btn-primary w-100 shadow-sm fw-semibold">
+                        <i class="bi bi-funnel me-1"></i>Aplicar
+                    </button>
                 </div>
             </form>
         </div>

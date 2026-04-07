@@ -177,9 +177,21 @@ class TesoreriaController extends Controlador
 
         $filtros = [
             'estado'      => trim((string) ($_GET['estado'] ?? '')),
-            'moneda'      => trim((string) ($_GET['moneda'] ?? '')),
-            'vencimiento' => trim((string) ($_GET['vencimiento'] ?? '')),
+            'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? date('Y-m-d'))),
+            'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? date('Y-m-d'))),
         ];
+
+        if (!$this->esFechaValida($filtros['fecha_desde'])) {
+            $filtros['fecha_desde'] = date('Y-m-d');
+        }
+
+        if (!$this->esFechaValida($filtros['fecha_hasta'])) {
+            $filtros['fecha_hasta'] = date('Y-m-d');
+        }
+
+        if ($filtros['fecha_desde'] > $filtros['fecha_hasta']) {
+            [$filtros['fecha_desde'], $filtros['fecha_hasta']] = [$filtros['fecha_hasta'], $filtros['fecha_desde']];
+        }
 
         $cuentasVinculadas = array_filter($this->cuentaModel->listarActivas(), function ($cta) {
             return !empty($cta['id_cuenta_contable'])
@@ -835,6 +847,16 @@ class TesoreriaController extends Controlador
     {
         $sql = 'SELECT id, nombre FROM tesoreria_metodos_pago WHERE estado = 1 AND deleted_at IS NULL ORDER BY nombre ASC';
         return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function esFechaValida(string $fecha): bool
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            return false;
+        }
+
+        [$year, $month, $day] = array_map('intval', explode('-', $fecha));
+        return checkdate($month, $day, $year);
     }
 
     private function listarClientesActivos(): array

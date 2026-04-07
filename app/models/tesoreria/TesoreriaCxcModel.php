@@ -19,14 +19,14 @@ class TesoreriaCxcModel extends Modelo
             $params['estado'] = (string) $filtros['estado'];
         }
 
-        if (!empty($filtros['moneda'])) {
-            $sql .= ' AND c.moneda = :moneda';
-            $params['moneda'] = (string) $filtros['moneda'];
+        if (!empty($filtros['fecha_desde'])) {
+            $sql .= ' AND DATE(c.fecha_vencimiento) >= :fecha_desde';
+            $params['fecha_desde'] = (string) $filtros['fecha_desde'];
         }
 
-        if (!empty($filtros['vencimiento']) && $filtros['vencimiento'] === 'vencidas') {
-            // MEJORA: DATE() asegura que la comparación sea estrictamente por día, ignorando horas si existieran
-            $sql .= ' AND c.saldo > 0 AND DATE(c.fecha_vencimiento) < CURDATE()';
+        if (!empty($filtros['fecha_hasta'])) {
+            $sql .= ' AND DATE(c.fecha_vencimiento) <= :fecha_hasta';
+            $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
         $sql .= ' ORDER BY c.id DESC';
