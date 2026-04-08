@@ -378,10 +378,6 @@ $formatearFechaDMY = static function ($fecha): string {
                             <optgroup label="⚠️ Descuenta o Va a Cuarentena / Mermas">
                                 <option value="Producto defectuoso">Producto defectuoso, roto o dañado</option>
                             </optgroup>
-                            <option value="producto_incorrecto">📦 Producto incorrecto entregado</option>
-                            <option value="error_despacho">📦 Error de despacho / cantidad excedente</option>
-                            <option value="cliente_rechaza">📦 Cliente rechaza pedido (packs sellados)</option>
-                            <option value="producto_defectuoso">⚠️ Producto defectuoso, roto o dañado</option>
                         </select>
                         <small id="devolucionVentaMotivoHint" class="text-muted d-block mt-1"></small>
                     </div>
@@ -395,9 +391,6 @@ $formatearFechaDMY = static function ($fecha): string {
                             <optgroup label="💵 Salida de Dinero (Tesorería)">
                                 <option value="reembolso_dinero">Reembolso al cliente (Efectivo / Transferencia)</option>
                             </optgroup>
-                            <option value="saldo_favor">💳 Saldo a favor (No sale dinero)</option>
-                            <option value="descuento_cxc" selected>🧾 Nota de Crédito (Descontar de futuras compras / CxC)</option>
-                            <option value="salida_dinero">💵 Reembolso al cliente (Efectivo / Transferencia)</option>
                         </select>
                         <small id="devolucionVentaResolucionHint" class="text-muted d-block mt-1"></small>
                     </div>
