@@ -1,4 +1,11 @@
 <?php
+/** @var array $ordenes */
+/** @var array $filtros */
+/** @var array $proveedores */
+/** @var array $items */
+/** @var array $almacenes */
+/** @var array $centros_costo */
+
 $ordenes = $ordenes ?? [];
 $filtros = $filtros ?? [];
 $proveedores = $proveedores ?? [];
