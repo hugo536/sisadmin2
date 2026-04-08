@@ -140,6 +140,21 @@
     const devolucionVentaMotivo = document.getElementById('devolucionVentaMotivo');
     const devolucionVentaResolucion = document.getElementById('devolucionVentaResolucion');
     const devolucionVentaTotal = document.getElementById('devolucionVentaTotal');
+    const devolucionVentaMotivoHint = document.getElementById('devolucionVentaMotivoHint');
+    const devolucionVentaResolucionHint = document.getElementById('devolucionVentaResolucionHint');
+
+    const DEVOLUCION_VENTA_MOTIVOS = {
+        producto_incorrecto: { label: 'Producto incorrecto entregado', reingresaInventario: true, hint: 'La mercadería regresa al stock vendible.' },
+        error_despacho: { label: 'Error de despacho / cantidad excedente', reingresaInventario: true, hint: 'La devolución corrige la salida y repone stock vendible.' },
+        cliente_rechaza: { label: 'Cliente rechaza pedido (packs sellados)', reingresaInventario: true, hint: 'La mercadería vuelve al stock vendible si está sellada e intacta.' },
+        producto_defectuoso: { label: 'Producto defectuoso, roto o dañado', reingresaInventario: false, hint: 'No reingresa a stock vendible (cuarentena/merma).' },
+    };
+
+    const DEVOLUCION_VENTA_RESOLUCIONES = {
+        saldo_favor: 'Se registra como saldo a favor del cliente (sin salida de caja).',
+        descuento_cxc: 'Se descuenta en CxC / próxima facturación.',
+        salida_dinero: 'Se registra para reembolso en tesorería (salida de dinero).',
+    };
 
     const filtroBusqueda = document.getElementById('filtroBusqueda');
     const filtroEstado = document.getElementById('filtroEstado');
@@ -611,8 +626,10 @@
 
         devolucionVentaDocumentoId.value = venta.id || 0;
         devolucionVentaMotivo.value = '';
+        if (devolucionVentaResolucion) devolucionVentaResolucion.value = 'descuento_cxc';
         tbodyDevolucionVenta.innerHTML = '';
         devolucionVentaTotal.textContent = 'S/ 0.00';
+        actualizarHintDevolucionVenta();
 
         let hayLineas = false;
         (venta.detalle || []).forEach((linea) => {
@@ -649,6 +666,20 @@
 
         recalcularTotalDevolucionVenta();
         modalDevolucionVenta.show();
+    }
+
+    function actualizarHintDevolucionVenta() {
+        const motivoValue = devolucionVentaMotivo?.value || '';
+        const resolucionValue = devolucionVentaResolucion?.value || '';
+
+        if (devolucionVentaMotivoHint) {
+            const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoValue];
+            devolucionVentaMotivoHint.textContent = motivoCfg ? motivoCfg.hint : 'Seleccione un motivo para definir el tratamiento de inventario.';
+        }
+
+        if (devolucionVentaResolucionHint) {
+            devolucionVentaResolucionHint.textContent = DEVOLUCION_VENTA_RESOLUCIONES[resolucionValue] || '';
+        }
     }
 
     function recalcularTotalDevolucionVenta() {
@@ -1134,7 +1165,26 @@
 
     document.getElementById('btnConfirmarDevolucionVenta')?.addEventListener('click', async () => {
         try {
-            if (!devolucionVentaMotivo?.value) throw new Error('Seleccione un motivo de devolución.');
+            const motivoSeleccionado = devolucionVentaMotivo?.value || '';
+            const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoSeleccionado];
+            if (!motivoCfg) throw new Error('Seleccione un motivo de devolución válido.');
+
+            const resolucionSeleccionada = devolucionVentaResolucion?.value || '';
+            if (!DEVOLUCION_VENTA_RESOLUCIONES[resolucionSeleccionada]) {
+                throw new Error('Seleccione una resolución comercial válida.');
+            }
+
+            if (resolucionSeleccionada === 'salida_dinero') {
+                const confirmacionTesoreria = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Se registrará salida de dinero',
+                    text: 'Verifique que tesorería procese el reembolso para completar la devolución.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Continuar',
+                    cancelButtonText: 'Cancelar',
+                });
+                if (!confirmacionTesoreria.isConfirmed) return;
+            }
 
             const detalle = [];
             tbodyDevolucionVenta?.querySelectorAll('tr').forEach((tr) => {
@@ -1153,8 +1203,9 @@
 
             const payload = await postJson(`${urls.index}&accion=guardar_devolucion`, {
                 id_documento: Number(devolucionVentaDocumentoId?.value || 0),
-                motivo: devolucionVentaMotivo.value,
-                resolucion: devolucionVentaResolucion?.value || 'descuento_cxc',
+                motivo: motivoCfg.label,
+                motivo_codigo: motivoSeleccionado,
+                resolucion: resolucionSeleccionada,
                 detalle,
             });
 
@@ -1165,6 +1216,10 @@
             Swal.fire('Error', error.message, 'error');
         }
     });
+
+    devolucionVentaMotivo?.addEventListener('change', actualizarHintDevolucionVenta);
+    devolucionVentaResolucion?.addEventListener('change', actualizarHintDevolucionVenta);
+    actualizarHintDevolucionVenta();
 
     // LÓGICA DEL BOTÓN CONFIRMAR IMPRESIÓN (NUEVO - EXTRAÍDO Y REORDENADO)
     const btnConfirmarImpresion = document.getElementById('btnConfirmarImpresionPedido');
