@@ -61,7 +61,6 @@ class VentasDespachoModel extends Modelo
 
                 $detalle = $mapaDetalle[$idDetalle];
                 
-                // MODIFICACIÓN: Si es un producto físico, obligamos a enviar el almacén. Si es combo, el frontend podría no mandarlo, pero asumimos el almacén general si es necesario, o lo exigimos igual.
                 if (empty($detalle['id_presentacion']) && $idAlmacenLinea <= 0) {
                     throw new RuntimeException('Debe seleccionar un almacén para los productos físicos.');
                 }
@@ -73,9 +72,7 @@ class VentasDespachoModel extends Modelo
                     throw new RuntimeException('La suma a despachar excede el pendiente del ítem: ' . ($detalle['item_nombre'] ?? '')); 
                 }
 
-                // Lógica de validación de stock para Combos vs Productos Físicos
                 if (!empty($detalle['id_presentacion'])) {
-                    // Validar stock GLOBAL de cada componente (permite combos virtuales/multi-almacén)
                     $componentes = $this->obtenerComponentesCombo($db, (int) $detalle['id_presentacion']);
                     foreach ($componentes as $comp) {
                         $stockComp = $this->obtenerStockGlobalItem($db, (int) $comp['id_item']);
@@ -85,7 +82,6 @@ class VentasDespachoModel extends Modelo
                         }
                     }
                 } else {
-                    // Validar stock del producto normal
                     $stockActual = $this->obtenerStockItem($db, (int) $detalle['id_item'], $idAlmacenLinea);
                     if ($cantidad > $stockActual) {
                         throw new RuntimeException('Stock insuficiente para ' . ($detalle['item_nombre'] ?? '') . ' en el almacén seleccionado. Disponible: ' . number_format($stockActual, 2));
@@ -111,7 +107,6 @@ class VentasDespachoModel extends Modelo
                                             :codigo, :id_documento, :id_almacen, NOW(), :observaciones, :created_by, NOW()
                                         )');
 
-            // MODIFICACIÓN: Agregado id_presentacion al insert
             $stmtDetalle = $db->prepare('INSERT INTO ventas_despachos_detalle (
                                             id_despacho, id_item, id_presentacion, cantidad_despachada, created_at
                                          ) VALUES (
@@ -155,7 +150,6 @@ class VentasDespachoModel extends Modelo
                 foreach ($lineasAlmacen as $lineaValida) {
                     $esCombo = !empty($lineaValida['id_presentacion']);
 
-                    // Guardamos la línea despachada (Con id_item o id_presentacion según corresponda)
                     $stmtDetalle->execute([
                         'id_despacho' => $idDespacho,
                         'id_item' => $esCombo ? null : $lineaValida['id_item'],
@@ -163,13 +157,11 @@ class VentasDespachoModel extends Modelo
                         'cantidad' => $lineaValida['cantidad'],
                     ]);
 
-                    // Actualizamos el pedido original
                     $stmtUpdateDocDetalle->execute([
                         'cantidad' => $lineaValida['cantidad'],
                         'id_detalle' => $lineaValida['id_documento_detalle']
                     ]);
 
-                    // Descontar Inventario
                     if ($esCombo) {
                         $componentes = $this->obtenerComponentesCombo($db, (int) $lineaValida['id_presentacion']);
                         foreach ($componentes as $comp) {
@@ -219,7 +211,6 @@ class VentasDespachoModel extends Modelo
                     }
                 }
 
-                // Ajustamos envases pasando los productos físicos (ya desarmados si era combo)
                 $this->registrarAjusteEnvasesPorDespacho(
                     $db,
                     $idDocumento,
@@ -268,7 +259,6 @@ class VentasDespachoModel extends Modelo
         }
     }
 
-    // MODIFICACIÓN: Helper para obtener receta del combo
     private function obtenerComponentesCombo(PDO $db, int $idPresentacion): array
     {
         $stmt = $db->prepare('SELECT id_item, cantidad FROM precios_presentaciones_detalle WHERE id_presentacion = :id_presentacion');
@@ -310,7 +300,6 @@ class VentasDespachoModel extends Modelo
 
     private function obtenerDetallePendiente(PDO $db, int $idDocumento): array
     {
-        // MODIFICACIÓN: Leer id_presentacion y nombre dinámico
         $sql = 'SELECT d.id,
                        d.id_item,
                        d.id_presentacion,
@@ -526,21 +515,16 @@ class VentasDespachoModel extends Modelo
         foreach ($lineasDespachadas as $linea) {
             $idProducto = (int) ($linea['id_item'] ?? 0);
             $cantidadDespachada = (float) ($linea['cantidad'] ?? 0);
-            // MODIFICACIÓN CLAVE: Leemos si el producto vino de un Combo
             $idPresentacionOrigen = isset($linea['id_presentacion']) ? (int) $linea['id_presentacion'] : 0;
 
             if ($idProducto <= 0 || $cantidadDespachada <= 0) {
                 continue;
             }
 
-            // Si el producto que está saliendo pertenece a un PACK/COMBO,
-            // asumimos que el cliente está PAGANDO por el pack entero (líquido + envase).
-            // Por lo tanto, NO es un préstamo. Nos saltamos este ítem para que no vaya a la Cuenta Corriente.
             if ($idPresentacionOrigen > 0) {
                 continue;
             }
 
-            // Si no es un combo, validamos si el producto normal tiene envases retornables
             $envasesReceta = $this->obtenerEnvasesRetornablesDeReceta($db, $idProducto);
 
             if ($envasesReceta === []) {
@@ -568,7 +552,7 @@ class VentasDespachoModel extends Modelo
         }
 
         if (empty($ajustesPorEnvase)) {
-            return; // Si todo se vendió en combo, el arreglo estará vacío y no hará nada. ¡Perfecto!
+            return; 
         }
 
         $operacionUuid = bin2hex(random_bytes(8));
@@ -694,6 +678,7 @@ class VentasDespachoModel extends Modelo
         if (trim($motivo) === '' && trim($motivoCodigo) === '') throw new RuntimeException('Debe indicar el motivo de la devolución.');
         if (trim($resolucion) === '') throw new RuntimeException('Debe indicar la resolución de la devolución.');
         if (empty($detalle)) throw new RuntimeException('Debe agregar al menos una línea en la devolución.');
+        
         $politica = $this->resolverPoliticaDevolucion($motivo, $motivoCodigo, $resolucion);
 
         $db = $this->db();
@@ -711,7 +696,7 @@ class VentasDespachoModel extends Modelo
             if (!$documento) throw new RuntimeException('El pedido no existe.');
 
             $estado = (int) ($documento['estado'] ?? 0);
-            if (!in_array($estado, [2, 3], true)) {
+            if (!in_array($estado, [2, 3, 4, 5], true)) {
                 throw new RuntimeException('Solo se pueden registrar devoluciones en pedidos aprobados o cerrados.');
             }
 
@@ -735,20 +720,21 @@ class VentasDespachoModel extends Modelo
             $stmtCab = $db->prepare('INSERT INTO ventas_devoluciones
                 (id_documento_venta, id_cliente, motivo, tipo_resolucion, total_devuelto, created_by, updated_by, created_at, updated_at)
                 VALUES
-                (:id_documento, :id_cliente, :motivo, :resolucion, 0, :user, :user, NOW(), NOW())');
+                (:id_documento, :id_cliente, :motivo, :resolucion, 0, :created_by, :updated_by, NOW(), NOW())');
+                
             $stmtCab->execute([
                 'id_documento' => $idDocumento,
                 'id_cliente' => $idCliente,
                 'motivo' => $politica['motivo_label'],
                 'resolucion' => $politica['resolucion'],
-                'user' => $userId,
+                'created_by' => $userId,
+                'updated_by' => $userId,
             ]);
             $idDevolucion = (int) $db->lastInsertId();
 
             require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
             $inventarioModel = new InventarioModel();
 
-            // MODIFICACIÓN: Obtener datos de la base de datos para no confiar solo en el frontend y usar id_presentacion si existe
             $stmtDetVenta = $db->prepare('SELECT id, id_item, id_presentacion, cantidad_despachada
                                           FROM ventas_documentos_detalle
                                           WHERE id = :id_detalle
@@ -812,7 +798,6 @@ class VentasDespachoModel extends Modelo
                     'id_detalle' => $idDetalle,
                 ]);
 
-                // MODIFICACIÓN: Retornar inventario según si es físico o combo
                 if ($politica['reingresa_inventario']) {
                     if ($idPresentacionDB !== null) {
                         $componentes = $this->obtenerComponentesCombo($db, $idPresentacionDB);
@@ -856,15 +841,28 @@ class VentasDespachoModel extends Modelo
                     'id' => $idDevolucion,
                 ]);
 
+            // --- NUEVA LÓGICA: ¿Devolución Total o Parcial? ---
+            // Verificamos cuánto queda despachado en total en el pedido
+            $stmtCheck = $db->prepare('SELECT COALESCE(SUM(cantidad_despachada), 0) 
+                                       FROM ventas_documentos_detalle 
+                                       WHERE id_documento_venta = :id AND deleted_at IS NULL');
+            $stmtCheck->execute(['id' => $idDocumento]);
+            $totalDespachadoRestante = (float) $stmtCheck->fetchColumn();
+
+            // Si ya no queda nada despachado, es devolución TOTAL (4). Si aún quedan cosas, es PARCIAL (5).
+            $nuevoEstadoVenta = ($totalDespachadoRestante <= 0.0001) ? 4 : 5;
+
             $db->prepare('UPDATE ventas_documentos
-                          SET estado = 2,
+                          SET estado = :estado, 
                               updated_by = :user,
                               updated_at = NOW()
                           WHERE id = :id')
                 ->execute([
+                    'estado' => $nuevoEstadoVenta,
                     'id' => $idDocumento,
                     'user' => $userId,
                 ]);
+            // ---------------------------------------------------
 
             $this->aplicarAjusteCxcPorDevolucion($db, $idDocumento, $politica['resolucion'], $totalDevuelto, $userId);
             $db->commit();
@@ -876,32 +874,25 @@ class VentasDespachoModel extends Modelo
 
     private function resolverPoliticaDevolucion(string $motivo, string $motivoCodigo, string $resolucion): array
     {
-        $motivos = [
-            'producto_incorrecto' => ['label' => 'Producto incorrecto entregado', 'reingresa_inventario' => true],
-            'error_despacho' => ['label' => 'Error de despacho / cantidad excedente', 'reingresa_inventario' => true],
-            'cliente_rechaza' => ['label' => 'Cliente rechaza pedido (packs sellados)', 'reingresa_inventario' => true],
-            'producto_defectuoso' => ['label' => 'Producto defectuoso, roto o dañado', 'reingresa_inventario' => false],
-        ];
-        $resolucionesPermitidas = ['saldo_favor', 'descuento_cxc', 'salida_dinero'];
+        $resolucionesPermitidas = ['saldo_favor', 'descuento_cxc', 'reembolso_dinero', 'salida_dinero'];
 
-        $codigo = trim(strtolower($motivoCodigo));
         $resolucionNormalizada = trim(strtolower($resolucion));
 
         if (!in_array($resolucionNormalizada, $resolucionesPermitidas, true)) {
             throw new RuntimeException('La resolución comercial seleccionada no es válida.');
         }
 
-        if ($codigo !== '' && isset($motivos[$codigo])) {
-            return [
-                'motivo_label' => $motivos[$codigo]['label'],
-                'reingresa_inventario' => (bool) $motivos[$codigo]['reingresa_inventario'],
-                'resolucion' => $resolucionNormalizada,
-            ];
+        $motivoTexto = trim($motivo);
+        
+        $reingresaInventario = true;
+
+        if ($motivoTexto === 'Producto defectuoso') {
+            $reingresaInventario = false;
         }
 
         return [
-            'motivo_label' => trim($motivo),
-            'reingresa_inventario' => true,
+            'motivo_label' => $motivoTexto,
+            'reingresa_inventario' => $reingresaInventario,
             'resolucion' => $resolucionNormalizada,
         ];
     }

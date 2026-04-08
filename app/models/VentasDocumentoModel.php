@@ -125,6 +125,37 @@ class VentasDocumentoModel extends Modelo
         unset($linea);
 
         $venta['detalle'] = $detalle;
+
+        // --- NUEVO: BUSCAR HISTORIAL DE DEVOLUCIONES (CON PROTECCIÓN) ---
+        $devoluciones = [];
+        try {
+            $sqlDev = "SELECT d.id, d.motivo, d.tipo_resolucion, d.total_devuelto, d.created_at
+                       FROM ventas_devoluciones d
+                       WHERE d.id_documento_venta = :id_documento AND d.deleted_at IS NULL
+                       ORDER BY d.id DESC";
+            $stmtDev = $this->db()->prepare($sqlDev);
+            $stmtDev->execute(['id_documento' => $idDocumento]);
+            $devoluciones = $stmtDev->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            foreach ($devoluciones as &$dev) {
+                $sqlDevDet = "SELECT dd.cantidad, COALESCE(i.nombre, pp.nombre) AS item_nombre
+                              FROM ventas_devoluciones_detalle dd
+                              LEFT JOIN items i ON i.id = dd.id_item
+                              LEFT JOIN precios_presentaciones pp ON pp.id = dd.id_presentacion
+                              WHERE dd.id_devolucion = :id_dev";
+                $stmtDevDet = $this->db()->prepare($sqlDevDet);
+                $stmtDevDet->execute(['id_dev' => $dev['id']]);
+                $dev['detalle'] = $stmtDevDet->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            }
+            unset($dev);
+        } catch (\Throwable $e) {
+            // Si la tabla aún no existe u ocurre un error, lo ignoramos pacíficamente.
+            $devoluciones = [];
+        }
+
+        $venta['devoluciones'] = $devoluciones;
+        // -----------------------------------------------
+
         return $venta;
     }
 

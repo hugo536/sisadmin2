@@ -508,6 +508,14 @@
         if (btnGuardar) btnGuardar.textContent = 'Guardar Pedido';
         const alerta = document.getElementById('alertaBorradorInfo');
         if (alerta) alerta.remove();
+        
+        // Limpiar sección devoluciones
+        const seccionDevoluciones = document.getElementById('seccionDevolucionesVenta');
+        if (seccionDevoluciones) {
+            seccionDevoluciones.classList.add('d-none');
+            const tbodyDevHistorico = document.querySelector('#tablaDevolucionesHistorico tbody');
+            if (tbodyDevHistorico) tbodyDevHistorico.innerHTML = '';
+        }
     }
 
     document.getElementById('btnAgregarFilaVenta')?.addEventListener('click', async () => {
@@ -1120,6 +1128,47 @@
                 } else {
                     btnGuardar.style.display = 'none';
                 }
+
+                // --- NUEVO: PINTAR HISTORIAL DE DEVOLUCIONES ---
+                const seccionDevoluciones = document.getElementById('seccionDevolucionesVenta');
+                const tbodyDevHistorico = document.querySelector('#tablaDevolucionesHistorico tbody');
+                
+                if (seccionDevoluciones && tbodyDevHistorico) {
+                    tbodyDevHistorico.innerHTML = ''; // Limpiar historial anterior
+                    
+                    if (venta.devoluciones && venta.devoluciones.length > 0) {
+                        seccionDevoluciones.classList.remove('d-none'); // Mostrar la sección
+                        
+                        venta.devoluciones.forEach(dev => {
+                            let detallesHTML = '<ul class="mb-0 ps-3 text-muted" style="font-size: 0.85rem;">';
+                            (dev.detalle || []).forEach(item => {
+                                detallesHTML += `<li>${Number(item.cantidad).toFixed(2)}x ${item.item_nombre}</li>`;
+                            });
+                            detallesHTML += '</ul>';
+
+                            // Formatear la resolución para que sea más legible
+                            let resTexto = dev.tipo_resolucion;
+                            if (resTexto === 'descuento_cxc') resTexto = 'Nota de Crédito (CxC)';
+                            else if (resTexto === 'reembolso_dinero') resTexto = 'Reembolso (Caja/Bancos)';
+                            else if (resTexto === 'saldo_favor') resTexto = 'Saldo a Favor';
+
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td class="ps-3 text-dark fw-semibold" style="font-size: 0.9rem;">${dev.created_at.substring(0, 16)}</td>
+                                <td>
+                                    <div class="fw-bold text-dark" style="font-size: 0.9rem;">${dev.motivo}</div>
+                                    <div class="badge bg-secondary-subtle text-secondary mt-1 border border-secondary-subtle">${resTexto}</div>
+                                </td>
+                                <td>${detallesHTML}</td>
+                                <td class="text-end pe-4 fw-bold text-danger">S/ ${Number(dev.total_devuelto).toFixed(2)}</td>
+                            `;
+                            tbodyDevHistorico.appendChild(tr);
+                        });
+                    } else {
+                        seccionDevoluciones.classList.add('d-none'); // Ocultar si no hay devoluciones
+                    }
+                }
+                // -----------------------------------------------
                 
                 modalVenta.show();
             } catch (err) { Swal.fire('Error', 'No se pudo cargar', 'error'); }

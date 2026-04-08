@@ -4,12 +4,15 @@ $filtros = $filtros ?? [];
 $almacenes = $almacenes ?? [];
 
 // Configuración de Estados con diseño "Subtle" (Estándar del sistema)
+// Configuración de Estados con diseño "Subtle" (Estándar del sistema)
 $estadoLabels = [
     0 => ['texto' => 'Borrador', 'clase' => 'bg-secondary-subtle text-secondary border border-secondary-subtle'],
     1 => ['texto' => 'Pendiente', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'],
     2 => ['texto' => 'Aprobado', 'clase' => 'bg-primary-subtle text-primary border border-primary-subtle'],
     3 => ['texto' => 'Cerrado/Entregado', 'clase' => 'bg-success-subtle text-success border border-success-subtle'],
-    9 => ['texto' => 'Anulado', 'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
+    4 => ['texto' => 'Devuelto Total', 'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
+    5 => ['texto' => 'Dev. Parcial', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'], // <-- NUEVO
+    9 => ['texto' => 'Anulado', 'clase' => 'bg-dark-subtle text-dark border border-dark-subtle'],
 ];
 
 $formatearFechaDMY = static function ($fecha): string {
@@ -137,7 +140,7 @@ $formatearFechaDMY = static function ($fecha): string {
                                                 <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-bs-toggle="tooltip" title="Anular Pedido"><i class="bi bi-trash fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
                                                 
-                                            <?php elseif ($estado === 3): ?>
+                                            <?php elseif ($estado === 3 || $estado === 4 || $estado === 5): ?>
                                                 <button class="btn btn-sm btn-light text-warning border-0 btn-devolucion rounded-circle" data-bs-toggle="tooltip" title="Registrar Devolución"><i class="bi bi-arrow-return-left fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
@@ -273,6 +276,29 @@ $formatearFechaDMY = static function ($fecha): string {
                             </div>
                         </div>
                     </div>
+                    
+                    <div class="card border-0 shadow-sm mt-4 d-none" id="seccionDevolucionesVenta">
+                        <div class="card-body p-0">
+                            <div class="p-3 border-bottom bg-warning-subtle rounded-top d-flex align-items-center">
+                                <i class="bi bi-arrow-return-left text-warning-emphasis me-2 fs-5"></i>
+                                <h6 class="mb-0 fw-bold text-dark">Historial de Devoluciones</h6>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0" id="tablaDevolucionesHistorico">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="ps-3 text-secondary small fw-bold">Fecha</th>
+                                            <th class="text-secondary small fw-bold">Motivo y Resolución</th>
+                                            <th class="text-secondary small fw-bold">Productos Devueltos</th>
+                                            <th class="text-end pe-4 text-secondary small fw-bold">Monto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
                 </form>
             </div>
             <div class="modal-footer bg-white border-top-0">
@@ -370,13 +396,13 @@ $formatearFechaDMY = static function ($fecha): string {
                         <select id="devolucionVentaMotivo" class="form-select border-warning-subtle" required>
                             <option value="">Seleccione un motivo...</option>
                             <optgroup label="📦 Restaura al Inventario Vendible">
-                                <option value="Producto incorrecto">Producto incorrecto entregado</option>
-                                <option value="Error de despacho">Error de despacho / cantidad excedente</option>
-                                <option value="Cliente rechaza pedido">Cliente rechaza pedido (Packs sellados e intactos)</option>
+                                <option value="producto_incorrecto">Producto incorrecto entregado</option>
+                                <option value="error_despacho">Error de despacho / cantidad excedente</option>
+                                <option value="cliente_rechaza">Cliente rechaza pedido (Packs sellados e intactos)</option>
                             </optgroup>
 
                             <optgroup label="⚠️ Descuenta o Va a Cuarentena / Mermas">
-                                <option value="Producto defectuoso">Producto defectuoso, roto o dañado</option>
+                                <option value="producto_defectuoso">Producto defectuoso, roto o dañado</option>
                             </optgroup>
                         </select>
                         <small id="devolucionVentaMotivoHint" class="text-muted d-block mt-1"></small>
