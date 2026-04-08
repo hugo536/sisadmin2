@@ -114,6 +114,8 @@ class ProduccionOrdenesModel extends Modelo
                        COALESCE(o.costo_unitario_real, o.costo_real_unitario, 0) AS costo_real_unitario,
                        o.costo_real_total,
                        r.codigo AS receta_codigo,
+                       COALESCE(r.rendimiento_base, 0) AS receta_rendimiento_base,
+                       COALESCE(r.tiempo_produccion_horas, 0) AS receta_tiempo_horas,
                        COALESCE(r.costo_md_teorico, 0) AS costo_md_teorico_unit,
                        COALESCE(r.costo_mod_teorico, 0) AS costo_mod_teorico_unit,
                        COALESCE(r.costo_cif_teorico, 0) AS costo_cif_teorico_unit,
