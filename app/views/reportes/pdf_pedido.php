@@ -55,13 +55,25 @@
             $tipoDocumentoCliente = strtoupper(trim((string) ($venta['cliente_doc_tipo'] ?? '')));
             $labelDocumentoCliente = $tipoDocumentoCliente !== '' ? $tipoDocumentoCliente : 'RUC/DNI';
             $pesoTotal = 0.0;
+            $hayDespachoRegistrado = false;
             foreach (($venta['detalle'] ?? []) as $lineaPeso) {
-                $cantidadDespachada = (float) ($lineaPeso['cantidad_despachada'] ?? 0);
-                if ($cantidadDespachada <= 0) {
+                if ((float) ($lineaPeso['cantidad_despachada'] ?? 0) > 0) {
+                    $hayDespachoRegistrado = true;
+                    break;
+                }
+            }
+
+            foreach (($venta['detalle'] ?? []) as $lineaPeso) {
+                $cantidadBase = $hayDespachoRegistrado
+                    ? (float) ($lineaPeso['cantidad_despachada'] ?? 0)
+                    : (float) ($lineaPeso['cantidad'] ?? 0);
+
+                if ($cantidadBase <= 0) {
                     continue;
                 }
+
                 $pesoItem = (float) ($lineaPeso['peso_kg'] ?? 0);
-                $pesoTotal += ($pesoItem * $cantidadDespachada);
+                $pesoTotal += ($pesoItem * $cantidadBase);
             }
         ?>
 
@@ -118,15 +130,20 @@
             <tbody>
                 <?php $contadorItems = 1; ?>
                 <?php foreach ($venta['detalle'] as $item): ?>
-                    <?php 
-                        // Solo mostramos las filas que realmente tienen algo despachado
-                        if ($item['cantidad_despachada'] <= 0) continue; 
+                    <?php
+                        $cantidadMostrar = $hayDespachoRegistrado
+                            ? (float) ($item['cantidad_despachada'] ?? 0)
+                            : (float) ($item['cantidad'] ?? 0);
+
+                        if ($cantidadMostrar <= 0) {
+                            continue;
+                        }
                     ?>
                     <tr>
                         <td class="text-center"><?php echo $contadorItems++; ?></td>
                         <td><?php echo htmlspecialchars($item['item_nombre']); ?></td>
                         <td class="text-center" style="font-size: 14px;">
-                            <strong><?php echo number_format($item['cantidad_despachada'], 2); ?></strong>
+                            <strong><?php echo number_format($cantidadMostrar, 2); ?></strong>
                         </td>
                     </tr>
                 <?php endforeach; ?>

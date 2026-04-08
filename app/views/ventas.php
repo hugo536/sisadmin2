@@ -132,23 +132,20 @@ $formatearFechaDMY = static function ($fecha): string {
                                                 <button class="btn btn-sm btn-light text-primary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Editar Pedido"><i class="bi bi-pencil-square fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-success border-0 btn-aprobar rounded-circle" data-bs-toggle="tooltip" title="Aprobar Pedido"><i class="bi bi-check2-circle fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-bs-toggle="tooltip" title="Anular Pedido"><i class="bi bi-trash fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
                                                 
                                             <?php elseif ($estado === 2): ?> 
                                                 <button class="btn btn-sm btn-light text-info border-0 btn-despachar rounded-circle" data-bs-toggle="tooltip" title="Despachar Mercadería"><i class="bi bi-truck fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-bs-toggle="tooltip" title="Anular Pedido"><i class="bi bi-trash fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
                                                 
                                             <?php elseif ($estado === 3 || $estado === 4 || $estado === 5): ?>
                                                 <button class="btn btn-sm btn-light text-warning border-0 btn-devolucion rounded-circle" data-bs-toggle="tooltip" title="Registrar Devolución"><i class="bi bi-arrow-return-left fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
                                                 
                                             <?php else: ?> 
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-dark border-0 rounded-circle" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
                                             <?php endif; ?>
+                                            <button class="btn btn-sm btn-light text-dark border-0 rounded-circle btn-imprimir-modal" onclick="imprimirPedido(<?php echo (int)$venta['id']; ?>)" data-bs-toggle="tooltip" title="Imprimir PDF"><i class="bi bi-printer fs-5"></i></button>
                                         </div>
                                     </td>
                                 </tr>
