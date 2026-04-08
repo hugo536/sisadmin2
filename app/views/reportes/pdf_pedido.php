@@ -54,17 +54,14 @@
         <?php
             $tipoDocumentoCliente = strtoupper(trim((string) ($venta['cliente_doc_tipo'] ?? '')));
             $labelDocumentoCliente = $tipoDocumentoCliente !== '' ? $tipoDocumentoCliente : 'RUC/DNI';
-            $estadoDocumento = (int) ($venta['estado'] ?? 0);
             $pesoTotal = 0.0;
             foreach (($venta['detalle'] ?? []) as $lineaPeso) {
-                $cantidadBase = (float) ($lineaPeso['cantidad'] ?? 0);
                 $cantidadDespachada = (float) ($lineaPeso['cantidad_despachada'] ?? 0);
-                $cantidadImpresion = $estadoDocumento >= 3 ? $cantidadDespachada : $cantidadBase;
-                if ($cantidadImpresion <= 0) {
+                if ($cantidadDespachada <= 0) {
                     continue;
                 }
                 $pesoItem = (float) ($lineaPeso['peso_kg'] ?? 0);
-                $pesoTotal += ($pesoItem * $cantidadImpresion);
+                $pesoTotal += ($pesoItem * $cantidadDespachada);
             }
         ?>
 
@@ -122,16 +119,14 @@
                 <?php $contadorItems = 1; ?>
                 <?php foreach ($venta['detalle'] as $item): ?>
                     <?php 
-                        $cantidadBase = (float) ($item['cantidad'] ?? 0);
-                        $cantidadDespachada = (float) ($item['cantidad_despachada'] ?? 0);
-                        $cantidadImpresion = $estadoDocumento >= 3 ? $cantidadDespachada : $cantidadBase;
-                        if ($cantidadImpresion <= 0) continue; 
+                        // Solo mostramos las filas que realmente tienen algo despachado
+                        if ($item['cantidad_despachada'] <= 0) continue; 
                     ?>
                     <tr>
                         <td class="text-center"><?php echo $contadorItems++; ?></td>
                         <td><?php echo htmlspecialchars($item['item_nombre']); ?></td>
                         <td class="text-center" style="font-size: 14px;">
-                            <strong><?php echo number_format($cantidadImpresion, 2); ?></strong>
+                            <strong><?php echo number_format($item['cantidad_despachada'], 2); ?></strong>
                         </td>
                     </tr>
                 <?php endforeach; ?>
