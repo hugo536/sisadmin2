@@ -369,17 +369,28 @@ $formatearFechaDMY = static function ($fecha): string {
                         <label class="form-label fw-bold small text-muted">Motivo de Devolución <span class="text-danger">*</span></label>
                         <select id="devolucionVentaMotivo" class="form-select border-warning-subtle" required>
                             <option value="">Seleccione un motivo...</option>
-                            <option value="Producto defectuoso">Producto defectuoso o dañado</option>
-                            <option value="Producto incorrecto">Producto incorrecto entregado</option>
-                            <option value="Error de despacho">Error de despacho / cantidad</option>
-                            <option value="Cliente rechaza pedido">Cliente rechaza pedido</option>
+                            
+                            <optgroup label="📦 Restaura al Inventario Vendible">
+                                <option value="Producto incorrecto">Producto incorrecto entregado</option>
+                                <option value="Error de despacho">Error de despacho / cantidad excedente</option>
+                                <option value="Cliente rechaza pedido">Cliente rechaza pedido (Packs sellados e intactos)</option>
+                            </optgroup>
+
+                            <optgroup label="⚠️ Descuenta o Va a Cuarentena / Mermas">
+                                <option value="Producto defectuoso">Producto defectuoso, roto o dañado</option>
+                            </optgroup>
                         </select>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-bold small text-muted">Resolución Comercial <span class="text-danger">*</span></label>
                         <select id="devolucionVentaResolucion" class="form-select border-warning-subtle" required>
-                            <option value="descuento_cxc" selected>Nota de Crédito (Descontar de CxC)</option>
-                            <option value="reembolso_dinero">Reembolso al cliente</option>
+                            <optgroup label="💳 Saldo a Favor (No sale dinero)">
+                                <option value="descuento_cxc" selected>Nota de Crédito (Descontar de futuras compras / CxC)</option>
+                            </optgroup>
+                            
+                            <optgroup label="💵 Salida de Dinero (Tesorería)">
+                                <option value="reembolso_dinero">Reembolso al cliente (Efectivo / Transferencia)</option>
+                            </optgroup>
                         </select>
                     </div>
                 </div>
