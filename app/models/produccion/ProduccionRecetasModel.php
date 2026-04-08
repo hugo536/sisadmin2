@@ -821,6 +821,29 @@ class ProduccionRecetasModel extends Modelo
         ], $userId);
     }
 
+    public function eliminarReceta(int $idReceta, int $userId): void
+    {
+        if ($idReceta <= 0) {
+            throw new RuntimeException('Receta inválida.');
+        }
+
+        $stmt = $this->db()->prepare('UPDATE produccion_recetas
+                                      SET deleted_at = NOW(),
+                                          updated_at = NOW(),
+                                          updated_by = :updated_by,
+                                          estado = 0
+                                      WHERE id = :id
+                                        AND deleted_at IS NULL');
+        $stmt->execute([
+            'id' => $idReceta,
+            'updated_by' => $userId,
+        ]);
+
+        if ($stmt->rowCount() <= 0) {
+            throw new RuntimeException('La receta no existe o ya fue eliminada.');
+        }
+    }
+
     private function obtenerDetalleRecetaVersion(int $idReceta): array
     {
         $sql = 'SELECT d.id_insumo,

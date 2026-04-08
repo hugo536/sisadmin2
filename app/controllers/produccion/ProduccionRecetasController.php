@@ -247,6 +247,16 @@ class ProduccionRecetasController extends Controlador
                     exit;
                 }
 
+                if ($accion === 'eliminar_receta_ajax') {
+                    $this->produccionRecetasModel->eliminarReceta((int) ($_POST['id_receta'] ?? 0), $userId);
+                    if (ob_get_level() > 0) {
+                        ob_clean();
+                    }
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode(['success' => true, 'message' => 'Receta eliminada correctamente.']);
+                    exit;
+                }
+
                 if ($accion === 'crear_parametro_catalogo') {
                     $this->produccionRecetasModel->crearParametroCatalogo([
                         'nombre' => (string) ($_POST['nombre'] ?? ''),

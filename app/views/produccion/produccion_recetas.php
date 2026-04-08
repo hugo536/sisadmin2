@@ -198,6 +198,14 @@ $conceptosOperativos = $conceptos_operativos ?? [];
                                                         title="Nueva Versión">
                                                     <i class="bi bi-files"></i>
                                                 </button>
+                                                <button type="button"
+                                                        class="btn-icon btn-icon-danger js-eliminar-receta"
+                                                        data-id-receta="<?php echo (int) $receta['id']; ?>"
+                                                        data-codigo="<?php echo e((string) ($receta['codigo'] ?? '')); ?>"
+                                                        data-bs-toggle="tooltip"
+                                                        title="Eliminar receta">
+                                                    <i class="bi bi-trash3"></i>
+                                                </button>
                                             </div>
                                         <?php endif; ?>
                                     </td>
