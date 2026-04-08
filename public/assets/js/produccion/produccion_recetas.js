@@ -787,6 +787,46 @@ function initAccionesRecetaPendiente() {
             }
         });
 
+        // EVENTO DE ELIMINAR RECETA
+        document.addEventListener('click', async function (e) {
+            const btn = e.target.closest('.js-eliminar-receta');
+            if (!btn) return;
+
+            const idReceta = parseInt(btn.getAttribute('data-id-receta') || '0', 10);
+            const codigoReceta = btn.getAttribute('data-codigo') || 'la receta seleccionada';
+            if (!idReceta) return;
+
+            const confirmacion = await Swal.fire({
+                icon: 'warning',
+                title: '¿Eliminar receta?',
+                text: `Se eliminará ${codigoReceta}. Esta acción no se puede deshacer.`,
+                showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc3545',
+            });
+
+            if (!confirmacion.isConfirmed) return;
+
+            try {
+                await postAccion('eliminar_receta_ajax', { id_receta: idReceta });
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Receta eliminada',
+                    text: 'La receta fue eliminada correctamente.',
+                    timer: 1200,
+                    showConfirmButton: false,
+                });
+                window.location.reload();
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'No se pudo eliminar',
+                    text: error.message || 'Ocurrió un error al eliminar la receta.',
+                });
+            }
+        });
+
         window.eventosGlobalesAccionesReceta = true;
     }
 
