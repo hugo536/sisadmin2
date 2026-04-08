@@ -570,39 +570,81 @@ class ListaPrecioModel extends Modelo {
             return null;
         }
 
-        // Buscamos coincidencia EXACTA de la unidad solicitada
-        $sql = "SELECT capp.precio_recomendado
-                FROM comercial_acuerdos_proveedor_precios capp
-                INNER JOIN comercial_acuerdos_proveedor capv ON capv.id = capp.id_acuerdo_proveedor
-                WHERE capv.id_tercero = :id_proveedor
-                  AND capv.estado = 1
-                  AND capp.estado = 1
-                  AND capp.id_item = :id_item
-                  AND (
-                        (:id_unidad_1 IS NOT NULL AND capp.id_unidad_conversion = :id_unidad_2)
-                        OR
-                        (:id_unidad_3 IS NULL AND capp.id_unidad_conversion IS NULL)
-                  )
-                ORDER BY capp.id DESC
-                LIMIT 1";
-                
-        $stmt = $this->db->prepare($sql);
-        
-        $stmt->execute([
+        // 1) Primero intentamos precio exacto para la unidad seleccionada.
+        if ($idUnidad !== null && $idUnidad > 0) {
+            $sqlExacto = "SELECT capp.precio_recomendado
+                          FROM comercial_acuerdos_proveedor_precios capp
+                          INNER JOIN comercial_acuerdos_proveedor capv ON capv.id = capp.id_acuerdo_proveedor
+                          WHERE capv.id_tercero = :id_proveedor
+                            AND capv.estado = 1
+                            AND capp.estado = 1
+                            AND capp.id_item = :id_item
+                            AND capp.id_unidad_conversion = :id_unidad
+                          ORDER BY capp.id DESC
+                          LIMIT 1";
+
+            $stmtExacto = $this->db->prepare($sqlExacto);
+            $stmtExacto->execute([
+                ':id_proveedor' => $idProveedor,
+                ':id_item'      => $idItem,
+                ':id_unidad'    => $idUnidad,
+            ]);
+
+            $valorExacto = $stmtExacto->fetchColumn();
+            if ($valorExacto !== false) {
+                return (float) $valorExacto;
+            }
+        }
+
+        // 2) Fallback a precio en unidad base (id_unidad_conversion IS NULL).
+        $sqlBase = "SELECT capp.precio_recomendado
+                    FROM comercial_acuerdos_proveedor_precios capp
+                    INNER JOIN comercial_acuerdos_proveedor capv ON capv.id = capp.id_acuerdo_proveedor
+                    WHERE capv.id_tercero = :id_proveedor
+                      AND capv.estado = 1
+                      AND capp.estado = 1
+                      AND capp.id_item = :id_item
+                      AND capp.id_unidad_conversion IS NULL
+                    ORDER BY capp.id DESC
+                    LIMIT 1";
+
+        $stmtBase = $this->db->prepare($sqlBase);
+        $stmtBase->execute([
             ':id_proveedor' => $idProveedor,
             ':id_item'      => $idItem,
-            ':id_unidad_1'  => $idUnidad,
-            ':id_unidad_2'  => $idUnidad,
-            ':id_unidad_3'  => $idUnidad,
         ]);
-        
-        $valor = $stmt->fetchColumn();
-        
-        if ($valor === false) {
+
+        $valorBase = $stmtBase->fetchColumn();
+        if ($valorBase === false) {
             return null;
         }
-        
-        return (float)$valor;
+
+        $precioBase = (float) $valorBase;
+        if ($idUnidad === null || $idUnidad <= 0) {
+            return $precioBase;
+        }
+
+        // 3) Si el usuario seleccionó una unidad de conversión (ej: plancha x 162),
+        //    convertimos desde unidad base multiplicando por el factor.
+        $stmtFactor = $this->db->prepare("SELECT factor_conversion
+                                          FROM items_unidades
+                                          WHERE id = :id_unidad
+                                            AND id_item = :id_item
+                                            AND estado = 1
+                                            AND deleted_at IS NULL
+                                          LIMIT 1");
+        $stmtFactor->execute([
+            ':id_unidad' => $idUnidad,
+            ':id_item'   => $idItem,
+        ]);
+
+        $factor = $stmtFactor->fetchColumn();
+        $factor = $factor !== false ? (float) $factor : 1.0;
+        if ($factor <= 0) {
+            $factor = 1.0;
+        }
+
+        return $precioBase * $factor;
     }
     
     private function construirNombreCliente(array $row): string {
