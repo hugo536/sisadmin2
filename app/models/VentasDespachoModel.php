@@ -687,13 +687,14 @@ class VentasDespachoModel extends Modelo
         return (bool) $stmt->fetchColumn();
     }
 
-    public function registrarDevolucion(int $idDocumento, string $motivo, string $resolucion, array $detalle, int $userId): void
+    public function registrarDevolucion(int $idDocumento, string $motivo, string $resolucion, array $detalle, int $userId, string $motivoCodigo = ''): void
     {
         if ($idDocumento <= 0) throw new RuntimeException('Documento inválido para devolución.');
         if ($userId <= 0) throw new RuntimeException('Usuario inválido para registrar devolución.');
-        if (trim($motivo) === '') throw new RuntimeException('Debe indicar el motivo de la devolución.');
+        if (trim($motivo) === '' && trim($motivoCodigo) === '') throw new RuntimeException('Debe indicar el motivo de la devolución.');
         if (trim($resolucion) === '') throw new RuntimeException('Debe indicar la resolución de la devolución.');
         if (empty($detalle)) throw new RuntimeException('Debe agregar al menos una línea en la devolución.');
+        $politica = $this->resolverPoliticaDevolucion($motivo, $motivoCodigo, $resolucion);
 
         $db = $this->db();
         $this->asegurarTablasDevolucion($db);
@@ -738,8 +739,8 @@ class VentasDespachoModel extends Modelo
             $stmtCab->execute([
                 'id_documento' => $idDocumento,
                 'id_cliente' => $idCliente,
-                'motivo' => trim($motivo),
-                'resolucion' => trim($resolucion),
+                'motivo' => $politica['motivo_label'],
+                'resolucion' => $politica['resolucion'],
                 'user' => $userId,
             ]);
             $idDevolucion = (int) $db->lastInsertId();
@@ -812,33 +813,35 @@ class VentasDespachoModel extends Modelo
                 ]);
 
                 // MODIFICACIÓN: Retornar inventario según si es físico o combo
-                if ($idPresentacionDB !== null) {
-                    $componentes = $this->obtenerComponentesCombo($db, $idPresentacionDB);
-                    foreach ($componentes as $comp) {
+                if ($politica['reingresa_inventario']) {
+                    if ($idPresentacionDB !== null) {
+                        $componentes = $this->obtenerComponentesCombo($db, $idPresentacionDB);
+                        foreach ($componentes as $comp) {
+                            $inventarioModel->registrarMovimiento([
+                                'tipo_movimiento' => 'AJ+',
+                                'tipo_registro' => 'item',
+                                'id_item' => $comp['id_item'],
+                                'id_almacen_destino' => $idAlmacenDestino,
+                                'cantidad' => $comp['cantidad'] * $cantidad,
+                                'costo_unitario' => 0,
+                                'referencia' => 'Devolución venta ' . (string) ($documento['codigo'] ?? '') . ' (Combo) | ' . $politica['motivo_label'],
+                                'created_by' => $userId,
+                                'fecha_documento' => $fechaDocumento
+                            ]);
+                        }
+                    } else {
                         $inventarioModel->registrarMovimiento([
                             'tipo_movimiento' => 'AJ+',
                             'tipo_registro' => 'item',
-                            'id_item' => $comp['id_item'],
+                            'id_item' => $idItemDB,
                             'id_almacen_destino' => $idAlmacenDestino,
-                            'cantidad' => $comp['cantidad'] * $cantidad,
-                            'costo_unitario' => 0, // Se asume 0 para componentes en devolución simple, o aplicar reglas contables
-                            'referencia' => 'Devolución venta ' . (string) ($documento['codigo'] ?? '') . ' (Combo) | ' . trim($motivo),
+                            'cantidad' => $cantidad,
+                            'costo_unitario' => $costo,
+                            'referencia' => 'Devolución venta ' . (string) ($documento['codigo'] ?? '') . ' | ' . $politica['motivo_label'],
                             'created_by' => $userId,
                             'fecha_documento' => $fechaDocumento
                         ]);
                     }
-                } else {
-                    $inventarioModel->registrarMovimiento([
-                        'tipo_movimiento' => 'AJ+',
-                        'tipo_registro' => 'item',
-                        'id_item' => $idItemDB,
-                        'id_almacen_destino' => $idAlmacenDestino,
-                        'cantidad' => $cantidad,
-                        'costo_unitario' => $costo,
-                        'referencia' => 'Devolución venta ' . (string) ($documento['codigo'] ?? '') . ' | ' . trim($motivo),
-                        'created_by' => $userId,
-                        'fecha_documento' => $fechaDocumento
-                    ]);
                 }
             }
 
@@ -863,7 +866,7 @@ class VentasDespachoModel extends Modelo
                     'user' => $userId,
                 ]);
 
-            $this->aplicarAjusteCxcPorDevolucion($db, $idDocumento, $resolucion, $totalDevuelto, $userId);
+            $this->aplicarAjusteCxcPorDevolucion($db, $idDocumento, $politica['resolucion'], $totalDevuelto, $userId);
             $db->commit();
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
@@ -871,10 +874,43 @@ class VentasDespachoModel extends Modelo
         }
     }
 
+    private function resolverPoliticaDevolucion(string $motivo, string $motivoCodigo, string $resolucion): array
+    {
+        $motivos = [
+            'producto_incorrecto' => ['label' => 'Producto incorrecto entregado', 'reingresa_inventario' => true],
+            'error_despacho' => ['label' => 'Error de despacho / cantidad excedente', 'reingresa_inventario' => true],
+            'cliente_rechaza' => ['label' => 'Cliente rechaza pedido (packs sellados)', 'reingresa_inventario' => true],
+            'producto_defectuoso' => ['label' => 'Producto defectuoso, roto o dañado', 'reingresa_inventario' => false],
+        ];
+        $resolucionesPermitidas = ['saldo_favor', 'descuento_cxc', 'salida_dinero'];
+
+        $codigo = trim(strtolower($motivoCodigo));
+        $resolucionNormalizada = trim(strtolower($resolucion));
+
+        if (!in_array($resolucionNormalizada, $resolucionesPermitidas, true)) {
+            throw new RuntimeException('La resolución comercial seleccionada no es válida.');
+        }
+
+        if ($codigo !== '' && isset($motivos[$codigo])) {
+            return [
+                'motivo_label' => $motivos[$codigo]['label'],
+                'reingresa_inventario' => (bool) $motivos[$codigo]['reingresa_inventario'],
+                'resolucion' => $resolucionNormalizada,
+            ];
+        }
+
+        return [
+            'motivo_label' => trim($motivo),
+            'reingresa_inventario' => true,
+            'resolucion' => $resolucionNormalizada,
+        ];
+    }
+
     private function aplicarAjusteCxcPorDevolucion(PDO $db, int $idDocumento, string $resolucion, float $totalDevuelto, int $userId): void
     {
         if ($totalDevuelto <= 0) return;
-        if (trim(strtolower($resolucion)) !== 'descuento_cxc') return;
+        $resolucionNormalizada = trim(strtolower($resolucion));
+        if (!in_array($resolucionNormalizada, ['descuento_cxc', 'saldo_favor'], true)) return;
 
         $stmt = $db->prepare('SELECT id, monto_total, monto_pagado
                               FROM tesoreria_cxc

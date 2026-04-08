@@ -104,7 +104,8 @@ class VentasController extends Controlador
                     (string) ($payload['motivo'] ?? ''),
                     (string) ($payload['resolucion'] ?? ''),
                     is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [],
-                    $userId
+                    $userId,
+                    (string) ($payload['motivo_codigo'] ?? '')
                 );
 
                 json_response([
