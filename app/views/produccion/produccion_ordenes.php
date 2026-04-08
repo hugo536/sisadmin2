@@ -346,6 +346,10 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                         data-unidad="<?php echo e((string) ($orden['unidad_base'] ?? 'UND')); ?>"
                                                         data-id-almacen-planta="<?php echo (int) ($orden['id_almacen_planta'] ?? 0); ?>"
                                                         data-receta-centro-costo="<?php echo (int) ($orden['receta_id_centro_costo'] ?? 0); ?>"
+                                                        data-producto-nombre="<?php echo e((string) ($orden['producto_nombre'] ?? '')); ?>"
+                                                        data-receta-version="<?php echo (int) ($orden['receta_version_snapshot'] ?? 1); ?>"
+                                                        data-receta-rendimiento="<?php echo (float) ($orden['receta_rendimiento_base'] ?? 0); ?>"
+                                                        data-receta-tiempo="<?php echo (float) ($orden['receta_tiempo_horas'] ?? 0); ?>"
                                                         title="<?php echo $estado === 1 ? 'Continuar Producción' : 'Ejecutar Producción'; ?>">
                                                     <i class="bi bi-play-fill"></i>
                                                     <span class="d-none d-lg-inline ms-1"><?php echo $estado === 1 ? 'Continuar' : 'Ejecutar'; ?></span>
@@ -762,6 +766,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                 <h5 class="modal-title fw-bold">
                     <i class="bi bi-play-fill me-2"></i>Ejecutar Producción 
                     <span class="badge bg-white text-success ms-2" id="lblExecCodigo">OP-000000</span>
+                    <span class="small fw-semibold ms-2 opacity-90" id="lblExecRecetaInfo"></span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

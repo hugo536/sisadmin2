@@ -511,6 +511,10 @@ function initAccionesTabla() {
 // =========================================================================
 function initModalEjecucion() {
     let modalEjecutar;
+    const formatearDatetimeLocal = (fecha) => {
+        const local = new Date(fecha.getTime() - (fecha.getTimezoneOffset() * 60000));
+        return local.toISOString().slice(0, 16);
+    };
 
     window.calcularTiempoNetoOP = function() {
         const inputInicio = document.getElementById('execFechaInicio');
@@ -558,9 +562,17 @@ function initModalEjecucion() {
             const planificada = parseFloat(btnAbrir.getAttribute('data-planificada')) || 0;
             const idAlmacenPlanta = parseInt(btnAbrir.getAttribute('data-id-almacen-planta') || '0', 10) || 0;
             const idCentroCostoReceta = parseInt(btnAbrir.getAttribute('data-receta-centro-costo') || '0', 10) || 0;
+            const productoNombre = (btnAbrir.getAttribute('data-producto-nombre') || '').trim();
+            const recetaVersion = parseInt(btnAbrir.getAttribute('data-receta-version') || '1', 10) || 1;
+            const recetaRendimiento = parseFloat(btnAbrir.getAttribute('data-receta-rendimiento')) || 0;
+            const recetaTiempoHoras = parseFloat(btnAbrir.getAttribute('data-receta-tiempo')) || 0;
             
             document.getElementById('execIdOrden').value = idOrden;
             document.getElementById('lblExecCodigo').textContent = codigo;
+            const lblExecRecetaInfo = document.getElementById('lblExecRecetaInfo');
+            if (lblExecRecetaInfo) {
+                lblExecRecetaInfo.textContent = productoNombre ? `Receta - ${productoNombre} (v${recetaVersion})` : '';
+            }
 
             const reqLote = btnAbrir.getAttribute('data-req-lote') || '0';
             const reqVenc = btnAbrir.getAttribute('data-req-venc') || '0';
@@ -571,16 +583,23 @@ function initModalEjecucion() {
             document.getElementById('execUnidad').value = unidad;
 
             const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            const localDatetime = now.toISOString().slice(0, 16);
+            const fechaFinDefault = formatearDatetimeLocal(now);
+            let fechaInicioDefault = fechaFinDefault;
+            const horasPlanificadas = (recetaRendimiento > 0 && recetaTiempoHoras > 0 && planificada > 0)
+                ? ((planificada * recetaTiempoHoras) / recetaRendimiento)
+                : 0;
+            if (horasPlanificadas > 0) {
+                const inicioCalculado = new Date(now.getTime() - (horasPlanificadas * 60 * 60 * 1000));
+                fechaInicioDefault = formatearDatetimeLocal(inicioCalculado);
+            }
             
             const inputInicio = document.getElementById('execFechaInicio');
             const inputFin = document.getElementById('execFechaFin');
             const inputParada = document.getElementById('execHorasParada');
             const selectCentroCosto = document.getElementById('execCentroCosto');
 
-            if (inputInicio) inputInicio.value = localDatetime;
-            if (inputFin) inputFin.value = localDatetime;
+            if (inputInicio) inputInicio.value = fechaInicioDefault;
+            if (inputFin) inputFin.value = fechaFinDefault;
             if (inputParada) inputParada.value = '';
             if (selectCentroCosto) selectCentroCosto.value = idCentroCostoReceta > 0 ? String(idCentroCostoReceta) : '';
             window.calcularTiempoNetoOP();
@@ -715,6 +734,8 @@ function initModalEjecucion() {
             
             const lblTiempoNeto = document.getElementById('lblTiempoNeto');
             if (lblTiempoNeto) lblTiempoNeto.innerHTML = `0.00 <small class="fs-6 text-muted fw-normal">Horas</small>`;
+            const lblExecRecetaInfo = document.getElementById('lblExecRecetaInfo');
+            if (lblExecRecetaInfo) lblExecRecetaInfo.textContent = '';
         }
     });
 }
