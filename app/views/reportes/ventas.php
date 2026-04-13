@@ -74,11 +74,6 @@
                         <option value="linea" <?php echo ($filtros['tipo_grafico'] ?? '') === 'linea' ? 'selected' : ''; ?>>Línea</option>
                     </select>
                 </div>
-                <div class="col-12 col-md-12 col-lg-2">
-                    <button type="submit" class="btn btn-primary w-100 shadow-sm fw-semibold">
-                        <i class="bi bi-funnel-fill me-2"></i>Filtrar
-                    </button>
-                </div>
             </form>
         </div>
     </div>
@@ -361,6 +356,31 @@
                         .catch(() => callback());
                 }
             });
+        }
+
+        let autoSubmitTimer = null;
+        const enviarFiltros = () => {
+            if (autoSubmitTimer) clearTimeout(autoSubmitTimer);
+            autoSubmitTimer = setTimeout(() => form.requestSubmit(), 150);
+        };
+
+        const filtrosAutoSubmit = form.querySelectorAll('input[name], select[name]');
+        filtrosAutoSubmit.forEach((campo) => {
+            const evento = campo.tagName === 'INPUT' && campo.type === 'date' ? 'change' : 'input';
+            campo.addEventListener(evento, enviarFiltros);
+            if (evento !== 'change') {
+                campo.addEventListener('change', enviarFiltros);
+            }
+        });
+
+        if (clienteSelect?.tomselect) {
+            clienteSelect.tomselect.on('change', enviarFiltros);
+        }
+        if (productoSelect?.tomselect) {
+            productoSelect.tomselect.on('change', enviarFiltros);
+        }
+        if (tipoTerceroSelect) {
+            tipoTerceroSelect.addEventListener('change', enviarFiltros);
         }
 
         form.addEventListener('submit', async (event) => {
