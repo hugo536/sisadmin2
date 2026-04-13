@@ -13,6 +13,9 @@
             </h1>
             <p class="text-muted small mb-0 ms-1">Análisis de stock, movimientos valorizados y control de lotes.</p>
         </div>
+        <a href="javascript:history.back()" class="btn btn-outline-secondary shadow-sm fw-semibold">
+            <i class="bi bi-arrow-left me-2"></i>Volver
+        </a>
     </div>
 
     <ul class="nav nav-tabs border-bottom-1 mb-0 px-2" role="tablist">
