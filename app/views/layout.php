@@ -167,6 +167,11 @@ $currentRoute = $ruta_actual ?? $_GET['ruta'] ?? '';
     <script src="<?php echo e(asset_url('js/reportes.js')); ?>"></script>
 <?php endif; ?>
 
+<?php if ($currentRoute === 'reportes/inventario'): ?>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="<?php echo e(asset_url('js/reportes/inventario.js')); ?>"></script>
+<?php endif; ?>
+
 <?php if (str_starts_with($currentRoute, 'comercial')): ?>
     <script src="<?php echo e(asset_url('js/comercial.js')); ?>?v=<?php echo time(); ?>"></script>
 <?php endif; ?>
