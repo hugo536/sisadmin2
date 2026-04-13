@@ -70,12 +70,11 @@ class ReportesController extends Controlador
             'id_almacen' => (int) ($_GET['id_almacen'] ?? 0),
             'id_categoria' => (int) ($_GET['id_categoria'] ?? 0),
             'tipo_item' => trim((string) ($_GET['tipo_item'] ?? '')),
-            'estado' => $_GET['estado'] ?? '',
             'solo_bajo_minimo' => (int) ($_GET['solo_bajo_minimo'] ?? 0),
             'id_item' => (int) ($_GET['id_item'] ?? 0),
             'tipo_movimiento' => trim((string) ($_GET['tipo_movimiento'] ?? '')),
             'dias' => (int) ($_GET['dias'] ?? 30),
-            'tipo_producto' => trim((string) ($_GET['tipo_producto'] ?? '')), 
+            'situacion_alerta' => trim((string) ($_GET['situacion_alerta'] ?? '')),
             // Guardamos las secciones en los filtros para pasarlo a la vista
             'secciones' => $secciones 
         ];
@@ -116,6 +115,7 @@ class ReportesController extends Controlador
             'ruta_actual' => 'reportes/inventario',
             'filtros' => $f,
             'almacenes' => $this->inventario->listarAlmacenesActivos(),
+            'categorias' => $this->inventario->listarCategoriasActivas(),
             'stock' => in_array('stock', $secciones) ? $this->inventario->stockActual($f, $pagina, $tamano) : [],
             'kardex' => in_array('kardex', $secciones) ? $this->inventario->kardex($f, $pagina, $tamano) : [],
             'vencimientos' => in_array('vencimientos', $secciones) ? $this->inventario->vencimientos($f, $pagina, $tamano) : [],
