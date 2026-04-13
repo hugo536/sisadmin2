@@ -5,7 +5,6 @@ $cumpleanosSemana = is_array($cumpleanosSemana ?? null) ? $cumpleanosSemana : []
 $reportesWidgets = is_array($reportes_widgets ?? null) ? $reportes_widgets : [];
 $inventarioValorizado = is_array($inventario_valorizado ?? null) ? $inventario_valorizado : [];
 $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] ?? 0);
-$almacenesValorizadosCount = (int) ($inventarioValorizado['almacenes_valorizados'] ?? 0);
 ?>
 
 <div class="container-fluid p-4 dashboard-page" id="dashboardApp">
@@ -84,6 +83,9 @@ $almacenesValorizadosCount = (int) ($inventarioValorizado['almacenes_valorizados
             ]; 
             ?>
             <?php foreach ($reportesWidgets as $k => $v): ?>
+                <?php if ($k === 'stock_critico'): ?>
+                    <?php continue; ?>
+                <?php endif; ?>
                 <div class="col-12 col-sm-6 col-lg-4">
                     <a class="card border-0 shadow-sm h-100 text-decoration-none widget-link-card transition-hover" href="<?php echo e(route_url((string) ($links[$k] ?? 'reportes/dashboard'))); ?>">
                         <div class="card-body p-4 d-flex justify-content-between align-items-center">
@@ -105,20 +107,6 @@ $almacenesValorizadosCount = (int) ($inventarioValorizado['almacenes_valorizados
                         <div>
                             <div class="text-muted small text-uppercase fw-semibold mb-1">valor inventario total</div>
                             <div class="h4 mb-0 fw-bold text-success">S/ <?php echo number_format($totalInventarioValorizado, 2); ?></div>
-                        </div>
-                        <div class="text-light">
-                            <i class="bi bi-arrow-right-circle-fill fs-3 text-primary opacity-50"></i>
-                        </div>
-                    </div>
-                </a>
-            </div>
-
-            <div class="col-12 col-sm-6 col-lg-4">
-                <a class="card border-0 shadow-sm h-100 text-decoration-none widget-link-card transition-hover" href="<?php echo e(route_url('reportes/inventario')); ?>">
-                    <div class="card-body p-4 d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="text-muted small text-uppercase fw-semibold mb-1">almacenes con valor</div>
-                            <div class="h3 mb-0 fw-bold text-dark"><?php echo $almacenesValorizadosCount; ?></div>
                         </div>
                         <div class="text-light">
                             <i class="bi bi-arrow-right-circle-fill fs-3 text-primary opacity-50"></i>

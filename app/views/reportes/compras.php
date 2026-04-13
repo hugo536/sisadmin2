@@ -7,6 +7,9 @@
             </h1>
             <p class="text-muted small mb-0 ms-1">Métricas y análisis de compras, proveedores y órdenes.</p>
         </div>
+        <a href="javascript:history.back()" class="btn btn-outline-secondary shadow-sm fw-semibold">
+            <i class="bi bi-arrow-left me-2"></i>Volver
+        </a>
     </div>
 
     <div class="card border-0 shadow-sm mb-4">

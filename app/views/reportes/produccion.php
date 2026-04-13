@@ -7,9 +7,14 @@
             </h1>
             <p class="text-muted small mb-0 ms-1">Análisis de productos terminados y consumo de insumos.</p>
         </div>
-        <a class="btn btn-outline-primary shadow-sm fw-semibold" href="<?php echo e(route_url('reportes/costos_produccion')); ?>">
-            <i class="bi bi-graph-up-arrow me-2"></i>Costos de producción
-        </a>
+        <div class="d-flex align-items-center gap-2">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary shadow-sm fw-semibold">
+                <i class="bi bi-arrow-left me-2"></i>Volver
+            </a>
+            <a class="btn btn-outline-primary shadow-sm fw-semibold" href="<?php echo e(route_url('reportes/costos_produccion')); ?>">
+                <i class="bi bi-graph-up-arrow me-2"></i>Costos de producción
+            </a>
+        </div>
     </div>
 
     <div class="card border-0 shadow-sm mb-4">

@@ -7,6 +7,9 @@
             </h1>
             <p class="text-muted small mb-0 ms-1">Análisis de cuentas por cobrar, pagar y flujo de caja operativo.</p>
         </div>
+        <a href="javascript:history.back()" class="btn btn-outline-secondary shadow-sm fw-semibold">
+            <i class="bi bi-arrow-left me-2"></i>Volver
+        </a>
     </div>
 
     <div class="card border-0 shadow-sm mb-4">
