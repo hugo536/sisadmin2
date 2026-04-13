@@ -46,15 +46,19 @@
             <td style="width: 35%;">
                 <?php echo date('d/m/Y', strtotime($filtros['fecha_desde'] ?? date('Y-m-d'))); ?> AL <?php echo date('d/m/Y', strtotime($filtros['fecha_hasta'] ?? date('Y-m-d'))); ?>
             </td>
-            <td class="label">TIPO PRODUCTO:</td>
+            <td class="label">TIPO / CATEGORÍA:</td>
             <td style="width: 35%; text-transform: uppercase;">
-                <?php echo htmlspecialchars($filtros['tipo_producto'] ?? 'TODOS LOS TIPOS'); ?>
+                <?php echo htmlspecialchars((string) (($filtros['tipo_item'] ?? 'TODOS LOS TIPOS') . ' / ' . ($filtros['id_categoria'] ? ('CAT. #' . (int) $filtros['id_categoria']) : 'TODAS LAS CATEGORÍAS'))); ?>
             </td>
         </tr>
         <tr>
             <td class="label">ALMACÉN:</td>
-            <td colspan="3">
-                <?php echo htmlspecialchars($filtros['nombre_almacen'] ?? 'TODOS LOS ALMACENES'); ?>
+            <td>
+                <?php echo (int) ($filtros['id_almacen'] ?? 0) > 0 ? ('ID ' . (int) $filtros['id_almacen']) : 'TODOS LOS ALMACENES'; ?>
+            </td>
+            <td class="label">SITUACIÓN:</td>
+            <td>
+                <?php echo htmlspecialchars((string) ($filtros['situacion_alerta'] ?? 'TODAS')); ?>
             </td>
         </tr>
     </table>

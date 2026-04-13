@@ -121,26 +121,16 @@
       };
     })();
 
-    const filtroAlmacen = formInventario.querySelector('select[name="id_almacen"]');
-    const filtroBajoMinimo = formInventario.querySelector('input[name="solo_bajo_minimo"]');
-    const fechaDesde = formInventario.querySelector('input[name="fecha_desde"]');
-    const fechaHasta = formInventario.querySelector('input[name="fecha_hasta"]');
+    const filtrosAutoSubmit = formInventario.querySelectorAll('input[name="fecha_desde"], input[name="fecha_hasta"], select[name="id_categoria"], select[name="tipo_item"], select[name="id_almacen"], select[name="situacion_alerta"], input[name="solo_bajo_minimo"], input[name="secciones[]"]');
 
-    if (filtroAlmacen) {
-      filtroAlmacen.addEventListener('change', () => autoSubmitInventario());
-    }
+    filtrosAutoSubmit.forEach((field) => {
+      const tipo = String(field.type || '').toLowerCase();
+      field.addEventListener('change', () => autoSubmitInventario());
 
-    if (filtroBajoMinimo) {
-      filtroBajoMinimo.addEventListener('change', () => autoSubmitInventario());
-    }
-
-    if (fechaDesde) {
-      fechaDesde.addEventListener('change', () => autoSubmitInventario());
-    }
-
-    if (fechaHasta) {
-      fechaHasta.addEventListener('change', () => autoSubmitInventario());
-    }
+      if (tipo === 'date') {
+        field.addEventListener('input', () => autoSubmitInventario());
+      }
+    });
   };
 
   initReporteInventarioFiltros();

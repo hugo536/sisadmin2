@@ -14,6 +14,17 @@ class ReporteInventarioModel extends Modelo
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    public function listarCategoriasActivas(): array
+    {
+        $sql = 'SELECT id, nombre
+                FROM items_categorias
+                WHERE estado = 1
+                  AND deleted_at IS NULL
+                ORDER BY nombre ASC';
+
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     private function costoUnitarioExpr(string $stockAlias = 's', string $itemAlias = 'i'): string
     {
         return "COALESCE(NULLIF({$stockAlias}.costo_promedio, 0), NULLIF({$itemAlias}.ultimo_costo_compra, 0), NULLIF({$itemAlias}.costo_referencial, 0), 0)";
@@ -120,8 +131,43 @@ class ReporteInventarioModel extends Modelo
         if (!empty($f['id_almacen'])) { $where[] = 's.id_almacen = :id_almacen'; $params['id_almacen'] = (int) $f['id_almacen']; }
         if (!empty($f['id_categoria'])) { $where[] = 'i.id_categoria = :id_categoria'; $params['id_categoria'] = (int) $f['id_categoria']; }
         if (!empty($f['tipo_item'])) { $where[] = 'i.tipo_item = :tipo_item'; $params['tipo_item'] = (string) $f['tipo_item']; }
-        if ($f['estado'] !== '' && $f['estado'] !== null) { $where[] = 'i.estado = :estado'; $params['estado'] = (int) $f['estado']; }
         if (!empty($f['solo_bajo_minimo'])) { $where[] = 's.stock_actual <= i.stock_minimo'; }
+
+        $situacion = trim((string) ($f['situacion_alerta'] ?? ''));
+        if ($situacion === 'disponible') {
+            $where[] = 's.stock_actual > i.stock_minimo';
+        } elseif ($situacion === 'bajo_minimo') {
+            $where[] = 's.stock_actual > 0 AND s.stock_actual <= i.stock_minimo';
+        } elseif ($situacion === 'agotado') {
+            $where[] = 's.stock_actual <= 0';
+        } elseif ($situacion === 'proximo_a_vencer') {
+            $where[] = 'EXISTS (
+                SELECT 1
+                FROM inventario_lotes l
+                WHERE l.id_item = s.id_item
+                  AND l.id_almacen = s.id_almacen
+                  AND l.deleted_at IS NULL
+                  AND l.fecha_vencimiento >= CURDATE()
+                  AND l.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+            )';
+        } elseif ($situacion === 'vencido') {
+            $where[] = 'EXISTS (
+                SELECT 1
+                FROM inventario_lotes l
+                WHERE l.id_item = s.id_item
+                  AND l.id_almacen = s.id_almacen
+                  AND l.deleted_at IS NULL
+                  AND l.fecha_vencimiento < CURDATE()
+            )';
+        } elseif ($situacion === 'sin_movimientos') {
+            $where[] = 'NOT EXISTS (
+                SELECT 1
+                FROM inventario_movimientos m
+                WHERE m.deleted_at IS NULL
+                  AND m.id_item = s.id_item
+                  AND (m.id_almacen_origen = s.id_almacen OR m.id_almacen_destino = s.id_almacen)
+            )';
+        }
 
         $whereSql = implode(' AND ', $where);
         $count = $this->db()->prepare("SELECT COUNT(*) FROM inventario_stock s INNER JOIN items i ON i.id=s.id_item INNER JOIN almacenes a ON a.id=s.id_almacen WHERE {$whereSql}");
@@ -166,6 +212,8 @@ class ReporteInventarioModel extends Modelo
         $where = ['m.deleted_at IS NULL', 'DATE(m.created_at) BETWEEN :fecha_desde AND :fecha_hasta'];
         $params = ['fecha_desde' => $f['fecha_desde'], 'fecha_hasta' => $f['fecha_hasta']];
 
+        if (!empty($f['id_categoria'])) { $where[] = 'i.id_categoria = :id_categoria'; $params['id_categoria'] = (int) $f['id_categoria']; }
+        if (!empty($f['tipo_item'])) { $where[] = 'i.tipo_item = :tipo_item'; $params['tipo_item'] = (string) $f['tipo_item']; }
         if (!empty($f['id_item'])) { $where[] = 'm.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
         if (!empty($f['id_almacen'])) {
             $where[] = '(m.id_almacen_origen = :id_almacen_origen OR m.id_almacen_destino = :id_almacen_destino)';
@@ -175,13 +223,14 @@ class ReporteInventarioModel extends Modelo
         if (!empty($f['tipo_movimiento'])) { $where[] = 'm.tipo_movimiento = :tipo'; $params['tipo'] = (string) $f['tipo_movimiento']; }
 
         $whereSql = implode(' AND ', $where);
-        $count = $this->db()->prepare("SELECT COUNT(*) FROM inventario_movimientos m WHERE {$whereSql}");
+        $count = $this->db()->prepare("SELECT COUNT(*) FROM inventario_movimientos m INNER JOIN items i ON i.id = m.id_item WHERE {$whereSql}");
         $count->execute($params);
 
         $sql = "SELECT DATE(m.created_at) AS fecha, m.tipo_movimiento AS tipo, m.cantidad, COALESCE(m.costo_unitario, 0) AS costo_unitario,
                        ROUND(m.cantidad * COALESCE(m.costo_unitario, 0), 4) AS costo_total, m.referencia,
                        COALESCE(u.usuario, 'Sistema') AS usuario
                 FROM inventario_movimientos m
+                INNER JOIN items i ON i.id = m.id_item
                 LEFT JOIN usuarios u ON u.id = m.created_by
                 WHERE {$whereSql}
                 ORDER BY m.created_at DESC, m.id DESC
@@ -204,9 +253,21 @@ class ReporteInventarioModel extends Modelo
         $params = ['dias' => $dias];
         if (!empty($f['id_item'])) { $where[] = 'l.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
         if (!empty($f['id_almacen'])) { $where[] = 'l.id_almacen = :id_almacen'; $params['id_almacen'] = (int) $f['id_almacen']; }
+        if (!empty($f['id_categoria'])) { $where[] = 'i.id_categoria = :id_categoria'; $params['id_categoria'] = (int) $f['id_categoria']; }
+        if (!empty($f['tipo_item'])) { $where[] = 'i.tipo_item = :tipo_item'; $params['tipo_item'] = (string) $f['tipo_item']; }
+
+        $situacion = trim((string) ($f['situacion_alerta'] ?? ''));
+        if ($situacion === 'vencido') {
+            $where[] = 'l.fecha_vencimiento < CURDATE()';
+        } elseif ($situacion === 'proximo_a_vencer') {
+            $where[] = 'l.fecha_vencimiento >= CURDATE() AND l.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)';
+        } elseif ($situacion === 'agotado') {
+            $where[] = 'l.stock_lote <= 0';
+        }
+
         $whereSql = implode(' AND ', $where);
 
-        $count = $this->db()->prepare("SELECT COUNT(*) FROM inventario_lotes l WHERE {$whereSql}");
+        $count = $this->db()->prepare("SELECT COUNT(*) FROM inventario_lotes l INNER JOIN items i ON i.id = l.id_item WHERE {$whereSql}");
         $count->execute($params);
 
         $sql = "SELECT i.nombre AS item, a.nombre AS almacen, l.lote, l.fecha_vencimiento, l.stock_lote,

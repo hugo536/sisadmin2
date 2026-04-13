@@ -22,16 +22,57 @@
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Fecha Hasta <span class="text-danger">*</span></label>
                     <input type="date" name="fecha_hasta" class="form-control bg-light" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
                 </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Tipo de Producto</label>
-                    <select name="tipo_producto" class="form-select bg-light">
-                        <option value="">Todos...</option>
-                        <option value="terminado" <?php echo (($filtros['tipo_producto'] ?? '') === 'terminado') ? 'selected' : ''; ?>>Prod. Terminado</option>
-                        <option value="empaque" <?php echo (($filtros['tipo_producto'] ?? '') === 'empaque') ? 'selected' : ''; ?>>Mat. de Empaque</option>
-                        <option value="insumos" <?php echo (($filtros['tipo_producto'] ?? '') === 'insumos') ? 'selected' : ''; ?>>Insumos</option>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Categoría</label>
+                    <select name="id_categoria" class="form-select bg-light">
+                        <option value="">Todas las categorías</option>
+                        <?php foreach (($categorias ?? []) as $categoria): ?>
+                            <option value="<?php echo (int) ($categoria['id'] ?? 0); ?>" <?php echo (int) ($filtros['id_categoria'] ?? 0) === (int) ($categoria['id'] ?? 0) ? 'selected' : ''; ?>>
+                                <?php echo e((string) ($categoria['nombre'] ?? '')); ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
-                
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Tipo</label>
+                    <select name="tipo_item" class="form-select bg-light">
+                        <option value="">Todos los tipos</option>
+                        <option value="producto_terminado" <?php echo (($filtros['tipo_item'] ?? '') === 'producto_terminado') ? 'selected' : ''; ?>>Producto terminado</option>
+                        <option value="materia_prima" <?php echo (($filtros['tipo_item'] ?? '') === 'materia_prima') ? 'selected' : ''; ?>>Materia prima</option>
+                        <option value="insumo" <?php echo (($filtros['tipo_item'] ?? '') === 'insumo') ? 'selected' : ''; ?>>Insumo</option>
+                        <option value="semielaborado" <?php echo (($filtros['tipo_item'] ?? '') === 'semielaborado') ? 'selected' : ''; ?>>Semielaborado</option>
+                        <option value="material_empaque" <?php echo (($filtros['tipo_item'] ?? '') === 'material_empaque') ? 'selected' : ''; ?>>Material de empaque</option>
+                        <option value="servicio" <?php echo (($filtros['tipo_item'] ?? '') === 'servicio') ? 'selected' : ''; ?>>Servicio</option>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Almacén</label>
+                    <select name="id_almacen" class="form-select bg-light">
+                        <option value="">Todos los almacenes</option>
+                        <?php foreach (($almacenes ?? []) as $almacen): ?>
+                            <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>" <?php echo (int) ($filtros['id_almacen'] ?? 0) === (int) ($almacen['id'] ?? 0) ? 'selected' : ''; ?>>
+                                <?php echo e((string) ($almacen['nombre'] ?? '')); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Situación / Alertas</label>
+                    <select name="situacion_alerta" class="form-select bg-light">
+                        <option value="">Situación / Alertas</option>
+                        <option value="disponible" <?php echo (($filtros['situacion_alerta'] ?? '') === 'disponible') ? 'selected' : ''; ?>>Disponible (Verde)</option>
+                        <option value="proximo_a_vencer" <?php echo (($filtros['situacion_alerta'] ?? '') === 'proximo_a_vencer') ? 'selected' : ''; ?>>Próximo a vencer (Amarillo)</option>
+                        <option value="bajo_minimo" <?php echo (($filtros['situacion_alerta'] ?? '') === 'bajo_minimo') ? 'selected' : ''; ?>>Bajo mínimo (Amarillo)</option>
+                        <option value="agotado" <?php echo (($filtros['situacion_alerta'] ?? '') === 'agotado') ? 'selected' : ''; ?>>Agotado (Rojo)</option>
+                        <option value="vencido" <?php echo (($filtros['situacion_alerta'] ?? '') === 'vencido') ? 'selected' : ''; ?>>Vencido (Rojo)</option>
+                        <option value="sin_movimientos" <?php echo (($filtros['situacion_alerta'] ?? '') === 'sin_movimientos') ? 'selected' : ''; ?>>Sin movimientos (Gris)</option>
+                    </select>
+                </div>
+
                 <div class="col-12 col-md-4 d-flex align-items-center pb-1">
                     <div class="d-flex flex-wrap gap-3 ms-2">
                         <div class="form-check form-switch">
@@ -55,12 +96,8 @@
                         <label class="form-check-label text-muted small fw-bold user-select-none" style="cursor: pointer;" for="filtroBajoMinimo">Bajo mínimo</label>
                     </div>
                 </div>
-
-                <div class="col-12 col-md-3 offset-md-7 d-flex gap-2 mt-3">
-                    <button type="submit" class="btn btn-primary w-100 shadow-sm fw-semibold">
-                        <i class="bi bi-funnel-fill me-2"></i>Filtrar
-                    </button>
-                    <button type="submit" name="exportar_pdf" value="1" class="btn btn-danger w-100 shadow-sm fw-semibold" formtarget="_blank">
+                <div class="col-12 d-flex justify-content-end mt-2">
+                    <button type="submit" name="exportar_pdf" value="1" class="btn btn-danger shadow-sm fw-semibold px-4" formtarget="_blank">
                         <i class="bi bi-file-pdf-fill me-2"></i>PDF
                     </button>
                 </div>
