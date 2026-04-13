@@ -23,32 +23,52 @@
                     <input type="date" name="fecha_hasta" class="form-control bg-light" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
                 </div>
                 <div class="col-6 col-md-2">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">ID Almacén</label>
-                    <select name="id_almacen" class="form-select bg-light">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Tipo de Producto</label>
+                    <select name="tipo_producto" class="form-select bg-light">
                         <option value="">Todos...</option>
-                        <?php foreach (($almacenes ?? []) as $almacen): ?>
-                            <?php $idAlmacen = (int) ($almacen['id'] ?? 0); ?>
-                            <option value="<?php echo $idAlmacen; ?>" <?php echo ((int) ($filtros['id_almacen'] ?? 0) === $idAlmacen) ? 'selected' : ''; ?>>
-                                <?php echo e((string) ($almacen['nombre'] ?? ('Almacén #' . $idAlmacen))); ?>
-                            </option>
-                        <?php endforeach; ?>
+                        <option value="terminado" <?php echo (($filtros['tipo_producto'] ?? '') === 'terminado') ? 'selected' : ''; ?>>Prod. Terminado</option>
+                        <option value="empaque" <?php echo (($filtros['tipo_producto'] ?? '') === 'empaque') ? 'selected' : ''; ?>>Mat. de Empaque</option>
+                        <option value="insumos" <?php echo (($filtros['tipo_producto'] ?? '') === 'insumos') ? 'selected' : ''; ?>>Insumos</option>
                     </select>
                 </div>
+                
+                <div class="col-12 col-md-4 d-flex align-items-center pb-1">
+                    <div class="d-flex flex-wrap gap-3 ms-2">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="checkStock" name="secciones[]" value="stock" <?php echo in_array('stock', $filtros['secciones'] ?? []) ? 'checked' : ''; ?>>
+                            <label class="form-check-label text-muted small fw-bold user-select-none" style="cursor: pointer;" for="checkStock">Stock</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="checkKardex" name="secciones[]" value="kardex" <?php echo in_array('kardex', $filtros['secciones'] ?? []) ? 'checked' : ''; ?>>
+                            <label class="form-check-label text-muted small fw-bold user-select-none" style="cursor: pointer;" for="checkKardex">Kardex</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="checkVenc" name="secciones[]" value="vencimientos" <?php echo in_array('vencimientos', $filtros['secciones'] ?? []) ? 'checked' : ''; ?>>
+                            <label class="form-check-label text-muted small fw-bold user-select-none" style="cursor: pointer;" for="checkVenc">Lotes</label>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="col-6 col-md-2 d-flex align-items-center pb-2">
                     <div class="form-check form-switch ms-2">
                         <input class="form-check-input" type="checkbox" role="switch" id="filtroBajoMinimo" name="solo_bajo_minimo" value="1" <?php echo !empty($filtros['solo_bajo_minimo']) ? 'checked' : ''; ?>>
                         <label class="form-check-label text-muted small fw-bold user-select-none" style="cursor: pointer;" for="filtroBajoMinimo">Bajo mínimo</label>
                     </div>
                 </div>
-                <div class="col-12 col-md-2">
+
+                <div class="col-12 col-md-3 offset-md-7 d-flex gap-2 mt-3">
                     <button type="submit" class="btn btn-primary w-100 shadow-sm fw-semibold">
                         <i class="bi bi-funnel-fill me-2"></i>Filtrar
+                    </button>
+                    <button type="submit" name="exportar_pdf" value="1" class="btn btn-danger w-100 shadow-sm fw-semibold" formtarget="_blank">
+                        <i class="bi bi-file-pdf-fill me-2"></i>PDF
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
+    <?php if (in_array('stock', $filtros['secciones'] ?? [])): ?>
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
             <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-layers-half me-2 text-info"></i>Stock actual</h5>
@@ -59,10 +79,7 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="tablaRepStock"
-                       data-erp-table="true"
-                       data-search-input="#filtroRepStock"
-                       data-rows-per-page="10">
+                <table class="table align-middle mb-0 table-pro" id="tablaRepStock" data-erp-table="true" data-search-input="#filtroRepStock" data-rows-per-page="10">
                     <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Ítem</th>
@@ -81,11 +98,8 @@
                         <?php else: ?>
                             <?php foreach (($stock['rows'] ?? []) as $r): ?>
                                 <?php 
-                                    // Lógica visual básica para alertas
                                     $alertaTexto = (string)$r['alerta'];
-                                    $esCritico = stripos($alertaTexto, 'bajo') !== false
-                                        || stripos($alertaTexto, 'crítico') !== false
-                                        || stripos($alertaTexto, 'critico') !== false;
+                                    $esCritico = stripos($alertaTexto, 'bajo') !== false || stripos($alertaTexto, 'crítico') !== false || stripos($alertaTexto, 'critico') !== false;
                                     $alertaClase = $esCritico ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-light text-secondary border-secondary-subtle';
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['item'] . ' ' . (string)$r['almacen'])); ?>">
@@ -118,7 +132,9 @@
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
+    <?php if (in_array('kardex', $filtros['secciones'] ?? [])): ?>
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
             <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-journal-check me-2 text-primary"></i>Kardex valorizado</h5>
@@ -129,10 +145,7 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="tablaRepKardex"
-                       data-erp-table="true"
-                       data-search-input="#filtroRepKardex"
-                       data-rows-per-page="10">
+                <table class="table align-middle mb-0 table-pro" id="tablaRepKardex" data-erp-table="true" data-search-input="#filtroRepKardex" data-rows-per-page="10">
                     <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Fecha</th>
@@ -179,7 +192,9 @@
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
+    <?php if (in_array('vencimientos', $filtros['secciones'] ?? [])): ?>
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
             <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-calendar2-x me-2 text-warning"></i>Vencimientos y lotes</h5>
@@ -190,10 +205,7 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="tablaRepVencimientos"
-                       data-erp-table="true"
-                       data-search-input="#filtroRepVencimientos"
-                       data-rows-per-page="10">
+                <table class="table align-middle mb-0 table-pro" id="tablaRepVencimientos" data-erp-table="true" data-search-input="#filtroRepVencimientos" data-rows-per-page="10">
                     <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Ítem</th>
@@ -235,4 +247,5 @@
             </div>
         </div>
     </div>
+    <?php endif; ?>
 </div>

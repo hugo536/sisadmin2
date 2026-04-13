@@ -58,6 +58,12 @@ class ReportesController extends Controlador
         $this->registrarAuditoria('inventario');
         [$pagina, $tamano] = $this->paginacion();
 
+        // 1. Capturar las secciones (por defecto cargamos las 3 si no hay petición previa)
+        $secciones = $_GET['secciones'] ?? ['stock', 'kardex', 'vencimientos'];
+        if (!is_array($secciones)) {
+            $secciones = [];
+        }
+
         $f = [
             'fecha_desde' => (string) ($_GET['fecha_desde'] ?? date('Y-m-01')),
             'fecha_hasta' => (string) ($_GET['fecha_hasta'] ?? date('Y-m-d')),
@@ -69,15 +75,50 @@ class ReportesController extends Controlador
             'id_item' => (int) ($_GET['id_item'] ?? 0),
             'tipo_movimiento' => trim((string) ($_GET['tipo_movimiento'] ?? '')),
             'dias' => (int) ($_GET['dias'] ?? 30),
+            'tipo_producto' => trim((string) ($_GET['tipo_producto'] ?? '')), 
+            // Guardamos las secciones en los filtros para pasarlo a la vista
+            'secciones' => $secciones 
         ];
 
+        // ==========================================
+        // INTERCEPTAR LA PETICIÓN DE IMPRESIÓN
+        // ==========================================
+        if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
+            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
+            require_once BASE_PATH . '/vendor/autoload.php';
+
+            // 2. Optimizamos: SOLO consultamos lo que se seleccionó
+            $stock = in_array('stock', $secciones) ? $this->inventario->stockActual($f, 1, 999999) : [];
+            $kardex = in_array('kardex', $secciones) ? $this->inventario->kardex($f, 1, 999999) : [];
+            $vencimientos = in_array('vencimientos', $secciones) ? $this->inventario->vencimientos($f, 1, 999999) : [];
+            
+            $filtros = $f;
+
+            ob_start();
+            require BASE_PATH . '/app/views/reportes/pdf_inventario.php';
+            $html = ob_get_clean();
+
+            $dompdf = new \Dompdf\Dompdf();
+            $options = $dompdf->getOptions();
+            $options->set(['isRemoteEnabled' => true]);
+            $dompdf->setOptions($options);
+
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'landscape'); 
+            $dompdf->render();
+            $dompdf->stream('Reporte_Inventario.pdf', ['Attachment' => false]);
+            return;
+        }
+        // ==========================================
+
+        // 3. Lo mismo para la vista Web normal
         $this->render('reportes/inventario', [
             'ruta_actual' => 'reportes/inventario',
             'filtros' => $f,
             'almacenes' => $this->inventario->listarAlmacenesActivos(),
-            'stock' => $this->inventario->stockActual($f, $pagina, $tamano),
-            'kardex' => $this->inventario->kardex($f, $pagina, $tamano),
-            'vencimientos' => $this->inventario->vencimientos($f, $pagina, $tamano),
+            'stock' => in_array('stock', $secciones) ? $this->inventario->stockActual($f, $pagina, $tamano) : [],
+            'kardex' => in_array('kardex', $secciones) ? $this->inventario->kardex($f, $pagina, $tamano) : [],
+            'vencimientos' => in_array('vencimientos', $secciones) ? $this->inventario->vencimientos($f, $pagina, $tamano) : [],
             'pagina' => $pagina,
             'tamano' => $tamano,
         ]);
