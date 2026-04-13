@@ -384,7 +384,7 @@ class VentasDocumentoModel extends Modelo
         }
     }
 
-    public function buscarClientes(string $q = '', int $limit = 20): array
+    public function buscarClientes(string $q = '', int $limit = 20, string $tipoTercero = ''): array
     {
         $sql = 'SELECT DISTINCT t.id, t.nombre_completo, t.numero_documento AS num_doc
                 FROM terceros t
@@ -396,6 +396,15 @@ class VentasDocumentoModel extends Modelo
                   AND t.deleted_at IS NULL';
 
         $params = [];
+        $tipoNormalizado = strtolower(trim($tipoTercero));
+
+        if ($tipoNormalizado === 'cliente') {
+            $sql .= ' AND t.es_cliente = 1 AND d.id_tercero IS NULL';
+        } elseif ($tipoNormalizado === 'cliente_distribuidor') {
+            $sql .= ' AND t.es_cliente = 1 AND d.id_tercero IS NOT NULL';
+        } elseif ($tipoNormalizado === 'distribuidor') {
+            $sql .= ' AND COALESCE(t.es_cliente, 0) = 0 AND d.id_tercero IS NOT NULL';
+        }
 
         if ($q !== '') {
             $sql .= ' AND (nombre_completo LIKE ? OR numero_documento LIKE ?)';

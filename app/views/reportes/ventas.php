@@ -33,6 +33,15 @@
                     </select>
                 </div>
                 <div class="col-12 col-md-3">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Tipo tercero</label>
+                    <select name="tipo_tercero" id="filtroVentasTipoTercero" class="form-select bg-light">
+                        <option value="" <?php echo ($filtros['tipo_tercero'] ?? '') === '' ? 'selected' : ''; ?>>Todos...</option>
+                        <option value="cliente" <?php echo ($filtros['tipo_tercero'] ?? '') === 'cliente' ? 'selected' : ''; ?>>Cliente</option>
+                        <option value="cliente_distribuidor" <?php echo ($filtros['tipo_tercero'] ?? '') === 'cliente_distribuidor' ? 'selected' : ''; ?>>Cliente-distribuidor</option>
+                        <option value="distribuidor" <?php echo ($filtros['tipo_tercero'] ?? '') === 'distribuidor' ? 'selected' : ''; ?>>Distribuidor</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Producto</label>
                     <select name="id_item" id="filtroVentasProducto" class="form-select bg-light" placeholder="Todos...">
                         <option value="">Todos...</option>
@@ -302,6 +311,7 @@
         form.dataset.jsInicializado = '1';
 
         const clienteSelect = document.getElementById('filtroVentasCliente');
+        const tipoTerceroSelect = document.getElementById('filtroVentasTipoTercero');
         const productoSelect = document.getElementById('filtroVentasProducto');
         const tomListo = await esperarTomSelect();
         if (tomListo && clienteSelect && !clienteSelect.tomselect) {
@@ -317,11 +327,19 @@
                     u.searchParams.set('ruta', 'reportes/ventas');
                     u.searchParams.set('accion', 'buscar_clientes');
                     u.searchParams.set('q', query || '');
+                    u.searchParams.set('tipo_tercero', tipoTerceroSelect?.value || '');
                     fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                         .then(r => r.json())
                         .then(r => callback(Array.isArray(r?.data) ? r.data : []))
                         .catch(() => callback());
                 }
+            });
+        }
+        if (tipoTerceroSelect && clienteSelect?.tomselect) {
+            tipoTerceroSelect.addEventListener('change', () => {
+                clienteSelect.tomselect.clear(true);
+                clienteSelect.tomselect.clearOptions();
+                clienteSelect.tomselect.load('');
             });
         }
         if (tomListo && productoSelect && !productoSelect.tomselect) {

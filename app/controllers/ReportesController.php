@@ -212,9 +212,13 @@ class ReportesController extends Controlador
         AuthMiddleware::handle();
         require_permiso('reportes.ventas.ver');
         $this->registrarAuditoria('ventas');
+        $tipoTercero = trim((string) ($_GET['tipo_tercero'] ?? ''));
+        if (!in_array($tipoTercero, ['', 'cliente', 'cliente_distribuidor', 'distribuidor'], true)) {
+            $tipoTercero = '';
+        }
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_clientes') {
             $q = trim((string) ($_GET['q'] ?? ''));
-            json_response(['ok' => true, 'data' => $this->ventasDocumentoModel->buscarClientes($q)]);
+            json_response(['ok' => true, 'data' => $this->ventasDocumentoModel->buscarClientes($q, 20, $tipoTercero)]);
             return;
         }
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_productos') {
@@ -226,6 +230,7 @@ class ReportesController extends Controlador
         [$pagina, $tamano] = $this->paginacion();
         $f = $this->filtrosPeriodo();
         $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
+        $f['tipo_tercero'] = $tipoTercero;
         $f['id_item'] = (int) ($_GET['id_item'] ?? 0);
         $f['estado'] = $_GET['estado'] ?? '';
         $f['agrupacion'] = ($_GET['agrupacion'] ?? 'diaria') === 'semanal' ? 'semanal' : 'diaria';
@@ -234,7 +239,7 @@ class ReportesController extends Controlador
         $this->render('reportes/ventas', [
             'ruta_actual' => 'reportes/ventas',
             'filtros' => $f,
-            'clientesFiltro' => $this->ventasDocumentoModel->buscarClientes('', 200),
+            'clientesFiltro' => $this->ventasDocumentoModel->buscarClientes('', 200, $tipoTercero),
             'productosFiltro' => $this->ventasDocumentoModel->buscarItems('', 0, 0, 1, 200),
             'porCliente' => $this->ventas->ventasPorCliente($f, $pagina, $tamano),
             'pendientes' => $this->ventas->pendientesDespacho($f, $pagina, $tamano),

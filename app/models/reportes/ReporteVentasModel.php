@@ -3,6 +3,56 @@ declare(strict_types=1);
 
 class ReporteVentasModel extends Modelo
 {
+    private function aplicarFiltroTipoTercero(array &$where, array &$params, array $filtros, string $aliasDocumento = 'v'): void
+    {
+        $tipo = strtolower(trim((string) ($filtros['tipo_tercero'] ?? '')));
+        if ($tipo === '') {
+            return;
+        }
+
+        if ($tipo === 'cliente') {
+            $where[] = "EXISTS (
+                SELECT 1
+                FROM terceros tft
+                LEFT JOIN distribuidores dft
+                    ON dft.id_tercero = tft.id
+                   AND dft.deleted_at IS NULL
+                WHERE tft.id = {$aliasDocumento}.id_cliente
+                  AND tft.deleted_at IS NULL
+                  AND tft.es_cliente = 1
+                  AND dft.id_tercero IS NULL
+            )";
+            return;
+        }
+
+        if ($tipo === 'cliente_distribuidor') {
+            $where[] = "EXISTS (
+                SELECT 1
+                FROM terceros tft
+                INNER JOIN distribuidores dft
+                    ON dft.id_tercero = tft.id
+                   AND dft.deleted_at IS NULL
+                WHERE tft.id = {$aliasDocumento}.id_cliente
+                  AND tft.deleted_at IS NULL
+                  AND tft.es_cliente = 1
+            )";
+            return;
+        }
+
+        if ($tipo === 'distribuidor') {
+            $where[] = "EXISTS (
+                SELECT 1
+                FROM terceros tft
+                INNER JOIN distribuidores dft
+                    ON dft.id_tercero = tft.id
+                   AND dft.deleted_at IS NULL
+                WHERE tft.id = {$aliasDocumento}.id_cliente
+                  AND tft.deleted_at IS NULL
+                  AND COALESCE(tft.es_cliente, 0) = 0
+            )";
+        }
+    }
+
     public function contarPorDespachar(): int
     {
         // Aquí NO filtramos donaciones, porque el almacén SÍ debe despacharlas.
@@ -31,6 +81,7 @@ class ReporteVentasModel extends Modelo
             $params['id_item'] = (int) $f['id_item'];
         }
         if ($f['estado'] !== '' && $f['estado'] !== null) { $where[] = 'v.estado = :estado'; $params['estado'] = (int) $f['estado']; }
+        $this->aplicarFiltroTipoTercero($where, $params, $f, 'v');
         $w = implode(' AND ', $where);
 
         $count = $this->db()->prepare("SELECT COUNT(DISTINCT v.id_cliente) FROM ventas_documentos v WHERE {$w}");
@@ -65,6 +116,7 @@ class ReporteVentasModel extends Modelo
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
         if (!empty($f['id_item'])) { $where[] = 'd.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
         if ($f['estado'] !== '' && $f['estado'] !== null) { $where[] = 'v.estado = :estado'; $params['estado'] = (int) $f['estado']; }
+        $this->aplicarFiltroTipoTercero($where, $params, $f, 'v');
         $w = implode(' AND ', $where);
 
         /* * MODIFICACIÓN APLICADA Y CONFIRMADA:
@@ -101,6 +153,7 @@ class ReporteVentasModel extends Modelo
             $where[] = 'EXISTS (SELECT 1 FROM ventas_documentos_detalle d2 WHERE d2.id_documento_venta = v.id AND d2.id_item = :id_item AND d2.deleted_at IS NULL)';
             $params['id_item'] = (int) $f['id_item'];
         }
+        $this->aplicarFiltroTipoTercero($where, $params, $f, 'v');
         $w = implode(' AND ', $where);
 
         $count = $this->db()->prepare("SELECT COUNT(*) FROM ventas_documentos v WHERE {$w}");
@@ -150,6 +203,7 @@ class ReporteVentasModel extends Modelo
             $where[] = 'v.estado = :estado';
             $params['estado'] = (int) $f['estado'];
         }
+        $this->aplicarFiltroTipoTercero($where, $params, $f, 'v');
 
         $w = implode(' AND ', $where);
 
