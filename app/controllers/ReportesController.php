@@ -58,10 +58,8 @@ class ReportesController extends Controlador
         $this->registrarAuditoria('inventario');
         [$pagina, $tamano] = $this->paginacion();
 
-        // 1. NUEVA LÓGICA: Capturamos la pestaña activa de la URL (Por defecto 'stock')
         $seccionActiva = trim((string)($_GET['seccion_activa'] ?? 'stock'));
         
-        // Validación de seguridad por si envían un valor raro en la URL
         if (!in_array($seccionActiva, ['stock', 'kardex', 'vencimientos'])) {
             $seccionActiva = 'stock';
         }
@@ -77,18 +75,13 @@ class ReportesController extends Controlador
             'tipo_movimiento' => trim((string) ($_GET['tipo_movimiento'] ?? '')),
             'dias' => (int) ($_GET['dias'] ?? 30),
             'situacion_alerta' => trim((string) ($_GET['situacion_alerta'] ?? '')),
-            // Pasamos la sección activa a la vista dentro de los filtros
             'seccion_activa' => $seccionActiva 
         ];
 
-        // ==========================================
-        // INTERCEPTAR LA PETICIÓN DE IMPRESIÓN PDF
-        // ==========================================
         if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
             require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
             require_once BASE_PATH . '/vendor/autoload.php';
 
-            // 2. Súper Optimización: SOLO cargamos los datos de la pestaña que se está exportando
             $stock = ($seccionActiva === 'stock') ? $this->inventario->stockActual($f, 1, 999999) : [];
             $kardex = ($seccionActiva === 'kardex') ? $this->inventario->kardex($f, 1, 999999) : [];
             $vencimientos = ($seccionActiva === 'vencimientos') ? $this->inventario->vencimientos($f, 1, 999999) : [];
@@ -108,14 +101,11 @@ class ReportesController extends Controlador
             $dompdf->setPaper('A4', 'landscape'); 
             $dompdf->render();
             
-            // Un toque profesional: El nombre del PDF cambia según el reporte exportado
             $nombreArchivo = 'Reporte_Inventario_' . ucfirst($seccionActiva) . '.pdf';
             $dompdf->stream($nombreArchivo, ['Attachment' => false]);
             return;
         }
-        // ==========================================
 
-        // 3. Preparar los datos base para la Vista Web
         $datosVista = [
             'ruta_actual' => 'reportes/inventario',
             'filtros' => $f,
@@ -126,44 +116,34 @@ class ReportesController extends Controlador
             'vencimientos' => [],
             'pagina' => $pagina,
             'tamano' => $tamano,
-            // Inicializar las variables para los gráficos
             'datosGraficoDona' => [],
             'datosGraficoBarras' => []
         ];
 
-        // 4. Llenamos los datos reales según la pestaña activa
         if ($seccionActiva === 'stock') {
-            // Obtener datos de la tabla (usamos un límite alto temporalmente para un mejor gráfico si es necesario, pero usaremos los de la página actual para simplificar)
-            // Lo ideal es consultar el modelo para tener totales globales, pero para empezar usaremos lo de la vista
             $datosVista['stock'] = $this->inventario->stockActual($f, $pagina, $tamano);
             
-            // Construir datos reales para gráficos de Stock
             $tiposValor = [];
             $topItems = [];
             
             if (!empty($datosVista['stock']['rows'])) {
                 foreach ($datosVista['stock']['rows'] as $row) {
-                    // Agrupar por estado de alerta (ya que no viene el tipo_item directo en la query actual)
                     $claveDona = $row['alerta']; 
                     if (!isset($tiposValor[$claveDona])) {
                         $tiposValor[$claveDona] = 0;
                     }
                     $tiposValor[$claveDona] += (float) $row['valor_total'];
 
-                    // Acumular para el top de barras
                     $topItems[] = [
                         'nombre' => $row['item'],
                         'valor' => (float) $row['valor_total']
                     ];
                 }
                 
-                // Ordenar para las barras (de mayor a menor valor)
                 usort($topItems, fn($a, $b) => $b['valor'] <=> $a['valor']);
-                // Seleccionar solo los top 5
                 $topItems = array_slice($topItems, 0, 5);
             }
 
-            // Asignar los arrays formateados a la vista
             $datosVista['datosGraficoDona'] = [
                 'labels' => array_keys($tiposValor),
                 'data' => array_values($tiposValor)
@@ -176,14 +156,10 @@ class ReportesController extends Controlador
 
         } elseif ($seccionActiva === 'kardex') {
             $datosVista['kardex'] = $this->inventario->kardex($f, $pagina, $tamano);
-            // Aquí iría la lógica para el gráfico de Kardex después
-            
         } elseif ($seccionActiva === 'vencimientos') {
             $datosVista['vencimientos'] = $this->inventario->vencimientos($f, $pagina, $tamano);
-            // Aquí iría la lógica para el gráfico de Lotes después
         }
 
-        // Renderizar la vista con todos los datos
         $this->render('reportes/inventario', $datosVista);
     }
 
@@ -207,15 +183,20 @@ class ReportesController extends Controlador
         ]);
     }
 
+    // =======================================================
+    // FUNCIÓN VENTAS OPTIMIZADA ÚNICA
+    // =======================================================
     public function ventas(): void
     {
         AuthMiddleware::handle();
         require_permiso('reportes.ventas.ver');
         $this->registrarAuditoria('ventas');
+        
         $tipoTercero = trim((string) ($_GET['tipo_tercero'] ?? ''));
         if (!in_array($tipoTercero, ['', 'cliente', 'cliente_distribuidor', 'distribuidor'], true)) {
             $tipoTercero = '';
         }
+
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_clientes') {
             $q = trim((string) ($_GET['q'] ?? ''));
             json_response(['ok' => true, 'data' => $this->ventasDocumentoModel->buscarClientes($q, 20, $tipoTercero)]);
@@ -228,23 +209,67 @@ class ReportesController extends Controlador
         }
 
         [$pagina, $tamano] = $this->paginacion();
+        
+        // 1. Capturamos la pestaña activa
+        $seccionActiva = trim((string)($_GET['seccion_activa'] ?? 'tendencias'));
+        if (!in_array($seccionActiva, ['tendencias', 'clientes', 'productos', 'pendientes'])) {
+            $seccionActiva = 'tendencias';
+        }
+
         $f = $this->filtrosPeriodo();
         $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
-        $f['tipo_tercero'] = $tipoTercero;
+        $f['tipo_tercero'] = $tipoTercero; // Aseguramos que pase el tipo tercero
         $f['id_item'] = (int) ($_GET['id_item'] ?? 0);
         $f['estado'] = $_GET['estado'] ?? '';
         $f['agrupacion'] = ($_GET['agrupacion'] ?? 'diaria') === 'semanal' ? 'semanal' : 'diaria';
         $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'barras') === 'linea' ? 'linea' : 'barras';
+        $f['seccion_activa'] = $seccionActiva;
 
+        // ==========================================
+        // INTERCEPTAR LA PETICIÓN DE IMPRESIÓN PDF
+        // ==========================================
+        if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
+            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
+            require_once BASE_PATH . '/vendor/autoload.php';
+
+            // Optimización: Solo cargamos los datos de la pestaña que se está exportando
+            // Pasamos un límite alto (999999) para que el PDF imprima todo, no solo la primera página
+            $porPeriodo = ($seccionActiva === 'tendencias') ? $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], 365) : []; 
+            $porCliente = ($seccionActiva === 'clientes') ? $this->ventas->ventasPorCliente($f, 1, 999999) : [];
+            $topProductos = ($seccionActiva === 'productos') ? $this->ventas->topProductos($f, 100) : []; 
+            $pendientes = ($seccionActiva === 'pendientes') ? $this->ventas->pendientesDespacho($f, 1, 999999) : [];
+            
+            $filtros = $f;
+
+            ob_start();
+            require BASE_PATH . '/app/views/reportes/pdf_ventas.php';
+            $html = ob_get_clean();
+
+            $dompdf = new \Dompdf\Dompdf();
+            $options = $dompdf->getOptions();
+            $options->set(['isRemoteEnabled' => true]);
+            $dompdf->setOptions($options);
+
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait'); 
+            $dompdf->render();
+            
+            $nombreArchivo = 'Reporte_Ventas_' . ucfirst($seccionActiva) . '.pdf';
+            $dompdf->stream($nombreArchivo, ['Attachment' => false]);
+            return;
+        }
+        // ==========================================
+
+        // Vista Web normal (También optimizada)
         $this->render('reportes/ventas', [
             'ruta_actual' => 'reportes/ventas',
             'filtros' => $f,
             'clientesFiltro' => $this->ventasDocumentoModel->buscarClientes('', 200, $tipoTercero),
             'productosFiltro' => $this->ventasDocumentoModel->buscarItems('', 0, 0, 1, 200),
-            'porCliente' => $this->ventas->ventasPorCliente($f, $pagina, $tamano),
-            'pendientes' => $this->ventas->pendientesDespacho($f, $pagina, $tamano),
-            'topProductos' => $this->ventas->topProductos($f, 10),
-            'porPeriodo' => $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], 12),
+            'porCliente' => ($seccionActiva === 'clientes') ? $this->ventas->ventasPorCliente($f, $pagina, $tamano) : [],
+            'pendientes' => ($seccionActiva === 'pendientes') ? $this->ventas->pendientesDespacho($f, $pagina, $tamano) : [],
+            'topProductos' => ($seccionActiva === 'productos') ? $this->ventas->topProductos($f, 10) : [],
+            'porPeriodo' => ($seccionActiva === 'tendencias') ? $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], 12) : [],
             'pagina' => $pagina,
             'tamano' => $tamano,
         ]);
@@ -328,7 +353,7 @@ class ReportesController extends Controlador
         }
 
         $this->render('costos/produccion', [
-            'ruta_actual' => 'reportes/costos_produccion', // <-- Esto se queda igual para el sidebar
+            'ruta_actual' => 'reportes/costos_produccion',
             'filtros' => $f,
             'costosPorOrden' => $costosPorOrden,
             'costosMensuales' => $costosMensuales,
@@ -380,9 +405,6 @@ class ReportesController extends Controlador
             $f['vista'] = 'DETALLE';
         }
 
-        // ==========================================
-        // INTERCEPTAR LA PETICIÓN DE IMPRESIÓN
-        // ==========================================
         $accion = $_GET['accion'] ?? '';
         if ($accion === 'imprimir_estado_cuenta') {
             require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
@@ -391,10 +413,8 @@ class ReportesController extends Controlador
             $empresaModel = new EmpresaModel();
             $config = $empresaModel->obtener();
 
-            // Traemos TODOS los registros sin paginación para el PDF.
             $detalle = $this->tesoreria->historialEstadoCuenta($f, 1, 999999);
 
-            // Capturamos la vista HTML y la convertimos a PDF, igual que en ventas.
             ob_start();
             require BASE_PATH . '/app/views/reportes/pdf_estado_cuenta.php';
             $html = ob_get_clean();
@@ -410,7 +430,6 @@ class ReportesController extends Controlador
             $dompdf->stream('Estado_Cuenta.pdf', ['Attachment' => false]);
             return;
         }
-        // ==========================================
 
         $detalle = $this->tesoreria->historialEstadoCuenta($f, $pagina, $tamano);
         $porProducto = $this->tesoreria->estadoCuentaPorProducto($f, 200);

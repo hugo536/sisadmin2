@@ -123,6 +123,13 @@
                     <?php endif; ?>
 
                 </div>
+                
+                <div class="col-12 d-flex justify-content-end mt-4 pt-3 border-top">
+                    <button type="submit" name="exportar_pdf" value="1" class="btn btn-danger shadow-sm fw-semibold px-4" formtarget="_blank">
+                        <i class="bi bi-file-pdf-fill me-2"></i>Exportar <?php echo ucfirst($seccionActiva); ?> a PDF
+                    </button>
+                </div>
+
             </form>
         </div>
     </div>
