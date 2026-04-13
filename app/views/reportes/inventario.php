@@ -13,19 +13,19 @@
         </div>
     </div>
 
-    <ul class="nav nav-tabs border-bottom-1 mb-0 px-2" role="tablist">
+    <ul class="nav nav-tabs nav-tabs-pro reportes-inventario-tabs border-bottom-1 mb-0 px-2" role="tablist">
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'stock' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarSeccion('stock')">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'stock' ? 'active text-primary' : 'text-secondary bg-light'; ?>" onclick="cambiarSeccion('stock')">
                 <i class="bi bi-layers-half me-2"></i>Stock Actual
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'kardex' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarSeccion('kardex')">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'kardex' ? 'active text-primary' : 'text-secondary bg-light'; ?>" onclick="cambiarSeccion('kardex')">
                 <i class="bi bi-journal-check me-2"></i>Kardex Valorizado
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'vencimientos' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarSeccion('vencimientos')">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'vencimientos' ? 'active text-primary' : 'text-secondary bg-light'; ?>" onclick="cambiarSeccion('vencimientos')">
                 <i class="bi bi-calendar2-x me-2"></i>Lotes y Vencimientos
             </button>
         </li>
