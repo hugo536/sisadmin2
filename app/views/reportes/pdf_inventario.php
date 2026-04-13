@@ -31,20 +31,29 @@
         .text-right { text-align: right !important; }
         .critico { color: #d32f2f !important; font-weight: bold; }
         .normal { color: #2e7d32 !important; }
-        
-        /* Clase para separar las tablas en distintas páginas del PDF */
-        .salto-pagina { page-break-before: always; }
     </style>
 </head>
 <body>
 
-    <div class="titulo-doc">REPORTE CONSOLIDADO DE INVENTARIO</div>
+    <?php 
+        $seccionActiva = $filtros['seccion_activa'] ?? 'stock';
+        $tituloReporte = '';
+        if ($seccionActiva === 'stock') $tituloReporte = 'REPORTE DE STOCK ACTUAL VALORIZADO';
+        if ($seccionActiva === 'kardex') $tituloReporte = 'REPORTE DE KARDEX (MOVIMIENTOS)';
+        if ($seccionActiva === 'vencimientos') $tituloReporte = 'REPORTE DE LOTES Y VENCIMIENTOS';
+    ?>
+
+    <div class="titulo-doc"><?php echo $tituloReporte; ?></div>
 
     <table class="info-filtros">
         <tr>
             <td class="label">PERIODO:</td>
             <td style="width: 35%;">
-                <?php echo date('d/m/Y', strtotime($filtros['fecha_desde'] ?? date('Y-m-d'))); ?> AL <?php echo date('d/m/Y', strtotime($filtros['fecha_hasta'] ?? date('Y-m-d'))); ?>
+                <?php if($seccionActiva === 'kardex'): ?>
+                    <?php echo date('d/m/Y', strtotime($filtros['fecha_desde'] ?? date('Y-m-d'))); ?> AL <?php echo date('d/m/Y', strtotime($filtros['fecha_hasta'] ?? date('Y-m-d'))); ?>
+                <?php else: ?>
+                    AL DÍA DE HOY (<?php echo date('d/m/Y'); ?>)
+                <?php endif; ?>
             </td>
             <td class="label">TIPO / CATEGORÍA:</td>
             <td style="width: 35%; text-transform: uppercase;">
@@ -58,18 +67,18 @@
             </td>
             <td class="label">SITUACIÓN:</td>
             <td>
-                <?php echo htmlspecialchars((string) ($filtros['situacion_alerta'] ?? 'TODAS')); ?>
+                <?php 
+                    if (!empty($filtros['solo_bajo_minimo'])) {
+                        echo 'SOLO BAJO MÍNIMO';
+                    } else {
+                        echo htmlspecialchars((string) ($filtros['situacion_alerta'] ?: 'TODAS')); 
+                    }
+                ?>
             </td>
         </tr>
     </table>
 
-    <?php 
-    // Variable auxiliar para saber si ya imprimimos una sección y poner el salto de página
-    $imprimio_seccion_previa = false; 
-    ?>
-
-    <?php if(in_array('stock', $filtros['secciones'] ?? [])): ?>
-        <div class="seccion-titulo">1. STOCK ACTUAL (Valorizado)</div>
+    <?php if($seccionActiva === 'stock'): ?>
         <table class="detalle-tabla">
             <thead>
                 <tr>
@@ -110,15 +119,9 @@
                 <?php endif; ?>
             </tbody>
         </table>
-        <?php $imprimio_seccion_previa = true; ?>
     <?php endif; ?>
 
-    <?php if(in_array('kardex', $filtros['secciones'] ?? [])): ?>
-        <?php if($imprimio_seccion_previa): ?>
-            <div class="salto-pagina"></div>
-        <?php endif; ?>
-        
-        <div class="seccion-titulo">2. MOVIMIENTOS KARDEX</div>
+    <?php if($seccionActiva === 'kardex'): ?>
         <table class="detalle-tabla">
             <thead>
                 <tr>
@@ -154,15 +157,9 @@
                 <?php endif; ?>
             </tbody>
         </table>
-        <?php $imprimio_seccion_previa = true; ?>
     <?php endif; ?>
 
-    <?php if(in_array('vencimientos', $filtros['secciones'] ?? [])): ?>
-        <?php if($imprimio_seccion_previa): ?>
-            <div class="salto-pagina"></div>
-        <?php endif; ?>
-
-        <div class="seccion-titulo">3. CONTROL DE LOTES Y VENCIMIENTOS</div>
+    <?php if($seccionActiva === 'vencimientos'): ?>
         <table class="detalle-tabla">
             <thead>
                 <tr>

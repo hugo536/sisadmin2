@@ -1,23 +1,29 @@
-// Función para cambiar de pestaña y hacer auto-submit
-function cambiarSeccion(seccion) {
-    const form = document.getElementById('formFiltrosInventario');
-    const inputSeccion = document.getElementById('input_seccion_activa');
-    
-    // Solo enviamos si el usuario hizo clic en una pestaña diferente a la actual
-    if (inputSeccion.value !== seccion) {
-        inputSeccion.value = seccion;
-        
-        // Deshabilitar la validación HTML temporalmente para cambiar de pestaña sin trabas
-        const fechas = form.querySelectorAll('input[type="date"]');
-        fechas.forEach(f => f.required = false);
-        
-        form.submit();
-    }
-}
-
 // Inicialización cuando el documento está listo
 document.addEventListener('DOMContentLoaded', function() {
+    
+    // --- 1. LÓGICA DE LAS PESTAÑAS (TABS) ---
+    const botonesTabs = document.querySelectorAll('.btn-tab-seccion');
     const form = document.getElementById('formFiltrosInventario');
+    const inputSeccion = document.getElementById('input_seccion_activa');
+
+    botonesTabs.forEach(boton => {
+        boton.addEventListener('click', function() {
+            const seccionSeleccionada = this.getAttribute('data-seccion');
+            
+            // Solo enviamos si el usuario hizo clic en una pestaña diferente a la actual
+            if (inputSeccion.value !== seccionSeleccionada) {
+                inputSeccion.value = seccionSeleccionada;
+                
+                // Deshabilitar la validación HTML temporalmente para cambiar de pestaña sin trabas
+                const fechas = form.querySelectorAll('input[type="date"]');
+                fechas.forEach(f => f.required = false);
+                
+                form.submit();
+            }
+        });
+    });
+
+    // --- 2. LÓGICA DE LOS FILTROS Y AUTO-SUBMIT ---
     const inputsAutoSubmit = form.querySelectorAll('.auto-submit');
     const fechaDesde = document.getElementById('fecha_desde');
     const fechaHasta = document.getElementById('fecha_hasta');
@@ -42,34 +48,51 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // ==========================================
-    // INICIALIZACIÓN DE GRÁFICOS (Datos de Prueba)
-    // ==========================================
+    // --- 3. INICIALIZACIÓN DE GRÁFICOS (Datos de Prueba) ---
+    
+   // Gráficos de la Pestaña "Stock"
+    if (document.getElementById('chartStockDona') && window.datosInventario) {
+        
+        // Leemos los datos reales que nos mandó PHP
+        const donaData = window.datosInventario.graficoDona;
+        const barrasData = window.datosInventario.graficoBarras;
 
-    // Gráficos de la Pestaña "Stock"
-    if (document.getElementById('chartStockDona')) {
-        new Chart(document.getElementById('chartStockDona'), {
-            type: 'doughnut',
-            data: {
-                labels: ['Mat. Prima', 'Prod. Terminado', 'Insumos'],
-                datasets: [{ data: [45, 35, 20], backgroundColor: ['#0d6efd', '#198754', '#ffc107'] }]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
-        });
+        // Solo dibujamos la dona si hay datos
+        if (donaData.labels && donaData.labels.length > 0) {
+            new Chart(document.getElementById('chartStockDona'), {
+                type: 'doughnut',
+                data: {
+                    labels: donaData.labels,
+                    datasets: [{ 
+                        data: donaData.data, 
+                        // Colores aleatorios profesionales
+                        backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6610f2'] 
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
 
-        new Chart(document.getElementById('chartStockBarras'), {
-            type: 'bar',
-            data: {
-                labels: ['Cajas Cartón', 'Etiquetas', 'Botellas 1L', 'Tapas', 'Pegamento'],
-                datasets: [{ label: 'Valor en S/', data: [1500, 1200, 900, 600, 300], backgroundColor: '#0dcaf0' }]
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false, 
-                indexAxis: 'y', // Hace que las barras sean horizontales
-                plugins: { legend: { display: false } }
-            }
-        });
+        // Solo dibujamos las barras si hay datos
+        if (barrasData.labels && barrasData.labels.length > 0) {
+            new Chart(document.getElementById('chartStockBarras'), {
+                type: 'bar',
+                data: {
+                    labels: barrasData.labels,
+                    datasets: [{ 
+                        label: 'Valor Total', 
+                        data: barrasData.data, 
+                        backgroundColor: '#0dcaf0' 
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    indexAxis: 'y', 
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
     }
 
     // Gráfico de la Pestaña "Kardex"

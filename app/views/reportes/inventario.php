@@ -1,7 +1,9 @@
 <?php 
-    // Por defecto iniciamos en 'stock' si no hay sección seleccionada
-    $seccionActiva = $filtros['seccion_activa'] ?? 'stock'; 
+    // Capturamos la sección activa directamente de la URL (GET), 
+    // si no existe, probamos en los filtros, y si nada funciona, usamos 'stock'
+    $seccionActiva = $_GET['seccion_activa'] ?? ($filtros['seccion_activa'] ?? 'stock'); 
 ?>
+
 <div class="container-fluid p-4" id="reportesInventarioApp">
     
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
@@ -13,19 +15,19 @@
         </div>
     </div>
 
-    <ul class="nav nav-tabs nav-tabs-pro reportes-inventario-tabs border-bottom-1 mb-0 px-2" role="tablist">
+    <ul class="nav nav-tabs border-bottom-1 mb-0 px-2" role="tablist">
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'stock' ? 'active text-primary' : 'text-secondary bg-light'; ?>" onclick="cambiarSeccion('stock')">
+            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'stock' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="stock">
                 <i class="bi bi-layers-half me-2"></i>Stock Actual
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'kardex' ? 'active text-primary' : 'text-secondary bg-light'; ?>" onclick="cambiarSeccion('kardex')">
+            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'kardex' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="kardex">
                 <i class="bi bi-journal-check me-2"></i>Kardex Valorizado
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'vencimientos' ? 'active text-primary' : 'text-secondary bg-light'; ?>" onclick="cambiarSeccion('vencimientos')">
+            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'vencimientos' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="vencimientos">
                 <i class="bi bi-calendar2-x me-2"></i>Lotes y Vencimientos
             </button>
         </li>
@@ -55,6 +57,10 @@
                         <option value="">Todos los tipos</option>
                         <option value="producto_terminado" <?php echo (($filtros['tipo_item'] ?? '') === 'producto_terminado') ? 'selected' : ''; ?>>Producto terminado</option>
                         <option value="materia_prima" <?php echo (($filtros['tipo_item'] ?? '') === 'materia_prima') ? 'selected' : ''; ?>>Materia prima</option>
+                        <option value="insumo" <?php echo (($filtros['tipo_item'] ?? '') === 'insumo') ? 'selected' : ''; ?>>Insumo</option>
+                        <option value="semielaborado" <?php echo (($filtros['tipo_item'] ?? '') === 'semielaborado') ? 'selected' : ''; ?>>Semielaborado</option>
+                        <option value="material_empaque" <?php echo (($filtros['tipo_item'] ?? '') === 'material_empaque') ? 'selected' : ''; ?>>Material de empaque</option>
+                        <option value="servicio" <?php echo (($filtros['tipo_item'] ?? '') === 'servicio') ? 'selected' : ''; ?>>Servicio</option>
                     </select>
                 </div>
 
@@ -344,3 +350,11 @@
 
 </div>
 
+<script>
+    // Creamos un objeto global que nuestro archivo inventario.js podrá leer
+    window.datosInventario = {
+        graficoDona: <?php echo json_encode($datosGraficoDona ?? []); ?>,
+        graficoBarras: <?php echo json_encode($datosGraficoBarras ?? []); ?>,
+        // Aquí agregaremos kardex y lotes después
+    };
+</script>

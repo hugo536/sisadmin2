@@ -58,10 +58,12 @@ class ReportesController extends Controlador
         $this->registrarAuditoria('inventario');
         [$pagina, $tamano] = $this->paginacion();
 
-        // 1. Capturar las secciones (por defecto cargamos las 3 si no hay petición previa)
-        $secciones = $_GET['secciones'] ?? ['stock', 'kardex', 'vencimientos'];
-        if (!is_array($secciones)) {
-            $secciones = [];
+        // 1. NUEVA LÓGICA: Capturamos la pestaña activa de la URL (Por defecto 'stock')
+        $seccionActiva = trim((string)($_GET['seccion_activa'] ?? 'stock'));
+        
+        // Validación de seguridad por si envían un valor raro en la URL
+        if (!in_array($seccionActiva, ['stock', 'kardex', 'vencimientos'])) {
+            $seccionActiva = 'stock';
         }
 
         $f = [
@@ -75,21 +77,21 @@ class ReportesController extends Controlador
             'tipo_movimiento' => trim((string) ($_GET['tipo_movimiento'] ?? '')),
             'dias' => (int) ($_GET['dias'] ?? 30),
             'situacion_alerta' => trim((string) ($_GET['situacion_alerta'] ?? '')),
-            // Guardamos las secciones en los filtros para pasarlo a la vista
-            'secciones' => $secciones 
+            // Pasamos la sección activa a la vista dentro de los filtros
+            'seccion_activa' => $seccionActiva 
         ];
 
         // ==========================================
-        // INTERCEPTAR LA PETICIÓN DE IMPRESIÓN
+        // INTERCEPTAR LA PETICIÓN DE IMPRESIÓN PDF
         // ==========================================
         if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
             require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
             require_once BASE_PATH . '/vendor/autoload.php';
 
-            // 2. Optimizamos: SOLO consultamos lo que se seleccionó
-            $stock = in_array('stock', $secciones) ? $this->inventario->stockActual($f, 1, 999999) : [];
-            $kardex = in_array('kardex', $secciones) ? $this->inventario->kardex($f, 1, 999999) : [];
-            $vencimientos = in_array('vencimientos', $secciones) ? $this->inventario->vencimientos($f, 1, 999999) : [];
+            // 2. Súper Optimización: SOLO cargamos los datos de la pestaña que se está exportando
+            $stock = ($seccionActiva === 'stock') ? $this->inventario->stockActual($f, 1, 999999) : [];
+            $kardex = ($seccionActiva === 'kardex') ? $this->inventario->kardex($f, 1, 999999) : [];
+            $vencimientos = ($seccionActiva === 'vencimientos') ? $this->inventario->vencimientos($f, 1, 999999) : [];
             
             $filtros = $f;
 
@@ -105,23 +107,84 @@ class ReportesController extends Controlador
             $dompdf->loadHtml($html);
             $dompdf->setPaper('A4', 'landscape'); 
             $dompdf->render();
-            $dompdf->stream('Reporte_Inventario.pdf', ['Attachment' => false]);
+            
+            // Un toque profesional: El nombre del PDF cambia según el reporte exportado
+            $nombreArchivo = 'Reporte_Inventario_' . ucfirst($seccionActiva) . '.pdf';
+            $dompdf->stream($nombreArchivo, ['Attachment' => false]);
             return;
         }
         // ==========================================
 
-        // 3. Lo mismo para la vista Web normal
-        $this->render('reportes/inventario', [
+        // 3. Preparar los datos base para la Vista Web
+        $datosVista = [
             'ruta_actual' => 'reportes/inventario',
             'filtros' => $f,
             'almacenes' => $this->inventario->listarAlmacenesActivos(),
             'categorias' => $this->inventario->listarCategoriasActivas(),
-            'stock' => in_array('stock', $secciones) ? $this->inventario->stockActual($f, $pagina, $tamano) : [],
-            'kardex' => in_array('kardex', $secciones) ? $this->inventario->kardex($f, $pagina, $tamano) : [],
-            'vencimientos' => in_array('vencimientos', $secciones) ? $this->inventario->vencimientos($f, $pagina, $tamano) : [],
+            'stock' => [],
+            'kardex' => [],
+            'vencimientos' => [],
             'pagina' => $pagina,
             'tamano' => $tamano,
-        ]);
+            // Inicializar las variables para los gráficos
+            'datosGraficoDona' => [],
+            'datosGraficoBarras' => []
+        ];
+
+        // 4. Llenamos los datos reales según la pestaña activa
+        if ($seccionActiva === 'stock') {
+            // Obtener datos de la tabla (usamos un límite alto temporalmente para un mejor gráfico si es necesario, pero usaremos los de la página actual para simplificar)
+            // Lo ideal es consultar el modelo para tener totales globales, pero para empezar usaremos lo de la vista
+            $datosVista['stock'] = $this->inventario->stockActual($f, $pagina, $tamano);
+            
+            // Construir datos reales para gráficos de Stock
+            $tiposValor = [];
+            $topItems = [];
+            
+            if (!empty($datosVista['stock']['rows'])) {
+                foreach ($datosVista['stock']['rows'] as $row) {
+                    // Agrupar por estado de alerta (ya que no viene el tipo_item directo en la query actual)
+                    $claveDona = $row['alerta']; 
+                    if (!isset($tiposValor[$claveDona])) {
+                        $tiposValor[$claveDona] = 0;
+                    }
+                    $tiposValor[$claveDona] += (float) $row['valor_total'];
+
+                    // Acumular para el top de barras
+                    $topItems[] = [
+                        'nombre' => $row['item'],
+                        'valor' => (float) $row['valor_total']
+                    ];
+                }
+                
+                // Ordenar para las barras (de mayor a menor valor)
+                usort($topItems, fn($a, $b) => $b['valor'] <=> $a['valor']);
+                // Seleccionar solo los top 5
+                $topItems = array_slice($topItems, 0, 5);
+            }
+
+            // Asignar los arrays formateados a la vista
+            $datosVista['datosGraficoDona'] = [
+                'labels' => array_keys($tiposValor),
+                'data' => array_values($tiposValor)
+            ];
+            
+            $datosVista['datosGraficoBarras'] = [
+                'labels' => array_column($topItems, 'nombre'),
+                'data' => array_column($topItems, 'valor')
+            ];
+
+        } elseif ($seccionActiva === 'kardex') {
+            $datosVista['kardex'] = $this->inventario->kardex($f, $pagina, $tamano);
+            // Aquí iría la lógica para el gráfico de Kardex después
+            
+        } elseif ($seccionActiva === 'vencimientos') {
+            $datosVista['vencimientos'] = $this->inventario->vencimientos($f, $pagina, $tamano);
+            // Aquí iría la lógica para el gráfico de Lotes después
+        }
+
+        // Renderizar la vista con todos los datos
+        $this->render('reportes/inventario', $datosVista);
     }
 
     public function compras(): void
