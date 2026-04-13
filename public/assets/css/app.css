@@ -411,6 +411,16 @@ body.sidebar-collapsed .main-content {
     background-color: transparent;
 }
 
+
+.reportes-inventario-tabs .nav-link {
+    border-bottom: 3px solid transparent;
+}
+.reportes-inventario-tabs .nav-link.active {
+    color: #0d6efd !important;
+    border-bottom-color: #0d6efd !important;
+    background-color: #fff !important;
+}
+
 /* Utilitarios */
 @media (min-width: 768px) { .border-end-md { border-right: 1px solid #dee2e6 !important; } }
 .border-dashed { border-style: dashed !important; }
