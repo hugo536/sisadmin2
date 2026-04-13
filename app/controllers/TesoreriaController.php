@@ -745,42 +745,129 @@ class TesoreriaController extends Controlador
 
         try {
             $idOrigen = (int) ($_POST['id_origen'] ?? 0);
-            $monto    = (float) ($_POST['monto'] ?? 0);
-            
+            $montoTotal = round((float) ($_POST['monto'] ?? 0), 4);
+
             if ($idOrigen <= 0) {
                 throw new RuntimeException('ID Origen llegó como 0.');
             }
 
-            $payload = [
-                'tipo'           => $tipo,
-                'origen'         => $origen,
-                'id_origen'      => $idOrigen,
-                'id_cuenta'      => (int) ($_POST['id_cuenta'] ?? 0),
-                'id_metodo_pago' => (int) ($_POST['id_metodo_pago'] ?? 0),
-                'fecha'          => trim((string) ($_POST['fecha'] ?? date('Y-m-d'))),
-                'moneda'         => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
-                'monto'          => round($monto, 4),
-                'referencia'     => trim((string) ($_POST['referencia'] ?? '')),
-                'observaciones'  => trim((string) ($_POST['observaciones'] ?? '')),
-                'naturaleza_pago' => strtoupper(trim((string) ($_POST['naturaleza_pago'] ?? 'DOCUMENTO'))),
-                'monto_capital' => round((float) ($_POST['monto_capital'] ?? 0), 4),
-                'monto_interes' => round((float) ($_POST['monto_interes'] ?? 0), 4),
+            $naturalezaPago = strtoupper(trim((string) ($_POST['naturaleza_pago'] ?? 'DOCUMENTO')));
+            $montoCapitalTotal = round((float) ($_POST['monto_capital'] ?? 0), 4);
+            $montoInteresTotal = round((float) ($_POST['monto_interes'] ?? 0), 4);
+
+            $payloadBase = [
+                'tipo'            => $tipo,
+                'origen'          => $origen,
+                'id_origen'       => $idOrigen,
+                'id_cuenta'       => (int) ($_POST['id_cuenta'] ?? 0),
+                'fecha'           => trim((string) ($_POST['fecha'] ?? date('Y-m-d'))),
+                'moneda'          => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
+                'monto'           => $montoTotal,
+                'referencia'      => trim((string) ($_POST['referencia'] ?? '')),
+                'observaciones'   => trim((string) ($_POST['observaciones'] ?? '')),
+                'naturaleza_pago' => $naturalezaPago,
+                'monto_capital'   => $montoCapitalTotal,
+                'monto_interes'   => $montoInteresTotal,
                 'id_centro_costo' => (int) ($_POST['id_centro_costo'] ?? 0),
             ];
 
-            $this->validarPermisoOperacionCuenta((int) $payload['id_cuenta'], $origen);
+            $metodoIds = $_POST['metodo_pago_ids'] ?? [];
+            $metodoMontos = $_POST['metodo_montos'] ?? [];
+            $distribucion = [];
+
+            if (is_array($metodoIds) && is_array($metodoMontos) && count($metodoIds) > 0) {
+                $totalDistribuido = 0.0;
+                foreach ($metodoIds as $idx => $idMetodoRaw) {
+                    $idMetodo = (int) $idMetodoRaw;
+                    $montoMetodo = round((float) ($metodoMontos[$idx] ?? 0), 4);
+                    if ($idMetodo <= 0 || $montoMetodo <= 0) {
+                        continue;
+                    }
+                    $distribucion[] = ['id_metodo_pago' => $idMetodo, 'monto' => $montoMetodo];
+                    $totalDistribuido += $montoMetodo;
+                }
+
+                if (!empty($distribucion) && abs(round($totalDistribuido, 4) - $montoTotal) > 0.0001) {
+                    throw new RuntimeException('La suma de los métodos de pago debe coincidir con el monto total del cobro.');
+                }
+            }
+
+            if (empty($distribucion)) {
+                $idMetodoUnico = (int) ($_POST['id_metodo_pago'] ?? 0);
+                if ($idMetodoUnico <= 0) {
+                    throw new RuntimeException('Debe seleccionar al menos un método de cobro.');
+                }
+                $distribucion[] = ['id_metodo_pago' => $idMetodoUnico, 'monto' => $montoTotal];
+            }
+
+            $this->validarPermisoOperacionCuenta((int) $payloadBase['id_cuenta'], $origen);
 
             $userId = $this->obtenerUsuarioId();
-            $this->movModel->registrar($payload, $userId);
-            
+            $db = Conexion::get();
+            $db->beginTransaction();
+
+            $montoRegistrado = 0.0;
+            foreach ($distribucion as $idx => $item) {
+                $esUltimo = ($idx === count($distribucion) - 1);
+                $montoParcial = $esUltimo
+                    ? round($montoTotal - $montoRegistrado, 4)
+                    : round((float) $item['monto'], 4);
+
+                if ($montoParcial <= 0) {
+                    throw new RuntimeException('El monto parcial del método de cobro no es válido.');
+                }
+
+                $payload = $payloadBase;
+                $payload['id_metodo_pago'] = (int) $item['id_metodo_pago'];
+                $payload['monto'] = $montoParcial;
+
+                if ($naturalezaPago === 'MIXTO') {
+                    if ($montoTotal <= 0) {
+                        throw new RuntimeException('Monto total inválido para cobro mixto.');
+                    }
+                    if ($esUltimo) {
+                        $montoCapitalParcial = round($montoCapitalTotal - ($payloadBase['_capital_asignado'] ?? 0), 4);
+                        $montoInteresParcial = round($montoInteresTotal - ($payloadBase['_interes_asignado'] ?? 0), 4);
+                    } else {
+                        $proporcion = $montoParcial / $montoTotal;
+                        $montoCapitalParcial = round($montoCapitalTotal * $proporcion, 4);
+                        $montoInteresParcial = round($montoInteresTotal * $proporcion, 4);
+                        $payloadBase['_capital_asignado'] = round(($payloadBase['_capital_asignado'] ?? 0) + $montoCapitalParcial, 4);
+                        $payloadBase['_interes_asignado'] = round(($payloadBase['_interes_asignado'] ?? 0) + $montoInteresParcial, 4);
+                    }
+                    $payload['monto_capital'] = $montoCapitalParcial;
+                    $payload['monto_interes'] = $montoInteresParcial;
+                } elseif ($naturalezaPago === 'CAPITAL') {
+                    $payload['monto_capital'] = $montoParcial;
+                    $payload['monto_interes'] = 0;
+                } elseif ($naturalezaPago === 'INTERES') {
+                    $payload['monto_capital'] = 0;
+                    $payload['monto_interes'] = $montoParcial;
+                } else {
+                    $payload['monto_capital'] = 0;
+                    $payload['monto_interes'] = 0;
+                }
+
+                $this->movModel->registrar($payload, $userId);
+                $montoRegistrado += $montoParcial;
+            }
+
+            if (abs(round($montoRegistrado, 4) - $montoTotal) > 0.0001) {
+                throw new RuntimeException('No se pudo distribuir correctamente el monto entre los métodos de cobro.');
+            }
+
             if ($origen === 'CXC') {
                 $this->cxcModel->recalcularEstado($idOrigen, $userId);
             } else {
                 $this->cxpModel->recalcularEstado($idOrigen, $userId);
             }
 
+            $db->commit();
             redirect($redirectRuta . '?ok=1');
         } catch (Throwable $e) {
+            if (Conexion::get()->inTransaction()) {
+                Conexion::get()->rollBack();
+            }
             $this->mostrarErrorFatal($e, "Error guardando el movimiento");
         }
     }
