@@ -344,5 +344,3 @@
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="/assets/js/reportes/inventario.js"></script>
