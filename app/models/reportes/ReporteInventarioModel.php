@@ -17,7 +17,7 @@ class ReporteInventarioModel extends Modelo
     public function listarCategoriasActivas(): array
     {
         $sql = 'SELECT id, nombre
-                FROM items_categorias
+                FROM categorias
                 WHERE estado = 1
                   AND deleted_at IS NULL
                 ORDER BY nombre ASC';
