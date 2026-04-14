@@ -28,6 +28,7 @@ function initComercialApp() {
 
     const sidebarList = document.getElementById('acuerdosSidebarList');
     const filtroClientes = document.getElementById('filtroClientesAcuerdo');
+    const filtroMatriz = document.getElementById('filtroMatrizAcuerdo');
     const tabla = document.getElementById('tablaMatrizAcuerdo');
     const tbody = document.getElementById('matrizBodyRows');
     const tituloCliente = document.getElementById('acuerdoTituloCliente');
@@ -162,6 +163,43 @@ function initComercialApp() {
         `;
     };
 
+    const aplicarFiltroMatriz = () => {
+        if (!tbody || !filtroMatriz) return;
+        const terminosBusqueda = normalizarTexto(filtroMatriz.value).split(' ').filter(t => t.length > 0);
+        const filas = Array.from(tbody.querySelectorAll('tr[data-id-detalle]'));
+        let visibles = 0;
+
+        filas.forEach((fila) => {
+            const textoFila = normalizarTexto(fila.textContent || '');
+            const coincide = terminosBusqueda.every(termino => textoFila.includes(termino));
+            const mostrar = terminosBusqueda.length === 0 || coincide;
+            fila.classList.toggle('d-none', !mostrar);
+            if (mostrar) visibles += 1;
+        });
+
+        const filaVacia = document.getElementById('emptyMatrizRow');
+        if (filaVacia) {
+            const sinDatosOriginales = filas.length === 0;
+            filaVacia.classList.toggle('d-none', !sinDatosOriginales && visibles > 0);
+            if (!sinDatosOriginales) {
+                filaVacia.querySelector('td').innerHTML = `
+                    <i class="bi bi-search text-muted fs-1 d-block mb-2"></i>
+                    No hay coincidencias para la búsqueda.
+                `;
+            }
+        } else if (filas.length > 0 && visibles === 0) {
+            const nuevaFilaVacia = document.createElement('tr');
+            nuevaFilaVacia.id = 'emptyMatrizRow';
+            nuevaFilaVacia.innerHTML = `
+                <td colspan="5" class="text-center text-muted py-5">
+                    <i class="bi bi-search text-muted fs-1 d-block mb-2"></i>
+                    No hay coincidencias para la búsqueda.
+                </td>
+            `;
+            tbody.appendChild(nuevaFilaVacia);
+        }
+    };
+
     const cargarMatriz = async (idAcuerdo) => {
         if(tbody) tbody.style.opacity = '0.5';
 
@@ -226,6 +264,7 @@ function initComercialApp() {
                 tbody.innerHTML = json.matriz.map(r => rowTemplate(r, modo)).join('');
             }
         }
+        aplicarFiltroMatriz();
 
         const sidebarItem = document.querySelector(`.acuerdo-sidebar-item[data-id-acuerdo="${idAcuerdo}"]`);
         if (sidebarItem) {
@@ -307,6 +346,10 @@ function initComercialApp() {
                 }
             }
         });
+    }
+
+    if (filtroMatriz) {
+        filtroMatriz.addEventListener('input', aplicarFiltroMatriz);
     }
 
     const loadClientesDisponibles = async () => {
@@ -617,6 +660,7 @@ function initComercialProveedorApp() {
     const resumen = document.getElementById('acuerdoProveedorResumen');
     const sidebarList = document.getElementById('acuerdosProveedorSidebarList');
     const filtro = document.getElementById('filtroProveedoresAcuerdo');
+    const filtroMatriz = document.getElementById('filtroMatrizProveedor');
 
     const modalVincularEl = document.getElementById('modalVincularProveedor');
     const formVincular = document.getElementById('formVincularProveedor');
@@ -689,6 +733,53 @@ function initComercialProveedorApp() {
             </tr>`).join('');
     };
 
+    const aplicarFiltroMatriz = () => {
+        if (!tbody || !filtroMatriz) return;
+        const terminosBusqueda = (filtroMatriz.value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .trim()
+            .split(' ')
+            .filter(Boolean);
+
+        const filas = Array.from(tbody.querySelectorAll('tr[data-id-detalle]'));
+        let visibles = 0;
+
+        filas.forEach((fila) => {
+            const textoFila = (fila.textContent || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase();
+            const coincide = terminosBusqueda.every((termino) => textoFila.includes(termino));
+            const mostrar = terminosBusqueda.length === 0 || coincide;
+            fila.classList.toggle('d-none', !mostrar);
+            if (mostrar) visibles++;
+        });
+
+        const filaVacia = document.getElementById('emptyMatrizProveedorRow');
+        if (filaVacia) {
+            const sinDatosOriginales = filas.length === 0;
+            filaVacia.classList.toggle('d-none', !sinDatosOriginales && visibles > 0);
+            if (!sinDatosOriginales) {
+                filaVacia.querySelector('td').innerHTML = `
+                    <i class="bi bi-search text-muted fs-1 d-block mb-2"></i>
+                    No hay coincidencias para la búsqueda.
+                `;
+            }
+        } else if (filas.length > 0 && visibles === 0) {
+            const nuevaFilaVacia = document.createElement('tr');
+            nuevaFilaVacia.id = 'emptyMatrizProveedorRow';
+            nuevaFilaVacia.innerHTML = `
+                <td colspan="5" class="text-center text-muted py-5">
+                    <i class="bi bi-search text-muted fs-1 d-block mb-2"></i>
+                    No hay coincidencias para la búsqueda.
+                </td>
+            `;
+            tbody.appendChild(nuevaFilaVacia);
+        }
+    };
+
     const hidratarUnidadesTabla = async () => {
         if (!tbody) return;
         const filas = Array.from(tbody.querySelectorAll('tr[data-id-item]'));
@@ -715,6 +806,7 @@ function initComercialProveedorApp() {
         if (resumen) resumen.textContent = `${totalProductos} productos configurados`;
         renderRows(json.matriz || []);
         await hidratarUnidadesTabla();
+        aplicarFiltroMatriz();
 
         const sidebarItem = document.querySelector(`.proveedor-sidebar-item[data-id-acuerdo="${idAcuerdo}"]`);
         if (sidebarItem) {
@@ -751,6 +843,10 @@ function initComercialProveedorApp() {
             const noResults = document.getElementById('sidebarProveedorNoResults');
             if (noResults) noResults.classList.toggle('d-none', visible > 0);
         });
+    }
+
+    if (filtroMatriz) {
+        filtroMatriz.addEventListener('input', aplicarFiltroMatriz);
     }
 
     if (formVincular) {

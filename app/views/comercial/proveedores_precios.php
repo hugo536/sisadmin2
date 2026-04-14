@@ -78,6 +78,12 @@ $preciosMatriz = $precios_matriz ?? [];
                 </div>
                 <div class="card-body p-0">
                     <?php if ($acuerdoSeleccionado): ?>
+                        <div class="p-2 border-bottom bg-light">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                                <input type="search" class="form-control border-start-0 ps-0 shadow-none" id="filtroMatrizProveedor" placeholder="Buscar producto o código...">
+                            </div>
+                        </div>
                         <div class="table-responsive">
                             <table class="table align-middle mb-0 table-pro" id="tablaMatrizProveedor" data-id-acuerdo="<?php echo (int)$acuerdoSeleccionado['id']; ?>">
                                 <thead>
