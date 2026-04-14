@@ -203,10 +203,12 @@ class ProduccionOrdenesModel extends Modelo
 
     public function eliminarOrdenBorrador(int $idOrden, int $userId): void
     {
-        $stmt = $this->db()->prepare('UPDATE produccion_ordenes SET deleted_at = NOW(), updated_at = NOW(), updated_by = :updated_by WHERE id = :id AND estado = 0 AND deleted_at IS NULL');
+        $stmt = $this->db()->prepare('UPDATE produccion_ordenes
+                                      SET deleted_at = NOW(), updated_at = NOW(), updated_by = :updated_by
+                                      WHERE id = :id AND estado IN (0, 1) AND deleted_at IS NULL');
         $stmt->execute(['id' => $idOrden, 'updated_by' => $userId]);
         if ($stmt->rowCount() < 1) {
-            throw new RuntimeException('Solo se pueden eliminar órdenes en Borrador.');
+            throw new RuntimeException('Solo se pueden eliminar órdenes en Borrador o En proceso.');
         }
     }
 

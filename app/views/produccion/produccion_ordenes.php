@@ -378,11 +378,15 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                     <?php endif; ?>
                                                 </div>
 
-                                                <?php if ($estado === 0): ?>
-                                                <form method="post" class="d-inline js-swal-confirm" data-confirm-title="¿Eliminar borrador?" data-confirm-text="Se ocultará la orden.">
+                                                <?php if (in_array($estado, [0, 1], true)): ?>
+                                                <form method="post" class="d-inline js-swal-confirm"
+                                                      data-confirm-title="<?php echo $estado === 1 ? '¿Eliminar orden en proceso?' : '¿Eliminar borrador?'; ?>"
+                                                      data-confirm-text="Se ocultará la orden.">
                                                     <input type="hidden" name="accion" value="eliminar_borrador">
                                                     <input type="hidden" name="id_orden" value="<?php echo (int) $orden['id']; ?>">
-                                                    <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle border-0 shadow-sm" data-bs-toggle="tooltip" title="Eliminar borrador">
+                                                    <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle border-0 shadow-sm"
+                                                            data-bs-toggle="tooltip"
+                                                            title="<?php echo $estado === 1 ? 'Eliminar orden en proceso' : 'Eliminar borrador'; ?>">
                                                         <i class="bi bi-trash fs-6"></i>
                                                     </button>
                                                 </form>
