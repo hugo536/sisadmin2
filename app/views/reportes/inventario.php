@@ -25,6 +25,11 @@
             </button>
         </li>
         <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'historico' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="historico">
+                <i class="bi bi-clock-history me-2"></i>Stock a Fecha
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
             <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'kardex' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="kardex">
                 <i class="bi bi-journal-check me-2"></i>Kardex Valorizado
             </button>
@@ -80,10 +85,18 @@
                 </div>
 
                 <div class="col-12 col-lg-3 d-flex flex-column justify-content-end">
+                    
                     <?php if ($seccionActiva === 'stock'): ?>
                         <div class="form-check form-switch p-2 bg-light rounded border d-flex align-items-center" style="height: 38px;">
                             <input class="form-check-input mt-0 me-2 auto-submit" type="checkbox" role="switch" id="filtroBajoMinimo" name="solo_bajo_minimo" value="1" <?php echo !empty($filtros['solo_bajo_minimo']) ? 'checked' : ''; ?>>
                             <label class="form-check-label small fw-bold text-danger cursor-pointer mb-0" for="filtroBajoMinimo">Solo bajo mínimo</label>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($seccionActiva === 'historico'): ?>
+                        <div>
+                            <label class="form-label text-muted small fw-bold mb-1">Fecha y Hora de Corte <span class="text-danger">*</span></label>
+                            <input type="datetime-local" id="fecha_corte" name="fecha_corte" class="form-control bg-light border-primary-subtle auto-submit" value="<?php echo e($filtros['fecha_corte'] ?? date('Y-m-d\TH:i')); ?>" required>
                         </div>
                     <?php endif; ?>
 
@@ -210,6 +223,61 @@
                         <?php endif; ?>
                     </small>
                     <nav><ul class="pagination mb-0 justify-content-end" id="tablaRepStockPaginationControls"></ul></nav>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($seccionActiva === 'historico'): ?>
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-clock-history me-2 text-primary"></i>Stock a la Fecha Seleccionada</h5>
+                <div class="input-group input-group-sm w-auto" style="max-width: 250px;">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepHistorico" placeholder="Buscar ítem...">
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0 table-pro" id="tablaRepHistorico" data-erp-table="true" data-search-input="#filtroRepHistorico" data-rows-per-page="10">
+                        <thead>
+                            <tr>
+                                <th class="ps-4 text-secondary fw-semibold">Ítem</th>
+                                <th class="text-secondary fw-semibold">Almacén</th>
+                                <th class="text-end text-secondary fw-semibold">Stock Calculado</th>
+                                <th class="text-end text-secondary fw-semibold">C/U</th>
+                                <th class="text-end text-secondary fw-semibold">Valor Total</th>
+                                <th class="text-center pe-4 text-secondary fw-semibold">Unidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if(empty($historico['rows'])): ?>
+                                <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros para la fecha solicitada.</td></tr>
+                            <?php else: ?>
+                                <?php foreach (($historico['rows'] ?? []) as $r): ?>
+                                    <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['item'] . ' ' . (string)$r['almacen'])); ?>">
+                                        <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['item']); ?></td>
+                                        <td class="text-muted"><?php echo e((string)$r['almacen']); ?></td>
+                                        <td class="text-end fw-bold text-primary"><?php echo number_format((float)($r['stock_actual'] ?? 0), 2, '.', ','); ?></td>
+                                        <td class="text-end text-muted">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 4); ?></td>
+                                        <td class="text-end fw-semibold text-dark">S/ <?php echo number_format((float)($r['valor_total'] ?? 0), 2); ?></td>
+                                        <td class="text-center pe-4"><span class="badge bg-light text-secondary border"><?php echo e((string)$r['unidad']); ?></span></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
+                    <small class="text-muted fw-semibold" id="tablaRepHistoricoPaginationInfo">
+                        Cargando...
+                        <?php if (!empty($historico['valor_total'])): ?>
+                            <span class="ms-2 badge bg-primary-subtle text-primary border border-primary-subtle px-2">
+                                Valor total a la fecha: S/ <?php echo number_format((float)($historico['valor_total'] ?? 0), 2); ?>
+                            </span>
+                        <?php endif; ?>
+                    </small>
+                    <nav><ul class="pagination mb-0 justify-content-end" id="tablaRepHistoricoPaginationControls"></ul></nav>
                 </div>
             </div>
         </div>

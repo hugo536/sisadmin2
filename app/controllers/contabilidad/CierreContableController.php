@@ -391,4 +391,57 @@ class CierreContableController extends Controlador
             (string)($_SERVER['HTTP_USER_AGENT'] ?? 'CLI')
         );
     }
+
+    public function cron_inventario(): void
+    {
+        // 1. Seguridad: Solo se ejecuta si la URL trae esta clave secreta
+        $token = $_GET['token'] ?? '';
+        if ($token !== 'KARDEX_CRON_2026_SEC') {
+            http_response_code(403);
+            die('Acceso denegado. Token invalido.');
+        }
+
+        try {
+            $db = Conexion::get();
+
+            // 2. Determinar el mes (el día de ayer)
+            $fechaAyer = strtotime('yesterday');
+            $anioCierre = (int) date('Y', $fechaAyer);
+            $mesCierre = (int) date('m', $fechaAyer);
+
+            // 3. Crear periodo si no existe (el usuario 0 indica que es el sistema)
+            $periodo = $this->periodoModel->crearSiNoExiste($anioCierre, $mesCierre, 0);
+            $idPeriodo = (int) $periodo['id'];
+
+            // 4. Limpieza preventiva
+            $stmtDelete = $db->prepare('DELETE FROM inventario_stock_historico WHERE id_periodo = :id_periodo');
+            $stmtDelete->execute(['id_periodo' => $idPeriodo]);
+
+            // 5. Tomar la Foto del Inventario
+            $sql = 'INSERT INTO inventario_stock_historico 
+                        (id_periodo, id_item, id_almacen, stock_cierre, costo_unitario_cierre, valor_total_cierre)
+                    SELECT 
+                        :id_periodo, 
+                        s.id_item, 
+                        s.id_almacen, 
+                        s.stock_actual,
+                        ROUND(COALESCE(NULLIF(s.costo_promedio, 0), NULLIF(i.ultimo_costo_compra, 0), NULLIF(i.costo_referencial, 0), 0), 4) AS costo_unitario,
+                        ROUND(s.stock_actual * COALESCE(NULLIF(s.costo_promedio, 0), NULLIF(i.ultimo_costo_compra, 0), NULLIF(i.costo_referencial, 0), 0), 4) AS valor_total
+                    FROM inventario_stock s
+                    INNER JOIN items i ON i.id = s.id_item
+                    WHERE s.deleted_at IS NULL 
+                      AND i.deleted_at IS NULL
+                      AND s.stock_actual <> 0';
+
+            $stmtInsert = $db->prepare($sql);
+            $stmtInsert->execute(['id_periodo' => $idPeriodo]);
+
+            echo "Exito. Periodo cerrado: $anioCierre-$mesCierre";
+            
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo "Error: " . $e->getMessage();
+        }
+    }
+
 }

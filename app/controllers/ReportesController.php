@@ -60,13 +60,16 @@ class ReportesController extends Controlador
 
         $seccionActiva = trim((string)($_GET['seccion_activa'] ?? 'stock'));
         
-        if (!in_array($seccionActiva, ['stock', 'kardex', 'vencimientos'])) {
+        // 1. Agregamos 'historico' a las secciones permitidas
+        if (!in_array($seccionActiva, ['stock', 'historico', 'kardex', 'vencimientos'])) {
             $seccionActiva = 'stock';
         }
 
+        // 2. Agregamos 'fecha_corte' a los filtros
         $f = [
             'fecha_desde' => (string) ($_GET['fecha_desde'] ?? date('Y-m-01')),
             'fecha_hasta' => (string) ($_GET['fecha_hasta'] ?? date('Y-m-d')),
+            'fecha_corte' => trim((string) ($_GET['fecha_corte'] ?? date('Y-m-d\TH:i'))),
             'id_almacen' => (int) ($_GET['id_almacen'] ?? 0),
             'id_categoria' => (int) ($_GET['id_categoria'] ?? 0),
             'tipo_item' => trim((string) ($_GET['tipo_item'] ?? '')),
@@ -83,6 +86,8 @@ class ReportesController extends Controlador
             require_once BASE_PATH . '/vendor/autoload.php';
 
             $stock = ($seccionActiva === 'stock') ? $this->inventario->stockActual($f, 1, 999999) : [];
+            // 3. Cargamos los datos del histórico si piden PDF
+            $historico = ($seccionActiva === 'historico') ? $this->inventario->stockAFecha($f, 1, 999999) : [];
             $kardex = ($seccionActiva === 'kardex') ? $this->inventario->kardex($f, 1, 999999) : [];
             $vencimientos = ($seccionActiva === 'vencimientos') ? $this->inventario->vencimientos($f, 1, 999999) : [];
 
@@ -123,6 +128,7 @@ class ReportesController extends Controlador
             'almacenes' => $this->inventario->listarAlmacenesActivos(),
             'categorias' => $this->inventario->listarCategoriasActivas(),
             'stock' => [],
+            'historico' => [], // Inicializamos la variable para la vista
             'kardex' => [],
             'vencimientos' => [],
             'pagina' => $pagina,
@@ -165,6 +171,9 @@ class ReportesController extends Controlador
                 'data' => array_column($topItems, 'valor')
             ];
 
+        // 4. Ejecutamos la consulta si estamos en la pestaña histórico
+        } elseif ($seccionActiva === 'historico') {
+            $datosVista['historico'] = $this->inventario->stockAFecha($f, $pagina, $tamano);
         } elseif ($seccionActiva === 'kardex') {
             $datosVista['kardex'] = $this->inventario->kardex($f, $pagina, $tamano);
         } elseif ($seccionActiva === 'vencimientos') {

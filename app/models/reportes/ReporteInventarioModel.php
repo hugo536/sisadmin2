@@ -265,6 +265,112 @@ class ReporteInventarioModel extends Modelo
         ];
     }
 
+    public function stockAFecha(array $f, int $pagina, int $tamano): array
+    {
+        $offset = ($pagina - 1) * $tamano;
+        $costoExpr = $this->costoUnitarioExpr('s', 'i');
+        
+        // 1. Capturar Fecha y Hora de corte (Si solo envían fecha, asumimos el final del día)
+        $fechaCorte = trim((string) ($f['fecha_corte'] ?? date('Y-m-d H:i:s')));
+        if (strlen($fechaCorte) === 10) {
+            $fechaCorte .= ' 23:59:59';
+        }
+
+        $whereFiltros = ['s.deleted_at IS NULL', 'i.deleted_at IS NULL', 'a.deleted_at IS NULL'];
+        
+        // SOLUCIÓN: Creamos 4 parámetros idénticos para satisfacer las reglas de PDO
+        $params = [
+            ':fecha_corte1' => $fechaCorte,
+            ':fecha_corte2' => $fechaCorte,
+            ':fecha_corte3' => $fechaCorte,
+            ':fecha_corte4' => $fechaCorte
+        ];
+
+        $isGlobal = empty($f['id_almacen']);
+
+        if (!$isGlobal) { 
+            $whereFiltros[] = 's.id_almacen = :id_almacen'; 
+            $params[':id_almacen'] = (int) $f['id_almacen']; 
+        }
+        if (!empty($f['id_categoria'])) { 
+            $whereFiltros[] = 'i.id_categoria = :id_categoria'; 
+            $params[':id_categoria'] = (int) $f['id_categoria']; 
+        }
+        if (!empty($f['tipo_item'])) { 
+            $whereFiltros[] = 'i.tipo_item = :tipo_item'; 
+            $params[':tipo_item'] = (string) $f['tipo_item']; 
+        }
+
+        $whereSql = implode(' AND ', $whereFiltros);
+        
+        $selectAlmacen = $isGlobal ? "'TODOS LOS ALMACENES'" : "calc.almacen";
+        $groupBy = $isGlobal ? "calc.id_item, calc.item, calc.unidad, calc.costo_unitario" : "calc.id_item, calc.item, calc.almacen, calc.unidad, calc.costo_unitario";
+
+        // Inyectamos las 4 variables independientes
+        $coreSubquery = "
+            FROM (
+                SELECT 
+                    base.id_item, base.item, base.almacen, base.unidad, base.costo_unitario,
+                    (
+                        base.stock_base
+                        + COALESCE((SELECT SUM(m.cantidad) FROM inventario_movimientos m WHERE m.id_item = base.id_item AND m.id_almacen_destino = base.id_almacen AND m.created_at > base.fecha_base AND m.created_at <= :fecha_corte1 AND m.deleted_at IS NULL), 0)
+                        - COALESCE((SELECT SUM(m.cantidad) FROM inventario_movimientos m WHERE m.id_item = base.id_item AND m.id_almacen_origen = base.id_almacen AND m.created_at > base.fecha_base AND m.created_at <= :fecha_corte2 AND m.deleted_at IS NULL), 0)
+                    ) AS stock_calculado
+                FROM (
+                    SELECT 
+                        s.id_item, s.id_almacen, i.nombre AS item, a.nombre AS almacen, i.unidad_base AS unidad,
+                        ROUND({$costoExpr}, 4) AS costo_unitario,
+                        COALESCE((SELECT sh.stock_cierre FROM inventario_stock_historico sh WHERE sh.id_item = s.id_item AND sh.id_almacen = s.id_almacen AND sh.created_at <= :fecha_corte3 ORDER BY sh.created_at DESC LIMIT 1), 0) AS stock_base,
+                        COALESCE((SELECT sh.created_at FROM inventario_stock_historico sh WHERE sh.id_item = s.id_item AND sh.id_almacen = s.id_almacen AND sh.created_at <= :fecha_corte4 ORDER BY sh.created_at DESC LIMIT 1), '1970-01-01 00:00:00') AS fecha_base
+                    FROM inventario_stock s
+                    INNER JOIN items i ON i.id = s.id_item
+                    INNER JOIN almacenes a ON a.id = s.id_almacen
+                    WHERE {$whereSql}
+                ) AS base
+            ) AS calc
+        ";
+
+        // 2. Consulta para obtener el Total de filas (Paginación)
+        $countQuery = "SELECT COUNT(*) FROM (SELECT calc.id_item " . $coreSubquery . " GROUP BY {$groupBy} HAVING SUM(calc.stock_calculado) <> 0) AS t";
+        $stmtCount = $this->db()->prepare($countQuery);
+        $stmtCount->execute($params);
+        $total = (int) $stmtCount->fetchColumn();
+
+        // 3. Consulta Principal (Los datos reales para la tabla y el PDF)
+        $sql = "SELECT 
+                    calc.id_item, 
+                    calc.item, 
+                    {$selectAlmacen} AS almacen, 
+                    calc.unidad, 
+                    calc.costo_unitario, 
+                    SUM(calc.stock_calculado) AS stock_actual, 
+                    ROUND(SUM(calc.stock_calculado) * calc.costo_unitario, 4) AS valor_total 
+                " . $coreSubquery . " 
+                GROUP BY {$groupBy} 
+                HAVING SUM(calc.stock_calculado) <> 0 
+                ORDER BY calc.item ASC 
+                LIMIT :limite OFFSET :offset";
+        
+        $stmt = $this->db()->prepare($sql);
+        foreach ($params as $k => $v) { $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
+        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // 4. Consulta para sumar todo el dinero del inventario a esa fecha
+        $sqlTotales = "SELECT ROUND(SUM(t.valor_total), 4) AS valor_total FROM (SELECT ROUND(SUM(calc.stock_calculado) * calc.costo_unitario, 4) AS valor_total " . $coreSubquery . " GROUP BY {$groupBy} HAVING SUM(calc.stock_calculado) <> 0) AS t";
+        $stmtTotales = $this->db()->prepare($sqlTotales);
+        $stmtTotales->execute($params);
+        $valorTotal = (float) $stmtTotales->fetchColumn();
+
+        return [
+            'rows' => $rows,
+            'total' => $total,
+            'valor_total' => $valorTotal,
+        ];
+    }
+
     public function kardex(array $f, int $pagina, int $tamano): array
     {
         $offset = ($pagina - 1) * $tamano;
