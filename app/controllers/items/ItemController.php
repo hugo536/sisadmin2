@@ -206,7 +206,6 @@ class ItemController extends Controlador
                     }
 
                     unset($data['sku']);
-                    $data['unidad_base'] = (string) ($actual['unidad_base'] ?? 'UND');
 
                     $this->itemsModel->actualizar($id, $data, $userId);
                     $this->itemsModel->sincronizarDependenciasConfiguracion($id, $data, $userId);

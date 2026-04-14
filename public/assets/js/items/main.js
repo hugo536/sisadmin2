@@ -670,7 +670,6 @@
                 editDescripcion: 'data-descripcion',
                 editTipo: 'data-tipo',
                 editMarca: 'data-marca',
-                editUnidad: 'data-unidad',       
                 editUnidadSelect: 'data-unidad', 
                 editMoneda: 'data-moneda',
                 editImpuesto: 'data-impuesto',

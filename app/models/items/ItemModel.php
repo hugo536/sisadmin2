@@ -621,7 +621,7 @@ class ItemModel extends Modelo
                     id_sabor = :id_sabor,
                     id_presentacion = :id_presentacion,
                     marca = :marca,
-                    /* unidad_base eliminada por seguridad */
+                    unidad_base = :unidad_base,
                     peso_kg = :peso_kg,
                     permite_decimales = :permite_decimales,
                     requiere_lote = :requiere_lote,
@@ -643,7 +643,7 @@ class ItemModel extends Modelo
                   AND deleted_at IS NULL';
         
         $payload = $this->mapPayload($data);
-        unset($payload['sku'], $payload['unidad_base'], $payload['created_by']);
+        unset($payload['sku'], $payload['created_by']);
         
         $payload['id'] = $id;
         $payload['updated_by'] = $userId;
