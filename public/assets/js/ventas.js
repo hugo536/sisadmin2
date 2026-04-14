@@ -164,6 +164,29 @@
 
     const estadoBusquedaItems = { tieneAcuerdo: false, listaVacia: false };
 
+    function obtenerFechaLocalISO() {
+        const ahora = new Date();
+        const year = ahora.getFullYear();
+        const month = String(ahora.getMonth() + 1).padStart(2, '0');
+        const day = String(ahora.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function configurarInputCantidad(inputCantidad, permiteDecimales, valor = null) {
+        const decimalesHabilitados = Number(permiteDecimales) === 1;
+        inputCantidad.dataset.permiteDecimales = decimalesHabilitados ? '1' : '0';
+        inputCantidad.step = decimalesHabilitados ? '0.01' : '1';
+        inputCantidad.min = '0';
+
+        if (valor !== null) {
+            const numero = Number(valor || 0);
+            const normalizado = Math.max(0, numero);
+            inputCantidad.value = decimalesHabilitados
+                ? normalizado.toFixed(2)
+                : String(Math.round(normalizado));
+        }
+    }
+
     // --- HELPERS DE RED ---
     async function getJson(url) {
         const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
@@ -386,7 +409,8 @@
                             id: prod.id,
                             text: `${prod.nombre || ''}`,
                             stock: parseFloat(prod.stock_actual || 0),
-                            precio: parseFloat(prod.precio_venta || 0)
+                            precio: parseFloat(prod.precio_venta || 0),
+                            permiteDecimales: Number(prod.permite_decimales || 0)
                         }));
                         callback(items);
                     }).catch(() => callback());
@@ -406,6 +430,7 @@
 
                     filaReal.querySelector('.detalle-stock').textContent = selectedOption.stock.toFixed(2);
                     inputPrecio.value = selectedOption.precio.toFixed(2);
+                    configurarInputCantidad(inputCantidad, selectedOption.permiteDecimales, inputCantidad.value || 0);
                 }
                 validarCantidadVsStock(filaReal);
                 recalcularTotalVenta();
@@ -437,13 +462,14 @@
                 id: item.id_item, 
                 text: `${item.item_nombre || ''}`,
                 stock: Number(item.stock_actual || 0), 
-                precio: Number(item.precio_unitario)
+                precio: Number(item.precio_unitario),
+                permiteDecimales: Number(item.permite_decimales || 0)
             });
             tom.setValue(item.id_item);
             
             if (!esBorrador) tom.disable(); 
 
-            inputCantidad.value = Number(item.cantidad || 0).toFixed(2);
+            configurarInputCantidad(inputCantidad, item.permite_decimales, item.cantidad || 0);
             inputPrecio.value = Number(item.precio_unitario || 0).toFixed(2);
             
             filaReal.querySelector('.detalle-stock').textContent = Number(item.stock_actual || 0).toFixed(2);
@@ -463,6 +489,7 @@
         }
 
         if (!item && esBorrador) {
+            configurarInputCantidad(inputCantidad, 0, 0);
             setTimeout(() => {
                 filaReal.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 if (tom) tom.focus(); 
@@ -478,7 +505,7 @@
             tomSelectCliente.clear();
             tomSelectCliente.clearOptions();
         }
-        fechaEmision.value = new Date().toISOString().split('T')[0];
+        fechaEmision.value = obtenerFechaLocalISO();
         ventaObservaciones.value = '';
         
         if (tipoOperacion) {
