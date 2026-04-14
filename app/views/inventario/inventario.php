@@ -40,6 +40,9 @@ $tipoItemLabel = static function (string $tipo): string {
         </div>
 
         <div class="d-flex flex-wrap align-items-center gap-2">
+            <a href="<?php echo e(route_url('reportes/inventario')); ?>" class="btn btn-light shadow-sm text-secondary fw-semibold border">
+                <i class="bi bi-bar-chart-line me-2 text-info"></i>Reporte Inventario
+            </a>
             <a href="<?php echo e(route_url('inventario/kardex')); ?>" class="btn btn-light shadow-sm text-secondary fw-semibold border">
                 <i class="bi bi-journal-text me-2 text-info"></i>Kardex
             </a>
