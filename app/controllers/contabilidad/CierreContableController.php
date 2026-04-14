@@ -410,8 +410,9 @@ class CierreContableController extends Controlador
             $mesCierre = (int) date('m', $fechaAyer);
 
             // 3. Crear periodo si no existe (el usuario 0 indica que es el sistema)
-            $periodo = $this->periodoModel->crearSiNoExiste($anioCierre, $mesCierre, 0);
-            $idPeriodo = (int) $periodo['id'];
+            $resultadoPeriodo = $this->periodoModel->crearSiNoExiste($anioCierre, $mesCierre, 0);
+            // Verificamos si devuelve un arreglo o directamente el número ID
+            $idPeriodo = is_array($resultadoPeriodo) ? (int) $resultadoPeriodo['id'] : (int) $resultadoPeriodo;
 
             // 4. Limpieza preventiva
             $stmtDelete = $db->prepare('DELETE FROM inventario_stock_historico WHERE id_periodo = :id_periodo');
