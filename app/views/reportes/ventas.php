@@ -203,19 +203,33 @@
                             <th class="ps-4 text-secondary fw-semibold">Cliente</th>
                             <th class="text-end text-secondary fw-semibold">Total Vendido</th>
                             <th class="text-end text-secondary fw-semibold">Ticket Promedio</th>
-                            <th class="text-center pe-4 text-secondary fw-semibold">Docs. Emitidos</th>
-                        </tr>
+                            <th class="text-center text-secondary fw-semibold">Docs. Emitidos</th>
+                            <th class="text-center pe-4 text-secondary fw-semibold">Acciones</th> </tr>
                     </thead>
                     <tbody>
                         <?php if(empty($porCliente['rows'])): ?>
-                            <tr class="empty-msg-row"><td colspan="4" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de ventas.</td></tr>
+                            <tr class="empty-msg-row"><td colspan="5" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de ventas.</td></tr>
                         <?php else: ?>
                             <?php foreach (($porCliente['rows'] ?? []) as $r): ?>
                                 <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['cliente'])); ?>">
                                     <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['cliente']); ?></td>
                                     <td class="text-end fw-bold text-success">S/ <?php echo number_format((float)($r['total_vendido'] ?? 0), 2); ?></td>
                                     <td class="text-end text-muted">S/ <?php echo number_format((float)($r['ticket_promedio'] ?? 0), 2); ?></td>
-                                    <td class="text-center pe-4"><span class="badge bg-light text-secondary border"><?php echo e((string)$r['documentos']); ?></span></td>
+                                    <td class="text-center"><span class="badge bg-light text-secondary border"><?php echo e((string)$r['documentos']); ?></span></td>
+                                    
+                                    <td class="text-center pe-4">
+                                        <?php 
+                                              // Armamos la URL mágica que lleva al Estado de Cuenta con la vista de PRODUCTOS ya filtrada
+                                            $urlDetalle = route_url('reportes/estado_cuenta') . 
+                                                        '&cliente=' . urlencode((string)$r['cliente']) . 
+                                                        '&fecha_desde=' . urlencode($filtros['fecha_desde'] ?? '') . 
+                                                        '&fecha_hasta=' . urlencode($filtros['fecha_hasta'] ?? '') . 
+                                                        '&vista=PRODUCTO';
+                                        ?>
+                                        <a href="<?php echo $urlDetalle; ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3" data-bs-toggle="tooltip" title="Ver detalle de productos">
+                                            <i class="bi bi-eye-fill me-1"></i> Detalle
+                                        </a>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
