@@ -63,7 +63,7 @@
         <tr>
             <td class="label">ALMACÉN:</td>
             <td>
-                <?php echo (int) ($filtros['id_almacen'] ?? 0) > 0 ? ('ID ' . (int) $filtros['id_almacen']) : 'TODOS LOS ALMACENES'; ?>
+                <?php echo htmlspecialchars((string)($almacenNombre ?? 'TODOS LOS ALMACENES')); ?>
             </td>
             <td class="label">SITUACIÓN:</td>
             <td>
@@ -96,12 +96,14 @@
                 <?php else: ?>
                     <?php foreach (($stock['rows'] ?? []) as $r): 
                         $alertaTexto = (string)($r['alerta'] ?? '');
-                        $esCritico = stripos($alertaTexto, 'bajo') !== false || stripos($alertaTexto, 'crítico') !== false;
+                        $esCritico = stripos($alertaTexto, 'bajo') !== false || stripos($alertaTexto, 'crítico') !== false || stripos($alertaTexto, 'critico') !== false;
+                        $usaDecimales = (int)($r['permite_decimales'] ?? 0) === 1;
+                        $stockFormateado = number_format((float)($r['stock_actual'] ?? 0), $usaDecimales ? 3 : 0, '.', ',');
                     ?>
                     <tr>
                         <td><?php echo htmlspecialchars((string)$r['item']); ?></td>
                         <td><?php echo htmlspecialchars((string)$r['almacen']); ?></td>
-                        <td class="text-right fw-bold <?php echo $esCritico ? 'critico' : 'normal'; ?>"><?php echo htmlspecialchars((string)$r['stock_actual']); ?> <?php echo htmlspecialchars((string)($r['unidad'] ?? '')); ?></td>
+                        <td class="text-right fw-bold <?php echo $esCritico ? 'critico' : 'normal'; ?>"><?php echo htmlspecialchars($stockFormateado); ?> <?php echo htmlspecialchars((string)($r['unidad'] ?? '')); ?></td>
                         <td class="text-right">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 2); ?></td>
                         <td class="text-right fw-bold">S/ <?php echo number_format((float)($r['valor_total'] ?? 0), 2); ?></td>
                         <td class="text-center <?php echo $esCritico ? 'critico' : 'normal'; ?>">

@@ -179,14 +179,17 @@
                                         $alertaTexto = (string)$r['alerta'];
                                         $esCritico = stripos($alertaTexto, 'bajo') !== false || stripos($alertaTexto, 'crítico') !== false || stripos($alertaTexto, 'critico') !== false;
                                         $alertaClase = $esCritico ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-light text-secondary border-secondary-subtle';
+                                        $usaDecimales = (int)($r['permite_decimales'] ?? 0) === 1;
+                                        $stockFormateado = number_format((float)($r['stock_actual'] ?? 0), $usaDecimales ? 3 : 0, '.', ',');
+                                        $stockMinimoFormateado = number_format((float)($r['stock_minimo'] ?? 0), $usaDecimales ? 3 : 0, '.', ',');
                                     ?>
                                     <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['item'] . ' ' . (string)$r['almacen'])); ?>">
                                         <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['item']); ?></td>
                                         <td class="text-muted"><?php echo e((string)$r['almacen']); ?></td>
-                                        <td class="text-end fw-bold <?php echo $esCritico ? 'text-danger' : 'text-success'; ?>"><?php echo e((string)$r['stock_actual']); ?></td>
+                                        <td class="text-end fw-bold <?php echo $esCritico ? 'text-danger' : 'text-success'; ?>"><?php echo e($stockFormateado); ?></td>
                                         <td class="text-end text-muted">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 4); ?></td>
                                         <td class="text-end fw-semibold text-dark">S/ <?php echo number_format((float)($r['valor_total'] ?? 0), 2); ?></td>
-                                        <td class="text-end text-muted"><?php echo e((string)$r['stock_minimo']); ?></td>
+                                        <td class="text-end text-muted"><?php echo e($stockMinimoFormateado); ?></td>
                                         <td class="text-center"><span class="badge bg-light text-secondary border"><?php echo e((string)$r['unidad']); ?></span></td>
                                         <td class="text-center pe-4">
                                             <span class="badge px-2 py-1 rounded border <?php echo $alertaClase; ?>"><?php echo e($alertaTexto !== '' ? $alertaTexto : 'OK'); ?></span>

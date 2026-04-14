@@ -85,7 +85,18 @@ class ReportesController extends Controlador
             $stock = ($seccionActiva === 'stock') ? $this->inventario->stockActual($f, 1, 999999) : [];
             $kardex = ($seccionActiva === 'kardex') ? $this->inventario->kardex($f, 1, 999999) : [];
             $vencimientos = ($seccionActiva === 'vencimientos') ? $this->inventario->vencimientos($f, 1, 999999) : [];
-            
+
+            $almacenNombre = 'TODOS LOS ALMACENES';
+            $idAlmacenSeleccionado = (int) ($f['id_almacen'] ?? 0);
+            if ($idAlmacenSeleccionado > 0) {
+                foreach ($this->inventario->listarAlmacenesActivos() as $almacen) {
+                    if ((int) ($almacen['id'] ?? 0) === $idAlmacenSeleccionado) {
+                        $almacenNombre = mb_strtoupper((string) ($almacen['nombre'] ?? ''));
+                        break;
+                    }
+                }
+            }
+
             $filtros = $f;
 
             ob_start();
