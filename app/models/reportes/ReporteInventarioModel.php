@@ -173,7 +173,7 @@ class ReporteInventarioModel extends Modelo
         $count = $this->db()->prepare("SELECT COUNT(*) FROM inventario_stock s INNER JOIN items i ON i.id=s.id_item INNER JOIN almacenes a ON a.id=s.id_almacen WHERE {$whereSql}");
         $count->execute($params);
 
-        $sql = "SELECT s.id_item, i.nombre AS item, a.nombre AS almacen, s.stock_actual, i.stock_minimo, i.unidad_base AS unidad, i.estado,
+        $sql = "SELECT s.id_item, i.nombre AS item, a.nombre AS almacen, s.stock_actual, i.stock_minimo, i.permite_decimales, i.unidad_base AS unidad, i.estado,
                        ROUND({$costoExpr}, 4) AS costo_unitario,
                        ROUND(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * {$costoExpr} ELSE 0 END, 4) AS valor_total,
                        CASE WHEN s.stock_actual <= i.stock_minimo THEN 'CRITICO' ELSE 'OK' END AS alerta
