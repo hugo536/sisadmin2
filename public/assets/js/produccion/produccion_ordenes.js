@@ -601,7 +601,12 @@ function initModalEjecucion() {
             if (inputInicio) inputInicio.value = fechaInicioDefault;
             if (inputFin) inputFin.value = fechaFinDefault;
             if (inputParada) inputParada.value = '';
-            if (selectCentroCosto) selectCentroCosto.value = idCentroCostoReceta > 0 ? String(idCentroCostoReceta) : '';
+            if (selectCentroCosto) {
+                const idOrdenSafe = String(idOrden || '');
+                const centroGuardadoLocal = idOrdenSafe ? localStorage.getItem(`op_cc_${idOrdenSafe}`) : '';
+                const centroInicial = idCentroCostoReceta > 0 ? String(idCentroCostoReceta) : (centroGuardadoLocal || '');
+                selectCentroCosto.value = centroInicial;
+            }
             window.calcularTiempoNetoOP();
 
             const tbodyConsumos = document.querySelector('#tablaConsumosDynamic tbody');
@@ -683,39 +688,61 @@ function initModalEjecucion() {
         const btnSplit = e.target.closest('.js-split-row');
         if (btnSplit) {
             const trOriginal = btnSplit.closest('tr');
+            if (!trOriginal) return;
             const trClon = trOriginal.cloneNode(true);
+            const idInsumo = trOriginal.getAttribute('data-id-insumo') || '';
             
             trClon.querySelector('input[name="consumo_cantidad[]"]').value = '';
-            trClon.querySelector('select[name="consumo_id_almacen[]"]').value = '';
+            trClon.querySelector('select[name="consumo_id_almacen[]"]').selectedIndex = 0;
             trClon.querySelector('input[name="consumo_id_lote[]"]').value = '';
+            trClon.classList.add('fila-fraccion-extra');
             
             const badgeReq = trClon.querySelector('.badge-req');
-            const btnDiv = trClon.querySelector('.js-split-row');
             if (badgeReq) badgeReq.style.display = 'none';
-            if (btnDiv) btnDiv.style.display = 'none';
+            const celdaAccion = trClon.querySelector('td:last-child');
+            if (celdaAccion) {
+                celdaAccion.innerHTML = '<button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila fraccionada"><i class="bi bi-trash fs-5"></i></button>';
+            }
+
+            const inputOriginal = trOriginal.querySelector('input[name="consumo_cantidad[]"]');
+            const inputClon = trClon.querySelector('input[name="consumo_cantidad[]"]');
+            if (inputOriginal) {
+                inputOriginal.readOnly = true;
+                inputOriginal.classList.add('bg-light');
+            }
+            if (inputClon) {
+                inputClon.readOnly = false;
+                inputClon.removeAttribute('tabindex');
+                inputClon.classList.remove('bg-light');
+            }
 
             trOriginal.parentNode.insertBefore(trClon, trOriginal.nextSibling);
+            if (idInsumo) distribuirConsumoPorInsumo(idInsumo);
             recalcularSemaforos();
             return;
         }
     });
 
     function dispararRecalculoTotal() {
-        let totalProducido = 0;
-        document.querySelectorAll('input[name="ingreso_cantidad[]"]').forEach(inp => {
-            totalProducido += parseFloat(inp.value) || 0;
+        const insumos = new Set();
+        document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada').forEach((tr) => {
+            const idInsumo = tr.getAttribute('data-id-insumo');
+            if (idInsumo) insumos.add(idInsumo);
         });
-
-        document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada').forEach(tr => {
-            const reqUnitario = parseFloat(tr.getAttribute('data-req-unitario')) || 0;
-            const inputConsumo = tr.querySelector('input[name="consumo_cantidad[]"]');
-            if (inputConsumo) inputConsumo.value = (reqUnitario * totalProducido).toFixed(4);
-        });
+        insumos.forEach((idInsumo) => distribuirConsumoPorInsumo(idInsumo));
         recalcularSemaforos();
     }
 
     document.addEventListener('input', function(e) {
         if (e.target.matches('input[name="ingreso_cantidad[]"]')) dispararRecalculoTotal();
+        if (e.target.matches('#tablaConsumosDynamic tbody tr.fila-fraccion-extra input[name="consumo_cantidad[]"]')) {
+            const tr = e.target.closest('tr');
+            const idInsumo = tr ? tr.getAttribute('data-id-insumo') : '';
+            if (idInsumo) {
+                distribuirConsumoPorInsumo(idInsumo);
+                recalcularSemaforos();
+            }
+        }
     });
 
     document.addEventListener('change', function(e) {
@@ -738,15 +765,61 @@ function initModalEjecucion() {
             if (lblExecRecetaInfo) lblExecRecetaInfo.textContent = '';
         }
     });
+
+    document.addEventListener('submit', function (e) {
+        if (e.target.id !== 'formEjecutarOrden') return;
+        const idOrden = document.getElementById('execIdOrden')?.value || '';
+        const centro = document.getElementById('execCentroCosto')?.value || '';
+        if (idOrden) localStorage.setItem(`op_cc_${idOrden}`, centro);
+    });
 }
 
 // =========================================================================
 // 4. GENERADORES DE INTERFAZ
 // =========================================================================
+function calcularCantidadRequeridaPorInsumo(idInsumo) {
+    const filaBase = document.querySelector(`#tablaConsumosDynamic tbody tr.fila-calculada[data-id-insumo="${idInsumo}"]`);
+    if (!filaBase) return 0;
+    const reqUnitario = parseFloat(filaBase.getAttribute('data-req-unitario')) || 0;
+
+    let totalProducido = 0;
+    document.querySelectorAll('input[name="ingreso_cantidad[]"]').forEach((inp) => {
+        totalProducido += parseFloat(inp.value) || 0;
+    });
+
+    return reqUnitario * totalProducido;
+}
+
+function distribuirConsumoPorInsumo(idInsumo) {
+    const filas = Array.from(document.querySelectorAll(`#tablaConsumosDynamic tbody tr.fila-calculada[data-id-insumo="${idInsumo}"]`));
+    if (!filas.length) return;
+
+    const filaPrincipal = filas[0];
+    const inputPrincipal = filaPrincipal.querySelector('input[name="consumo_cantidad[]"]');
+    if (!inputPrincipal) return;
+
+    const requerimiento = calcularCantidadRequeridaPorInsumo(idInsumo);
+    let sumaFraccionada = 0;
+
+    filas.slice(1).forEach((filaExtra) => {
+        const inputExtra = filaExtra.querySelector('input[name="consumo_cantidad[]"]');
+        if (!inputExtra) return;
+        const valor = Math.max(0, parseFloat(inputExtra.value) || 0);
+        if (String(inputExtra.value) !== String(valor)) inputExtra.value = valor ? String(valor) : '';
+        sumaFraccionada += valor;
+    });
+
+    const restante = Math.max(0, requerimiento - sumaFraccionada);
+    inputPrincipal.value = restante.toFixed(4);
+
+    const excedido = sumaFraccionada > requerimiento;
+    inputPrincipal.classList.toggle('border-danger', excedido);
+    inputPrincipal.classList.toggle('text-danger', excedido);
+}
+
 function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
     const tbody = document.querySelector('#tablaConsumosDynamic tbody');
     if (!tbody) return;
-    const templateAlmacenes = document.getElementById('tplSelectAlmacenes')?.innerHTML || '';
     const tr = document.createElement('tr');
 
     if (item) {
@@ -772,12 +845,10 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
             optionsHtml += `<optgroup label="Con stock en otros almacenes">`;
             otrosConStock.forEach(a => { optionsHtml += `<option value="${a.id}" data-stock="${a.stock_actual}">${a.nombre} (Stock: ${a.stock_actual})</option>`; });
             optionsHtml += `</optgroup>`;
-            optionsHtml += `<optgroup label="Otros (Sin Stock - Forzar)">${templateAlmacenes}</optgroup>`;
         } else if (!almacenPlanta) {
-            optionsHtml += `<optgroup label="⚠ Sin Stock Registrado">${templateAlmacenes}</optgroup>`;
-        } else {
-            optionsHtml += `<optgroup label="Otros (Sin Stock - Forzar)">${templateAlmacenes}</optgroup>`;
+            optionsHtml += `<option value="" disabled>Sin stock registrado para este insumo</option>`;
         }
+        const puedeFraccionar = almacenesConStock.length > 1;
 
         tr.innerHTML = `
             <td class="align-middle bg-light">
@@ -788,9 +859,14 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
             <td class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${optionsHtml}</select></td>
             <td class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-center bg-light" value="${item.cantidad_calculada}" readonly tabindex="-1"></td>
             <td class="align-middle"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
-            <td class="text-center align-middle"></td>
+            <td class="text-center align-middle">
+                <button type="button" class="btn btn-sm btn-outline-secondary js-split-row" title="Fraccionar consumo en otro almacén" ${puedeFraccionar ? '' : 'disabled'}>
+                    <i class="bi bi-diagram-2"></i>
+                </button>
+            </td>
         `;
     } else {
+        const templateAlmacenes = document.getElementById('tplSelectAlmacenes')?.innerHTML || '';
         tr.innerHTML = `
             <td class="align-middle"><input type="number" name="consumo_id_insumo[]" class="form-control form-control-sm" placeholder="ID insumo" required></td>
             <td class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select></td>
