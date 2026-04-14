@@ -69,7 +69,7 @@
 
                                     <div class="col-md-4">
                                         <label for="editUnidadSelect" class="form-label small text-muted fw-semibold mb-1">Unidad base <span class="text-danger">*</span></label>
-                                        <select class="form-select shadow-none border-secondary-subtle bg-light" id="editUnidadSelect" disabled title="La unidad base no puede cambiarse para evitar descuadres de stock.">
+                                        <select class="form-select shadow-none border-secondary-subtle" id="editUnidadSelect" name="unidad_base" required>
                                             <option value="UND">UND</option>
                                             <option value="KG">KG</option>
                                             <option value="LT">LT</option>
@@ -77,7 +77,6 @@
                                             <option value="CAJA">CAJA</option>
                                             <option value="PAQ">PAQ</option>
                                         </select>
-                                        <input type="hidden" id="editUnidad" name="unidad_base">
                                     </div>
 
                                     <div class="col-md-4" id="editSaborContainer">
