@@ -61,9 +61,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 valueField: 'id', 
                 labelField: 'nombre_completo', 
                 searchField: ['nombre_completo', 'num_doc'],
-                placeholder: 'Buscar cliente...', 
+                placeholder: 'Todos...', 
                 maxOptions: 50, 
                 create: false,
+                allowEmptyOption: true,
                 load(query, callback) {
                     const u = new URL(window.location.href);
                     u.searchParams.set('ruta', 'reportes/ventas');
@@ -75,7 +76,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         .then(r => callback(Array.isArray(r?.data) ? r.data : []))
                         .catch(() => callback());
                 },
-                onChange: enviarFiltros
+                onChange: enviarFiltros,
+                onInitialize() {
+                    if (!this.getValue()) {
+                        this.clear(true);
+                    }
+                }
             });
         }
 
@@ -85,9 +91,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 valueField: 'id', 
                 labelField: 'nombre', 
                 searchField: ['nombre', 'sku'],
-                placeholder: 'Buscar producto...', 
+                placeholder: 'Todos...', 
                 maxOptions: 50, 
                 create: false,
+                allowEmptyOption: true,
                 load(query, callback) {
                     const u = new URL(window.location.href);
                     u.searchParams.set('ruta', 'reportes/ventas');
@@ -98,7 +105,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         .then(r => callback(Array.isArray(r?.data) ? r.data : []))
                         .catch(() => callback());
                 },
-                onChange: enviarFiltros
+                onChange: enviarFiltros,
+                onInitialize() {
+                    if (!this.getValue()) {
+                        this.clear(true);
+                    }
+                }
             });
         }
     };

@@ -100,7 +100,7 @@
                             <div class="w-60">
                                 <label class="form-label text-muted small fw-bold mb-1">Cliente Específico</label>
                                 <select name="id_cliente" id="filtroVentasCliente" class="form-select bg-light auto-submit" placeholder="Buscar...">
-                                    <option value="">Todos...</option>
+                                    <option value="" <?php echo empty($filtros['id_cliente']) ? 'selected' : ''; ?>>Todos...</option>
                                     <?php foreach (($clientesFiltro ?? []) as $cli): ?>
                                         <option value="<?php echo (int) ($cli['id'] ?? 0); ?>" <?php echo ((int)($filtros['id_cliente'] ?? 0) === (int)($cli['id'] ?? 0)) ? 'selected' : ''; ?>>
                                             <?php echo e((string) ($cli['nombre_completo'] ?? '')); ?>
@@ -115,7 +115,7 @@
                         <div>
                             <label class="form-label text-muted small fw-bold mb-1">Producto Específico</label>
                             <select name="id_item" id="filtroVentasProducto" class="form-select bg-light auto-submit" placeholder="Buscar...">
-                                <option value="">Todos...</option>
+                                <option value="" <?php echo empty($filtros['id_item']) ? 'selected' : ''; ?>>Todos...</option>
                                 <?php foreach (($productosFiltro ?? []) as $item): ?>
                                     <option value="<?php echo (int) ($item['id'] ?? 0); ?>" <?php echo ((int)($filtros['id_item'] ?? 0) === (int)($item['id'] ?? 0)) ? 'selected' : ''; ?>>
                                         <?php echo e((string) ($item['nombre'] ?? '')); ?>
