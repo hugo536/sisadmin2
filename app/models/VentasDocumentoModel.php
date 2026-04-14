@@ -94,6 +94,10 @@ class VentasDocumentoModel extends Modelo
                               END AS id_item,
                               COALESCE(i.sku, 'SIN-SKU') AS sku,
                               COALESCE(i.nombre, pp.nombre) AS item_nombre,
+                              CASE
+                                  WHEN d.id_item > 0 THEN COALESCE(i.permite_decimales, 0)
+                                  ELSE 0
+                              END AS permite_decimales,
                               d.cantidad,
                               d.precio_unitario,
                               d.total_linea AS subtotal,
@@ -457,6 +461,7 @@ class VentasDocumentoModel extends Modelo
 
         if ($acuerdo['tiene_acuerdo']) {
             $sqlItems = "SELECT CONCAT('ITEM-', i.id) AS id, i.sku, i.nombre, cap.precio_pactado AS precio_venta, i.tipo_item,
+                                COALESCE(i.permite_decimales, 0) AS permite_decimales,
                                 COALESCE($stockSqlItems, 0) AS stock_actual
                          FROM comercial_acuerdos_precios cap
                          INNER JOIN items i ON i.id = cap.id_presentacion
@@ -477,6 +482,7 @@ class VentasDocumentoModel extends Modelo
                                     {$subqueryPrecioPresentacion}, i.precio_venta, 0
                                 ) AS precio_venta,
                                 i.tipo_item,
+                                COALESCE(i.permite_decimales, 0) AS permite_decimales,
                                 COALESCE($stockSqlItems, 0) AS stock_actual
                          FROM items i
                          WHERE i.estado = 1 AND i.deleted_at IS NULL
@@ -492,7 +498,7 @@ class VentasDocumentoModel extends Modelo
         if ($this->tablaExiste('precios_presentaciones') && $this->tablaExiste('precios_presentaciones_detalle')) {
             $stockSqlPacks = $this->resolverSubqueryStockCombo('pp.id', $idAlmacen);
             $sqlPacks = "SELECT CONCAT('PACK-', pp.id) AS id, 'SIN-SKU' AS sku, pp.nombre, pp.precio_venta,
-                                'combo' AS tipo_item, {$stockSqlPacks} AS stock_actual
+                                'combo' AS tipo_item, 0 AS permite_decimales, {$stockSqlPacks} AS stock_actual
                          FROM precios_presentaciones pp
                          WHERE pp.estado = 1 AND pp.deleted_at IS NULL";
             $consultas[] = "($sqlPacks)";
