@@ -125,76 +125,135 @@ class ReporteInventarioModel extends Modelo
     {
         $offset = ($pagina - 1) * $tamano;
         $costoExpr = $this->costoUnitarioExpr('s', 'i');
+        
+        // Inicializamos arrays para condiciones
         $where = ['s.deleted_at IS NULL', 'i.deleted_at IS NULL', 'a.deleted_at IS NULL'];
+        $having = [];
         $params = [];
 
-        if (!empty($f['id_almacen'])) { $where[] = 's.id_almacen = :id_almacen'; $params['id_almacen'] = (int) $f['id_almacen']; }
-        if (!empty($f['id_categoria'])) { $where[] = 'i.id_categoria = :id_categoria'; $params['id_categoria'] = (int) $f['id_categoria']; }
-        if (!empty($f['tipo_item'])) { $where[] = 'i.tipo_item = :tipo_item'; $params['tipo_item'] = (string) $f['tipo_item']; }
-        if (!empty($f['solo_bajo_minimo'])) { $where[] = 's.stock_actual <= i.stock_minimo'; }
+        // Variable para saber si debemos agrupar o no
+        $isGlobal = empty($f['id_almacen']);
+
+        if (!$isGlobal) { 
+            $where[] = 's.id_almacen = :id_almacen'; 
+            $params['id_almacen'] = (int) $f['id_almacen']; 
+        }
+        
+        if (!empty($f['id_categoria'])) { 
+            $where[] = 'i.id_categoria = :id_categoria'; 
+            $params['id_categoria'] = (int) $f['id_categoria']; 
+        }
+        
+        if (!empty($f['tipo_item'])) { 
+            $where[] = 'i.tipo_item = :tipo_item'; 
+            $params['tipo_item'] = (string) $f['tipo_item']; 
+        }
 
         $situacion = trim((string) ($f['situacion_alerta'] ?? ''));
-        if ($situacion === 'disponible') {
-            $where[] = 's.stock_actual > i.stock_minimo';
-        } elseif ($situacion === 'bajo_minimo') {
-            $where[] = 's.stock_actual > 0 AND s.stock_actual <= i.stock_minimo';
-        } elseif ($situacion === 'agotado') {
-            $where[] = 's.stock_actual <= 0';
-        } elseif ($situacion === 'proximo_a_vencer') {
+
+        // LÓGICA DE AGRUPACIÓN PARA ALERTAS
+        // Si es global, las validaciones de stock deben hacerse usando HAVING (después de sumar).
+        // Si es por almacén, se hacen con WHERE (por cada fila).
+        if ($isGlobal) {
+            $stockExpr = "SUM(s.stock_actual)";
+            if (!empty($f['solo_bajo_minimo'])) { $having[] = "{$stockExpr} <= i.stock_minimo"; }
+
+            if ($situacion === 'disponible') {
+                $having[] = "{$stockExpr} > i.stock_minimo";
+            } elseif ($situacion === 'bajo_minimo') {
+                $having[] = "{$stockExpr} > 0 AND {$stockExpr} <= i.stock_minimo";
+            } elseif ($situacion === 'agotado') {
+                $having[] = "{$stockExpr} <= 0";
+            }
+        } else {
+            $stockExpr = "s.stock_actual";
+            if (!empty($f['solo_bajo_minimo'])) { $where[] = "s.stock_actual <= i.stock_minimo"; }
+
+            if ($situacion === 'disponible') {
+                $where[] = "s.stock_actual > i.stock_minimo";
+            } elseif ($situacion === 'bajo_minimo') {
+                $where[] = "s.stock_actual > 0 AND s.stock_actual <= i.stock_minimo";
+            } elseif ($situacion === 'agotado') {
+                $where[] = "s.stock_actual <= 0";
+            }
+        }
+
+        // Estas alertas sí se evalúan por WHERE porque comprueban existencia de registros subyacentes
+        if ($situacion === 'proximo_a_vencer') {
             $where[] = 'EXISTS (
-                SELECT 1
-                FROM inventario_lotes l
-                WHERE l.id_item = s.id_item
-                  AND l.id_almacen = s.id_almacen
-                  AND l.deleted_at IS NULL
-                  AND l.fecha_vencimiento >= CURDATE()
-                  AND l.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+                SELECT 1 FROM inventario_lotes l 
+                WHERE l.id_item = s.id_item AND l.id_almacen = s.id_almacen 
+                AND l.deleted_at IS NULL AND l.fecha_vencimiento >= CURDATE() AND l.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
             )';
         } elseif ($situacion === 'vencido') {
             $where[] = 'EXISTS (
-                SELECT 1
-                FROM inventario_lotes l
-                WHERE l.id_item = s.id_item
-                  AND l.id_almacen = s.id_almacen
-                  AND l.deleted_at IS NULL
-                  AND l.fecha_vencimiento < CURDATE()
+                SELECT 1 FROM inventario_lotes l 
+                WHERE l.id_item = s.id_item AND l.id_almacen = s.id_almacen 
+                AND l.deleted_at IS NULL AND l.fecha_vencimiento < CURDATE()
             )';
         } elseif ($situacion === 'sin_movimientos') {
             $where[] = 'NOT EXISTS (
-                SELECT 1
-                FROM inventario_movimientos m
-                WHERE m.deleted_at IS NULL
-                  AND m.id_item = s.id_item
-                  AND (m.id_almacen_origen = s.id_almacen OR m.id_almacen_destino = s.id_almacen)
+                SELECT 1 FROM inventario_movimientos m 
+                WHERE m.deleted_at IS NULL AND m.id_item = s.id_item AND (m.id_almacen_origen = s.id_almacen OR m.id_almacen_destino = s.id_almacen)
             )';
         }
 
         $whereSql = implode(' AND ', $where);
-        $count = $this->db()->prepare("SELECT COUNT(*) FROM inventario_stock s INNER JOIN items i ON i.id=s.id_item INNER JOIN almacenes a ON a.id=s.id_almacen WHERE {$whereSql}");
+        $havingSql = !empty($having) ? ' HAVING ' . implode(' AND ', $having) : '';
+
+        // 1. OBTENER TOTAL DE REGISTROS (PAGINACIÓN)
+        if ($isGlobal) {
+            $countSql = "SELECT COUNT(*) FROM (
+                SELECT s.id_item FROM inventario_stock s INNER JOIN items i ON i.id=s.id_item INNER JOIN almacenes a ON a.id=s.id_almacen 
+                WHERE {$whereSql} GROUP BY s.id_item, i.stock_minimo {$havingSql}
+            ) AS t";
+        } else {
+            $countSql = "SELECT COUNT(*) FROM inventario_stock s INNER JOIN items i ON i.id=s.id_item INNER JOIN almacenes a ON a.id=s.id_almacen WHERE {$whereSql}";
+        }
+        $count = $this->db()->prepare($countSql);
         $count->execute($params);
 
-        $sql = "SELECT s.id_item, i.nombre AS item, a.nombre AS almacen, s.stock_actual, i.stock_minimo, i.permite_decimales, i.unidad_base AS unidad, i.estado,
-                       ROUND({$costoExpr}, 4) AS costo_unitario,
-                       ROUND(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * {$costoExpr} ELSE 0 END, 4) AS valor_total,
-                       CASE WHEN s.stock_actual <= i.stock_minimo THEN 'CRITICO' ELSE 'OK' END AS alerta
+        // 2. CONSTRUIR CONSULTA PRINCIPAL
+        // Modificamos las columnas de selección dependiendo si agrupamos o no
+        $selectAlmacen = $isGlobal ? "'TODOS LOS ALMACENES' AS almacen" : "a.nombre AS almacen";
+        $selectStock   = $isGlobal ? "SUM(s.stock_actual) AS stock_actual" : "s.stock_actual";
+        $selectCosto   = $isGlobal ? "MAX({$costoExpr})" : $costoExpr;
+        $selectValor   = $isGlobal ? "SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * {$costoExpr} ELSE 0 END)" : "CASE WHEN s.stock_actual > 0 THEN s.stock_actual * {$costoExpr} ELSE 0 END";
+        $selectAlerta  = $isGlobal ? "CASE WHEN SUM(s.stock_actual) <= i.stock_minimo THEN 'CRITICO' ELSE 'OK' END AS alerta" : "CASE WHEN s.stock_actual <= i.stock_minimo THEN 'CRITICO' ELSE 'OK' END AS alerta";
+        
+        $groupBySql = $isGlobal ? "GROUP BY s.id_item, i.nombre, i.stock_minimo, i.permite_decimales, i.unidad_base, i.estado" : "";
+
+        $sql = "SELECT s.id_item, i.nombre AS item, {$selectAlmacen}, {$selectStock}, i.stock_minimo, i.permite_decimales, i.unidad_base AS unidad, i.estado,
+                       ROUND({$selectCosto}, 4) AS costo_unitario,
+                       ROUND({$selectValor}, 4) AS valor_total,
+                       {$selectAlerta}
                 FROM inventario_stock s
                 INNER JOIN items i ON i.id = s.id_item
                 INNER JOIN almacenes a ON a.id = s.id_almacen
                 WHERE {$whereSql}
+                {$groupBySql}
+                {$havingSql}
                 ORDER BY alerta DESC, i.nombre ASC
                 LIMIT :limite OFFSET :offset";
+                
         $stmt = $this->db()->prepare($sql);
         foreach ($params as $k => $v) { $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
         $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
 
-        $sqlTotales = "SELECT ROUND(SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * {$costoExpr} ELSE 0 END), 4) AS valor_total,
-                              COUNT(*) AS registros
-                       FROM inventario_stock s
-                       INNER JOIN items i ON i.id=s.id_item
-                       INNER JOIN almacenes a ON a.id=s.id_almacen
-                       WHERE {$whereSql}";
+        // 3. CALCULAR TOTALES MONETARIOS DEL REPORTE
+        if ($isGlobal) {
+            $sqlTotales = "SELECT SUM(valor_total) AS valor_total, COUNT(*) AS registros FROM (
+                SELECT SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * {$costoExpr} ELSE 0 END) AS valor_total 
+                FROM inventario_stock s INNER JOIN items i ON i.id=s.id_item INNER JOIN almacenes a ON a.id=s.id_almacen 
+                WHERE {$whereSql} GROUP BY s.id_item, i.stock_minimo {$havingSql}
+            ) AS t";
+        } else {
+            $sqlTotales = "SELECT ROUND(SUM(CASE WHEN s.stock_actual > 0 THEN s.stock_actual * {$costoExpr} ELSE 0 END), 4) AS valor_total, COUNT(*) AS registros
+                           FROM inventario_stock s INNER JOIN items i ON i.id=s.id_item INNER JOIN almacenes a ON a.id=s.id_almacen 
+                           WHERE {$whereSql}";
+        }
         $stmtTotales = $this->db()->prepare($sqlTotales);
         $stmtTotales->execute($params);
         $totales = $stmtTotales->fetch(PDO::FETCH_ASSOC) ?: ['valor_total' => 0, 'registros' => 0];
