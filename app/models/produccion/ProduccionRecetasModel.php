@@ -905,7 +905,6 @@ class ProduccionRecetasModel extends Modelo
         return $normalizados;
     }
 
-
     private function normalizarModComparacion(array $manoObra): array
     {
         $normalizados = [];
@@ -1004,6 +1003,7 @@ class ProduccionRecetasModel extends Modelo
             'version'             => $siguienteVersion,
             'codigo'              => $this->generarCodigoVersion($receta['codigo'], $siguienteVersion),
             'descripcion'         => $receta['descripcion'],
+            'id_centro_costo'     => $receta['id_centro_costo'] ?? 0, 
             'id_almacen_planta'   => $receta['id_almacen_planta'] ?? 0,
             'rendimiento_base'    => $receta['rendimiento_base'],
             'unidad_rendimiento'  => $unidadBaseProducto,
