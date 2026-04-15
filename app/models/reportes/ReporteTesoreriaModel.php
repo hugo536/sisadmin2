@@ -130,7 +130,7 @@ class ReporteTesoreriaModel extends Modelo
                     SELECT 1
                     FROM tesoreria_cxc cxc
                     WHERE cxc.id = m.id_origen
-                      AND cxc.id_cliente = :id_tercero
+                      AND cxc.id_cliente = :id_tercero_cxc
                       AND cxc.deleted_at IS NULL
                 ))
                 OR
@@ -138,11 +138,12 @@ class ReporteTesoreriaModel extends Modelo
                     SELECT 1
                     FROM tesoreria_cxp cxp
                     WHERE cxp.id = m.id_origen
-                      AND cxp.id_proveedor = :id_tercero
+                      AND cxp.id_proveedor = :id_tercero_cxp
                       AND cxp.deleted_at IS NULL
                 ))
             )";
-            $params['id_tercero'] = (int) $f['id_tercero'];
+            $params['id_tercero_cxc'] = (int) $f['id_tercero'];
+            $params['id_tercero_cxp'] = (int) $f['id_tercero'];
         }
 
         $count = $this->db()->prepare('SELECT COUNT(DISTINCT m.id_cuenta) FROM tesoreria_movimientos m WHERE m.deleted_at IS NULL AND m.fecha BETWEEN :fd AND :fh' . $whereTercero);
