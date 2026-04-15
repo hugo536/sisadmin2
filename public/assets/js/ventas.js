@@ -179,6 +179,10 @@
         inputCantidad.min = '0';
 
         if (valor !== null) {
+            if (valor === '') {
+                inputCantidad.value = '';
+                return;
+            }
             const numero = Number(valor || 0);
             const normalizado = Math.max(0, numero);
             inputCantidad.value = decimalesHabilitados
@@ -489,7 +493,7 @@
         }
 
         if (!item && esBorrador) {
-            configurarInputCantidad(inputCantidad, 0, 0);
+            configurarInputCantidad(inputCantidad, 0, '');
             setTimeout(() => {
                 filaReal.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 if (tom) tom.focus(); 
@@ -549,23 +553,21 @@
         await agregarFilaVenta();
     });
 
-    idCliente?.addEventListener('change', () => {
-        tbodyVenta.querySelectorAll('.detalle-item').forEach((select) => {
-            if (select.tomselect) {
-                select.tomselect.clear(true);
-                select.tomselect.clearOptions();
-            }
-        });
+    async function refrescarFilasPorCambioCliente() {
+        const filas = [...tbodyVenta.querySelectorAll('tr')];
+        for (const fila of filas) {
+            await refrescarPrecioFila(fila);
+        }
+        recalcularTotalVenta();
+    }
+
+    idCliente?.addEventListener('change', async () => {
+        await refrescarFilasPorCambioCliente();
     });
 
     if (tomSelectCliente) {
-        tomSelectCliente.on('change', () => {
-            tbodyVenta.querySelectorAll('.detalle-item').forEach((select) => {
-                if (select.tomselect) {
-                    select.tomselect.clear(true);
-                    select.tomselect.clearOptions();
-                }
-            });
+        tomSelectCliente.on('change', async () => {
+            await refrescarFilasPorCambioCliente();
         });
     }
 

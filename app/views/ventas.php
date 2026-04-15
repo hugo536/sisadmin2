@@ -550,7 +550,7 @@ $formatearFechaDMY = static function ($fecha): string {
         </td>
         <td class="text-end text-muted small fw-bold py-3 px-2 align-top detalle-stock" data-label="Stock Disponible">0.00</td>
         <td class="align-top py-3 px-2" data-label="Cantidad">
-            <input type="number" class="form-control form-control-sm text-center detalle-cantidad fw-bold text-primary shadow-none border-secondary-subtle" min="0" step="1" value="0" required>
+            <input type="number" class="form-control form-control-sm text-center detalle-cantidad fw-bold text-primary shadow-none border-secondary-subtle" min="0" step="1" value="" required>
         </td>
         <td class="align-top py-3 px-2" data-label="Precio Unit.">
             <div class="input-group input-group-sm">
