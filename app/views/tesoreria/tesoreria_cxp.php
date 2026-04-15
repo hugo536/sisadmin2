@@ -51,6 +51,9 @@ if (!empty($_GET['error'])) {
             <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-clock-history me-2 text-info"></i>Historial Global
             </a>
+            <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
+                <i class="bi bi-bar-chart-line me-2 text-primary"></i>Reportes de Tesorería
+            </a>
             <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalPagoManual">
                 <i class="bi bi-plus-circle me-2"></i>Registrar Pago Manual
             </button>
