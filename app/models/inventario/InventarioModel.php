@@ -80,7 +80,11 @@ class InventarioModel extends Modelo
                 LEFT JOIN item_sabores sbr ON i.id_sabor = sbr.id
                 LEFT JOIN item_presentaciones prs ON i.id_presentacion = prs.id
                 {$joinsExtra}
-                WHERE i.controla_stock = 1 AND i.deleted_at IS NULL {$whereExtra}
+                WHERE i.deleted_at IS NULL
+                  AND (
+                      i.controla_stock = 1
+                      OR i.tipo_item IN ('producto', 'producto_terminado', 'semielaborado', 'materia_prima', 'material_empaque', 'insumo')
+                  ) {$whereExtra}
                 {$groupBy}";
 
         // 3. AGREGAMOS LA LÓGICA DE PACKS (SI APLICA)
