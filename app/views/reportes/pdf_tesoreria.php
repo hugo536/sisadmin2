@@ -141,7 +141,7 @@
                 <strong>Fecha Hasta:</strong> <?php echo $fechaHastaFmt; ?>
             </td>
             <td style="border: none; width: 33%;">
-                <strong>Filtro Cuenta ID:</strong> <?php echo !empty($filtros['id_cuenta']) ? $filtros['id_cuenta'] : 'Todas las cuentas'; ?>
+                <strong>Cliente / Distribuidor:</strong> <?php echo !empty($filtros['id_tercero']) ? ('ID ' . (int)$filtros['id_tercero']) : 'Todos'; ?>
             </td>
         </tr>
     </table>

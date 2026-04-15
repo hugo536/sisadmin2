@@ -399,7 +399,7 @@ class ReportesController extends Controlador
 
         [$pagina, $tamano] = $this->paginacion();
         $f = $this->filtrosPeriodo();
-        $f['id_cuenta'] = (int) ($_GET['id_cuenta'] ?? 0);
+        $f['id_tercero'] = (int) ($_GET['id_tercero'] ?? 0);
         $f['seccion_activa'] = $seccionActiva;
 
         // ==========================================
@@ -440,6 +440,7 @@ class ReportesController extends Controlador
         $this->render('reportes/tesoreria', [
             'ruta_actual' => 'reportes/tesoreria',
             'filtros' => $f,
+            'tercerosFiltro' => $this->tesoreria->listarTercerosFiltroTesoreria(),
             'agingCxc' => ($seccionActiva === 'cxc') ? $this->tesoreria->agingCxc($f, $pagina, $tamano) : [],
             'agingCxp' => ($seccionActiva === 'cxp') ? $this->tesoreria->agingCxp($f, $pagina, $tamano) : [],
             'flujo' => ($seccionActiva === 'flujo') ? $this->tesoreria->flujoPorCuenta($f, $pagina, $tamano) : [],
