@@ -22,11 +22,12 @@ class ReporteTesoreriaModel extends Modelo
                     t.id,
                     COALESCE(NULLIF(TRIM(t.nombre_completo), ''), CONCAT('Tercero #', t.id)) AS nombre,
                     t.es_cliente,
-                    t.es_distribuidor
+                    CASE WHEN d.id_tercero IS NULL THEN 0 ELSE 1 END AS es_distribuidor
                 FROM terceros t
+                LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
                 WHERE t.deleted_at IS NULL
                   AND t.estado = 1
-                  AND (t.es_cliente = 1 OR t.es_distribuidor = 1)
+                  AND (t.es_cliente = 1 OR d.id_tercero IS NOT NULL)
                 ORDER BY nombre ASC";
         $rows = $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
