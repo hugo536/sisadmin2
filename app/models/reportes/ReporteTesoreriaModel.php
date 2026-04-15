@@ -16,11 +16,42 @@ class ReporteTesoreriaModel extends Modelo
         return (int) $this->db()->query("SELECT COUNT(*) FROM tesoreria_cxp WHERE deleted_at IS NULL AND saldo > 0 AND fecha_vencimiento < CURDATE()")->fetchColumn();
     }
 
+    public function listarTercerosFiltroTesoreria(): array
+    {
+        $sql = "SELECT
+                    t.id,
+                    COALESCE(NULLIF(TRIM(t.nombre_completo), ''), CONCAT('Tercero #', t.id)) AS nombre,
+                    t.es_cliente,
+                    t.es_distribuidor
+                FROM terceros t
+                WHERE t.deleted_at IS NULL
+                  AND t.estado = 1
+                  AND (t.es_cliente = 1 OR t.es_distribuidor = 1)
+                ORDER BY nombre ASC";
+        $rows = $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        foreach ($rows as &$row) {
+            $esCliente = (int) ($row['es_cliente'] ?? 0) === 1;
+            $esDistribuidor = (int) ($row['es_distribuidor'] ?? 0) === 1;
+            $row['tipo_label'] = $esCliente && $esDistribuidor
+                ? 'Cliente / Distribuidor'
+                : ($esDistribuidor ? 'Distribuidor' : 'Cliente');
+        }
+        unset($row);
+
+        return $rows;
+    }
+
     public function agingCxc(array $f, int $pagina, int $tamano): array
     {
         $offset = ($pagina - 1) * $tamano;
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
-        $count = $this->db()->prepare('SELECT COUNT(*) FROM tesoreria_cxc c WHERE c.deleted_at IS NULL AND c.fecha_emision BETWEEN :fd AND :fh');
+        $whereTercero = '';
+        if (!empty($f['id_tercero'])) {
+            $whereTercero = ' AND c.id_cliente = :id_tercero';
+            $params['id_tercero'] = (int) $f['id_tercero'];
+        }
+        $count = $this->db()->prepare('SELECT COUNT(*) FROM tesoreria_cxc c WHERE c.deleted_at IS NULL AND c.fecha_emision BETWEEN :fd AND :fh' . $whereTercero);
         $count->execute($params);
 
         $sql = "SELECT t.nombre_completo AS cliente, c.saldo, c.fecha_vencimiento,
@@ -36,11 +67,13 @@ class ReporteTesoreriaModel extends Modelo
                 WHERE c.deleted_at IS NULL
                   AND c.fecha_emision BETWEEN :fd AND :fh
                   AND c.saldo > 0
+                  {$whereTercero}
                 ORDER BY dias_atraso DESC
                 LIMIT :limite OFFSET :offset";
         $stmt = $this->db()->prepare($sql);
-        $stmt->bindValue(':fd', $params['fd']);
-        $stmt->bindValue(':fh', $params['fh']);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
         $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
@@ -51,7 +84,12 @@ class ReporteTesoreriaModel extends Modelo
     {
         $offset = ($pagina - 1) * $tamano;
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
-        $count = $this->db()->prepare('SELECT COUNT(*) FROM tesoreria_cxp c WHERE c.deleted_at IS NULL AND c.fecha_emision BETWEEN :fd AND :fh');
+        $whereTercero = '';
+        if (!empty($f['id_tercero'])) {
+            $whereTercero = ' AND c.id_proveedor = :id_tercero';
+            $params['id_tercero'] = (int) $f['id_tercero'];
+        }
+        $count = $this->db()->prepare('SELECT COUNT(*) FROM tesoreria_cxp c WHERE c.deleted_at IS NULL AND c.fecha_emision BETWEEN :fd AND :fh' . $whereTercero);
         $count->execute($params);
 
         $sql = "SELECT t.nombre_completo AS proveedor, c.saldo, c.fecha_vencimiento,
@@ -67,11 +105,13 @@ class ReporteTesoreriaModel extends Modelo
                 WHERE c.deleted_at IS NULL
                   AND c.fecha_emision BETWEEN :fd AND :fh
                   AND c.saldo > 0
+                  {$whereTercero}
                 ORDER BY dias_atraso DESC
                 LIMIT :limite OFFSET :offset";
         $stmt = $this->db()->prepare($sql);
-        $stmt->bindValue(':fd', $params['fd']);
-        $stmt->bindValue(':fh', $params['fh']);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
         $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
@@ -82,13 +122,29 @@ class ReporteTesoreriaModel extends Modelo
     {
         $offset = ($pagina - 1) * $tamano;
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
-        $whereCuenta = '';
-        if (!empty($f['id_cuenta'])) {
-            $whereCuenta = ' AND m.id_cuenta = :id_cuenta';
-            $params['id_cuenta'] = (int) $f['id_cuenta'];
+        $whereTercero = '';
+        if (!empty($f['id_tercero'])) {
+            $whereTercero = " AND (
+                (m.origen = 'CXC' AND EXISTS (
+                    SELECT 1
+                    FROM tesoreria_cxc cxc
+                    WHERE cxc.id = m.id_origen
+                      AND cxc.id_cliente = :id_tercero
+                      AND cxc.deleted_at IS NULL
+                ))
+                OR
+                (m.origen = 'CXP' AND EXISTS (
+                    SELECT 1
+                    FROM tesoreria_cxp cxp
+                    WHERE cxp.id = m.id_origen
+                      AND cxp.id_proveedor = :id_tercero
+                      AND cxp.deleted_at IS NULL
+                ))
+            )";
+            $params['id_tercero'] = (int) $f['id_tercero'];
         }
 
-        $count = $this->db()->prepare('SELECT COUNT(DISTINCT m.id_cuenta) FROM tesoreria_movimientos m WHERE m.deleted_at IS NULL AND m.fecha BETWEEN :fd AND :fh' . $whereCuenta);
+        $count = $this->db()->prepare('SELECT COUNT(DISTINCT m.id_cuenta) FROM tesoreria_movimientos m WHERE m.deleted_at IS NULL AND m.fecha BETWEEN :fd AND :fh' . $whereTercero);
         $count->execute($params);
 
         $sql = "SELECT c.nombre AS cuenta,
@@ -98,7 +154,7 @@ class ReporteTesoreriaModel extends Modelo
                 FROM tesoreria_movimientos m
                 INNER JOIN tesoreria_cuentas c ON c.id = m.id_cuenta
                 WHERE m.deleted_at IS NULL
-                  AND m.fecha BETWEEN :fd AND :fh {$whereCuenta}
+                  AND m.fecha BETWEEN :fd AND :fh {$whereTercero}
                 GROUP BY m.id_cuenta, c.nombre
                 ORDER BY saldo_neto DESC
                 LIMIT :limite OFFSET :offset";
@@ -886,15 +942,18 @@ class ReporteTesoreriaModel extends Modelo
         ];
 
         // Si filtran por una cuenta bancaria específica
-        if (!empty($f['id_cuenta'])) {
-            $where[] = 'm.id_cuenta = :id_cuenta';
-            $params['id_cuenta'] = (int) $f['id_cuenta'];
+        if (!empty($f['id_tercero'])) {
+            $where[] = "cxc.id_cliente = :id_tercero";
+            $params['id_tercero'] = (int) $f['id_tercero'];
         }
 
         $whereSql = implode(' AND ', $where);
 
         // 1. Contar el total de registros para la paginación
-        $countSql = "SELECT COUNT(*) FROM tesoreria_movimientos m WHERE {$whereSql}";
+        $countSql = "SELECT COUNT(*)
+                     FROM tesoreria_movimientos m
+                     LEFT JOIN tesoreria_cxc cxc ON cxc.id = m.id_origen AND m.origen = 'CXC'
+                     WHERE {$whereSql}";
         $countStmt = $this->db()->prepare($countSql);
         $countStmt->execute($params);
         $total = (int) $countStmt->fetchColumn();
@@ -927,7 +986,10 @@ class ReporteTesoreriaModel extends Modelo
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         // 3. Sumar el total de dinero de esos depósitos (Para mostrarlo en la tabla y en el PDF)
-        $sqlTotal = "SELECT ROUND(SUM(m.monto), 2) FROM tesoreria_movimientos m WHERE {$whereSql} AND m.estado = 'CONFIRMADO'";
+        $sqlTotal = "SELECT ROUND(SUM(m.monto), 2)
+                     FROM tesoreria_movimientos m
+                     LEFT JOIN tesoreria_cxc cxc ON cxc.id = m.id_origen AND m.origen = 'CXC'
+                     WHERE {$whereSql} AND m.estado = 'CONFIRMADO'";
         $stmtTotal = $this->db()->prepare($sqlTotal);
         $stmtTotal->execute($params);
         $sumaTotal = (float) $stmtTotal->fetchColumn();

@@ -57,8 +57,16 @@
                     <input type="date" name="fecha_hasta" class="form-control bg-light auto-submit" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
                 </div>
                 <div class="col-12 col-md-3">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">ID Cuenta</label>
-                    <input type="number" name="id_cuenta" class="form-control bg-light auto-submit" placeholder="Todas..." value="<?php echo ($filtros['id_cuenta'] ?? 0) > 0 ? (int)$filtros['id_cuenta'] : ''; ?>">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Cliente / Distribuidor</label>
+                    <select name="id_tercero" class="form-select bg-light auto-submit">
+                        <option value="">Todos...</option>
+                        <?php foreach (($tercerosFiltro ?? []) as $tercero): ?>
+                            <?php $idTercero = (int) ($tercero['id'] ?? 0); ?>
+                            <option value="<?php echo $idTercero; ?>" <?php echo ((int)($filtros['id_tercero'] ?? 0) === $idTercero) ? 'selected' : ''; ?>>
+                                <?php echo e((string) ($tercero['nombre'] ?? '')); ?> (<?php echo e((string) ($tercero['tipo_label'] ?? '')); ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
                 <div class="col-12 col-md-3 d-flex flex-column justify-content-end">
