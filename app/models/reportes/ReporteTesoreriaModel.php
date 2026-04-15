@@ -869,4 +869,73 @@ class ReporteTesoreriaModel extends Modelo
 
         return [implode(' AND ', $where), $params];
     }
+
+    // ==========================================
+    // REPORTE DE DEPÓSITOS / INGRESOS
+    // ==========================================
+    public function reporteDepositos(array $f, int $pagina, int $tamano): array
+    {
+        $offset = ($pagina - 1) * $tamano;
+        $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
+
+        // Filtramos solo los ingresos/cobros que no estén eliminados
+        $where = [
+            'm.deleted_at IS NULL', 
+            "m.tipo = 'COBRO'", 
+            'DATE(m.fecha) BETWEEN :fd AND :fh'
+        ];
+
+        // Si filtran por una cuenta bancaria específica
+        if (!empty($f['id_cuenta'])) {
+            $where[] = 'm.id_cuenta = :id_cuenta';
+            $params['id_cuenta'] = (int) $f['id_cuenta'];
+        }
+
+        $whereSql = implode(' AND ', $where);
+
+        // 1. Contar el total de registros para la paginación
+        $countSql = "SELECT COUNT(*) FROM tesoreria_movimientos m WHERE {$whereSql}";
+        $countStmt = $this->db()->prepare($countSql);
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+
+        // 2. Consulta principal (Hacemos LEFT JOIN con CxC para obtener el cliente si el pago viene de una factura)
+        $sql = "SELECT 
+                    m.id, 
+                    m.fecha, 
+                    c.nombre AS cuenta, 
+                    m.referencia, 
+                    m.monto, 
+                    m.estado, 
+                    m.origen,
+                    COALESCE(t.nombre_completo, 'Ingreso General / Otros') AS cliente_origen
+                FROM tesoreria_movimientos m
+                LEFT JOIN tesoreria_cuentas c ON c.id = m.id_cuenta
+                LEFT JOIN tesoreria_cxc cxc ON cxc.id = m.id_origen AND m.origen = 'CXC'
+                LEFT JOIN terceros t ON t.id = cxc.id_cliente
+                WHERE {$whereSql}
+                ORDER BY m.fecha DESC, m.id DESC
+                LIMIT :limite OFFSET :offset";
+
+        $stmt = $this->db()->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // 3. Sumar el total de dinero de esos depósitos (Para mostrarlo en la tabla y en el PDF)
+        $sqlTotal = "SELECT ROUND(SUM(m.monto), 2) FROM tesoreria_movimientos m WHERE {$whereSql} AND m.estado = 'CONFIRMADO'";
+        $stmtTotal = $this->db()->prepare($sqlTotal);
+        $stmtTotal->execute($params);
+        $sumaTotal = (float) $stmtTotal->fetchColumn();
+
+        return [
+            'rows' => $rows,
+            'total' => $total,
+            'suma_total' => $sumaTotal
+        ];
+    }
 }

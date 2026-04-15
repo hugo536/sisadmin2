@@ -390,16 +390,60 @@ class ReportesController extends Controlador
         AuthMiddleware::handle();
         require_permiso('reportes.tesoreria.ver');
         $this->registrarAuditoria('tesoreria');
+        
+        // 1. Capturamos la pestaña activa (Igual que en ventas)
+        $seccionActiva = trim((string)($_GET['seccion_activa'] ?? 'cxc'));
+        if (!in_array($seccionActiva, ['cxc', 'cxp', 'flujo', 'depositos'])) {
+            $seccionActiva = 'cxc';
+        }
+
         [$pagina, $tamano] = $this->paginacion();
         $f = $this->filtrosPeriodo();
         $f['id_cuenta'] = (int) ($_GET['id_cuenta'] ?? 0);
+        $f['seccion_activa'] = $seccionActiva;
 
+        // ==========================================
+        // INTERCEPTAR LA PETICIÓN DE IMPRESIÓN PDF
+        // ==========================================
+        if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
+            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
+            require_once BASE_PATH . '/vendor/autoload.php';
+
+            // Optimización: Solo cargamos los datos de la pestaña que se está exportando
+            $agingCxc = ($seccionActiva === 'cxc') ? $this->tesoreria->agingCxc($f, 1, 999999) : [];
+            $agingCxp = ($seccionActiva === 'cxp') ? $this->tesoreria->agingCxp($f, 1, 999999) : [];
+            $flujo = ($seccionActiva === 'flujo') ? $this->tesoreria->flujoPorCuenta($f, 1, 999999) : [];
+            $depositos = ($seccionActiva === 'depositos') ? $this->tesoreria->reporteDepositos($f, 1, 999999) : [];
+            
+            $filtros = $f;
+
+            ob_start();
+            require BASE_PATH . '/app/views/reportes/pdf_tesoreria.php';
+            $html = ob_get_clean();
+
+            $dompdf = new \Dompdf\Dompdf();
+            $options = $dompdf->getOptions();
+            $options->set(['isRemoteEnabled' => true]);
+            $dompdf->setOptions($options);
+
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait'); 
+            $dompdf->render();
+            
+            $nombreArchivo = 'Reporte_Tesoreria_' . ucfirst($seccionActiva) . '.pdf';
+            $dompdf->stream($nombreArchivo, ['Attachment' => false]);
+            return;
+        }
+        // ==========================================
+
+        // Vista Web normal
         $this->render('reportes/tesoreria', [
             'ruta_actual' => 'reportes/tesoreria',
             'filtros' => $f,
-            'agingCxc' => $this->tesoreria->agingCxc($f, $pagina, $tamano),
-            'agingCxp' => $this->tesoreria->agingCxp($f, $pagina, $tamano),
-            'flujo' => $this->tesoreria->flujoPorCuenta($f, $pagina, $tamano),
+            'agingCxc' => ($seccionActiva === 'cxc') ? $this->tesoreria->agingCxc($f, $pagina, $tamano) : [],
+            'agingCxp' => ($seccionActiva === 'cxp') ? $this->tesoreria->agingCxp($f, $pagina, $tamano) : [],
+            'flujo' => ($seccionActiva === 'flujo') ? $this->tesoreria->flujoPorCuenta($f, $pagina, $tamano) : [],
+            'depositos' => ($seccionActiva === 'depositos') ? $this->tesoreria->reporteDepositos($f, $pagina, $tamano) : [],
             'pagina' => $pagina,
             'tamano' => $tamano,
         ]);
