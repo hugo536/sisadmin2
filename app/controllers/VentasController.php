@@ -39,10 +39,11 @@ class VentasController extends Controlador
         $filtros = [
             'q'           => trim((string) ($_GET['q'] ?? '')),
             'estado'      => isset($_GET['estado']) && $_GET['estado'] !== '' ? (string) $_GET['estado'] : null,
-            // Si es la vista inicial, cargamos el default. Si no, respetamos lo que el usuario eligió (incluso si lo dejó en blanco)
             'fecha_desde' => $esVistaInicial ? $fechaDesdeDef : trim((string) ($_GET['fecha_desde'] ?? '')),
             'fecha_hasta' => $esVistaInicial ? $fechaHastaDef : trim((string) ($_GET['fecha_hasta'] ?? '')),
-            'orden_fecha' => trim((string) ($_GET['orden_fecha'] ?? 'pedido')),
+            
+            // LÍNEA CLAVE: Cambiamos 'pedido' por 'emision' para que sea el orden por defecto
+            'orden_fecha' => trim((string) ($_GET['orden_fecha'] ?? 'emision')),
         ];
 
         // Respuesta para AJAX (Cuando se filtra o busca sin recargar)
