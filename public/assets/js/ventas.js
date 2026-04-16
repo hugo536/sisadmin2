@@ -493,11 +493,12 @@
             configurarInputCantidad(inputCantidad, item.permite_decimales, item.cantidad || 0);
             inputPrecio.value = Number(item.precio_unitario || 0).toFixed(2);
             
-            // Mostrar decimales en la columna "Stock" solo si el item lo permite
-                    const stockMostrar = (selectedOption.permiteDecimales === 1) 
-                        ? selectedOption.stock.toFixed(2) 
-                        : String(Math.round(selectedOption.stock));
-                    filaReal.querySelector('.detalle-stock').textContent = stockMostrar;
+            // Mostrar stock inicial de la línea cargada (sin depender de selectedOption del onChange)
+            const stockItem = Number(item.stock_actual || 0);
+            const stockMostrar = Number(item.permite_decimales || 0) === 1
+                ? stockItem.toFixed(2)
+                : String(Math.round(stockItem));
+            filaReal.querySelector('.detalle-stock').textContent = stockMostrar;
             
             if (!esBorrador) {
                 const cantDespachada = Number(item.cantidad_despachada || 0);
