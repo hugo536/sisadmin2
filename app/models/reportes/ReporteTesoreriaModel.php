@@ -262,7 +262,8 @@ class ReporteTesoreriaModel extends Modelo
                 DATE(COALESCE(v.fecha_emision, c.fecha_emision)) AS fecha_atencion,
                 c.cliente_nombre AS cliente,
                 COALESCE(NULLIF(TRIM(v.codigo), ''), NULLIF(TRIM(c.documento_referencia), ''), CONCAT('CXC-', c.id)) AS documento,
-                COALESCE(i.nombre, 'Sin detalle de producto') AS producto,
+                -- MEJORA: Buscar el nombre en Items y, si no está, buscarlo en Combos/Packs
+                COALESCE(i.nombre, pp.nombre, 'Sin detalle de producto') AS producto,
                 CAST({$cantidadExpr} AS DECIMAL(14,2)) AS cantidad,
                 CAST(COALESCE({$precioExprZero}, c.monto_total) AS DECIMAL(14,4)) AS precio_unitario,
                 CAST(
@@ -276,6 +277,8 @@ class ReporteTesoreriaModel extends Modelo
             LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta AND v.deleted_at IS NULL
             LEFT JOIN ventas_documentos_detalle d ON d.id_documento_venta = v.id AND d.deleted_at IS NULL
             LEFT JOIN items i ON i.id = d.id_item
+            -- NUEVO JOIN: Para poder leer el nombre de los Combos
+            LEFT JOIN precios_presentaciones pp ON pp.id = d.id_presentacion
 
             UNION ALL
 
