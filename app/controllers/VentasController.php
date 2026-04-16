@@ -29,13 +29,19 @@ class VentasController extends Controlador
         AuthMiddleware::handle();
         require_permiso('ventas.ver');
 
-        // Capturamos los filtros de la URL (GET)
+        // --- MEJORA PREMIUM: Fechas por defecto (Últimos 7 días) ---
+        $fechaHastaDef = date('Y-m-d');
+        $fechaDesdeDef = date('Y-m-d', strtotime('-7 days'));
+
+        // Verificamos si la petición es totalmente nueva (sin parámetros GET además de la ruta)
+        $esVistaInicial = empty($_GET['q']) && !isset($_GET['estado']) && empty($_GET['fecha_desde']) && empty($_GET['fecha_hasta']);
+
         $filtros = [
             'q'           => trim((string) ($_GET['q'] ?? '')),
             'estado'      => isset($_GET['estado']) && $_GET['estado'] !== '' ? (string) $_GET['estado'] : null,
-            'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? '')),
-            'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
-            // LÍNEA CLAVE: Captura la elección del nuevo select del frontend
+            // Si es la vista inicial, cargamos el default. Si no, respetamos lo que el usuario eligió (incluso si lo dejó en blanco)
+            'fecha_desde' => $esVistaInicial ? $fechaDesdeDef : trim((string) ($_GET['fecha_desde'] ?? '')),
+            'fecha_hasta' => $esVistaInicial ? $fechaHastaDef : trim((string) ($_GET['fecha_hasta'] ?? '')),
             'orden_fecha' => trim((string) ($_GET['orden_fecha'] ?? 'pedido')),
         ];
 

@@ -143,7 +143,14 @@
                         <td class="text-center"><?php echo $contadorItems++; ?></td>
                         <td><?php echo htmlspecialchars($item['item_nombre']); ?></td>
                         <td class="text-center" style="font-size: 14px;">
-                            <strong><?php echo number_format($cantidadMostrar, 2); ?></strong>
+                            <strong>
+                                <?php 
+                                    // LÓGICA INTELIGENTE: Si no hay decimales reales, muestra el número entero.
+                                    echo floor($cantidadMostrar) == $cantidadMostrar 
+                                        ? number_format($cantidadMostrar, 0) 
+                                        : number_format($cantidadMostrar, 2); 
+                                ?>
+                            </strong>
                         </td>
                     </tr>
                 <?php endforeach; ?>

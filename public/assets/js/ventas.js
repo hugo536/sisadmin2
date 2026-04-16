@@ -434,7 +434,16 @@
 
                     filaReal.querySelector('.detalle-stock').textContent = selectedOption.stock.toFixed(2);
                     inputPrecio.value = selectedOption.precio.toFixed(2);
-                    configurarInputCantidad(inputCantidad, selectedOption.permiteDecimales, inputCantidad.value || 0);
+                    
+                    // MEJORA UX: Evitar el 0 molesto
+                    let valorActual = inputCantidad.value;
+                    if (valorActual === '0' || valorActual === '0.00' || valorActual === '') {
+                        valorActual = ''; // Lo forzamos a vacío
+                    }
+                    configurarInputCantidad(inputCantidad, selectedOption.permiteDecimales, valorActual);
+                    
+                    // MEJORA UX EXTRA: Enfocar la caja de texto automáticamente
+                    setTimeout(() => inputCantidad.focus(), 50);
                 }
                 validarCantidadVsStock(filaReal);
                 recalcularTotalVenta();
@@ -449,7 +458,15 @@
                 loading: (data, escape) => '<div class="spinner-border spinner-border-sm text-primary m-2"></div> buscando...',
                 option: function(data, escape) {
                     const stockColor = data.stock <= 0 ? 'text-danger fw-bold' : 'text-success';
-                    const stockLabel = data.stock <= 0 ? 'SIN STOCK' : data.stock;
+                    
+                    // --- MEJORA UX: Mostrar decimales solo si está permitido ---
+                    let stockLabel = 'SIN STOCK';
+                    if (data.stock > 0) {
+                        stockLabel = (data.permiteDecimales === 1) 
+                            ? Number(data.stock).toFixed(2) 
+                            : String(Math.round(data.stock)); // Mostrar como entero
+                    }
+
                     return `<div class="py-2 d-flex justify-content-between align-items-center">
                         <div><div class="fw-bold text-dark">${escape(data.text)}</div></div>
                         <div class="text-end">
@@ -476,7 +493,11 @@
             configurarInputCantidad(inputCantidad, item.permite_decimales, item.cantidad || 0);
             inputPrecio.value = Number(item.precio_unitario || 0).toFixed(2);
             
-            filaReal.querySelector('.detalle-stock').textContent = Number(item.stock_actual || 0).toFixed(2);
+            // Mostrar decimales en la columna "Stock" solo si el item lo permite
+                    const stockMostrar = (selectedOption.permiteDecimales === 1) 
+                        ? selectedOption.stock.toFixed(2) 
+                        : String(Math.round(selectedOption.stock));
+                    filaReal.querySelector('.detalle-stock').textContent = stockMostrar;
             
             if (!esBorrador) {
                 const cantDespachada = Number(item.cantidad_despachada || 0);
@@ -1062,16 +1083,76 @@
         }
     });
 
+    // ==========================================
+    // --- MEJORA PREMIUM: FILTROS Y RECARGAS ---
+    // ==========================================
+    
     function recargarTabla() {
-        const params = new URLSearchParams({ accion: 'listar' });
-        if (filtroBusqueda.value.trim()) params.set('q', filtroBusqueda.value.trim());
-        if (filtroEstado.value !== '') params.set('estado', filtroEstado.value);
-        if (filtroFechaDesde.value) params.set('fecha_desde', filtroFechaDesde.value);
-        if (filtroFechaHasta.value) params.set('fecha_hasta', filtroFechaHasta.value);
-        if (filtroOrdenFecha && filtroOrdenFecha.value) params.set('orden_fecha', filtroOrdenFecha.value);
+        // Leemos la URL actual para no perder la ruta base (?ruta=ventas)
+        const urlParams = new URLSearchParams(window.location.search);
         
-        window.location.href = `${urls.index}&${params.toString()}`;
+        // Limpiamos 'accion' para que sea una carga de vista normal y no un JSON AJAX
+        urlParams.delete('accion');
+
+        // Seteamos o eliminamos parámetros según lo que el usuario tenga en pantalla
+        if (filtroBusqueda.value.trim()) urlParams.set('q', filtroBusqueda.value.trim()); else urlParams.delete('q');
+        if (filtroEstado.value !== '') urlParams.set('estado', filtroEstado.value); else urlParams.delete('estado');
+        if (filtroFechaDesde.value) urlParams.set('fecha_desde', filtroFechaDesde.value); else urlParams.delete('fecha_desde');
+        if (filtroFechaHasta.value) urlParams.set('fecha_hasta', filtroFechaHasta.value); else urlParams.delete('fecha_hasta');
+        if (filtroOrdenFecha && filtroOrdenFecha.value) urlParams.set('orden_fecha', filtroOrdenFecha.value); else urlParams.delete('orden_fecha');
+        
+        // Recargamos la página aplicando la URL construida (persistencia total)
+        window.location.search = urlParams.toString();
     }
+
+    // PROTECCIÓN DE RANGO DE FECHAS
+    if (filtroFechaDesde && filtroFechaHasta) {
+        filtroFechaDesde.addEventListener('change', () => {
+            if (filtroFechaDesde.value) {
+                // El 'Hasta' no puede ser anterior al 'Desde'
+                filtroFechaHasta.min = filtroFechaDesde.value; 
+                // Auto-corrección si el usuario se equivocó
+                if (filtroFechaHasta.value && filtroFechaHasta.value < filtroFechaDesde.value) {
+                    filtroFechaHasta.value = filtroFechaDesde.value;
+                }
+            } else {
+                filtroFechaHasta.min = '';
+            }
+            recargarTabla();
+        });
+
+        filtroFechaHasta.addEventListener('change', () => {
+            if (filtroFechaHasta.value) {
+                // El 'Desde' no puede ser posterior al 'Hasta'
+                filtroFechaDesde.max = filtroFechaHasta.value; 
+                // Auto-corrección si el usuario se equivocó
+                if (filtroFechaDesde.value && filtroFechaDesde.value > filtroFechaHasta.value) {
+                    filtroFechaDesde.value = filtroFechaHasta.value;
+                }
+            } else {
+                filtroFechaDesde.max = '';
+            }
+            recargarTabla();
+        });
+
+        // Inicializamos las restricciones visuales al cargar la página
+        if (filtroFechaDesde.value) filtroFechaHasta.min = filtroFechaDesde.value;
+        if (filtroFechaHasta.value) filtroFechaDesde.max = filtroFechaHasta.value;
+    }
+
+    // EVENTOS PARA EL RESTO DE FILTROS
+    [filtroBusqueda, filtroEstado, filtroOrdenFecha].forEach(el => {
+        if(el) {
+            // Para el buscador, esperamos que presione Enter para no recargar a cada letra
+            if (el.id === 'filtroBusqueda') {
+                el.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') recargarTabla();
+                });
+            } else {
+                el.addEventListener('change', recargarTabla);
+            }
+        }
+    });
 
     [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta, filtroOrdenFecha].forEach(el => {
         if(el) {
