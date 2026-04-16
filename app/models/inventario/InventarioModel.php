@@ -930,9 +930,14 @@ class InventarioModel extends Modelo
             throw new RuntimeException('El ítem seleccionado no existe.');
         }
 
-        if ((int) ($item['controla_stock'] ?? 0) !== 1) {
-            throw new RuntimeException('El ítem seleccionado no controla stock.');
-        }
+        /* * CANDADO ELIMINADO: 
+         * Ahora permitimos registrar movimientos en el Kardex (trazabilidad) 
+         * incluso si el producto no "controla stock" (fabricación a pedido).
+         *
+         * if ((int) ($item['controla_stock'] ?? 0) !== 1) {
+         * throw new RuntimeException('El ítem seleccionado no controla stock.');
+         * }
+         */
 
         return $item;
     }

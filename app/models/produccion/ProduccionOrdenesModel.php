@@ -501,7 +501,7 @@ class ProduccionOrdenesModel extends Modelo
                     'updated_by' => $userId,
                 ]);
 
-                if ($controlaStock && method_exists($inventarioModel, 'registrarMovimiento')) {
+                if (method_exists($inventarioModel, 'registrarMovimiento')) {
                     $inventarioModel->registrarMovimiento([
                         'tipo_movimiento' => 'CON', 
                         'id_item' => $idInsumo,
@@ -575,10 +575,6 @@ class ProduccionOrdenesModel extends Modelo
             $infoProducto = $stmtInfoItem->fetch(PDO::FETCH_ASSOC);
             $controlaStockProd = (int)($infoProducto['controla_stock'] ?? 0) === 1;
 
-            if (!$controlaStockProd) {
-                throw new RuntimeException('El producto terminado no controla stock. Active "Controla stock" en el ítem para registrar la producción en Kardex.');
-            }
-
             $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos (id_orden_produccion, id_item, id_almacen, lote, fecha_vencimiento, cantidad, costo_unitario_calculado, created_by, updated_by) VALUES (:id_orden_produccion, :id_item, :id_almacen, :lote, :fecha_vencimiento, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
             
             $idItemUnidadTerminado = $this->obtenerUnidadPorDefecto((int) $orden['id_producto']);
@@ -607,7 +603,7 @@ class ProduccionOrdenesModel extends Modelo
                     'updated_by' => $userId,
                 ]);
 
-                if ($controlaStockProd && method_exists($inventarioModel, 'registrarMovimiento')) {
+                if (method_exists($inventarioModel, 'registrarMovimiento')) {
                     $inventarioModel->registrarMovimiento([
                         'tipo_movimiento' => 'PROD', 
                         'id_item' => (int) $orden['id_producto'],
