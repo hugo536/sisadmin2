@@ -1,6 +1,4 @@
 <?php 
-    // Capturamos la sección activa directamente de la URL (GET), 
-    // si no existe, probamos en los filtros, y si nada funciona, usamos 'stock'
     $seccionActiva = $_GET['seccion_activa'] ?? ($filtros['seccion_activa'] ?? 'stock'); 
 ?>
 
@@ -47,76 +45,145 @@
                 <input type="hidden" name="ruta" value="reportes/inventario">
                 <input type="hidden" name="seccion_activa" id="input_seccion_activa" value="<?php echo e($seccionActiva); ?>">
                 
-                <div class="col-12 col-md-4 col-lg-3">
+                <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1">Categoría</label>
-                    <select name="id_categoria" class="form-select bg-light auto-submit">
-                        <option value="">Todas las categorías</option>
-                        <?php foreach (($categorias ?? []) as $categoria): ?>
-                            <option value="<?php echo (int) ($categoria['id'] ?? 0); ?>" <?php echo (int) ($filtros['id_categoria'] ?? 0) === (int) ($categoria['id'] ?? 0) ? 'selected' : ''; ?>>
-                                <?php echo e((string) ($categoria['nombre'] ?? '')); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <?php 
+                        $catSeleccionadas = is_array($filtros['id_categoria'] ?? []) ? $filtros['id_categoria'] : (!empty($filtros['id_categoria']) ? [$filtros['id_categoria']] : []);
+                        $catCount = count($catSeleccionadas);
+                        $txtCat = $catCount === 0 ? 'Todas las categorías' : ($catCount === 1 ? '1 seleccionada' : $catCount . ' seleccionadas');
+                    ?>
+                    <div class="dropdown dropdown-multi">
+                        <button class="btn bg-light border border-secondary-subtle w-100 text-start d-flex justify-content-between align-items-center shadow-none" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
+                            <span class="text-truncate text-dark" style="font-size: 0.95rem;"><?php echo $txtCat; ?></span>
+                            <i class="bi bi-chevron-down text-muted small"></i>
+                        </button>
+                        <ul class="dropdown-menu w-100 shadow p-2" style="max-height: 300px; overflow-y: auto;">
+                            <li>
+                                <div class="form-check mb-2 pb-2 border-bottom">
+                                    <input class="form-check-input cursor-pointer shadow-none border-primary chk-todos" type="checkbox" id="chk_todos_cat">
+                                    <label class="form-check-label w-100 cursor-pointer text-primary fw-bold" for="chk_todos_cat" style="font-size: 0.9rem;">Seleccionar Todas</label>
+                                </div>
+                            </li>
+                            <?php foreach (($categorias ?? []) as $cat): ?>
+                            <li>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input cursor-pointer shadow-none border-secondary-subtle chk-item" type="checkbox" name="id_categoria[]" value="<?php echo (int)$cat['id']; ?>" id="chk_cat_<?php echo $cat['id']; ?>" <?php echo in_array($cat['id'], $catSeleccionadas) ? 'checked' : ''; ?>>
+                                    <label class="form-check-label w-100 cursor-pointer text-dark" for="chk_cat_<?php echo $cat['id']; ?>" style="font-size: 0.9rem;">
+                                        <?php echo e((string)$cat['nombre']); ?>
+                                    </label>
+                                </div>
+                            </li>
+                            <?php endforeach; ?>
+                            <li><hr class="dropdown-divider mt-1 mb-2"></li>
+                            <li><button type="button" class="btn btn-primary btn-sm w-100 fw-bold" onclick="document.getElementById('formFiltrosInventario').submit();">Aplicar Filtro</button></li>
+                        </ul>
+                    </div>
                 </div>
 
-                <div class="col-12 col-md-4 col-lg-3">
+                <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1">Tipo de Ítem</label>
-                    <select name="tipo_item[]" id="filtroTipoItem" multiple class="form-select bg-light auto-submit" placeholder="Selecciona tipos...">
-                        <option value="">Todos los tipos</option>
-                        <option value="producto_terminado" <?php echo (($filtros['tipo_item'] ?? '') === 'producto_terminado') ? 'selected' : ''; ?>>Producto terminado</option>
-                        <option value="materia_prima" <?php echo (($filtros['tipo_item'] ?? '') === 'materia_prima') ? 'selected' : ''; ?>>Materia prima</option>
-                        <option value="insumo" <?php echo (($filtros['tipo_item'] ?? '') === 'insumo') ? 'selected' : ''; ?>>Insumo</option>
-                        <option value="semielaborado" <?php echo (($filtros['tipo_item'] ?? '') === 'semielaborado') ? 'selected' : ''; ?>>Semielaborado</option>
-                        <option value="material_empaque" <?php echo (($filtros['tipo_item'] ?? '') === 'material_empaque') ? 'selected' : ''; ?>>Material de empaque</option>
-                        <option value="servicio" <?php echo (($filtros['tipo_item'] ?? '') === 'servicio') ? 'selected' : ''; ?>>Servicio</option>
-                    </select>
+                    <?php 
+                        $tiposSeleccionados = is_array($filtros['tipo_item'] ?? []) ? $filtros['tipo_item'] : (is_string($filtros['tipo_item'] ?? '') && $filtros['tipo_item'] !== '' ? [$filtros['tipo_item']] : []);
+                        $opcionesTipos = ['producto_terminado' => 'Producto terminado', 'materia_prima' => 'Materia prima', 'insumo' => 'Insumo', 'semielaborado' => 'Semielaborado', 'material_empaque' => 'Material de empaque', 'servicio' => 'Servicio'];
+                        $tipoCount = count($tiposSeleccionados);
+                        $txtTipo = $tipoCount === 0 ? 'Todos los tipos' : ($tipoCount === 1 ? $opcionesTipos[$tiposSeleccionados[0]] ?? '1 seleccionado' : $tipoCount . ' seleccionados');
+                    ?>
+                    <div class="dropdown dropdown-multi">
+                        <button class="btn bg-light border border-secondary-subtle w-100 text-start d-flex justify-content-between align-items-center shadow-none" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
+                            <span class="text-truncate text-dark" style="font-size: 0.95rem;"><?php echo $txtTipo; ?></span>
+                            <i class="bi bi-chevron-down text-muted small"></i>
+                        </button>
+                        <ul class="dropdown-menu w-100 shadow p-2" style="max-height: 300px; overflow-y: auto;">
+                            <li>
+                                <div class="form-check mb-2 pb-2 border-bottom">
+                                    <input class="form-check-input cursor-pointer shadow-none border-primary chk-todos" type="checkbox" id="chk_todos_tipos">
+                                    <label class="form-check-label w-100 cursor-pointer text-primary fw-bold" for="chk_todos_tipos" style="font-size: 0.9rem;">Seleccionar Todos</label>
+                                </div>
+                            </li>
+                            <?php foreach($opcionesTipos as $valor => $etiqueta): ?>
+                            <li>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input cursor-pointer shadow-none border-secondary-subtle chk-item" type="checkbox" name="tipo_item[]" value="<?php echo $valor; ?>" id="chk_tipo_<?php echo $valor; ?>" <?php echo in_array($valor, $tiposSeleccionados) ? 'checked' : ''; ?>>
+                                    <label class="form-check-label w-100 cursor-pointer text-dark" for="chk_tipo_<?php echo $valor; ?>" style="font-size: 0.9rem;">
+                                        <?php echo $etiqueta; ?>
+                                    </label>
+                                </div>
+                            </li>
+                            <?php endforeach; ?>
+                            <li><hr class="dropdown-divider mt-1 mb-2"></li>
+                            <li><button type="button" class="btn btn-primary btn-sm w-100 fw-bold" onclick="document.getElementById('formFiltrosInventario').submit();">Aplicar Filtro</button></li>
+                        </ul>
+                    </div>
                 </div>
 
-                <div class="col-12 col-md-4 col-lg-3">
+                <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1">Almacén</label>
-                    <select name="id_almacen" class="form-select bg-light auto-submit">
-                        <option value="">Todos los almacenes</option>
-                        <?php foreach (($almacenes ?? []) as $almacen): ?>
-                            <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>" <?php echo (int) ($filtros['id_almacen'] ?? 0) === (int) ($almacen['id'] ?? 0) ? 'selected' : ''; ?>>
-                                <?php echo e((string) ($almacen['nombre'] ?? '')); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <?php 
+                        $almSeleccionados = is_array($filtros['id_almacen'] ?? []) ? $filtros['id_almacen'] : (!empty($filtros['id_almacen']) ? [$filtros['id_almacen']] : []);
+                        $almCount = count($almSeleccionados);
+                        $txtAlm = $almCount === 0 ? 'Todos los almacenes' : ($almCount === 1 ? '1 seleccionado' : $almCount . ' seleccionados');
+                    ?>
+                    <div class="dropdown dropdown-multi">
+                        <button class="btn bg-light border border-secondary-subtle w-100 text-start d-flex justify-content-between align-items-center shadow-none" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
+                            <span class="text-truncate text-dark" style="font-size: 0.95rem;"><?php echo $txtAlm; ?></span>
+                            <i class="bi bi-chevron-down text-muted small"></i>
+                        </button>
+                        <ul class="dropdown-menu w-100 shadow p-2" style="max-height: 300px; overflow-y: auto;">
+                            <li>
+                                <div class="form-check mb-2 pb-2 border-bottom">
+                                    <input class="form-check-input cursor-pointer shadow-none border-primary chk-todos" type="checkbox" id="chk_todos_alm">
+                                    <label class="form-check-label w-100 cursor-pointer text-primary fw-bold" for="chk_todos_alm" style="font-size: 0.9rem;">Seleccionar Todos</label>
+                                </div>
+                            </li>
+                            <?php foreach (($almacenes ?? []) as $almacen): ?>
+                            <li>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input cursor-pointer shadow-none border-secondary-subtle chk-item" type="checkbox" name="id_almacen[]" value="<?php echo (int)$almacen['id']; ?>" id="chk_alm_<?php echo $almacen['id']; ?>" <?php echo in_array($almacen['id'], $almSeleccionados) ? 'checked' : ''; ?>>
+                                    <label class="form-check-label w-100 cursor-pointer text-dark" for="chk_alm_<?php echo $almacen['id']; ?>" style="font-size: 0.9rem;">
+                                        <?php echo e((string)$almacen['nombre']); ?>
+                                    </label>
+                                </div>
+                            </li>
+                            <?php endforeach; ?>
+                            <li><hr class="dropdown-divider mt-1 mb-2"></li>
+                            <li><button type="button" class="btn btn-primary btn-sm w-100 fw-bold" onclick="document.getElementById('formFiltrosInventario').submit();">Aplicar Filtro</button></li>
+                        </ul>
+                    </div>
                 </div>
 
-                <div class="col-12 col-lg-3 d-flex flex-column justify-content-end">
+                <div class="col-12 col-md-3 d-flex flex-column justify-content-end">
                     
                     <?php if ($seccionActiva === 'stock'): ?>
-                        <div class="form-check form-switch p-2 bg-light rounded border d-flex align-items-center" style="height: 38px;">
+                        <div class="form-check form-switch p-2 bg-light rounded border d-flex align-items-center w-100" style="height: 38px; margin-bottom: 0;">
                             <input class="form-check-input mt-0 me-2 auto-submit" type="checkbox" role="switch" id="filtroBajoMinimo" name="solo_bajo_minimo" value="1" <?php echo !empty($filtros['solo_bajo_minimo']) ? 'checked' : ''; ?>>
                             <label class="form-check-label small fw-bold text-danger cursor-pointer mb-0" for="filtroBajoMinimo">Solo bajo mínimo</label>
                         </div>
                     <?php endif; ?>
 
                     <?php if ($seccionActiva === 'historico'): ?>
-                        <div>
-                            <label class="form-label text-muted small fw-bold mb-1">Fecha y Hora de Corte <span class="text-danger">*</span></label>
-                            <input type="datetime-local" id="fecha_corte" name="fecha_corte" class="form-control bg-light border-primary-subtle auto-submit" value="<?php echo e($filtros['fecha_corte'] ?? date('Y-m-d\TH:i')); ?>" required>
+                        <div class="w-100">
+                            <label class="form-label text-muted small fw-bold mb-1">Fecha de Corte</label>
+                            <input type="datetime-local" id="fecha_corte" name="fecha_corte" class="form-control bg-light border-primary-subtle auto-submit" value="<?php echo e($filtros['fecha_corte'] ?? date('Y-m-d\TH:i')); ?>" required style="height: 38px;">
                         </div>
                     <?php endif; ?>
 
                     <?php if ($seccionActiva === 'kardex'): ?>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2 w-100">
                             <div class="w-50">
-                                <label class="form-label text-muted small fw-bold mb-1">Desde <span class="text-danger">*</span></label>
-                                <input type="date" id="fecha_desde" name="fecha_desde" class="form-control bg-light auto-submit" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
+                                <label class="form-label text-muted small fw-bold mb-1">Desde</label>
+                                <input type="date" id="fecha_desde" name="fecha_desde" class="form-control bg-light auto-submit" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required style="height: 38px;">
                             </div>
                             <div class="w-50">
-                                <label class="form-label text-muted small fw-bold mb-1">Hasta <span class="text-danger">*</span></label>
-                                <input type="date" id="fecha_hasta" name="fecha_hasta" class="form-control bg-light auto-submit" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
+                                <label class="form-label text-muted small fw-bold mb-1">Hasta</label>
+                                <input type="date" id="fecha_hasta" name="fecha_hasta" class="form-control bg-light auto-submit" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required style="height: 38px;">
                             </div>
                         </div>
                     <?php endif; ?>
 
                     <?php if ($seccionActiva === 'vencimientos'): ?>
-                        <div>
+                        <div class="w-100">
                             <label class="form-label text-muted small fw-bold mb-1">Filtro de Alerta</label>
-                            <select name="situacion_alerta" class="form-select bg-light border-warning-subtle auto-submit">
+                            <select name="situacion_alerta" class="form-select bg-light border-warning-subtle auto-submit" style="height: 38px;">
                                 <option value="">Todas las alertas</option>
                                 <option value="disponible" <?php echo (($filtros['situacion_alerta'] ?? '') === 'disponible') ? 'selected' : ''; ?>>Disponible</option>
                                 <option value="proximo_a_vencer" <?php echo (($filtros['situacion_alerta'] ?? '') === 'proximo_a_vencer') ? 'selected' : ''; ?>>Próximo a vencer</option>
@@ -127,7 +194,7 @@
                 </div>
 
                 <div class="col-12 d-flex justify-content-end mt-4 pt-3 border-top">
-                    <button type="submit" name="exportar_pdf" value="1" class="btn btn-danger shadow-sm fw-semibold px-4" formtarget="_blank">
+                    <button type="submit" name="exportar_pdf" value="1" class="btn btn-danger shadow-sm fw-bold px-4" formtarget="_blank">
                         <i class="bi bi-file-pdf-fill me-2"></i>Exportar <?php echo ucfirst($seccionActiva); ?> a PDF
                     </button>
                 </div>
@@ -136,7 +203,6 @@
     </div>
 
     <?php if ($seccionActiva === 'stock'): ?>
-        
         <div class="row mb-4">
             <div class="col-12 col-md-4">
                 <div class="card border-0 shadow-sm h-100">
@@ -284,7 +350,6 @@
     <?php endif; ?>
 
     <?php if ($seccionActiva === 'kardex'): ?>
-        
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
                 <h6 class="text-muted fw-bold mb-3">Entradas vs Salidas (Periodo Seleccionado)</h6>
@@ -354,7 +419,6 @@
     <?php endif; ?>
 
     <?php if ($seccionActiva === 'vencimientos'): ?>
-        
         <div class="row mb-4 justify-content-center">
             <div class="col-12 col-md-6">
                 <div class="card border-0 shadow-sm h-100">
@@ -425,10 +489,8 @@
 </div>
 
 <script>
-    // Creamos un objeto global que nuestro archivo inventario.js podrá leer
     window.datosInventario = {
         graficoDona: <?php echo json_encode($datosGraficoDona ?? []); ?>,
-        graficoBarras: <?php echo json_encode($datosGraficoBarras ?? []); ?>,
-        // Aquí agregaremos kardex y lotes después
+        graficoBarras: <?php echo json_encode($datosGraficoBarras ?? []); ?>
     };
 </script>
