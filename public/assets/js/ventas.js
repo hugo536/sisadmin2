@@ -493,11 +493,12 @@
             configurarInputCantidad(inputCantidad, item.permite_decimales, item.cantidad || 0);
             inputPrecio.value = Number(item.precio_unitario || 0).toFixed(2);
             
-            // Mostrar decimales en la columna "Stock" solo si el item lo permite
-                    const stockMostrar = (selectedOption.permiteDecimales === 1) 
-                        ? selectedOption.stock.toFixed(2) 
-                        : String(Math.round(selectedOption.stock));
-                    filaReal.querySelector('.detalle-stock').textContent = stockMostrar;
+            // Mostrar stock inicial de la línea cargada (sin depender de selectedOption del onChange)
+            const stockItem = Number(item.stock_actual || 0);
+            const stockMostrar = Number(item.permite_decimales || 0) === 1
+                ? stockItem.toFixed(2)
+                : String(Math.round(stockItem));
+            filaReal.querySelector('.detalle-stock').textContent = stockMostrar;
             
             if (!esBorrador) {
                 const cantDespachada = Number(item.cantidad_despachada || 0);
@@ -1153,30 +1154,30 @@
             }
         }
     });
-
-    [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta, filtroOrdenFecha].forEach(el => {
-        if(el) {
-            el.addEventListener('change', recargarTabla);
-        }
-    });
     
     // --- EVENTO DE CLICS EN LA TABLA (EDICIÓN, ANULACIÓN, IMPRESIÓN) ---
     document.querySelector('#tablaVentas tbody')?.addEventListener('click', async (e) => {
         const btn = e.target.closest('button');
         if (!btn) return;
         const tr = btn.closest('tr');
-        const id = Number(tr.dataset.id || 0);
+        const id = Number(btn.dataset.id || tr?.dataset.id || 0);
+
+        if (!id) {
+            Swal.fire('Error', 'No se encontró el identificador del pedido.', 'error');
+            return;
+        }
 
         if (btn.classList.contains('btn-editar')) {
             try {
                 const payload = await getJson(`${urls.index}&accion=ver&id=${id}`);
                 const venta = payload.data;
+                if (!venta || !venta.id) throw new Error('No se encontró información del pedido seleccionado.');
                 limpiarModalVenta();
                 ventaId.value = venta.id;
                 
                 const esBorrador = Number(venta.estado) === 0;
                 
-                const nombreCliente = tr.querySelector('td:nth-child(2)').textContent;
+                const nombreCliente = tr?.querySelector('td:nth-child(2)')?.textContent?.trim() || 'Cliente';
                 if (tomSelectCliente) {
                     tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente });
                     tomSelectCliente.setValue(venta.id_cliente);
@@ -1281,7 +1282,10 @@
                 // -----------------------------------------------
                 
                 modalVenta.show();
-            } catch (err) { Swal.fire('Error', 'No se pudo cargar', 'error'); }
+            } catch (err) {
+                console.error('Error al abrir pedido:', err);
+                Swal.fire('Error', err.message || 'No se pudo cargar', 'error');
+            }
         }
 
         if (btn.classList.contains('btn-anular')) {
@@ -1316,7 +1320,7 @@
 
         // LÓGICA DEL BOTÓN DE IMPRESIÓN (NUEVO)
         // Ya no necesitamos la función global, lo controlamos todo desde aquí
-        const btnImprimir = btn.closest('.btn-imprimir-modal'); // Asume que le pondremos una clase al botón de imprimir de la tabla
+        const btnImprimir = btn.closest('.btn-imprimir-modal');
         if (btnImprimir) {
             window.imprimirPedido(id);
         }
