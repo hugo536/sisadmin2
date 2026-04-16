@@ -71,7 +71,29 @@
             </td>
             <td class="label">TIPO / CATEGORÍA:</td>
             <td style="width: 35%; text-transform: uppercase;">
-                <?php echo htmlspecialchars((string) (($filtros['tipo_item'] ?? 'TODOS LOS TIPOS') . ' / ' . ($filtros['id_categoria'] ? ('CAT. #' . (int) $filtros['id_categoria']) : 'TODAS LAS CATEGORÍAS'))); ?>
+                <?php
+                    $tiposFiltro = $filtros['tipo_item'] ?? [];
+                    if (!is_array($tiposFiltro)) {
+                        $tiposFiltro = trim((string) $tiposFiltro) !== '' ? [(string) $tiposFiltro] : [];
+                    }
+                    $tiposFiltro = array_values(array_filter(array_map(static fn($v) => trim((string) $v), $tiposFiltro), static fn($v) => $v !== ''));
+
+                    $categoriasFiltro = $filtros['id_categoria'] ?? [];
+                    if (!is_array($categoriasFiltro)) {
+                        $categoriasFiltro = (int) $categoriasFiltro > 0 ? [(int) $categoriasFiltro] : [];
+                    }
+                    $categoriasFiltro = array_values(array_filter(array_map(static fn($v) => (int) $v, $categoriasFiltro), static fn($v) => $v > 0));
+
+                    $tipoTexto = empty($tiposFiltro)
+                        ? 'TODOS LOS TIPOS'
+                        : (count($tiposFiltro) === 1 ? strtoupper((string) $tiposFiltro[0]) : count($tiposFiltro) . ' TIPOS');
+
+                    $categoriaTexto = empty($categoriasFiltro)
+                        ? 'TODAS LAS CATEGORÍAS'
+                        : (count($categoriasFiltro) === 1 ? ('CAT. #' . (int) $categoriasFiltro[0]) : count($categoriasFiltro) . ' CATEGORÍAS');
+
+                    echo htmlspecialchars($tipoTexto . ' / ' . $categoriaTexto);
+                ?>
             </td>
         </tr>
         <tr>
