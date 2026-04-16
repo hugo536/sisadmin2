@@ -109,6 +109,15 @@
   let loadingTimerId = null;
   let loadingStateVisible = false;
 
+  const clearLoadingState = function () {
+    if (loadingTimerId !== null) {
+      window.clearTimeout(loadingTimerId);
+      loadingTimerId = null;
+    }
+    loadingStateVisible = false;
+    document.body.classList.remove('page-is-loading');
+  };
+
   const setLoadingState = function (enabled) {
     if (enabled) {
       if (loadingStateVisible || loadingTimerId !== null) return;
@@ -120,16 +129,7 @@
       return;
     }
 
-    if (loadingTimerId !== null) {
-      window.clearTimeout(loadingTimerId);
-      loadingTimerId = null;
-    }
-    if (loadingStateVisible) {
-      document.body.classList.remove('page-is-loading');
-      loadingStateVisible = false;
-    } else {
-      document.body.classList.remove('page-is-loading');
-    }
+    clearLoadingState();
   };
 
   const resetDynamicAssets = function () {
@@ -285,6 +285,20 @@
 
   window.addEventListener('popstate', function () {
     navigateWithoutReload(new URL(window.location.href), false);
+  });
+
+  // Defensa contra BFCache y expiración de sesión:
+  // si la pestaña vuelve con estado viejo, quitamos el overlay.
+  window.addEventListener('pageshow', function () {
+    clearLoadingState();
+  });
+  window.addEventListener('focus', function () {
+    clearLoadingState();
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') {
+      clearLoadingState();
+    }
   });
 
   notifyRouteLoaded({ url: window.location.href, initial: true });
