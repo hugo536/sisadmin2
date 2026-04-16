@@ -467,7 +467,7 @@ class ProduccionOrdenesModel extends Modelo
             $fechaDocumento = substr((string) ($fechaFin ?? date('Y-m-d')), 0, 10);
 
             // 1. REGISTRAR CONSUMOS (MD)
-            $stmtInfoItem = $db->prepare('SELECT controla_stock, requiere_lote, requiere_vencimiento FROM items WHERE id = :id LIMIT 1');
+            $stmtInfoItem = $db->prepare('SELECT controla_stock, requiere_lote, requiere_vencimiento, permite_decimales FROM items WHERE id = :id LIMIT 1');
             $stmtConsumo = $db->prepare('INSERT INTO produccion_consumos (id_orden_produccion, id_item, id_almacen, id_lote, cantidad, costo_unitario, created_by, updated_by) VALUES (:id_orden_produccion, :id_item, :id_almacen, :id_lote, :cantidad, :costo_unitario, :created_by, :updated_by)');
 
             foreach ($consumos as $consumo) {
@@ -563,17 +563,29 @@ class ProduccionOrdenesModel extends Modelo
             }
 
             // 3. REGISTRAR INGRESOS AL ALMACÉN
-            $cantidadTotalProducida = array_sum(array_column($ingresos, 'cantidad'));
+            $stmtInfoItem->execute(['id' => (int) $orden['id_producto']]);
+            $infoProducto = $stmtInfoItem->fetch(PDO::FETCH_ASSOC);
+            $controlaStockProd = (int)($infoProducto['controla_stock'] ?? 0) === 1;
+            $permiteDecimalesProd = (int)($infoProducto['permite_decimales'] ?? 0) === 1;
+
+            // Recorremos los ingresos y redondeamos si el producto no admite decimales
+            $cantidadTotalProducida = 0.0;
+            foreach ($ingresos as &$ingresoRef) {
+                $qtyIngreso = (float) ($ingresoRef['cantidad'] ?? 0);
+                if (!$permiteDecimalesProd) {
+                    $qtyIngreso = round($qtyIngreso); // Convertimos 1.9998 a 2
+                }
+                $ingresoRef['cantidad'] = $qtyIngreso;
+                $cantidadTotalProducida += $qtyIngreso;
+            }
+            unset($ingresoRef); // Romper referencia para evitar bugs en el próximo foreach
+
             if ($cantidadTotalProducida <= 0) {
                 throw new RuntimeException('La cantidad total producida debe ser mayor a cero.');
             }
 
             $costoRealTotal = $costoTotalConsumo + $costoModReal + $costoCifReal;
             $costoUnitarioIngreso = $costoRealTotal / $cantidadTotalProducida;
-
-            $stmtInfoItem->execute(['id' => (int) $orden['id_producto']]);
-            $infoProducto = $stmtInfoItem->fetch(PDO::FETCH_ASSOC);
-            $controlaStockProd = (int)($infoProducto['controla_stock'] ?? 0) === 1;
 
             $stmtIngreso = $db->prepare('INSERT INTO produccion_ingresos (id_orden_produccion, id_item, id_almacen, lote, fecha_vencimiento, cantidad, costo_unitario_calculado, created_by, updated_by) VALUES (:id_orden_produccion, :id_item, :id_almacen, :lote, :fecha_vencimiento, :cantidad, :costo_unitario_calculado, :created_by, :updated_by)');
             
