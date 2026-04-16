@@ -48,6 +48,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // --- NUEVO: INICIALIZACIÓN DEL MULTI-SELECTOR DE ETIQUETAS (TOMSELECT) ---
+    const filtroTipoItemEl = document.getElementById('filtroTipoItem');
+    if (filtroTipoItemEl && typeof TomSelect !== 'undefined') {
+        new TomSelect(filtroTipoItemEl, {
+            plugins: ['remove_button', 'clear_button'],
+            maxOptions: null,
+            closeAfterSelect: false,
+            placeholder: 'Todos los tipos',
+            onChange: function(value) {
+                // Al elegir o quitar una etiqueta, enviamos el formulario
+                if(form.checkValidity()) {
+                    form.submit();
+                }
+            }
+        });
+
+        // IMPORTANTE: Quitamos la clase 'auto-submit' original de este select 
+        // para que no haya conflictos con nuestro evento onChange de TomSelect
+        filtroTipoItemEl.classList.remove('auto-submit');
+    }
+    // --------------------------------------------------------------------------
+
     // --- 3. INICIALIZACIÓN DE GRÁFICOS (Datos de Prueba) ---
     
    // Gráficos de la Pestaña "Stock"

@@ -72,7 +72,7 @@ class ReportesController extends Controlador
             'fecha_corte' => trim((string) ($_GET['fecha_corte'] ?? date('Y-m-d\TH:i'))),
             'id_almacen' => (int) ($_GET['id_almacen'] ?? 0),
             'id_categoria' => (int) ($_GET['id_categoria'] ?? 0),
-            'tipo_item' => trim((string) ($_GET['tipo_item'] ?? '')),
+            'tipo_item' => isset($_GET['tipo_item']) ? (is_array($_GET['tipo_item']) ? $_GET['tipo_item'] : trim((string) $_GET['tipo_item'])) : '',
             'solo_bajo_minimo' => (int) ($_GET['solo_bajo_minimo'] ?? 0),
             'id_item' => (int) ($_GET['id_item'] ?? 0),
             'tipo_movimiento' => trim((string) ($_GET['tipo_movimiento'] ?? '')),

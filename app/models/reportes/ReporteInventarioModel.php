@@ -144,9 +144,15 @@ class ReporteInventarioModel extends Modelo
             $params['id_categoria'] = (int) $f['id_categoria']; 
         }
         
-        if (!empty($f['tipo_item'])) { 
-            $where[] = 'i.tipo_item = :tipo_item'; 
-            $params['tipo_item'] = (string) $f['tipo_item']; 
+        if (!empty($f['tipo_item'])) {
+            $tipos = is_array($f['tipo_item']) ? $f['tipo_item'] : [$f['tipo_item']];
+            $inParams = [];
+            foreach ($tipos as $idx => $tipo) {
+                $paramName = 'tipo_item_' . $idx;
+                $inParams[] = ':' . $paramName;
+                $params[$paramName] = (string) $tipo;
+            }
+            $where[] = 'i.tipo_item IN (' . implode(', ', $inParams) . ')';
         }
 
         $situacion = trim((string) ($f['situacion_alerta'] ?? ''));
@@ -296,9 +302,15 @@ class ReporteInventarioModel extends Modelo
             $whereFiltros[] = 'i.id_categoria = :id_categoria'; 
             $params[':id_categoria'] = (int) $f['id_categoria']; 
         }
-        if (!empty($f['tipo_item'])) { 
-            $whereFiltros[] = 'i.tipo_item = :tipo_item'; 
-            $params[':tipo_item'] = (string) $f['tipo_item']; 
+        if (!empty($f['tipo_item'])) {
+            $tipos = is_array($f['tipo_item']) ? $f['tipo_item'] : [$f['tipo_item']];
+            $inParams = [];
+            foreach ($tipos as $idx => $tipo) {
+                $paramName = ':tipo_item_' . $idx;
+                $inParams[] = $paramName;
+                $params[$paramName] = (string) $tipo;
+            }
+            $whereFiltros[] = 'i.tipo_item IN (' . implode(', ', $inParams) . ')';
         }
 
         $whereSql = implode(' AND ', $whereFiltros);
@@ -378,7 +390,16 @@ class ReporteInventarioModel extends Modelo
         $params = ['fecha_desde' => $f['fecha_desde'], 'fecha_hasta' => $f['fecha_hasta']];
 
         if (!empty($f['id_categoria'])) { $where[] = 'i.id_categoria = :id_categoria'; $params['id_categoria'] = (int) $f['id_categoria']; }
-        if (!empty($f['tipo_item'])) { $where[] = 'i.tipo_item = :tipo_item'; $params['tipo_item'] = (string) $f['tipo_item']; }
+        if (!empty($f['tipo_item'])) {
+            $tipos = is_array($f['tipo_item']) ? $f['tipo_item'] : [$f['tipo_item']];
+            $inParams = [];
+            foreach ($tipos as $idx => $tipo) {
+                $paramName = 'tipo_item_' . $idx;
+                $inParams[] = ':' . $paramName;
+                $params[$paramName] = (string) $tipo;
+            }
+            $where[] = 'i.tipo_item IN (' . implode(', ', $inParams) . ')';
+        }
         if (!empty($f['id_item'])) { $where[] = 'm.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
         if (!empty($f['id_almacen'])) {
             $where[] = '(m.id_almacen_origen = :id_almacen_origen OR m.id_almacen_destino = :id_almacen_destino)';
@@ -419,7 +440,16 @@ class ReporteInventarioModel extends Modelo
         if (!empty($f['id_item'])) { $where[] = 'l.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
         if (!empty($f['id_almacen'])) { $where[] = 'l.id_almacen = :id_almacen'; $params['id_almacen'] = (int) $f['id_almacen']; }
         if (!empty($f['id_categoria'])) { $where[] = 'i.id_categoria = :id_categoria'; $params['id_categoria'] = (int) $f['id_categoria']; }
-        if (!empty($f['tipo_item'])) { $where[] = 'i.tipo_item = :tipo_item'; $params['tipo_item'] = (string) $f['tipo_item']; }
+        if (!empty($f['tipo_item'])) {
+            $tipos = is_array($f['tipo_item']) ? $f['tipo_item'] : [$f['tipo_item']];
+            $inParams = [];
+            foreach ($tipos as $idx => $tipo) {
+                $paramName = 'tipo_item_' . $idx;
+                $inParams[] = ':' . $paramName;
+                $params[$paramName] = (string) $tipo;
+            }
+            $where[] = 'i.tipo_item IN (' . implode(', ', $inParams) . ')';
+        }
 
         $situacion = trim((string) ($f['situacion_alerta'] ?? ''));
         if ($situacion === 'vencido') {

@@ -61,7 +61,7 @@
 
                 <div class="col-12 col-md-4 col-lg-3">
                     <label class="form-label text-muted small fw-bold mb-1">Tipo de Ítem</label>
-                    <select name="tipo_item" class="form-select bg-light auto-submit">
+                    <select name="tipo_item[]" id="filtroTipoItem" multiple class="form-select bg-light auto-submit" placeholder="Selecciona tipos...">
                         <option value="">Todos los tipos</option>
                         <option value="producto_terminado" <?php echo (($filtros['tipo_item'] ?? '') === 'producto_terminado') ? 'selected' : ''; ?>>Producto terminado</option>
                         <option value="materia_prima" <?php echo (($filtros['tipo_item'] ?? '') === 'materia_prima') ? 'selected' : ''; ?>>Materia prima</option>
