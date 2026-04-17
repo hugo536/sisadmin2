@@ -20,6 +20,18 @@ class ReportesController extends Controlador
     private UsuariosModel $usuariosModel;
     private VentasDocumentoModel $ventasDocumentoModel;
 
+    private function normalizarIdsFiltro($valor): array
+    {
+        $lista = is_array($valor) ? $valor : [$valor];
+        return array_values(array_unique(array_filter(array_map(static fn($v) => (int) $v, $lista), static fn($v) => $v > 0)));
+    }
+
+    private function normalizarTextoFiltro($valor): array
+    {
+        $lista = is_array($valor) ? $valor : [$valor];
+        return array_values(array_unique(array_filter(array_map(static fn($v) => trim((string) $v), $lista), static fn($v) => $v !== '')));
+    }
+
     public function __construct()
     {
         $this->inventario = new ReporteInventarioModel();
@@ -70,10 +82,9 @@ class ReportesController extends Controlador
             'fecha_desde' => (string) ($_GET['fecha_desde'] ?? date('Y-m-01')),
             'fecha_hasta' => (string) ($_GET['fecha_hasta'] ?? date('Y-m-d')),
             'fecha_corte' => trim((string) ($_GET['fecha_corte'] ?? date('Y-m-d\TH:i'))),
-            'id_almacen' => (int) ($_GET['id_almacen'] ?? 0),
-            'id_categoria' => (int) ($_GET['id_categoria'] ?? 0),
-            // AQUÍ ESTÁ EL ARREGLO PARA QUE EL CHECKBOX MÚLTIPLE FUNCIONE SIN ERROR 500
-            'tipo_item' => isset($_GET['tipo_item']) ? (is_array($_GET['tipo_item']) ? $_GET['tipo_item'] : [$_GET['tipo_item']]) : [],
+            'id_almacen' => $this->normalizarIdsFiltro($_GET['id_almacen'] ?? []),
+            'id_categoria' => $this->normalizarIdsFiltro($_GET['id_categoria'] ?? []),
+            'tipo_item' => $this->normalizarTextoFiltro($_GET['tipo_item'] ?? []),
             'solo_bajo_minimo' => (int) ($_GET['solo_bajo_minimo'] ?? 0),
             'id_item' => (int) ($_GET['id_item'] ?? 0),
             'tipo_movimiento' => trim((string) ($_GET['tipo_movimiento'] ?? '')),
@@ -93,13 +104,22 @@ class ReportesController extends Controlador
             $vencimientos = ($seccionActiva === 'vencimientos') ? $this->inventario->vencimientos($f, 1, 999999) : [];
 
             $almacenNombre = 'TODOS LOS ALMACENES';
-            $idAlmacenSeleccionado = (int) ($f['id_almacen'] ?? 0);
-            if ($idAlmacenSeleccionado > 0) {
+            $idsAlmacenSeleccionados = $this->normalizarIdsFiltro($f['id_almacen'] ?? []);
+            if (!empty($idsAlmacenSeleccionados)) {
+                $mapaAlmacenes = [];
                 foreach ($this->inventario->listarAlmacenesActivos() as $almacen) {
-                    if ((int) ($almacen['id'] ?? 0) === $idAlmacenSeleccionado) {
-                        $almacenNombre = mb_strtoupper((string) ($almacen['nombre'] ?? ''));
-                        break;
+                    $mapaAlmacenes[(int) ($almacen['id'] ?? 0)] = (string) ($almacen['nombre'] ?? '');
+                }
+                $nombres = [];
+                foreach ($idsAlmacenSeleccionados as $idAlmacenSeleccionado) {
+                    if (isset($mapaAlmacenes[$idAlmacenSeleccionado])) {
+                        $nombres[] = mb_strtoupper($mapaAlmacenes[$idAlmacenSeleccionado]);
                     }
+                }
+                if (count($nombres) === 1) {
+                    $almacenNombre = $nombres[0];
+                } elseif (count($nombres) > 1) {
+                    $almacenNombre = count($nombres) . ' ALMACENES SELECCIONADOS';
                 }
             }
 
