@@ -463,6 +463,7 @@ class VentasDocumentoModel extends Modelo
         if ($acuerdo['tiene_acuerdo']) {
             $sqlItems = "SELECT CONCAT('ITEM-', i.id) AS id, i.sku, i.nombre, cap.precio_pactado AS precio_venta, i.tipo_item,
                                 COALESCE(i.permite_decimales, 0) AS permite_decimales,
+                                COALESCE(i.peso_kg, 0) AS peso_kg,
                                 COALESCE($stockSqlItems, 0) AS stock_actual
                          FROM comercial_acuerdos_precios cap
                          INNER JOIN items i ON i.id = cap.id_presentacion
@@ -484,6 +485,7 @@ class VentasDocumentoModel extends Modelo
                                 ) AS precio_venta,
                                 i.tipo_item,
                                 COALESCE(i.permite_decimales, 0) AS permite_decimales,
+                                COALESCE(i.peso_kg, 0) AS peso_kg,
                                 COALESCE($stockSqlItems, 0) AS stock_actual
                          FROM items i
                          WHERE i.estado = 1 AND i.deleted_at IS NULL
@@ -499,7 +501,7 @@ class VentasDocumentoModel extends Modelo
         if ($this->tablaExiste('precios_presentaciones') && $this->tablaExiste('precios_presentaciones_detalle')) {
             $stockSqlPacks = $this->resolverSubqueryStockCombo('pp.id', $idAlmacen);
             $sqlPacks = "SELECT CONCAT('PACK-', pp.id) AS id, 'SIN-SKU' AS sku, pp.nombre, pp.precio_venta,
-                                'combo' AS tipo_item, 0 AS permite_decimales, {$stockSqlPacks} AS stock_actual
+                                'combo' AS tipo_item, 0 AS permite_decimales, 0 AS peso_kg, {$stockSqlPacks} AS stock_actual
                          FROM precios_presentaciones pp
                          WHERE pp.estado = 1 AND pp.deleted_at IS NULL";
             $consultas[] = "($sqlPacks)";

@@ -219,10 +219,19 @@ $formatearFechaDMY = static function ($fecha): string {
                                 </div>
                             </div>
                             
-                            <div class="row g-3 mt-1">
-                                <div class="col-12">
+                            <div class="row g-3 mt-1 align-items-end">
+                                <div class="col-lg-8">
                                     <label for="ventaObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones / Motivo</label>
                                     <input type="text" class="form-control shadow-none" id="ventaObservaciones" maxlength="180" placeholder="Ej: Donación para evento benéfico local">
+                                </div>
+                                <div class="col-lg-4">
+                                    <div class="border rounded-3 bg-white p-2 px-3 h-100">
+                                        <div class="text-muted small fw-bold mb-1">Peso total estimado</div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="small text-secondary">Calculado en tiempo real</span>
+                                            <span class="fw-bold text-primary" id="ventaPesoTotal">0.000 kg</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             </div>
