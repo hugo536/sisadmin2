@@ -32,15 +32,11 @@
                 btnGuardar.textContent = 'Guardar Pedido';
 
                 if (!document.getElementById('alertaBorradorInfo')) {
-                    const tablaDetalle = document.getElementById('tablaDetalleVenta');
-                    const alertaHTML = `
-                        <div id="alertaBorradorInfo" class="alert alert-warning py-2 mb-3 d-flex align-items-center" style="font-size: 0.9rem;">
-                            <i class="bi bi-info-circle-fill text-warning me-2 fs-5"></i>
-                            <div><strong>Modo Borrador:</strong> Las cantidades ingresadas son tentativas y <u>no descuentan el stock físico</u> todavía.</div>
-                        </div>
-                    `;
-                    tablaDetalle.insertAdjacentHTML('beforebegin', alertaHTML);
-                }
+                        const contenedor = document.getElementById('alertaBorradorContenedor');
+                        if (contenedor) {
+                            contenedor.innerHTML = `<span id="alertaBorradorInfo" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
+                        }
+                    }
 
                 modalVenta.show();
             } catch (error) {
@@ -213,6 +209,17 @@
         return payload;
     }
 
+    // --- NUEVO: FUNCION PARA NUMERAR FILAS ---
+    function actualizarNumeracionFilas() {
+        const filas = tbodyVenta.querySelectorAll('tr');
+        filas.forEach((fila, index) => {
+            const celdaNumero = fila.querySelector('.fila-numero');
+            if (celdaNumero) {
+                celdaNumero.textContent = index + 1;
+            }
+        });
+    }
+
     // --- LÓGICA VENTA (CALCULOS E IMPUESTOS) ---
     function filaVentaPayload(fila) {
         const selectElement = fila.querySelector('.detalle-item');
@@ -316,8 +323,8 @@
         if (ventaIgv) ventaIgv.textContent = `S/ ${igv.toFixed(2)}`;
         if (ventaTotal) ventaTotal.textContent = esDonacion ? 'S/ 0.00 (GRATUITO)' : `S/ ${total.toFixed(2)}`;
         
-        // Actualizar el valor del input del peso (usamos .value porque es un input form-control)
-        if (ventaPesoTotal) ventaPesoTotal.value = pesoTotalKg.toFixed(3);
+        // --- MODIFICADO: Actualizar el span del peso total ---
+        if (ventaPesoTotal) ventaPesoTotal.textContent = `${pesoTotalKg.toFixed(3)} kg`;
     }
 
     if (tipoImpuesto) {
@@ -422,6 +429,7 @@
         btnQuitar.addEventListener('click', () => {
             if (selectItem.tomselect) selectItem.tomselect.destroy();
             filaReal.remove();
+            actualizarNumeracionFilas(); // <-- NUEVO: Actualizar números
             recalcularTotalVenta();
         });
 
@@ -564,6 +572,7 @@
             }, 100);
         }
 
+        actualizarNumeracionFilas(); // <-- NUEVO: Actualizar números
         recalcularTotalVenta();
     }
 
@@ -598,12 +607,14 @@
             ventaTotal.classList.add('text-primary');
             ventaTotal.classList.remove('text-success');
         }
-        if (ventaPesoTotal) ventaPesoTotal.value = '0.000'; // Usamos .value para input
+        // --- MODIFICADO: Resetear usando textContent ---
+        if (ventaPesoTotal) ventaPesoTotal.textContent = '0.000 kg'; 
         
         const btnGuardar = document.getElementById('btnGuardarVenta');
         if (btnGuardar) btnGuardar.textContent = 'Guardar Pedido';
-        const alerta = document.getElementById('alertaBorradorInfo');
-        if (alerta) alerta.remove();
+        
+        const contenedorAlerta = document.getElementById('alertaBorradorContenedor');
+        if (contenedorAlerta) contenedorAlerta.innerHTML = '';
         
         // Limpiar sección devoluciones
         const seccionDevoluciones = document.getElementById('seccionDevolucionesVenta');
@@ -1289,15 +1300,11 @@
                     btnGuardar.textContent = 'Actualizar Pedido';
                     
                     if (!document.getElementById('alertaBorradorInfo')) {
-                        const tablaDetalle = document.getElementById('tablaDetalleVenta'); 
-                        const alertaHTML = `
-                            <div id="alertaBorradorInfo" class="alert alert-warning py-2 mb-3 d-flex align-items-center" style="font-size: 0.9rem;">
-                                <i class="bi bi-info-circle-fill text-warning me-2 fs-5"></i>
-                                <div><strong>Modo Borrador:</strong> Las cantidades ingresadas son tentativas y <u>no descuentan el stock físico</u> todavía.</div>
-                            </div>
-                        `;
-                        tablaDetalle.insertAdjacentHTML('beforebegin', alertaHTML);
+                    const contenedor = document.getElementById('alertaBorradorContenedor');
+                    if (contenedor) {
+                        contenedor.innerHTML = `<span id="alertaBorradorInfo" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
                     }
+                }
                 } else {
                     btnGuardar.style.display = 'none';
                 }

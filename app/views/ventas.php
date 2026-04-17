@@ -219,46 +219,48 @@ $formatearFechaDMY = static function ($fecha): string {
                             </div>
                             
                             <div class="row g-3 mt-1 align-items-end">
-                                <div class="col-md-8">
+                                <div class="col-12">
                                     <label for="ventaObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones / Motivo</label>
                                     <input type="text" class="form-control shadow-none border-secondary-subtle" id="ventaObservaciones" maxlength="180" placeholder="Ej: Donación para evento benéfico local">
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="form-label text-muted small fw-bold mb-1">Peso total estimado</label>
-                                    <div class="input-group">
-                                        <input type="text" class="form-control bg-light shadow-none border-secondary-subtle text-end fw-bold text-dark" id="ventaPesoTotal" value="0.000" readonly title="Se calcula automáticamente según los productos">
-                                        <span class="input-group-text bg-light border-secondary-subtle text-muted fw-semibold">kg</span>
-                                    </div>
-                                </div>
                             </div>
-                            </div>
+                        </div>
                     </div>
 
                     <div class="card border-0 shadow-sm">
                         <div class="card-body p-0">
-                            <div class="p-3 border-bottom bg-white rounded-top">
+                            <div class="p-3 border-bottom bg-white rounded-top d-flex align-items-center gap-3">
                                 <h6 class="mb-0 fw-bold text-dark">Detalle de Productos</h6>
-                            </div>
+                                <div id="alertaBorradorContenedor"></div> </div>
                             
                             <div class="table-responsive">
-                                <table class="table align-middle mb-0 table-pro" id="tablaDetalleVenta">
-                                    <thead>
+                                <table class="table table-sm align-middle mb-0 table-pro table-pastel" id="tablaDetalleVenta">
+                                    <thead class="table-light border-bottom">
                                         <tr>
-                                            <th class="ps-3 text-secondary col-min-w-300">Producto</th>
-                                            <th class="text-end text-secondary col-w-100">Stock</th>
-                                            <th class="text-center text-secondary col-w-120">Cantidad</th>
-                                            <th class="text-center text-secondary col-w-140">Precio Unit.</th>
-                                            <th class="text-end text-secondary col-w-140">Subtotal</th>
-                                            <th class="text-center col-w-60"></th>
+                                            <th class="text-center text-secondary col-w-40 py-2">#</th>
+                                            <th class="ps-3 text-secondary col-min-w-300 py-2">Producto</th>
+                                            <th class="text-end text-secondary col-w-100 py-2">Stock</th>
+                                            <th class="text-center text-secondary col-w-120 py-2">Cantidad</th>
+                                            <th class="text-center text-secondary col-w-140 py-2">Precio Unit.</th>
+                                            <th class="text-end text-secondary col-w-140 py-2">Subtotal</th>
+                                            <th class="text-center col-w-60 py-2"></th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white"></tbody>
                                     <tfoot class="bg-light border-top">
                                         <tr>
-                                            <td colspan="2" class="ps-3 py-3 align-middle border-bottom-0">
-                                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFilaVenta">
-                                                    <i class="bi bi-plus-lg me-1"></i>Agregar Producto
-                                                </button>
+                                            <td colspan="3" class="ps-3 py-3 align-middle border-bottom-0">
+                                                <div class="d-flex align-items-center gap-3">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFilaVenta">
+                                                        <i class="bi bi-plus-lg me-1"></i>Agregar Producto
+                                                    </button>
+                                                    
+                                                    <div class="d-none d-sm-flex align-items-center bg-white border border-secondary-subtle rounded-2 px-2 py-1 shadow-sm">
+                                                        <i class="bi bi-box-seam text-muted me-2"></i>
+                                                        <span class="text-muted small fw-bold me-1">Peso est:</span>
+                                                        <span class="text-dark fw-bold small" id="ventaPesoTotal">0.000 kg</span>
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td colspan="4" class="pe-4 py-3 align-middle border-bottom-0">
                                                 <div class="d-flex flex-wrap justify-content-end align-items-center gap-3 gap-md-4">
@@ -370,14 +372,14 @@ $formatearFechaDMY = static function ($fecha): string {
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table align-middle mb-0 table-pro" id="tablaDetalleDespacho">
+                            <table class="table table-sm align-middle mb-0 table-pro table-pastel" id="tablaDetalleDespacho">
                                 <thead>
                                     <tr>
-                                        <th class="ps-3 text-secondary col-min-w-250">Producto / Pendiente</th>
-                                        <th class="text-center text-secondary col-w-200">Almacén Origen</th>
-                                        <th class="text-center text-secondary col-w-100">Stock</th>
-                                        <th class="text-end pe-3 text-secondary col-w-160">A Despachar</th>
-                                        <th class="text-center text-secondary col-w-80">Acciones</th>
+                                        <th class="ps-3 text-secondary col-min-w-250 py-2">Producto / Pendiente</th>
+                                        <th class="text-center text-secondary col-w-200 py-2">Almacén Origen</th>
+                                        <th class="text-center text-secondary col-w-100 py-2">Stock</th>
+                                        <th class="text-end pe-3 text-secondary col-w-160 py-2">A Despachar</th>
+                                        <th class="text-center text-secondary col-w-80 py-2">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white"></tbody>
@@ -450,14 +452,14 @@ $formatearFechaDMY = static function ($fecha): string {
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table align-middle mb-0 table-bordered" id="tablaDetalleDevolucionVenta">
-                                <thead class="table-secondary text-dark">
+                            <table class="table table-sm align-middle mb-0 table-pro table-pastel" id="tablaDetalleDevolucionVenta">
+                                <thead class="table-light border-bottom">
                                     <tr>
-                                        <th class="ps-3 border-bottom-0">Producto / Ítem</th>
-                                        <th class="text-center border-bottom-0 col-w-150">Cant. Despachada</th>
-                                        <th class="text-center border-bottom-0 col-w-150">Precio Unit.</th>
-                                        <th class="text-center border-bottom-0 col-w-140">Cantidad</th>
-                                        <th class="text-end pe-4 border-bottom-0 col-w-150">Monto Devuelto</th>
+                                        <th class="ps-3 border-bottom-0 py-2">Producto / Ítem</th>
+                                        <th class="text-center border-bottom-0 col-w-150 py-2">Cant. Despachada</th>
+                                        <th class="text-center border-bottom-0 col-w-150 py-2">Precio Unit.</th>
+                                        <th class="text-center border-bottom-0 col-w-140 py-2">Cantidad</th>
+                                        <th class="text-end pe-4 border-bottom-0 col-w-150 py-2">Monto Devuelto</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white"></tbody>
@@ -567,6 +569,7 @@ $formatearFechaDMY = static function ($fecha): string {
 
 <template id="templateFilaVenta">
     <tr class="border-bottom">
+        <td class="text-center fw-bold text-muted align-top py-3 fila-numero bg-light-subtle" style="font-size: 0.85rem;">1</td>
         <td class="ps-3 py-3 align-top" data-label="Producto">
             <select class="form-select form-select-sm detalle-item shadow-none border-secondary-subtle" required></select>
             <small class="text-muted d-block mt-1 detalle-peso-info d-none" style="font-size: 0.75rem;">

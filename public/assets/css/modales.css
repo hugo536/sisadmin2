@@ -73,35 +73,69 @@
     box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25) !important;
 }
 
-/* --- 2. TABLAS ESTILO PASTEL DENTRO DE MODALES --- */
+/* --- 2. TABLAS ESTILO PASTEL DENTRO DE MODALES (MEJORADO - CONTRASTE SÓLIDO) --- */
 /* Uso: <table class="table table-pro table-pastel"> */
-.table-pastel thead th {
-    background-color: #f8f9fa !important; /* Gris pastel muy suave */
-    color: #495057 !important;
-    font-weight: 600;
-    font-size: 0.85rem;
-    border-bottom: 2px solid #e9ecef;
-    letter-spacing: 0.3px;
+
+.table-pastel {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #dee2e6; /* Agrega un borde general muy sutil a toda la tabla */
+    border-radius: 8px; /* Mismo radio que usaremos en las cabeceras */
 }
 
+/* Cabecera de la tabla */
+.table-pastel thead th {
+    background-color: #6c757d !important; /* Gris oscuro corporativo/azulado */
+    color: #ffffff !important; /* Texto blanco para máximo contraste */
+    font-weight: 600 !important;
+    font-size: 0.8rem !important; 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px;
+    padding: 12px 10px !important;
+    border-bottom: none !important; /* Quitamos la raya gruesa porque el color ya marca el límite */
+    border-top: none !important;
+}
+
+/* Redondear las esquinas de la tabla para un look moderno */
+.table-pastel thead tr:first-child th:first-child {
+    border-top-left-radius: 7px;
+}
+.table-pastel thead tr:first-child th:last-child {
+    border-top-right-radius: 7px;
+}
+.table-pastel tfoot td:first-child {
+    border-bottom-left-radius: 7px;
+}
+.table-pastel tfoot td:last-child {
+    border-bottom-right-radius: 7px;
+}
+
+/* Cuerpo de la tabla */
 .table-pastel tbody tr {
-    border-bottom: 1px solid #e9ecef;
     background-color: #ffffff;
+    border-bottom: 1px solid #e9ecef; /* Borde sutil entre filas */
     transition: background-color 0.15s ease-in-out;
 }
 
-.table-pastel tbody tr:hover {
-    background-color: #f8f9fa !important;
+/* Hover más distinguible */
+.table-pastel tbody tr:hover td {
+    background-color: #f8f9fa !important; 
+}
+
+/* Pie de la tabla (Donde van los botones y totales) */
+.table-pastel tfoot td {
+    background-color: #f8f9fa !important; /* Fondo gris súper sutil */
+    border-top: 2px solid #dee2e6 !important; /* Línea separadora clara para marcar los totales */
 }
 
 /* Fila activa (seleccionada) */
-.table-pastel tbody tr.table-active {
-    background-color: #eef2f6 !important;
-    border-left: 3px solid var(--primary-color); /* Indicador dinámico según el tema */
+.table-pastel tbody tr.table-active td {
+    background-color: #eff6ff !important; 
+    border-left: 3px solid var(--primary-color);
 }
 
 /* Fila protegida/bloqueada */
-.table-pastel tbody tr.table-protected {
+.table-pastel tbody tr.table-protected td {
     background-color: #f1f3f5 !important;
     opacity: 0.8;
 }
