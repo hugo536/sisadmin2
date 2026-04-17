@@ -245,11 +245,27 @@
         tbodyVenta.querySelectorAll('tr').forEach((fila) => {
             const data = filaVentaPayload(fila);
             const subtotal = data.cantidad * data.precio_unitario;
+            
+            // Cálculos de Peso
             const pesoUnitarioKg = obtenerPesoUnitarioFila(fila);
             const pesoLineaKg = data.cantidad * pesoUnitarioKg;
+            
             sumaLineas += subtotal;
             pesoTotalKg += pesoLineaKg;
             
+            // --- NUEVO: Actualizar la UI del peso en la fila ---
+            const infoPeso = fila.querySelector('.detalle-peso-info');
+            if (infoPeso) {
+                if (pesoUnitarioKg > 0) {
+                    infoPeso.classList.remove('d-none');
+                    infoPeso.querySelector('.peso-unitario').textContent = pesoUnitarioKg.toFixed(3);
+                    infoPeso.querySelector('.peso-subtotal').textContent = pesoLineaKg.toFixed(3);
+                } else {
+                    infoPeso.classList.add('d-none');
+                }
+            }
+            // --------------------------------------------------
+
             const celdaSubtotal = fila.querySelector('.detalle-subtotal');
             if (esDonacion) {
                 celdaSubtotal.innerHTML = `
@@ -299,7 +315,9 @@
         if (ventaSubtotal) ventaSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
         if (ventaIgv) ventaIgv.textContent = `S/ ${igv.toFixed(2)}`;
         if (ventaTotal) ventaTotal.textContent = esDonacion ? 'S/ 0.00 (GRATUITO)' : `S/ ${total.toFixed(2)}`;
-        if (ventaPesoTotal) ventaPesoTotal.textContent = `${pesoTotalKg.toFixed(3)} kg`;
+        
+        // Actualizar el valor del input del peso (usamos .value porque es un input form-control)
+        if (ventaPesoTotal) ventaPesoTotal.value = pesoTotalKg.toFixed(3);
     }
 
     if (tipoImpuesto) {
@@ -580,7 +598,7 @@
             ventaTotal.classList.add('text-primary');
             ventaTotal.classList.remove('text-success');
         }
-        if (ventaPesoTotal) ventaPesoTotal.textContent = '0.000 kg';
+        if (ventaPesoTotal) ventaPesoTotal.value = '0.000'; // Usamos .value para input
         
         const btnGuardar = document.getElementById('btnGuardarVenta');
         if (btnGuardar) btnGuardar.textContent = 'Guardar Pedido';

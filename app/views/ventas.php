@@ -10,7 +10,7 @@ $estadoLabels = [
     2 => ['texto' => 'Aprobado', 'clase' => 'bg-primary-subtle text-primary border border-primary-subtle'],
     3 => ['texto' => 'Cerrado/Entregado', 'clase' => 'bg-success-subtle text-success border border-success-subtle'],
     4 => ['texto' => 'Devuelto Total', 'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
-    5 => ['texto' => 'Dev. Parcial', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'], // <-- NUEVO
+    5 => ['texto' => 'Dev. Parcial', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'], 
     9 => ['texto' => 'Anulado', 'clase' => 'bg-dark-subtle text-dark border border-dark-subtle'],
 ];
 
@@ -26,7 +26,6 @@ $formatearFechaDMY = static function ($fecha): string {
     return date('d/m/Y', $timestamp);
 };
 ?>
-
 
 <div class="container-fluid p-4" id="ventasApp"
      data-url-index="<?php echo e(route_url('ventas/index')); ?>"
@@ -220,17 +219,15 @@ $formatearFechaDMY = static function ($fecha): string {
                             </div>
                             
                             <div class="row g-3 mt-1 align-items-end">
-                                <div class="col-lg-8">
+                                <div class="col-md-8">
                                     <label for="ventaObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones / Motivo</label>
-                                    <input type="text" class="form-control shadow-none" id="ventaObservaciones" maxlength="180" placeholder="Ej: Donación para evento benéfico local">
+                                    <input type="text" class="form-control shadow-none border-secondary-subtle" id="ventaObservaciones" maxlength="180" placeholder="Ej: Donación para evento benéfico local">
                                 </div>
-                                <div class="col-lg-4">
-                                    <div class="border rounded-3 bg-white p-2 px-3 h-100">
-                                        <div class="text-muted small fw-bold mb-1">Peso total estimado</div>
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <span class="small text-secondary">Calculado en tiempo real</span>
-                                            <span class="fw-bold text-primary" id="ventaPesoTotal">0.000 kg</span>
-                                        </div>
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted small fw-bold mb-1">Peso total estimado</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control bg-light shadow-none border-secondary-subtle text-end fw-bold text-dark" id="ventaPesoTotal" value="0.000" readonly title="Se calcula automáticamente según los productos">
+                                        <span class="input-group-text bg-light border-secondary-subtle text-muted fw-semibold">kg</span>
                                     </div>
                                 </div>
                             </div>
@@ -550,7 +547,7 @@ $formatearFechaDMY = static function ($fecha): string {
         nuevoBtnConfirmar.addEventListener('click', () => {
             const app = document.getElementById('ventasApp');
             const inputPaginas = document.getElementById('cantidadPaginasPedido');
-            const selectTipo = document.getElementById('tipoDocumentoImprimir'); // Capturamos el tipo
+            const selectTipo = document.getElementById('tipoDocumentoImprimir'); 
             
             if (!app || !inputPaginas || window.pedidoIdPendienteImpresion <= 0) return;
 
@@ -563,7 +560,6 @@ $formatearFechaDMY = static function ($fecha): string {
                 bootstrap.Modal.getOrCreateInstance(modalEl).hide();
             }
 
-            // Pasamos la acción dinámica (imprimir vs imprimir_proforma)
             window.open(`${baseUrl}&accion=${accionImpresion}&id=${window.pedidoIdPendienteImpresion}&paginas=${paginas}`, '_blank');
         });
     })();
@@ -573,6 +569,9 @@ $formatearFechaDMY = static function ($fecha): string {
     <tr class="border-bottom">
         <td class="ps-3 py-3 align-top" data-label="Producto">
             <select class="form-select form-select-sm detalle-item shadow-none border-secondary-subtle" required></select>
+            <small class="text-muted d-block mt-1 detalle-peso-info d-none" style="font-size: 0.75rem;">
+                <i class="bi bi-box-seam me-1"></i><span class="peso-unitario">0.00</span> kg c/u (Total: <span class="peso-subtotal">0.00</span> kg)
+            </small>
         </td>
         <td class="text-end text-muted small fw-bold py-3 px-2 align-top detalle-stock" data-label="Stock Disponible">0.00</td>
         <td class="align-top py-3 px-2" data-label="Cantidad">
