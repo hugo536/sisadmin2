@@ -132,6 +132,7 @@
     const ventaSubtotal = document.getElementById('ventaSubtotal');
     const ventaIgv = document.getElementById('ventaIgv');
     const ventaTotal = document.getElementById('ventaTotal');
+    const ventaPesoTotal = document.getElementById('ventaPesoTotal');
 
     const tbodyDespacho = document.querySelector('#tablaDetalleDespacho tbody');
     const despachoDocumentoId = document.getElementById('despachoDocumentoId');
@@ -223,15 +224,31 @@
             precio_unitario: parseFloat(fila.querySelector('.detalle-precio').value || 0),
         };
     }
+
+    function obtenerPesoUnitarioFila(fila) {
+        const selectElement = fila.querySelector('.detalle-item');
+        const idValue = selectElement && selectElement.tomselect ? selectElement.tomselect.getValue() : (selectElement ? selectElement.value : '');
+        if (!idValue) return 0;
+
+        if (selectElement?.tomselect?.options?.[idValue]) {
+            return Number(selectElement.tomselect.options[idValue].pesoKg || 0);
+        }
+
+        return Number(fila.dataset.pesoKg || 0);
+    }
    
     function recalcularTotalVenta() {
         let sumaLineas = 0;
+        let pesoTotalKg = 0;
         const esDonacion = tipoOperacion && tipoOperacion.value === 'DONACION'; 
 
         tbodyVenta.querySelectorAll('tr').forEach((fila) => {
             const data = filaVentaPayload(fila);
             const subtotal = data.cantidad * data.precio_unitario;
+            const pesoUnitarioKg = obtenerPesoUnitarioFila(fila);
+            const pesoLineaKg = data.cantidad * pesoUnitarioKg;
             sumaLineas += subtotal;
+            pesoTotalKg += pesoLineaKg;
             
             const celdaSubtotal = fila.querySelector('.detalle-subtotal');
             if (esDonacion) {
@@ -282,6 +299,7 @@
         if (ventaSubtotal) ventaSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
         if (ventaIgv) ventaIgv.textContent = `S/ ${igv.toFixed(2)}`;
         if (ventaTotal) ventaTotal.textContent = esDonacion ? 'S/ 0.00 (GRATUITO)' : `S/ ${total.toFixed(2)}`;
+        if (ventaPesoTotal) ventaPesoTotal.textContent = `${pesoTotalKg.toFixed(3)} kg`;
     }
 
     if (tipoImpuesto) {
@@ -416,7 +434,8 @@
                             text: `${prod.nombre || ''}`,
                             stock: parseFloat(prod.stock_actual || 0),
                             precio: parseFloat(prod.precio_venta || 0),
-                            permiteDecimales: Number(prod.permite_decimales || 0)
+                            permiteDecimales: Number(prod.permite_decimales || 0),
+                            pesoKg: Number(prod.peso_kg || 0)
                         }));
                         callback(items);
                     }).catch(() => callback());
@@ -436,6 +455,7 @@
 
                     filaReal.querySelector('.detalle-stock').textContent = selectedOption.stock.toFixed(2);
                     inputPrecio.value = selectedOption.precio.toFixed(2);
+                    filaReal.dataset.pesoKg = String(Number(selectedOption.pesoKg || 0));
                     
                     // MEJORA UX: Evitar el 0 molesto
                     let valorActual = inputCantidad.value;
@@ -486,9 +506,11 @@
                 text: `${item.item_nombre || ''}`,
                 stock: Number(item.stock_actual || 0), 
                 precio: Number(item.precio_unitario),
-                permiteDecimales: Number(item.permite_decimales || 0)
+                permiteDecimales: Number(item.permite_decimales || 0),
+                pesoKg: Number(item.peso_kg || 0)
             });
             tom.setValue(item.id_item);
+            filaReal.dataset.pesoKg = String(Number(item.peso_kg || 0));
             
             if (!esBorrador) tom.disable(); 
 
@@ -558,6 +580,7 @@
             ventaTotal.classList.add('text-primary');
             ventaTotal.classList.remove('text-success');
         }
+        if (ventaPesoTotal) ventaPesoTotal.textContent = '0.000 kg';
         
         const btnGuardar = document.getElementById('btnGuardarVenta');
         if (btnGuardar) btnGuardar.textContent = 'Guardar Pedido';
