@@ -3,6 +3,33 @@ declare(strict_types=1);
 
 class ReporteInventarioModel extends Modelo
 {
+    private function normalizarListaIds($valor): array
+    {
+        $lista = is_array($valor) ? $valor : [$valor];
+        $ids = array_values(array_unique(array_filter(array_map(static fn($v) => (int) $v, $lista), static fn($v) => $v > 0)));
+        return $ids;
+    }
+
+    private function aplicarFiltroIds(array &$where, array &$params, string $columnaSql, string $prefijoParam, array $ids): void
+    {
+        if (empty($ids)) {
+            return;
+        }
+        if (count($ids) === 1) {
+            $where[] = "{$columnaSql} = :{$prefijoParam}";
+            $params[$prefijoParam] = (int) $ids[0];
+            return;
+        }
+
+        $inParams = [];
+        foreach ($ids as $idx => $id) {
+            $paramName = $prefijoParam . '_' . $idx;
+            $inParams[] = ':' . $paramName;
+            $params[$paramName] = (int) $id;
+        }
+        $where[] = "{$columnaSql} IN (" . implode(', ', $inParams) . ')';
+    }
+
     public function listarAlmacenesActivos(): array
     {
         $sql = 'SELECT id, nombre
@@ -132,17 +159,12 @@ class ReporteInventarioModel extends Modelo
         $params = [];
 
         // Variable para saber si debemos agrupar o no
-        $isGlobal = empty($f['id_almacen']);
+        $idsAlmacen = $this->normalizarListaIds($f['id_almacen'] ?? []);
+        $idsCategoria = $this->normalizarListaIds($f['id_categoria'] ?? []);
+        $isGlobal = empty($idsAlmacen);
 
-        if (!$isGlobal) { 
-            $where[] = 's.id_almacen = :id_almacen'; 
-            $params['id_almacen'] = (int) $f['id_almacen']; 
-        }
-        
-        if (!empty($f['id_categoria'])) { 
-            $where[] = 'i.id_categoria = :id_categoria'; 
-            $params['id_categoria'] = (int) $f['id_categoria']; 
-        }
+        $this->aplicarFiltroIds($where, $params, 's.id_almacen', 'id_almacen', $idsAlmacen);
+        $this->aplicarFiltroIds($where, $params, 'i.id_categoria', 'id_categoria', $idsCategoria);
         
         if (!empty($f['tipo_item'])) {
             $tipos = is_array($f['tipo_item']) ? $f['tipo_item'] : [$f['tipo_item']];
@@ -286,22 +308,18 @@ class ReporteInventarioModel extends Modelo
         
         // SOLUCIÓN: Creamos 4 parámetros idénticos para satisfacer las reglas de PDO
         $params = [
-            ':fecha_corte1' => $fechaCorte,
-            ':fecha_corte2' => $fechaCorte,
-            ':fecha_corte3' => $fechaCorte,
-            ':fecha_corte4' => $fechaCorte
+            'fecha_corte1' => $fechaCorte,
+            'fecha_corte2' => $fechaCorte,
+            'fecha_corte3' => $fechaCorte,
+            'fecha_corte4' => $fechaCorte
         ];
 
-        $isGlobal = empty($f['id_almacen']);
+        $idsAlmacen = $this->normalizarListaIds($f['id_almacen'] ?? []);
+        $idsCategoria = $this->normalizarListaIds($f['id_categoria'] ?? []);
+        $isGlobal = empty($idsAlmacen);
 
-        if (!$isGlobal) { 
-            $whereFiltros[] = 's.id_almacen = :id_almacen'; 
-            $params[':id_almacen'] = (int) $f['id_almacen']; 
-        }
-        if (!empty($f['id_categoria'])) { 
-            $whereFiltros[] = 'i.id_categoria = :id_categoria'; 
-            $params[':id_categoria'] = (int) $f['id_categoria']; 
-        }
+        $this->aplicarFiltroIds($whereFiltros, $params, 's.id_almacen', 'id_almacen', $idsAlmacen);
+        $this->aplicarFiltroIds($whereFiltros, $params, 'i.id_categoria', 'id_categoria', $idsCategoria);
         if (!empty($f['tipo_item'])) {
             $tipos = is_array($f['tipo_item']) ? $f['tipo_item'] : [$f['tipo_item']];
             $inParams = [];
@@ -364,7 +382,7 @@ class ReporteInventarioModel extends Modelo
                 LIMIT :limite OFFSET :offset";
         
         $stmt = $this->db()->prepare($sql);
-        foreach ($params as $k => $v) { $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
+        foreach ($params as $k => $v) { $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
         $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
@@ -389,7 +407,9 @@ class ReporteInventarioModel extends Modelo
         $where = ['m.deleted_at IS NULL', 'DATE(m.created_at) BETWEEN :fecha_desde AND :fecha_hasta'];
         $params = ['fecha_desde' => $f['fecha_desde'], 'fecha_hasta' => $f['fecha_hasta']];
 
-        if (!empty($f['id_categoria'])) { $where[] = 'i.id_categoria = :id_categoria'; $params['id_categoria'] = (int) $f['id_categoria']; }
+        $idsCategoria = $this->normalizarListaIds($f['id_categoria'] ?? []);
+        $idsAlmacen = $this->normalizarListaIds($f['id_almacen'] ?? []);
+        $this->aplicarFiltroIds($where, $params, 'i.id_categoria', 'id_categoria', $idsCategoria);
         if (!empty($f['tipo_item'])) {
             $tipos = is_array($f['tipo_item']) ? $f['tipo_item'] : [$f['tipo_item']];
             $inParams = [];
@@ -401,10 +421,18 @@ class ReporteInventarioModel extends Modelo
             $where[] = 'i.tipo_item IN (' . implode(', ', $inParams) . ')';
         }
         if (!empty($f['id_item'])) { $where[] = 'm.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
-        if (!empty($f['id_almacen'])) {
-            $where[] = '(m.id_almacen_origen = :id_almacen_origen OR m.id_almacen_destino = :id_almacen_destino)';
-            $params['id_almacen_origen'] = (int) $f['id_almacen'];
-            $params['id_almacen_destino'] = (int) $f['id_almacen'];
+        if (!empty($idsAlmacen)) {
+            $inOrigen = [];
+            $inDestino = [];
+            foreach ($idsAlmacen as $idx => $idAlmacen) {
+                $paramOrigen = 'id_almacen_origen_' . $idx;
+                $paramDestino = 'id_almacen_destino_' . $idx;
+                $inOrigen[] = ':' . $paramOrigen;
+                $inDestino[] = ':' . $paramDestino;
+                $params[$paramOrigen] = (int) $idAlmacen;
+                $params[$paramDestino] = (int) $idAlmacen;
+            }
+            $where[] = '(m.id_almacen_origen IN (' . implode(', ', $inOrigen) . ') OR m.id_almacen_destino IN (' . implode(', ', $inDestino) . '))';
         }
         if (!empty($f['tipo_movimiento'])) { $where[] = 'm.tipo_movimiento = :tipo'; $params['tipo'] = (string) $f['tipo_movimiento']; }
 
@@ -437,9 +465,12 @@ class ReporteInventarioModel extends Modelo
         $dias = max(1, (int) ($f['dias'] ?? 30));
         $where = ['l.deleted_at IS NULL', 'l.fecha_vencimiento IS NOT NULL', 'l.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL :dias DAY)'];
         $params = ['dias' => $dias];
-        if (!empty($f['id_item'])) { $where[] = 'l.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
-        if (!empty($f['id_almacen'])) { $where[] = 'l.id_almacen = :id_almacen'; $params['id_almacen'] = (int) $f['id_almacen']; }
-        if (!empty($f['id_categoria'])) { $where[] = 'i.id_categoria = :id_categoria'; $params['id_categoria'] = (int) $f['id_categoria']; }
+        $idsItem = $this->normalizarListaIds($f['id_item'] ?? []);
+        $idsAlmacen = $this->normalizarListaIds($f['id_almacen'] ?? []);
+        $idsCategoria = $this->normalizarListaIds($f['id_categoria'] ?? []);
+        $this->aplicarFiltroIds($where, $params, 'l.id_item', 'id_item', $idsItem);
+        $this->aplicarFiltroIds($where, $params, 'l.id_almacen', 'id_almacen', $idsAlmacen);
+        $this->aplicarFiltroIds($where, $params, 'i.id_categoria', 'id_categoria', $idsCategoria);
         if (!empty($f['tipo_item'])) {
             $tipos = is_array($f['tipo_item']) ? $f['tipo_item'] : [$f['tipo_item']];
             $inParams = [];
@@ -478,7 +509,7 @@ class ReporteInventarioModel extends Modelo
                 ORDER BY l.fecha_vencimiento ASC
                 LIMIT :limite OFFSET :offset";
         $stmt = $this->db()->prepare($sql);
-        foreach ($params as $k => $v) { $stmt->bindValue(':' . $k, $v, PDO::PARAM_INT); }
+        foreach ($params as $k => $v) { $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
         $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
