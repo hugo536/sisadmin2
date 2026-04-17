@@ -12,6 +12,7 @@ class VentasDocumentoModel extends Modelo
                        v.id_cliente,
                        t.nombre_completo AS cliente,
                        v.fecha_emision,
+                       v.fecha_despacho, /* <-- NUEVO CAMPO */
                        v.total,
                        v.estado,
                        v.created_at
@@ -69,7 +70,7 @@ class VentasDocumentoModel extends Modelo
                        t.tipo_documento AS cliente_doc_tipo,
                        t.numero_documento AS cliente_doc, 
                        t.direccion AS cliente_direccion, 
-                       v.fecha_emision, v.observaciones, v.subtotal, v.total, v.estado, v.created_at
+                       v.fecha_emision, v.fecha_despacho, /* <-- NUEVO CAMPO */ v.observaciones, v.subtotal, v.total, v.estado, v.created_at
                 FROM ventas_documentos v
                 LEFT JOIN terceros t ON t.id = v.id_cliente
                 WHERE v.id = :id
@@ -664,12 +665,14 @@ class VentasDocumentoModel extends Modelo
         return (float) $stmt->fetchColumn();
     }
 
-    public function guardarDespacho(int $idDoc, array $detalle, string $obs, bool $cerrarForzado, int $userId): void
+    // --- MODIFICADO: Agregamos string $fechaDespacho al final ---
+    public function guardarDespacho(int $idDoc, array $detalle, string $obs, bool $cerrarForzado, int $userId, string $fechaDespacho): void
     {
         require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
         $despachoModel = new VentasDespachoModel();
         
-        $despachoModel->registrarDespacho($idDoc, $detalle, $cerrarForzado, $obs, $userId);
+        // --- MODIFICADO: Le pasamos $fechaDespacho a registrarDespacho ---
+        $despachoModel->registrarDespacho($idDoc, $detalle, $cerrarForzado, $obs, $userId, $fechaDespacho);
     }
 
     // --- Helpers Privados ---

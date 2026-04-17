@@ -123,6 +123,8 @@
     const idCliente = document.getElementById('idCliente');
     const fechaEmision = document.getElementById('fechaEmision');
     const ventaObservaciones = document.getElementById('ventaObservaciones');
+
+    const despachoFecha = document.getElementById('despachoFecha');
     
     // --- VARIABLES DE VENTA/DONACIÓN ---
     const tipoOperacion = document.getElementById('tipoOperacion');
@@ -666,6 +668,19 @@
         cerrarForzado.checked = false;
         tbodyDespacho.innerHTML = '';
 
+        // --- NUEVO: Configurar Fecha de Despacho ---
+        if (despachoFecha) {
+            despachoFecha.value = obtenerFechaLocalISO(); // Siempre "hoy" por defecto
+            
+            // Extraer solo la parte "YYYY-MM-DD" de la fecha de creación para el límite mínimo
+            if (venta.created_at) {
+                despachoFecha.min = venta.created_at.substring(0, 10);
+            } else if (venta.fecha_emision) {
+                despachoFecha.min = venta.fecha_emision;
+            }
+        }
+        // -------------------------------------------
+
         (venta.detalle || []).forEach((linea) => {
             if (Number(linea.cantidad_pendiente) > 0.0001) {
                 agregarFilaDespacho(linea, null);
@@ -1034,6 +1049,11 @@
             if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione almacén para todas las filas con cantidad.');
             if (tbodyDespacho.querySelector('.is-invalid')) throw new Error('Corrija las cantidades marcadas en rojo (exceden stock o pendiente).');
 
+            // --- NUEVO: Validar fecha de despacho ---
+            const fechaDespachoVal = despachoFecha ? despachoFecha.value : '';
+            if (!fechaDespachoVal) throw new Error('Debe especificar la fecha de despacho.');
+            // ----------------------------------------
+
             const resumenPorItem = {}; 
             filas.forEach(f => {
                 const id = f.dataset.idDetalle;
@@ -1072,6 +1092,7 @@
             const payload = await postJson(urls.despachar, {
                 id_documento: Number(despachoDocumentoId.value || 0),
                 observaciones: despachoObservaciones.value,
+                fecha_despacho: fechaDespachoVal, // <-- NUEVO CAMPO AGREGADO
                 cerrar_forzado: cerrarForzado.checked,
                 detalle: detalle
             });

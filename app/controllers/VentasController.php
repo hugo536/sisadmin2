@@ -351,6 +351,14 @@ class VentasController extends Controlador
             $idDocumento = (int) ($data['id_documento'] ?? 0);
             $cerrarForzado = filter_var(($data['cerrar_forzado'] ?? false), FILTER_VALIDATE_BOOLEAN);
             $observaciones = trim($data['observaciones'] ?? '');
+            
+            // --- NUEVO: Capturar fecha de despacho ---
+            $fechaDespacho = trim($data['fecha_despacho'] ?? '');
+            if (empty($fechaDespacho)) {
+                $fechaDespacho = date('Y-m-d'); // Fallback de seguridad si llegara vacío
+            }
+            // ------------------------------------------
+
             $detalle = $data['detalle'] ?? [];
 
             if ($idDocumento <= 0) throw new RuntimeException('Documento inválido');
@@ -363,7 +371,11 @@ class VentasController extends Controlador
             }
 
             $userId = $this->obtenerUsuarioId(); 
-            $this->documentoModel->guardarDespacho($idDocumento, $detalle, $observaciones, $cerrarForzado, $userId);
+            
+            // --- MODIFICADO: Pasar la fecha al modelo ---
+            // Le agregamos la $fechaDespacho a los parámetros de la función
+            $this->documentoModel->guardarDespacho($idDocumento, $detalle, $observaciones, $cerrarForzado, $userId, $fechaDespacho);
+            // ---------------------------------------------
             
             json_response(['ok' => true, 'mensaje' => 'Despacho registrado correctamente']);
         } catch (Throwable $e) {

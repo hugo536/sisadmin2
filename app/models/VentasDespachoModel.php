@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 class VentasDespachoModel extends Modelo
 {
-    public function registrarDespacho(int $idDocumento, array $lineas, bool $cerrarForzado, string $observaciones, int $userId): void
+    // --- MODIFICADO: Agregada $fechaDespacho en los parámetros ---
+    public function registrarDespacho(int $idDocumento, array $lineas, bool $cerrarForzado, string $observaciones, int $userId, string $fechaDespacho): void
     {
         if ($idDocumento <= 0) {
             throw new RuntimeException('Documento inválido.');
@@ -16,6 +17,14 @@ class VentasDespachoModel extends Modelo
 
         if (empty($lineas)) {
             throw new RuntimeException('Debe indicar al menos una línea a despachar.');
+        }
+
+        // Si la fecha viene vacía o inválida, por seguridad tomamos la fecha actual
+        if (empty($fechaDespacho) || !strtotime($fechaDespacho)) {
+            $fechaDespacho = date('Y-m-d');
+        } else {
+            // Asegurar formato YYYY-MM-DD
+            $fechaDespacho = date('Y-m-d', strtotime($fechaDespacho));
         }
 
         $db = $this->db();
@@ -31,7 +40,11 @@ class VentasDespachoModel extends Modelo
                 throw new RuntimeException('Solo se puede despachar pedidos aprobados.');
             }
 
-            $fechaDocumento = $documento['fecha_emision'] ?? date('Y-m-d');
+            // Validar que la fecha de despacho no sea anterior a la fecha de creación del pedido
+            $fechaCreacionPedido = substr($documento['created_at'] ?? date('Y-m-d'), 0, 10);
+            if ($fechaDespacho < $fechaCreacionPedido) {
+                throw new RuntimeException("La fecha de despacho ($fechaDespacho) no puede ser anterior a la fecha en que se registró el pedido ($fechaCreacionPedido).");
+            }
 
             $detalles = $this->obtenerDetallePendiente($db, $idDocumento);
             if ($detalles === []) {
@@ -101,10 +114,11 @@ class VentasDespachoModel extends Modelo
                 throw new RuntimeException('No hay cantidades válidas para despachar.');
             }
 
+            // --- MODIFICADO: Usar $fechaDespacho en el INSERT ---
             $stmtInsertDespacho = $db->prepare('INSERT INTO ventas_despachos (
                                             codigo, id_documento_venta, id_almacen, fecha_despacho, documento_referencia, created_by, created_at
                                         ) VALUES (
-                                            :codigo, :id_documento, :id_almacen, NOW(), :observaciones, :created_by, NOW()
+                                            :codigo, :id_documento, :id_almacen, :fecha_despacho, :observaciones, :created_by, NOW()
                                         )');
 
             $stmtDetalle = $db->prepare('INSERT INTO ventas_despachos_detalle (
@@ -128,18 +142,24 @@ class VentasDespachoModel extends Modelo
                                            WHERE id_item = :id_item
                                              AND id_almacen = :id_almacen');
 
+            // --- MODIFICADO: Cambiar NOW() por :fecha_despacho_hora en el INSERT de movimientos ---
             $stmtMov = $db->prepare('INSERT INTO inventario_movimientos
                                         (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by, created_at, fecha_documento)
                                      VALUES
-                                        (:id_item, :id_almacen_origen, NULL, :tipo, :cantidad, :referencia, :created_by, NOW(), :fecha_documento)');
+                                        (:id_item, :id_almacen_origen, NULL, :tipo, :cantidad, :referencia, :created_by, :fecha_despacho_hora, :fecha_documento)');
+
+            // Para los movimientos de inventario necesitamos fecha y hora. Usamos la fecha elegida + hora actual.
+            $fechaDespachoHora = $fechaDespacho . ' ' . date('H:i:s');
 
             foreach ($despachosAgrupados as $idAlmacenFisico => $lineasAlmacen) {
                 $codigoDespacho = $this->generarCodigo($db);
                 
+                // --- MODIFICADO: Pasar $fechaDespacho al execute ---
                 $stmtInsertDespacho->execute([
                     'codigo' => $codigoDespacho,
                     'id_documento' => $idDocumento,
                     'id_almacen' => $idAlmacenFisico,
+                    'fecha_despacho' => $fechaDespacho,
                     'observaciones' => $observaciones !== '' ? $observaciones : null,
                     'created_by' => $userId,
                 ]);
@@ -181,6 +201,8 @@ class VentasDespachoModel extends Modelo
                                     'id_item' => $comp['id_item'],
                                     'id_almacen' => $salida['id_almacen']
                                 ]);
+                                
+                                // --- MODIFICADO: Pasar :fecha_despacho_hora al execute ---
                                 $stmtMov->execute([
                                     'id_item' => $comp['id_item'],
                                     'id_almacen_origen' => $salida['id_almacen'],
@@ -188,7 +210,8 @@ class VentasDespachoModel extends Modelo
                                     'cantidad' => $salida['cantidad'],
                                     'referencia' => $this->construirReferenciaDespacho($codigoDespacho, $documento, true),
                                     'created_by' => $userId,
-                                    'fecha_documento' => $fechaDocumento,
+                                    'fecha_documento' => $documento['fecha_emision'] ?? $fechaDespacho,
+                                    'fecha_despacho_hora' => $fechaDespachoHora
                                 ]);
                             }
 
@@ -197,6 +220,8 @@ class VentasDespachoModel extends Modelo
                     } else {
                         $stmtStock->execute(['id_item' => $lineaValida['id_item'], 'id_almacen' => $idAlmacenFisico]);
                         $stmtDescuento->execute(['cantidad' => $lineaValida['cantidad'], 'id_item' => $lineaValida['id_item'], 'id_almacen' => $idAlmacenFisico]);
+                        
+                        // --- MODIFICADO: Pasar :fecha_despacho_hora al execute ---
                         $stmtMov->execute([
                             'id_item' => $lineaValida['id_item'],
                             'id_almacen_origen' => $idAlmacenFisico,
@@ -204,7 +229,8 @@ class VentasDespachoModel extends Modelo
                             'cantidad' => $lineaValida['cantidad'],
                             'referencia' => $this->construirReferenciaDespacho($codigoDespacho, $documento, false),
                             'created_by' => $userId,
-                            'fecha_documento' => $fechaDocumento,
+                            'fecha_documento' => $documento['fecha_emision'] ?? $fechaDespacho,
+                            'fecha_despacho_hora' => $fechaDespachoHora
                         ]);
                         
                         $lineasParaEnvases[] = $lineaValida;
@@ -216,19 +242,23 @@ class VentasDespachoModel extends Modelo
                     $idDocumento,
                     (int) ($documento['id_cliente'] ?? 0),
                     $lineasParaEnvases,
-                    $codigoDespacho
+                    $codigoDespacho,
+                    $fechaDespachoHora // <-- Pasamos la fecha para los envases también
                 );
             }
 
             $pendienteTotal = $this->obtenerPendienteTotal($db, $idDocumento);
             $nuevoEstado = ($cerrarForzado || $pendienteTotal <= 0.001) ? 3 : 2;
 
+            // --- MODIFICADO: Actualizar también la fecha_despacho en el documento principal ---
             $sqlUpdateDocumento = 'UPDATE ventas_documentos
                                    SET estado = :estado,
+                                       fecha_despacho = :fecha_despacho,
                                        updated_by = :user,
                                        updated_at = NOW()';
             $paramsUpdateDocumento = [
                 'estado' => $nuevoEstado,
+                'fecha_despacho' => $fechaDespacho,
                 'user' => $userId,
                 'id' => $idDocumento,
             ];
@@ -272,6 +302,7 @@ class VentasDespachoModel extends Modelo
                                     v.id_cliente,
                                     v.estado,
                                     v.fecha_emision,
+                                    v.created_at, /* <-- NECESARIO PARA VALIDAR FECHAS */
                                     t.nombre_completo AS cliente_nombre,
                                     CASE WHEN d.id_tercero IS NULL THEN "CLIENTE" ELSE "DISTRIBUIDOR" END AS cliente_tipo
                              FROM ventas_documentos v
@@ -504,7 +535,8 @@ class VentasDespachoModel extends Modelo
             ]);
     }
 
-    private function registrarAjusteEnvasesPorDespacho(PDO $db, int $idDocumento, int $idCliente, array $lineasDespachadas, string $codigoDespacho): void
+    // --- MODIFICADO: Añadir parámetro $fechaDespachoHora ---
+    private function registrarAjusteEnvasesPorDespacho(PDO $db, int $idDocumento, int $idCliente, array $lineasDespachadas, string $codigoDespacho, string $fechaDespachoHora = null): void
     {
         if ($idCliente <= 0 || empty($lineasDespachadas)) {
             return;
@@ -560,21 +592,32 @@ class VentasDespachoModel extends Modelo
         $sqlCtaCte = 'INSERT INTO cta_cte_envases (id_tercero, id_item_envase, tipo_operacion, cantidad, id_venta, observaciones';
         $sqlCtaCte .= $usaFechaMovimiento ? ', fecha_movimiento' : '';
         $sqlCtaCte .= ') VALUES (:id_tercero, :id_item_envase, :tipo_operacion, :cantidad, :id_venta, :observaciones';
-        $sqlCtaCte .= $usaFechaMovimiento ? ', NOW()' : '';
+        
+        // --- MODIFICADO: Si enviamos la fecha, usamos esa, si no, NOW() ---
+        if ($usaFechaMovimiento) {
+            $sqlCtaCte .= $fechaDespachoHora ? ', :fecha_movimiento' : ', NOW()';
+        }
         $sqlCtaCte .= ')';
+        
         $stmtCtaCte = $db->prepare($sqlCtaCte);
         
         foreach ($ajustesPorEnvase as $idItemEnvase => $cantidadAjuste) {
             $obsFinal = 'Salida automática por despacho ' . $codigoDespacho . ' | OP:' . $operacionUuid;
             
-            $stmtCtaCte->execute([
+            $params = [
                 'id_tercero' => $idCliente,
                 'id_item_envase' => $idItemEnvase,
                 'tipo_operacion' => 'ENTREGA_LLENO',
                 'cantidad' => $cantidadAjuste,
                 'id_venta' => $idDocumento,
                 'observaciones' => $obsFinal,
-            ]);
+            ];
+            
+            if ($usaFechaMovimiento && $fechaDespachoHora) {
+                $params['fecha_movimiento'] = $fechaDespachoHora;
+            }
+            
+            $stmtCtaCte->execute($params);
         }
     }
 
@@ -841,15 +884,12 @@ class VentasDespachoModel extends Modelo
                     'id' => $idDevolucion,
                 ]);
 
-            // --- NUEVA LÓGICA: ¿Devolución Total o Parcial? ---
-            // Verificamos cuánto queda despachado en total en el pedido
             $stmtCheck = $db->prepare('SELECT COALESCE(SUM(cantidad_despachada), 0) 
                                        FROM ventas_documentos_detalle 
                                        WHERE id_documento_venta = :id AND deleted_at IS NULL');
             $stmtCheck->execute(['id' => $idDocumento]);
             $totalDespachadoRestante = (float) $stmtCheck->fetchColumn();
 
-            // Si ya no queda nada despachado, es devolución TOTAL (4). Si aún quedan cosas, es PARCIAL (5).
             $nuevoEstadoVenta = ($totalDespachadoRestante <= 0.0001) ? 4 : 5;
 
             $db->prepare('UPDATE ventas_documentos
@@ -862,7 +902,6 @@ class VentasDespachoModel extends Modelo
                     'id' => $idDocumento,
                     'user' => $userId,
                 ]);
-            // ---------------------------------------------------
 
             $this->aplicarAjusteCxcPorDevolucion($db, $idDocumento, $politica['resolucion'], $totalDevuelto, $userId);
             $db->commit();

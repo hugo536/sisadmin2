@@ -4,7 +4,6 @@ $filtros = $filtros ?? [];
 $almacenes = $almacenes ?? [];
 
 // Configuración de Estados con diseño "Subtle" (Estándar del sistema)
-// Configuración de Estados con diseño "Subtle" (Estándar del sistema)
 $estadoLabels = [
     0 => ['texto' => 'Borrador', 'clase' => 'bg-secondary-subtle text-secondary border border-secondary-subtle'],
     1 => ['texto' => 'Pendiente', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'],
@@ -121,9 +120,14 @@ $formatearFechaDMY = static function ($fecha): string {
                                         <div class="fw-semibold text-dark" title="Fecha en la que se registró el pedido en el sistema">
                                             <?php echo date('d/m/Y H:i', strtotime($venta['created_at'])); ?>
                                         </div>
-                                        <small class="text-muted" title="Fecha comercial del documento">
+                                        <small class="text-muted d-block" title="Fecha comercial del documento">
                                             Emisión: <?php echo e($formatearFechaDMY($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?>
                                         </small>
+                                        <?php if (!empty($venta['fecha_despacho'])): ?>
+                                            <small class="text-info fw-bold d-block mt-1" title="Fecha en la que la mercadería salió del almacén">
+                                                <i class="bi bi-truck me-1"></i>Despacho: <?php echo e($formatearFechaDMY($venta['fecha_despacho'])); ?>
+                                            </small>
+                                        <?php endif; ?>
                                     </td>
                                     <td class="text-end fw-bold">S/ <?php echo number_format((float) ($venta['total'] ?? 0), 2); ?></td>
                                     <td class="text-center">
@@ -337,9 +341,22 @@ $formatearFechaDMY = static function ($fecha): string {
                 
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-body">
-                        <div>
-                            <label for="despachoObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones / Guía de Remisión</label>
-                            <input type="text" class="form-control" id="despachoObservaciones" maxlength="180" placeholder="Opcional - Ingresar número de guía">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-4">
+                                <label for="despachoFecha" class="form-label text-muted small fw-bold mb-1">Fecha de Despacho <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-secondary-subtle"><i class="bi bi-calendar-check text-muted"></i></span>
+                                    <input type="date" class="form-control border-secondary-subtle" id="despachoFecha" value="<?php echo date('Y-m-d'); ?>" required>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-8">
+                                <label for="despachoObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones / Guía de Remisión</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-secondary-subtle"><i class="bi bi-file-earmark-text text-muted"></i></span>
+                                    <input type="text" class="form-control border-secondary-subtle" id="despachoObservaciones" maxlength="180" placeholder="Opcional - Ingresar número de guía">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
