@@ -352,12 +352,15 @@ class VentasController extends Controlador
             $cerrarForzado = filter_var(($data['cerrar_forzado'] ?? false), FILTER_VALIDATE_BOOLEAN);
             $observaciones = trim($data['observaciones'] ?? '');
             
-            // --- NUEVO: Capturar fecha de despacho ---
+            // --- Capturar fecha de despacho ---
             $fechaDespacho = trim($data['fecha_despacho'] ?? '');
             if (empty($fechaDespacho)) {
                 $fechaDespacho = date('Y-m-d'); // Fallback de seguridad si llegara vacío
             }
-            // ------------------------------------------
+
+            // --- NUEVO: Capturar los envases devueltos ---
+            $envasesDevueltos = is_array($data['envases_devueltos'] ?? null) ? $data['envases_devueltos'] : [];
+            // ---------------------------------------------
 
             $detalle = $data['detalle'] ?? [];
 
@@ -372,9 +375,8 @@ class VentasController extends Controlador
 
             $userId = $this->obtenerUsuarioId(); 
             
-            // --- MODIFICADO: Pasar la fecha al modelo ---
-            // Le agregamos la $fechaDespacho a los parámetros de la función
-            $this->documentoModel->guardarDespacho($idDocumento, $detalle, $observaciones, $cerrarForzado, $userId, $fechaDespacho);
+            // --- MODIFICADO: Pasar los envases devueltos al modelo ---
+            $this->documentoModel->guardarDespacho($idDocumento, $detalle, $observaciones, $cerrarForzado, $userId, $fechaDespacho, $envasesDevueltos);
             // ---------------------------------------------
             
             json_response(['ok' => true, 'mensaje' => 'Despacho registrado correctamente']);

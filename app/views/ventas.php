@@ -99,7 +99,7 @@ $formatearFechaDMY = static function ($fecha): string {
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
                             <th class="text-secondary fw-semibold">Cliente</th>
-                            <th class="text-secondary fw-semibold">Fecha Pedido</th>
+                            <th class="text-secondary fw-semibold">Fechas</th>
                             <th class="text-end text-secondary fw-semibold">Total</th>
                             <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
@@ -116,16 +116,14 @@ $formatearFechaDMY = static function ($fecha): string {
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($venta['codigo'] ?? '')); ?></td>
                                     <td class="fw-semibold text-dark"><?php echo e((string) ($venta['cliente'] ?? '')); ?></td>
                                     <td>
-                                        <div class="fw-semibold text-dark" title="Fecha en la que se registró el pedido en el sistema">
-                                            <?php echo date('d/m/Y H:i', strtotime($venta['created_at'])); ?>
+                                        <div class="fw-bold text-dark" title="Fecha de Registro: <?php echo date('d/m/Y H:i', strtotime($venta['created_at'])); ?>">
+                                            <i class="bi bi-calendar3 me-1 text-muted"></i> <?php echo e($formatearFechaDMY($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?>
                                         </div>
-                                        <small class="text-muted d-block" title="Fecha comercial del documento">
-                                            Emisión: <?php echo e($formatearFechaDMY($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?>
-                                        </small>
+                                        
                                         <?php if (!empty($venta['fecha_despacho'])): ?>
-                                            <small class="text-info fw-bold d-block mt-1" title="Fecha en la que la mercadería salió del almacén">
-                                                <i class="bi bi-truck me-1"></i>Despacho: <?php echo e($formatearFechaDMY($venta['fecha_despacho'])); ?>
-                                            </small>
+                                            <div class="text-info small fw-semibold mt-1" title="Fecha de salida de almacén">
+                                                <i class="bi bi-truck me-1"></i> <?php echo e($formatearFechaDMY($venta['fecha_despacho'])); ?>
+                                            </div>
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-end fw-bold">S/ <?php echo number_format((float) ($venta['total'] ?? 0), 2); ?></td>
@@ -387,7 +385,30 @@ $formatearFechaDMY = static function ($fecha): string {
                         </div>
                     </div>
                 </div>
-            </div>
+
+                <div class="card border-primary-subtle shadow-sm mt-4 d-none" id="seccionRetornoEnvasesDespacho">
+                    <div class="card-header bg-primary-subtle text-primary-emphasis fw-bold p-3 border-bottom-0 rounded-top">
+                        <i class="bi bi-recycle me-2"></i>Retorno Inmediato de Envases Vacíos
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="alert alert-light border-0 border-bottom mb-0 small text-muted px-3 py-2 rounded-0">
+                            <i class="bi bi-info-circle me-1"></i> Indica cuántos envases vacíos devolvió el cliente en este viaje. Si no devolvió nada, déjalo en 0.
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0 table-pastel" id="tablaRetornoEnvases">
+                                <thead class="table-light border-bottom">
+                                    <tr>
+                                        <th class="ps-3 text-secondary py-2">Tipo de Envase</th>
+                                        <th class="text-center text-secondary py-2" style="width: 140px;">Se entregan (Llenos)</th>
+                                        <th class="text-center text-secondary py-2" style="width: 160px;">Devuelve (Vacíos)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                </div>
             
             <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center">
                 <div class="form-check form-switch m-0 ps-5">

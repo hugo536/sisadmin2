@@ -134,6 +134,12 @@
     const despachoDocumentoId = document.getElementById('despachoDocumentoId');
     const despachoObservaciones = document.getElementById('despachoObservaciones');
     const cerrarForzado = document.getElementById('cerrarForzado');
+    
+    // --- NUEVO: Referencias DOM para Envases Retornables ---
+    const seccionRetornoEnvases = document.getElementById('seccionRetornoEnvasesDespacho');
+    const tbodyRetornoEnvases = document.querySelector('#tablaRetornoEnvases tbody');
+    // -------------------------------------------------------
+
     const tbodyDevolucionVenta = document.querySelector('#tablaDetalleDevolucionVenta tbody');
     const devolucionVentaDocumentoId = document.getElementById('devolucionVentaDocumentoId');
     const devolucionVentaMotivo = document.getElementById('devolucionVentaMotivo');
@@ -711,6 +717,8 @@
     // ==========================================
     // --- LÓGICA DESPACHO MULTI-ALMACÉN ---
     // ==========================================
+    let envasesRequeridosActuales = []; // --- NUEVO: Estado global de envases requeridos ---
+
     async function abrirModalDespacho(idDocumento) {
         const payload = await getJson(`${urls.index}&accion=ver&id=${idDocumento}`);
         const venta = payload.data;
@@ -719,8 +727,13 @@
         despachoObservaciones.value = '';
         cerrarForzado.checked = false;
         tbodyDespacho.innerHTML = '';
+        
+        // --- NUEVO: Resetear estado de envases ---
+        envasesRequeridosActuales = [];
+        if (tbodyRetornoEnvases) tbodyRetornoEnvases.innerHTML = '';
+        if (seccionRetornoEnvases) seccionRetornoEnvases.classList.add('d-none');
 
-        // --- NUEVO: Configurar Fecha de Despacho ---
+        // Configurar Fecha de Despacho
         if (despachoFecha) {
             despachoFecha.value = obtenerFechaLocalISO(); // Siempre "hoy" por defecto
             
@@ -731,104 +744,99 @@
                 despachoFecha.min = venta.fecha_emision;
             }
         }
-        // -------------------------------------------
 
         (venta.detalle || []).forEach((linea) => {
             if (Number(linea.cantidad_pendiente) > 0.0001) {
                 agregarFilaDespacho(linea, null);
+                
+                // --- NUEVO: Mapear los envases que requiere este producto ---
+                if (linea.envases_retornables && linea.envases_retornables.length > 0) {
+                    linea.envases_retornables.forEach(env => {
+                        const idEnv = env.id_envase;
+                        const reqItem = {
+                            id_detalle: linea.id,
+                            id_envase: idEnv,
+                            nombre: env.nombre_envase,
+                            factor: Number(env.factor || 1)
+                        };
+                        envasesRequeridosActuales.push(reqItem);
+                    });
+                }
             }
         });
+        
+        dibujarTablaEnvases(); // --- NUEVO: Pintar la tabla inicial ---
         modalDespacho.show();
     }
 
-    // ==========================================
-    // --- LÓGICA DEVOLUCIÓN DE VENTA ---
-    // ==========================================
-    async function abrirModalDevolucionVenta(idDocumento) {
-        if (!modalDevolucionVenta || !tbodyDevolucionVenta) return;
+    // --- NUEVO: Función para dibujar y actualizar la tabla de envases vacíos ---
+    function dibujarTablaEnvases() {
+        if (!seccionRetornoEnvases || !tbodyRetornoEnvases) return;
 
-        const payload = await getJson(`${urls.index}&accion=ver&id=${idDocumento}`);
-        const venta = payload.data || {};
-
-        devolucionVentaDocumentoId.value = venta.id || 0;
-        devolucionVentaMotivo.value = '';
-        if (devolucionVentaResolucion) devolucionVentaResolucion.value = 'descuento_cxc';
-        tbodyDevolucionVenta.innerHTML = '';
-        devolucionVentaTotal.textContent = 'S/ 0.00';
-        actualizarHintDevolucionVenta();
-
-        let hayLineas = false;
-        (venta.detalle || []).forEach((linea) => {
-            const despachada = Number(linea.cantidad_despachada || 0);
-            if (despachada <= 0.0001) return;
-            hayLineas = true;
-
-            const tr = document.createElement('tr');
-            tr.dataset.idDetalle = linea.id;
-            tr.dataset.idItem = linea.id_item;
-            tr.dataset.maxCantidad = despachada;
-            tr.dataset.precio = Number(linea.precio_unitario || 0);
-
-            tr.innerHTML = `
-                <td class="align-middle py-3 ps-3">
-                    <div class="fw-bold text-dark" style="font-size:0.95rem;">${linea.item_nombre || ''}</div>
-                </td>
-                <td class="text-center align-middle">
-                    <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">${despachada.toFixed(2)}</span>
-                </td>
-                <td class="text-center align-middle fw-semibold">S/ ${Number(linea.precio_unitario || 0).toFixed(2)}</td>
-                <td class="text-center align-middle">
-                    <input type="number" class="form-control form-control-sm text-center input-devolver-venta mx-auto" min="0" step="0.01" value="0" style="max-width:95px;">
-                </td>
-                <td class="text-end align-middle pe-4 fw-bold monto-linea-devolucion">S/ 0.00</td>
-            `;
-            tbodyDevolucionVenta.appendChild(tr);
-        });
-
-        if (!hayLineas) {
-            Swal.fire('Aviso', 'Este pedido no tiene cantidades despachadas para devolver.', 'info');
+        // Si no hay envases requeridos en el pedido, mantenemos la tarjeta oculta
+        if (envasesRequeridosActuales.length === 0) {
+            seccionRetornoEnvases.classList.add('d-none');
             return;
         }
 
-        recalcularTotalDevolucionVenta();
-        modalDevolucionVenta.show();
-    }
-
-    function actualizarHintDevolucionVenta() {
-        const motivoValue = devolucionVentaMotivo?.value || '';
-        const resolucionValue = devolucionVentaResolucion?.value || '';
-
-        if (devolucionVentaMotivoHint) {
-            const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoValue];
-            devolucionVentaMotivoHint.textContent = motivoCfg ? motivoCfg.hint : 'Seleccione un motivo para definir el tratamiento de inventario.';
-        }
-
-        if (devolucionVentaResolucionHint) {
-            devolucionVentaResolucionHint.textContent = DEVOLUCION_VENTA_RESOLUCIONES[resolucionValue] || '';
-        }
-    }
-
-    function recalcularTotalDevolucionVenta() {
-        if (!tbodyDevolucionVenta || !devolucionVentaTotal) return;
-        let total = 0;
-
-        tbodyDevolucionVenta.querySelectorAll('tr').forEach((tr) => {
-            const input = tr.querySelector('.input-devolver-venta');
-            const max = Number(tr.dataset.maxCantidad || 0);
-            const precio = Number(tr.dataset.precio || 0);
-            let cantidad = Number(input.value || 0);
-
-            if (cantidad < 0) cantidad = 0;
-            if (cantidad > max) cantidad = max;
-            input.value = cantidad.toFixed(2);
-
-            const subtotal = cantidad * precio;
-            total += subtotal;
-            tr.querySelector('.monto-linea-devolucion').textContent = `S/ ${subtotal.toFixed(2)}`;
+        // 1. Agrupar la cantidad de envases a entregar según lo que se esté despachando ahora
+        const totalesLlenos = {}; // formato: { id_envase: { nombre: '', cantidad: 0 } }
+        
+        // Revisamos qué está escrito en los inputs "A Despachar"
+        const filasDespacho = [...tbodyDespacho.querySelectorAll('tr')];
+        
+        filasDespacho.forEach(f => {
+            const idDetalle = Number(f.dataset.idDetalle);
+            const cantDespachando = Number(f.querySelector('.despacho-cantidad')?.value || 0);
+            
+            if (cantDespachando > 0) {
+                // Buscamos si esta línea del pedido requiere envases
+                const envasesDeEstaLinea = envasesRequeridosActuales.filter(e => e.id_detalle === idDetalle);
+                
+                envasesDeEstaLinea.forEach(env => {
+                    if (!totalesLlenos[env.id_envase]) {
+                        totalesLlenos[env.id_envase] = { nombre: env.nombre, cantidad: 0 };
+                    }
+                    totalesLlenos[env.id_envase].cantidad += (cantDespachando * env.factor);
+                });
+            }
         });
 
-        devolucionVentaTotal.textContent = `S/ ${total.toFixed(2)}`;
+        // 2. Pintar la tabla de envases
+        tbodyRetornoEnvases.innerHTML = '';
+        let hayEnvasesAEntregar = false;
+
+        for (const [idEnvase, datos] of Object.entries(totalesLlenos)) {
+            const cantLlenos = Math.round(datos.cantidad);
+            if (cantLlenos <= 0) continue;
+            
+            hayEnvasesAEntregar = true;
+            
+            // Truco UI: Ver si ya teníamos un valor escrito por el usuario para no borrárselo si cambia otra fila
+            const trExistente = tbodyRetornoEnvases.querySelector(`tr[data-id-envase="${idEnvase}"]`);
+            const valorPrevio = trExistente ? trExistente.querySelector('.input-retorno-vacio').value : cantLlenos;
+
+            const tr = document.createElement('tr');
+            tr.dataset.idEnvase = idEnvase;
+            tr.innerHTML = `
+                <td class="ps-3 fw-bold text-dark">${datos.nombre}</td>
+                <td class="text-center text-primary fw-bold fs-5">${cantLlenos}</td>
+                <td class="px-3">
+                    <input type="number" class="form-control form-control-sm text-center border-primary-subtle fw-bold input-retorno-vacio text-success" 
+                           min="0" value="${valorPrevio}">
+                </td>
+            `;
+            tbodyRetornoEnvases.appendChild(tr);
+        }
+
+        // 3. Mostrar u ocultar la tarjeta según los cálculos
+        if (hayEnvasesAEntregar) {
+            seccionRetornoEnvases.classList.remove('d-none');
+        } else {
+            seccionRetornoEnvases.classList.add('d-none');
+        }
     }
+    // --------------------------------------------------------------------------
 
     function agregarFilaDespacho(linea, filaReferencia = null) {
         let opcionesHTML = '<option value="">Seleccione...</option>';
@@ -957,6 +965,7 @@
                 spanStock.textContent = '-';
                 inputCant.value = 0;
                 validarGrupoItem(linea.id);
+                dibujarTablaEnvases(); // <-- NUEVO: Actualizar envases
                 return;
             }
 
@@ -967,6 +976,7 @@
                 spanStock.textContent = '-';
                 inputCant.value = 0;
                 validarGrupoItem(linea.id);
+                dibujarTablaEnvases(); // <-- NUEVO: Actualizar envases
                 return;
             }
 
@@ -987,6 +997,7 @@
 
             sincronizarGrupo(tr);
             validarGrupoItem(linea.id);
+            dibujarTablaEnvases(); // <-- NUEVO: Actualizar envases
         });
 
         inputCant.addEventListener('input', () => {
@@ -995,6 +1006,7 @@
             }
             sincronizarGrupo(tr);
             validarGrupoItem(linea.id);
+            dibujarTablaEnvases(); // <-- NUEVO: Actualiza la tabla de envases en tiempo real
         });
 
         btnSplit.addEventListener('click', () => {
@@ -1032,6 +1044,7 @@
                 unica.querySelector('.despacho-cantidad').value = Math.max(0, Math.min(stockUnico, pendiente));
             }
             validarGrupoItem(linea.id);
+            dibujarTablaEnvases(); // <-- NUEVO: Actualizar envases
         });
 
         actualizarModoGrupo();
@@ -1101,10 +1114,8 @@
             if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione almacén para todas las filas con cantidad.');
             if (tbodyDespacho.querySelector('.is-invalid')) throw new Error('Corrija las cantidades marcadas en rojo (exceden stock o pendiente).');
 
-            // --- NUEVO: Validar fecha de despacho ---
             const fechaDespachoVal = despachoFecha ? despachoFecha.value : '';
             if (!fechaDespachoVal) throw new Error('Debe especificar la fecha de despacho.');
-            // ----------------------------------------
 
             const resumenPorItem = {}; 
             filas.forEach(f => {
@@ -1120,6 +1131,21 @@
                 const despachando = resumenPorItem[id] || 0;
                 if (despachando < pendiente - 0.01) esParcial = true;
             });
+
+            // --- NUEVO: Capturar Envases Retornados ---
+            const envasesDevueltos = [];
+            if (tbodyRetornoEnvases && !seccionRetornoEnvases.classList.contains('d-none')) {
+                tbodyRetornoEnvases.querySelectorAll('tr').forEach(tr => {
+                    const cant = Number(tr.querySelector('.input-retorno-vacio').value || 0);
+                    if (cant > 0) {
+                        envasesDevueltos.push({
+                            id_envase: Number(tr.dataset.idEnvase),
+                            cantidad: cant
+                        });
+                    }
+                });
+            }
+            // -----------------------------------------
 
             if (esParcial && cerrarForzado.checked) {
                 const resp = await Swal.fire({
@@ -1144,9 +1170,10 @@
             const payload = await postJson(urls.despachar, {
                 id_documento: Number(despachoDocumentoId.value || 0),
                 observaciones: despachoObservaciones.value,
-                fecha_despacho: fechaDespachoVal, // <-- NUEVO CAMPO AGREGADO
+                fecha_despacho: fechaDespachoVal, 
                 cerrar_forzado: cerrarForzado.checked,
-                detalle: detalle
+                detalle: detalle,
+                envases_devueltos: envasesDevueltos // <-- MANDAMOS LA DATA AL SERVIDOR
             });
 
             await Swal.fire('Despachado', payload.mensaje, 'success');

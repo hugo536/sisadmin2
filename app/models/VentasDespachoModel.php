@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 class VentasDespachoModel extends Modelo
 {
-    // --- MODIFICADO: Agregada $fechaDespacho en los parámetros ---
-    public function registrarDespacho(int $idDocumento, array $lineas, bool $cerrarForzado, string $observaciones, int $userId, string $fechaDespacho): void
+    // --- MODIFICADO: Agregada $fechaDespacho y $envasesDevueltos en los parámetros ---
+    public function registrarDespacho(int $idDocumento, array $lineas, bool $cerrarForzado, string $observaciones, int $userId, string $fechaDespacho, array $envasesDevueltos = []): void
     {
         if ($idDocumento <= 0) {
             throw new RuntimeException('Documento inválido.');
@@ -114,7 +114,6 @@ class VentasDespachoModel extends Modelo
                 throw new RuntimeException('No hay cantidades válidas para despachar.');
             }
 
-            // --- MODIFICADO: Usar $fechaDespacho en el INSERT ---
             $stmtInsertDespacho = $db->prepare('INSERT INTO ventas_despachos (
                                             codigo, id_documento_venta, id_almacen, fecha_despacho, documento_referencia, created_by, created_at
                                         ) VALUES (
@@ -142,19 +141,20 @@ class VentasDespachoModel extends Modelo
                                            WHERE id_item = :id_item
                                              AND id_almacen = :id_almacen');
 
-            // --- MODIFICADO: Cambiar NOW() por :fecha_despacho_hora en el INSERT de movimientos ---
             $stmtMov = $db->prepare('INSERT INTO inventario_movimientos
                                         (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by, created_at, fecha_documento)
                                      VALUES
                                         (:id_item, :id_almacen_origen, NULL, :tipo, :cantidad, :referencia, :created_by, :fecha_despacho_hora, :fecha_documento)');
 
-            // Para los movimientos de inventario necesitamos fecha y hora. Usamos la fecha elegida + hora actual.
             $fechaDespachoHora = $fechaDespacho . ' ' . date('H:i:s');
+            
+            // Para la referencia de los envases (usaremos el primer código de guía que se genere si hay fraccionados)
+            $primerCodigoDespacho = '';
 
             foreach ($despachosAgrupados as $idAlmacenFisico => $lineasAlmacen) {
                 $codigoDespacho = $this->generarCodigo($db);
+                if ($primerCodigoDespacho === '') $primerCodigoDespacho = $codigoDespacho;
                 
-                // --- MODIFICADO: Pasar $fechaDespacho al execute ---
                 $stmtInsertDespacho->execute([
                     'codigo' => $codigoDespacho,
                     'id_documento' => $idDocumento,
@@ -202,7 +202,6 @@ class VentasDespachoModel extends Modelo
                                     'id_almacen' => $salida['id_almacen']
                                 ]);
                                 
-                                // --- MODIFICADO: Pasar :fecha_despacho_hora al execute ---
                                 $stmtMov->execute([
                                     'id_item' => $comp['id_item'],
                                     'id_almacen_origen' => $salida['id_almacen'],
@@ -221,7 +220,6 @@ class VentasDespachoModel extends Modelo
                         $stmtStock->execute(['id_item' => $lineaValida['id_item'], 'id_almacen' => $idAlmacenFisico]);
                         $stmtDescuento->execute(['cantidad' => $lineaValida['cantidad'], 'id_item' => $lineaValida['id_item'], 'id_almacen' => $idAlmacenFisico]);
                         
-                        // --- MODIFICADO: Pasar :fecha_despacho_hora al execute ---
                         $stmtMov->execute([
                             'id_item' => $lineaValida['id_item'],
                             'id_almacen_origen' => $idAlmacenFisico,
@@ -243,14 +241,60 @@ class VentasDespachoModel extends Modelo
                     (int) ($documento['id_cliente'] ?? 0),
                     $lineasParaEnvases,
                     $codigoDespacho,
-                    $fechaDespachoHora // <-- Pasamos la fecha para los envases también
+                    $fechaDespachoHora 
                 );
             }
+            
+            // ====================================================================
+            // --- NUEVA LÓGICA: RECEPCIÓN INMEDIATA DE ENVASES VACÍOS ---
+            // ====================================================================
+            if (!empty($envasesDevueltos) && is_array($envasesDevueltos)) {
+                $idCliente = (int) ($documento['id_cliente'] ?? 0);
+                if ($idCliente > 0) {
+                    $operacionUuid = bin2hex(random_bytes(8));
+                    $usaFechaMovimiento = $this->ctaCteEnvasesTieneColumna($db, 'fecha_movimiento');
+                    
+                    $sqlCtaCteVacio = 'INSERT INTO cta_cte_envases (id_tercero, id_item_envase, tipo_operacion, cantidad, id_venta, observaciones';
+                    $sqlCtaCteVacio .= $usaFechaMovimiento ? ', fecha_movimiento' : '';
+                    $sqlCtaCteVacio .= ') VALUES (:id_tercero, :id_item_envase, :tipo_operacion, :cantidad, :id_venta, :observaciones';
+                    
+                    if ($usaFechaMovimiento) {
+                        $sqlCtaCteVacio .= $fechaDespachoHora ? ', :fecha_movimiento' : ', NOW()';
+                    }
+                    $sqlCtaCteVacio .= ')';
+                    
+                    $stmtCtaCteVacio = $db->prepare($sqlCtaCteVacio);
+
+                    foreach ($envasesDevueltos as $envDevuelto) {
+                        $idEnvase = (int) ($envDevuelto['id_envase'] ?? 0);
+                        $cantVacia = (float) ($envDevuelto['cantidad'] ?? 0);
+
+                        if ($idEnvase > 0 && $cantVacia > 0) {
+                            $obsFinalVacio = 'Retorno inmediato por despacho ' . $primerCodigoDespacho . ' | OP:' . $operacionUuid;
+                            
+                            $paramsVacio = [
+                                'id_tercero' => $idCliente,
+                                'id_item_envase' => $idEnvase,
+                                'tipo_operacion' => 'RECEPCION_VACIO', // Se registra como entrada de vacío
+                                'cantidad' => $cantVacia,
+                                'id_venta' => $idDocumento,
+                                'observaciones' => $obsFinalVacio,
+                            ];
+                            
+                            if ($usaFechaMovimiento && $fechaDespachoHora) {
+                                $paramsVacio['fecha_movimiento'] = $fechaDespachoHora;
+                            }
+                            
+                            $stmtCtaCteVacio->execute($paramsVacio);
+                        }
+                    }
+                }
+            }
+            // ====================================================================
 
             $pendienteTotal = $this->obtenerPendienteTotal($db, $idDocumento);
             $nuevoEstado = ($cerrarForzado || $pendienteTotal <= 0.001) ? 3 : 2;
 
-            // --- MODIFICADO: Actualizar también la fecha_despacho en el documento principal ---
             $sqlUpdateDocumento = 'UPDATE ventas_documentos
                                    SET estado = :estado,
                                        fecha_despacho = :fecha_despacho,
@@ -302,7 +346,7 @@ class VentasDespachoModel extends Modelo
                                     v.id_cliente,
                                     v.estado,
                                     v.fecha_emision,
-                                    v.created_at, /* <-- NECESARIO PARA VALIDAR FECHAS */
+                                    v.created_at, 
                                     t.nombre_completo AS cliente_nombre,
                                     CASE WHEN d.id_tercero IS NULL THEN "CLIENTE" ELSE "DISTRIBUIDOR" END AS cliente_tipo
                              FROM ventas_documentos v
@@ -535,7 +579,6 @@ class VentasDespachoModel extends Modelo
             ]);
     }
 
-    // --- MODIFICADO: Añadir parámetro $fechaDespachoHora ---
     private function registrarAjusteEnvasesPorDespacho(PDO $db, int $idDocumento, int $idCliente, array $lineasDespachadas, string $codigoDespacho, string $fechaDespachoHora = null): void
     {
         if ($idCliente <= 0 || empty($lineasDespachadas)) {
@@ -593,7 +636,6 @@ class VentasDespachoModel extends Modelo
         $sqlCtaCte .= $usaFechaMovimiento ? ', fecha_movimiento' : '';
         $sqlCtaCte .= ') VALUES (:id_tercero, :id_item_envase, :tipo_operacion, :cantidad, :id_venta, :observaciones';
         
-        // --- MODIFICADO: Si enviamos la fecha, usamos esa, si no, NOW() ---
         if ($usaFechaMovimiento) {
             $sqlCtaCte .= $fechaDespachoHora ? ', :fecha_movimiento' : ', NOW()';
         }

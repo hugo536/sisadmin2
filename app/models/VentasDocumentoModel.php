@@ -88,6 +88,8 @@ class VentasDocumentoModel extends Modelo
         $stockSqlPacksTotal = $this->resolverSubqueryStockCombo('d.id_presentacion', 0);
 
         $sqlDetalle = "SELECT d.id,
+                              d.id_item AS raw_id_item, /* <-- NUEVO */
+                              d.id_presentacion AS raw_id_presentacion, /* <-- NUEVO */
                               CASE 
                                   WHEN d.id_item > 0 THEN CONCAT('ITEM-', d.id_item)
                                   WHEN d.id_presentacion > 0 THEN CONCAT('PACK-', d.id_presentacion)
@@ -126,6 +128,15 @@ class VentasDocumentoModel extends Modelo
             $pendiente = max(0, $cantidad - $despachada);
             $linea['cantidad_pendiente'] = $pendiente;
             $linea['cantidad_cancelada'] = ($estadoDocumento === 3 && $pendiente > 0.0001) ? $pendiente : 0;
+            
+            // --- NUEVO: Extraemos los envases retornables relacionados a esta línea ---
+            $rawIdItem = (int) ($linea['raw_id_item'] ?? 0);
+            $rawIdPres = (int) ($linea['raw_id_presentacion'] ?? 0);
+            $linea['envases_retornables'] = $this->obtenerInfoEnvasesRetornables($rawIdItem, $rawIdPres);
+            
+            // Limpiamos los IDs crudos para no ensuciar el JSON
+            unset($linea['raw_id_item'], $linea['raw_id_presentacion']);
+            // ---------------------------------------------------------------------------
         }
         unset($linea);
 
@@ -667,14 +678,14 @@ class VentasDocumentoModel extends Modelo
         return (float) $stmt->fetchColumn();
     }
 
-    // --- MODIFICADO: Agregamos string $fechaDespacho al final ---
-    public function guardarDespacho(int $idDoc, array $detalle, string $obs, bool $cerrarForzado, int $userId, string $fechaDespacho): void
+    // --- MODIFICADO: Agregamos array $envasesDevueltos ---
+    public function guardarDespacho(int $idDoc, array $detalle, string $obs, bool $cerrarForzado, int $userId, string $fechaDespacho, array $envasesDevueltos = []): void
     {
         require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
         $despachoModel = new VentasDespachoModel();
         
-        // --- MODIFICADO: Le pasamos $fechaDespacho a registrarDespacho ---
-        $despachoModel->registrarDespacho($idDoc, $detalle, $cerrarForzado, $obs, $userId, $fechaDespacho);
+        // --- MODIFICADO: Le pasamos $envasesDevueltos a registrarDespacho ---
+        $despachoModel->registrarDespacho($idDoc, $detalle, $cerrarForzado, $obs, $userId, $fechaDespacho, $envasesDevueltos);
     }
 
     // --- Helpers Privados ---
@@ -792,5 +803,89 @@ class VentasDocumentoModel extends Modelo
                      GROUP BY id_item
                  ) st ON st.id_item = ppd.id_item
                  WHERE ppd.id_presentacion = {$idPresentacionRef})";
+    }
+
+    // =========================================================================
+    // --- NUEVAS FUNCIONES PARA RETORNO INMEDIATO DE ENVASES ---
+    // =========================================================================
+    
+    private function obtenerInfoEnvasesRetornables(int $idItem, int $idPresentacion): array 
+    {
+        $db = $this->db();
+        $envases = [];
+
+        // Si es un Combo/Pack, buscamos los envases de cada componente
+        if ($idPresentacion > 0) {
+            $stmt = $db->prepare('SELECT id_item, cantidad FROM precios_presentaciones_detalle WHERE id_presentacion = ?');
+            $stmt->execute([$idPresentacion]);
+            $componentes = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            
+            foreach ($componentes as $comp) {
+                $subEnvases = $this->buscarEnvasesDeItem($db, (int)$comp['id_item']);
+                foreach ($subEnvases as $se) {
+                    $idEnv = $se['id_envase'];
+                    if (!isset($envases[$idEnv])) {
+                        $envases[$idEnv] = $se;
+                        $envases[$idEnv]['factor'] = 0;
+                    }
+                    // Multiplicamos el factor del envase por la cantidad del componente en el pack
+                    $envases[$idEnv]['factor'] += ($se['factor'] * $comp['cantidad']);
+                }
+            }
+        } 
+        // Si es un Ítem individual
+        elseif ($idItem > 0) {
+            $subEnvases = $this->buscarEnvasesDeItem($db, $idItem);
+            foreach ($subEnvases as $se) {
+                $idEnv = $se['id_envase'];
+                if (!isset($envases[$idEnv])) {
+                    $envases[$idEnv] = $se;
+                } else {
+                    $envases[$idEnv]['factor'] += $se['factor'];
+                }
+            }
+        }
+
+        return array_values($envases); // Reindexar el array para el JSON
+    }
+
+    private function buscarEnvasesDeItem(PDO $db, int $idItem): array 
+    {
+        // 1. ¿El ítem en sí mismo es un envase retornable? (Ej. Venta de envase vacío)
+        $stmt1 = $db->prepare('SELECT id, nombre FROM items WHERE id = ? AND es_envase_retornable = 1 AND deleted_at IS NULL LIMIT 1');
+        $stmt1->execute([$idItem]);
+        $directo = $stmt1->fetch(PDO::FETCH_ASSOC);
+        if ($directo) {
+            return [['id_envase' => (int)$directo['id'], 'nombre_envase' => $directo['nombre'], 'factor' => 1.0]];
+        }
+
+        // 2. Buscar en la Receta de Producción Activa (Ej. Bidón de Agua -> Requiere Bidón Vacío)
+        $stmt2 = $db->prepare('SELECT d.id_insumo AS id_envase, i.nombre AS nombre_envase, 
+                                      (d.cantidad_por_unidad / NULLIF(r.rendimiento_base, 0)) AS factor
+                               FROM produccion_recetas_detalle d
+                               INNER JOIN items i ON i.id = d.id_insumo
+                               INNER JOIN produccion_recetas r ON r.id = d.id_receta
+                               WHERE d.deleted_at IS NULL AND i.deleted_at IS NULL AND i.es_envase_retornable = 1
+                                 AND r.deleted_at IS NULL AND r.estado = 1
+                                 AND d.id_receta = (
+                                     SELECT r2.id FROM produccion_recetas r2 WHERE r2.id_producto = ? AND r2.estado = 1 AND r2.deleted_at IS NULL ORDER BY r2.version DESC, r2.id DESC LIMIT 1
+                                 )');
+        $stmt2->execute([$idItem]);
+        $deReceta = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+        if ($deReceta) {
+            return $deReceta;
+        }
+
+        // 3. Buscar en el Histórico de Producción (Fallback)
+        $stmt3 = $db->prepare('SELECT c.id_item AS id_envase, i.nombre AS nombre_envase,
+                                      (SUM(c.cantidad) / NULLIF(SUM(o.cantidad_producida), 0)) AS factor
+                               FROM produccion_ordenes o
+                               INNER JOIN produccion_consumos c ON c.id_orden_produccion = o.id AND c.deleted_at IS NULL
+                               INNER JOIN items i ON i.id = c.id_item
+                               WHERE o.deleted_at IS NULL AND o.estado = 2 AND o.cantidad_producida > 0 AND o.id_producto_snapshot = ?
+                                 AND i.deleted_at IS NULL AND i.es_envase_retornable = 1
+                               GROUP BY c.id_item HAVING factor > 0');
+        $stmt3->execute([$idItem]);
+        return $stmt3->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 }
