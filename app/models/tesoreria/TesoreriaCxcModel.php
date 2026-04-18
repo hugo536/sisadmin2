@@ -169,27 +169,34 @@ class TesoreriaCxcModel extends Modelo
     public function registrarCobroDirecto(int $idCxc, int $idCuenta, int $idMetodo, float $monto, string $fecha, string $observaciones, int $userId): void
     {
         $db = $this->db();
+        require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMovimientoModel.php';
 
-        // CORRECCIÓN: Cambiamos "tipo_movimiento" por "tipo" en la consulta SQL
-        $stmtMov = $db->prepare('INSERT INTO tesoreria_movimientos 
-            (id_cuenta, id_metodo_pago, tipo, monto, fecha, observaciones, origen, id_origen, created_by, created_at) 
-            VALUES (:cuenta, :metodo, "INGRESO", :monto, :fecha, :obs, "CXC", :id_origen, :user, NOW())');
-        
-        $stmtMov->execute([
-            'cuenta' => $idCuenta,
-            'metodo' => $idMetodo,
-            'monto' => $monto,
-            'fecha' => $fecha,
-            'obs' => $observaciones,
+        $stmtCxc = $db->prepare('SELECT id, moneda
+                                 FROM tesoreria_cxc
+                                 WHERE id = :id
+                                   AND deleted_at IS NULL
+                                 LIMIT 1');
+        $stmtCxc->execute(['id' => $idCxc]);
+        $cxc = $stmtCxc->fetch(PDO::FETCH_ASSOC);
+        if (!$cxc) {
+            throw new RuntimeException('No se encontró la cuenta por cobrar para registrar el cobro.');
+        }
+
+        $movimientoModel = new TesoreriaMovimientoModel();
+        $movimientoModel->registrar([
+            'tipo' => 'COBRO',
+            'origen' => 'CXC',
             'id_origen' => $idCxc,
-            'user' => $userId
-        ]);
-
-        $stmtUpdate = $db->prepare('UPDATE tesoreria_cxc SET monto_pagado = monto_pagado + :monto WHERE id = :id');
-        $stmtUpdate->execute([
+            'id_cuenta' => $idCuenta,
+            'id_metodo_pago' => $idMetodo,
+            'fecha' => $fecha,
+            'moneda' => strtoupper((string) ($cxc['moneda'] ?? 'PEN')),
             'monto' => $monto,
-            'id' => $idCxc
-        ]);
+            'naturaleza_pago' => 'DOCUMENTO',
+            'monto_capital' => $monto,
+            'monto_interes' => 0,
+            'observaciones' => $observaciones,
+        ], $userId);
 
         $this->recalcularEstado($idCxc, $userId);
     }
