@@ -173,6 +173,23 @@
         salida_dinero: 'Se registra para reembolso en tesorería (salida de dinero).',
     };
 
+    function actualizarHintDevolucionVenta() {
+        if (devolucionVentaMotivoHint) {
+            const motivoSeleccionado = devolucionVentaMotivo?.value || '';
+            const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoSeleccionado];
+            devolucionVentaMotivoHint.textContent = motivoCfg
+                ? motivoCfg.hint
+                : 'Selecciona un motivo para definir cómo tratar la mercadería devuelta.';
+        }
+
+        if (devolucionVentaResolucionHint) {
+            const resolucionSeleccionada = devolucionVentaResolucion?.value || '';
+            const resolucionHint = DEVOLUCION_VENTA_RESOLUCIONES[resolucionSeleccionada];
+            devolucionVentaResolucionHint.textContent = resolucionHint
+                || 'Selecciona una resolución comercial para registrar el impacto financiero.';
+        }
+    }
+
     const filtroBusqueda = document.getElementById('filtroBusqueda');
     const filtroEstado = document.getElementById('filtroEstado');
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
