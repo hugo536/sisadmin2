@@ -349,8 +349,8 @@ $formatearFechaDMY = static function ($fecha): string {
                     </label>
                 </div>
                 
-                <div>
-                    <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-light text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
                     <button class="btn btn-primary px-4 fw-bold" id="btnGuardarVenta"><i class="bi bi-save me-2"></i>Guardar Pedido</button>
                 </div>
             </div>

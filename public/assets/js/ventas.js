@@ -26,7 +26,8 @@
             try {
                 limpiarModalVenta();
                 await agregarFilaVenta(); 
-                
+                actualizarBloqueoFormularioPorCliente();
+
                 const btnGuardar = document.getElementById('btnGuardarVenta');
                 btnGuardar.style.display = 'block';
                 btnGuardar.textContent = 'Guardar Pedido';
@@ -179,6 +180,44 @@
     const filtroOrdenFecha = document.getElementById('filtroOrdenFecha');
 
     const estadoBusquedaItems = { tieneAcuerdo: false, listaVacia: false };
+    let bloqueoEdicionVenta = false;
+
+    function clienteSeleccionado() {
+        return Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0) > 0;
+    }
+
+    function actualizarBloqueoFormularioPorCliente() {
+        const bloquearControlesVenta = bloqueoEdicionVenta || !clienteSeleccionado();
+
+        const btnAgregarFilaVenta = document.getElementById('btnAgregarFilaVenta');
+        const btnGuardarVenta = document.getElementById('btnGuardarVenta');
+
+        if (btnAgregarFilaVenta) btnAgregarFilaVenta.disabled = bloquearControlesVenta;
+        if (btnGuardarVenta) btnGuardarVenta.disabled = bloquearControlesVenta;
+
+        if (switchCobroInmediato) {
+            switchCobroInmediato.disabled = bloquearControlesVenta;
+            if (bloquearControlesVenta) switchCobroInmediato.checked = false;
+        }
+
+        if (seccionCobroInmediato && bloquearControlesVenta) {
+            seccionCobroInmediato.classList.add('d-none');
+        }
+
+        tbodyVenta.querySelectorAll('tr').forEach((fila) => {
+            fila.querySelectorAll('input, button').forEach((control) => {
+                control.disabled = bloquearControlesVenta;
+            });
+
+            const selectItem = fila.querySelector('.detalle-item');
+            if (selectItem?.tomselect) {
+                if (bloquearControlesVenta) selectItem.tomselect.disable();
+                else selectItem.tomselect.enable();
+            } else if (selectItem) {
+                selectItem.disabled = bloquearControlesVenta;
+            }
+        });
+    }
 
     // ==============================================================
     // --- NUEVO: LÓGICA DE COBRO INMEDIATO MÚLTIPLE ---
@@ -709,6 +748,7 @@
     }
 
     function limpiarModalVenta() {
+        bloqueoEdicionVenta = false;
         ventaId.value = 0;
         if (tomSelectCliente) {
             tomSelectCliente.clear();
@@ -762,10 +802,13 @@
         if (seccionCobroInmediato) seccionCobroInmediato.classList.add('d-none');
         if (contenedorMetodosPago) contenedorMetodosPago.innerHTML = '';
         if (totalPagadoInmediato) totalPagadoInmediato.textContent = 'S/ 0.00';
+
+        actualizarBloqueoFormularioPorCliente();
     }
 
     document.getElementById('btnAgregarFilaVenta')?.addEventListener('click', async () => {
         await agregarFilaVenta();
+        actualizarBloqueoFormularioPorCliente();
     });
 
     async function refrescarFilasPorCambioCliente() {
@@ -778,16 +821,21 @@
 
     idCliente?.addEventListener('change', async () => {
         await refrescarFilasPorCambioCliente();
+        actualizarBloqueoFormularioPorCliente();
     });
 
     if (tomSelectCliente) {
         tomSelectCliente.on('change', async () => {
             await refrescarFilasPorCambioCliente();
+            actualizarBloqueoFormularioPorCliente();
         });
     }
 
     document.getElementById('btnGuardarVenta')?.addEventListener('click', async () => {
         try {
+            const clienteIdActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0);
+            if (!clienteIdActual) throw new Error('Debe seleccionar Cliente / Beneficiario antes de continuar.');
+
             const filasArray = [...tbodyVenta.querySelectorAll('tr')];
             if (filasArray.length === 0) throw new Error('Debe agregar al menos un producto.');
             
@@ -1453,6 +1501,7 @@
                 ventaId.value = venta.id;
                 
                 const esBorrador = Number(venta.estado) === 0;
+                bloqueoEdicionVenta = !esBorrador;
                 
                 const nombreCliente = tr?.querySelector('td:nth-child(2)')?.textContent?.trim() || 'Cliente';
                 if (tomSelectCliente) {
@@ -1509,6 +1558,8 @@
                     // Ocultar switch si ya está aprobado/despachado
                     if (switchCobroContainer) switchCobroContainer.style.display = 'none';
                 }
+
+                actualizarBloqueoFormularioPorCliente();
 
                 // --- NUEVO: PINTAR HISTORIAL DE DEVOLUCIONES ---
                 const seccionDevoluciones = document.getElementById('seccionDevolucionesVenta');
