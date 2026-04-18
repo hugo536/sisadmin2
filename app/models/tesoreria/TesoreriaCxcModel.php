@@ -170,9 +170,9 @@ class TesoreriaCxcModel extends Modelo
     {
         $db = $this->db();
 
-        // 1. Registramos el ingreso físico de dinero en la tabla general de movimientos de tesorería
+        // CORRECCIÓN: Cambiamos "tipo_movimiento" por "tipo" en la consulta SQL
         $stmtMov = $db->prepare('INSERT INTO tesoreria_movimientos 
-            (id_cuenta, id_metodo_pago, tipo_movimiento, monto, fecha, observaciones, origen, id_origen, created_by, created_at) 
+            (id_cuenta, id_metodo_pago, tipo, monto, fecha, observaciones, origen, id_origen, created_by, created_at) 
             VALUES (:cuenta, :metodo, "INGRESO", :monto, :fecha, :obs, "CXC", :id_origen, :user, NOW())');
         
         $stmtMov->execute([
@@ -185,14 +185,12 @@ class TesoreriaCxcModel extends Modelo
             'user' => $userId
         ]);
 
-        // 2. Sumamos el monto pagado a la cuenta por cobrar
         $stmtUpdate = $db->prepare('UPDATE tesoreria_cxc SET monto_pagado = monto_pagado + :monto WHERE id = :id');
         $stmtUpdate->execute([
             'monto' => $monto,
             'id' => $idCxc
         ]);
 
-        // 3. Dejamos que la función existente haga el trabajo pesado de evaluar el saldo y cambiar el estado (a PAGADA/PARCIAL)
         $this->recalcularEstado($idCxc, $userId);
     }
 
