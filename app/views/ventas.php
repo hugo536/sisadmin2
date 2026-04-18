@@ -229,7 +229,8 @@ $formatearFechaDMY = static function ($fecha): string {
                         <div class="card-body p-0">
                             <div class="p-3 border-bottom bg-white rounded-top d-flex align-items-center gap-3">
                                 <h6 class="mb-0 fw-bold text-dark">Detalle de Productos</h6>
-                                <div id="alertaBorradorContenedor"></div> </div>
+                                <div id="alertaBorradorContenedor"></div> 
+                            </div>
                             
                             <div class="table-responsive">
                                 <table class="table table-sm align-middle mb-0 table-pro table-pastel" id="tablaDetalleVenta">
@@ -310,6 +311,52 @@ $formatearFechaDMY = static function ($fecha): string {
                             </div>
                         </div>
                     </div>
+                </form>
+
+                <div class="card border-success-subtle shadow-sm mt-4 d-none fade-in" id="seccionCobroInmediato">
+                    <div class="card-body p-3 bg-success-subtle rounded">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 42px; height: 42px;">
+                                <i class="bi bi-cash-stack fs-5"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0 fw-bold text-success-emphasis">Registro de Pago Rápido</h6>
+                                <small class="text-success-emphasis opacity-75">Selecciona cómo está pagando el cliente en este momento.</small>
+                            </div>
+                        </div>
+
+                        <div id="contenedorMetodosPago" class="d-flex flex-column gap-2 mb-2">
+                            </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="button" class="btn btn-sm btn-light text-success fw-bold shadow-sm" id="btnAgregarPagoInmediato">
+                                <i class="bi bi-plus-circle me-1"></i> Añadir otro método
+                            </button>
+                            <div class="text-end">
+                                <small class="text-success-emphasis fw-bold d-block lh-1" style="font-size: 0.7rem;">TOTAL PAGADO</small>
+                                <span class="fw-bold text-dark fs-5" id="totalPagadoInmediato">S/ 0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            
+            <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="form-check form-switch m-0 ps-5" id="switchCobroContainer">
+                    <input class="form-check-input" type="checkbox" id="switchCobroInmediato" style="cursor: pointer;">
+                    <label class="form-check-label fw-bold text-primary small" for="switchCobroInmediato" style="cursor: pointer;">
+                        Cobrar Al Contado (Inmediato)
+                    </label>
+                </div>
+                
+                <div>
+                    <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-primary px-4 fw-bold" id="btnGuardarVenta"><i class="bi bi-save me-2"></i>Guardar Pedido</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
                 </form>
             </div>
@@ -337,13 +384,6 @@ $formatearFechaDMY = static function ($fecha): string {
                         <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                     <?php endforeach; ?>
                 </select>
-
-                <div class="alert alert-info d-flex align-items-center mb-4 shadow-sm border-0 rounded-3">
-                    <i class="bi bi-info-circle-fill me-3 fs-4"></i>
-                    <div>
-                        <strong>Modo Multi-Almacén:</strong> Puede fraccionar el despacho desde diferentes almacenes.
-                    </div>
-                </div>
                 
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-body">
@@ -369,15 +409,19 @@ $formatearFechaDMY = static function ($fecha): string {
 
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
-                        <div class="table-responsive">
+                        <div class="table-responsive border rounded-3 mb-0">
                             <table class="table table-sm align-middle mb-0 table-pro table-pastel" id="tablaDetalleDespacho">
                                 <thead>
                                     <tr>
-                                        <th class="ps-3 text-secondary col-min-w-250 py-2">Producto / Pendiente</th>
-                                        <th class="text-center text-secondary col-w-200 py-2">Almacén Origen</th>
-                                        <th class="text-center text-secondary col-w-100 py-2">Stock</th>
-                                        <th class="text-end pe-3 text-secondary col-w-160 py-2">A Despachar</th>
-                                        <th class="text-center text-secondary col-w-80 py-2">Acciones</th>
+                                        <th class="ps-3 text-secondary col-min-w-200 py-2">Producto / Pendiente</th>
+                                        
+                                        <th class="text-center text-secondary col-w-180 py-2">Almacén Origen</th>
+                                        
+                                        <th class="text-center text-secondary col-w-80 py-2">Stock</th>
+                                        
+                                        <th class="text-center text-secondary col-w-120 py-2">A Despachar</th>
+                                        
+                                        <th class="text-center text-secondary col-w-100 py-2">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white"></tbody>
@@ -386,27 +430,11 @@ $formatearFechaDMY = static function ($fecha): string {
                     </div>
                 </div>
 
-                <div class="card border-primary-subtle shadow-sm mt-4 d-none" id="seccionRetornoEnvasesDespacho">
-                    <div class="card-header bg-primary-subtle text-primary-emphasis fw-bold p-3 border-bottom-0 rounded-top">
-                        <i class="bi bi-recycle me-2"></i>Retorno Inmediato de Envases Vacíos
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="alert alert-light border-0 border-bottom mb-0 small text-muted px-3 py-2 rounded-0">
-                            <i class="bi bi-info-circle me-1"></i> Indica cuántos envases vacíos devolvió el cliente en este viaje. Si no devolvió nada, déjalo en 0.
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0 table-pastel" id="tablaRetornoEnvases">
-                                <thead class="table-light border-bottom">
-                                    <tr>
-                                        <th class="ps-3 text-secondary py-2">Tipo de Envase</th>
-                                        <th class="text-center text-secondary py-2" style="width: 140px;">Se entregan (Llenos)</th>
-                                        <th class="text-center text-secondary py-2" style="width: 160px;">Devuelve (Vacíos)</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white"></tbody>
-                            </table>
-                        </div>
-                    </div>
+                <div class="mt-4 d-none fade-in" id="seccionRetornoEnvasesDespacho">
+                    <h6 class="fw-bold text-dark mb-2 d-flex align-items-center" style="font-size: 0.95rem;">
+                        <i class="bi bi-recycle text-success me-2 fs-5"></i>Retorno de Envases Vacíos
+                    </h6>
+                    <div id="contenedorRetornoEnvases" class="d-flex flex-column gap-2"></div>
                 </div>
                 </div>
             
@@ -472,7 +500,7 @@ $formatearFechaDMY = static function ($fecha): string {
 
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
-                        <div class="table-responsive">
+                        <div class="table-responsive border rounded-3 mb-0">
                             <table class="table table-sm align-middle mb-0 table-pro table-pastel" id="tablaDetalleDevolucionVenta">
                                 <thead class="table-light border-bottom">
                                     <tr>
@@ -615,3 +643,9 @@ $formatearFechaDMY = static function ($fecha): string {
         </td>
     </tr>
 </template>
+
+<script>
+    // Puente de datos PHP -> JavaScript para Cobros Inmediatos
+    window.TESORERIA_CUENTAS = <?php echo json_encode($cuentas ?? []); ?>;
+    window.TESORERIA_METODOS = <?php echo json_encode($metodos ?? []); ?>;
+</script>

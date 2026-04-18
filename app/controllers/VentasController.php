@@ -29,11 +29,9 @@ class VentasController extends Controlador
         AuthMiddleware::handle();
         require_permiso('ventas.ver');
 
-        // --- MEJORA PREMIUM: Fechas por defecto (Últimos 7 días) ---
         $fechaHastaDef = date('Y-m-d');
         $fechaDesdeDef = date('Y-m-d', strtotime('-7 days'));
 
-        // Verificamos si la petición es totalmente nueva (sin parámetros GET además de la ruta)
         $esVistaInicial = empty($_GET['q']) && !isset($_GET['estado']) && empty($_GET['fecha_desde']) && empty($_GET['fecha_hasta']);
 
         $filtros = [
@@ -41,12 +39,9 @@ class VentasController extends Controlador
             'estado'      => isset($_GET['estado']) && $_GET['estado'] !== '' ? (string) $_GET['estado'] : null,
             'fecha_desde' => $esVistaInicial ? $fechaDesdeDef : trim((string) ($_GET['fecha_desde'] ?? '')),
             'fecha_hasta' => $esVistaInicial ? $fechaHastaDef : trim((string) ($_GET['fecha_hasta'] ?? '')),
-            
-            // LÍNEA CLAVE: Cambiamos 'pedido' por 'emision' para que sea el orden por defecto
             'orden_fecha' => trim((string) ($_GET['orden_fecha'] ?? 'emision')),
         ];
 
-        // Respuesta para AJAX (Cuando se filtra o busca sin recargar)
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar') {
             json_response(['ok' => true, 'data' => $this->documentoModel->listar($filtros)]);
             return;
@@ -170,10 +165,8 @@ class VentasController extends Controlador
             return;
         }
 
-        // NUEVA RUTA PARA PROFORMAS
         if ((string) ($_GET['accion'] ?? '') === 'imprimir_proforma') {
             $id = (int) ($_GET['id'] ?? 0);
-            
             if ($id <= 0) die('ID de pedido inválido.');
 
             $venta = $this->documentoModel->obtener($id);
@@ -190,7 +183,6 @@ class VentasController extends Controlador
             $dompdf->setOptions($options);
 
             ob_start();
-            // AQUI ESTA LA MAGIA: Llamamos a un diseño diferente llamado pdf_proforma.php
             require BASE_PATH . '/app/views/reportes/pdf_proforma.php';
             $html = (string) ob_get_clean();
 
@@ -201,12 +193,15 @@ class VentasController extends Controlador
             return;
         }
 
-        // Carga inicial de la página (pasamos los filtros para que el HTML sepa qué mostrar)
+        // Carga inicial de la página
         $this->render('ventas', [
             'ruta_actual' => 'ventas',
             'ventas'      => $this->documentoModel->listar($filtros),
             'filtros'     => $filtros,
             'almacenes'   => $this->documentoModel->listarAlmacenesActivos(),
+            // Llamadas correctas y seguras al modelo
+            'cuentas'     => $this->tesoreriaCxcModel->obtenerCuentasActivas(),
+            'metodos'     => $this->tesoreriaCxcModel->obtenerMetodosActivos(),
         ]);
     }
 
@@ -230,6 +225,9 @@ class VentasController extends Controlador
             $tipoImpuesto = trim((string) ($payload['tipo_impuesto'] ?? 'exonerado')); 
             $tipoOperacion = trim((string) ($payload['tipo_operacion'] ?? 'VENTA')); 
             $detalle = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
+            
+            $esCobroInmediato = filter_var($payload['cobro_inmediato'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $metodosPago = is_array($payload['metodos_pago'] ?? null) ? $payload['metodos_pago'] : [];
 
             if ($idCliente <= 0 || !$this->documentoModel->clienteEsValido($idCliente)) {
                 throw new RuntimeException('Seleccione un cliente válido.');
@@ -239,10 +237,20 @@ class VentasController extends Controlador
                 throw new RuntimeException('Debe agregar al menos un ítem al pedido.');
             }
 
+            if ($esCobroInmediato && $tipoOperacion !== 'DONACION') {
+                if (empty($metodosPago)) {
+                    throw new RuntimeException('Debe especificar al menos un método de pago para el cobro inmediato.');
+                }
+                foreach ($metodosPago as $pago) {
+                    if (empty($pago['id_cuenta']) || empty($pago['id_metodo']) || empty($pago['monto']) || (float)$pago['monto'] <= 0) {
+                        throw new RuntimeException('Todos los métodos de pago ingresados deben tener cuenta, método y un monto válido.');
+                    }
+                }
+            }
+
             $itemsUnicos = [];
 
             foreach ($detalle as $linea) {
-                // BLINDAJE EXTREMO: Acepta textos como 'PACK-1' sin convertirlos a cero
                 $rawId = trim((string) ($linea['id_item'] ?? ''));
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
@@ -272,6 +280,35 @@ class VentasController extends Controlador
                 'tipo_impuesto' => $tipoImpuesto,
                 'tipo_operacion' => $tipoOperacion, 
             ], $detalle, $userId);
+
+            if ($esCobroInmediato && $tipoOperacion !== 'DONACION') {
+                $ok = $this->documentoModel->aprobar($id, $userId);
+                if (!$ok) throw new RuntimeException('Error interno al intentar aprobar el pedido para su cobro.');
+                
+                $this->tesoreriaCxcModel->crearDesdeVenta($id, $userId);
+                
+                $deuda = $this->tesoreriaCxcModel->obtenerPorVenta($id);
+                if (empty($deuda)) throw new RuntimeException('No se pudo encontrar la deuda generada para aplicar el cobro.');
+                
+                foreach ($metodosPago as $pago) {
+                    $idCuenta = (int) $pago['id_cuenta'];
+                    $idMetodo = (int) $pago['id_metodo'];
+                    $montoPago = (float) $pago['monto'];
+                    
+                    $this->tesoreriaCxcModel->registrarCobroDirecto(
+                        (int) $deuda['id'],
+                        $idCuenta,
+                        $idMetodo,
+                        $montoPago,
+                        $fechaEmision ?? date('Y-m-d'),
+                        'Cobro Inmediato (Múltiple) - Caja',
+                        $userId
+                    );
+                }
+                
+                json_response(['ok' => true, 'mensaje' => 'Pedido guardado, aprobado y cobrado exitosamente.', 'id' => $id]);
+                return;
+            }
 
             json_response(['ok' => true, 'mensaje' => 'Pedido guardado correctamente.', 'id' => $id]);
 
@@ -352,15 +389,12 @@ class VentasController extends Controlador
             $cerrarForzado = filter_var(($data['cerrar_forzado'] ?? false), FILTER_VALIDATE_BOOLEAN);
             $observaciones = trim($data['observaciones'] ?? '');
             
-            // --- Capturar fecha de despacho ---
             $fechaDespacho = trim($data['fecha_despacho'] ?? '');
             if (empty($fechaDespacho)) {
-                $fechaDespacho = date('Y-m-d'); // Fallback de seguridad si llegara vacío
+                $fechaDespacho = date('Y-m-d'); 
             }
 
-            // --- NUEVO: Capturar los envases devueltos ---
             $envasesDevueltos = is_array($data['envases_devueltos'] ?? null) ? $data['envases_devueltos'] : [];
-            // ---------------------------------------------
 
             $detalle = $data['detalle'] ?? [];
 
@@ -375,9 +409,7 @@ class VentasController extends Controlador
 
             $userId = $this->obtenerUsuarioId(); 
             
-            // --- MODIFICADO: Pasar los envases devueltos al modelo ---
             $this->documentoModel->guardarDespacho($idDocumento, $detalle, $observaciones, $cerrarForzado, $userId, $fechaDespacho, $envasesDevueltos);
-            // ---------------------------------------------
             
             json_response(['ok' => true, 'mensaje' => 'Despacho registrado correctamente']);
         } catch (Throwable $e) {

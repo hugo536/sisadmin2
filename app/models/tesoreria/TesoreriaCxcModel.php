@@ -154,4 +154,58 @@ class TesoreriaCxcModel extends Modelo
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
     }
 
+    // =========================================================================
+    // --- NUEVAS FUNCIONES PARA COBRO INMEDIATO DE VENTAS MULTI-PAGO ---
+    // =========================================================================
+
+    public function obtenerPorVenta(int $idDocumentoVenta): ?array
+    {
+        $stmt = $this->db()->prepare('SELECT * FROM tesoreria_cxc WHERE id_documento_venta = :id AND deleted_at IS NULL ORDER BY id DESC LIMIT 1');
+        $stmt->execute(['id' => $idDocumentoVenta]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function registrarCobroDirecto(int $idCxc, int $idCuenta, int $idMetodo, float $monto, string $fecha, string $observaciones, int $userId): void
+    {
+        $db = $this->db();
+
+        // 1. Registramos el ingreso físico de dinero en la tabla general de movimientos de tesorería
+        $stmtMov = $db->prepare('INSERT INTO tesoreria_movimientos 
+            (id_cuenta, id_metodo_pago, tipo_movimiento, monto, fecha, observaciones, origen, id_origen, created_by, created_at) 
+            VALUES (:cuenta, :metodo, "INGRESO", :monto, :fecha, :obs, "CXC", :id_origen, :user, NOW())');
+        
+        $stmtMov->execute([
+            'cuenta' => $idCuenta,
+            'metodo' => $idMetodo,
+            'monto' => $monto,
+            'fecha' => $fecha,
+            'obs' => $observaciones,
+            'id_origen' => $idCxc,
+            'user' => $userId
+        ]);
+
+        // 2. Sumamos el monto pagado a la cuenta por cobrar
+        $stmtUpdate = $db->prepare('UPDATE tesoreria_cxc SET monto_pagado = monto_pagado + :monto WHERE id = :id');
+        $stmtUpdate->execute([
+            'monto' => $monto,
+            'id' => $idCxc
+        ]);
+
+        // 3. Dejamos que la función existente haga el trabajo pesado de evaluar el saldo y cambiar el estado (a PAGADA/PARCIAL)
+        $this->recalcularEstado($idCxc, $userId);
+    }
+
+    // --- FUNCIONES PARA TRAER DATOS AL COBRO INMEDIATO DE VENTAS ---
+    public function obtenerCuentasActivas(): array
+    {
+        $stmt = $this->db()->query('SELECT id, nombre, moneda FROM tesoreria_cuentas WHERE estado = 1 AND deleted_at IS NULL');
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function obtenerMetodosActivos(): array
+    {
+        $stmt = $this->db()->query('SELECT id, nombre FROM tesoreria_metodos_pago WHERE estado = 1 AND deleted_at IS NULL');
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 }

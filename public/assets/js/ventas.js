@@ -32,11 +32,11 @@
                 btnGuardar.textContent = 'Guardar Pedido';
 
                 if (!document.getElementById('alertaBorradorInfo')) {
-                        const contenedor = document.getElementById('alertaBorradorContenedor');
-                        if (contenedor) {
-                            contenedor.innerHTML = `<span id="alertaBorradorInfo" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
-                        }
+                    const contenedor = document.getElementById('alertaBorradorContenedor');
+                    if (contenedor) {
+                        contenedor.innerHTML = `<span id="alertaBorradorInfo" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
                     }
+                }
 
                 modalVenta.show();
             } catch (error) {
@@ -134,10 +134,21 @@
     const despachoDocumentoId = document.getElementById('despachoDocumentoId');
     const despachoObservaciones = document.getElementById('despachoObservaciones');
     const cerrarForzado = document.getElementById('cerrarForzado');
+
+    // --- NUEVO: VARIABLES DE TESORERÍA Y COBRO INMEDIATO ---
+    const cuentasDisponibles = window.TESORERIA_CUENTAS || [];
+    const metodosDisponibles = window.TESORERIA_METODOS || [];
+    
+    const switchCobroContainer = document.getElementById('switchCobroContainer');
+    const switchCobroInmediato = document.getElementById('switchCobroInmediato');
+    const seccionCobroInmediato = document.getElementById('seccionCobroInmediato');
+    const contenedorMetodosPago = document.getElementById('contenedorMetodosPago');
+    const btnAgregarPagoInmediato = document.getElementById('btnAgregarPagoInmediato');
+    const totalPagadoInmediato = document.getElementById('totalPagadoInmediato');
     
     // --- NUEVO: Referencias DOM para Envases Retornables ---
     const seccionRetornoEnvases = document.getElementById('seccionRetornoEnvasesDespacho');
-    const tbodyRetornoEnvases = document.querySelector('#tablaRetornoEnvases tbody');
+    const contenedorRetornoEnvases = document.getElementById('contenedorRetornoEnvases');
     // -------------------------------------------------------
 
     const tbodyDevolucionVenta = document.querySelector('#tablaDetalleDevolucionVenta tbody');
@@ -168,6 +179,112 @@
     const filtroOrdenFecha = document.getElementById('filtroOrdenFecha');
 
     const estadoBusquedaItems = { tieneAcuerdo: false, listaVacia: false };
+
+    // ==============================================================
+    // --- NUEVO: LÓGICA DE COBRO INMEDIATO MÚLTIPLE ---
+    // ==============================================================
+    function calcularTotalCobroInmediato() {
+        if (!contenedorMetodosPago) return;
+        let total = 0;
+        contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato').forEach(fila => {
+            const monto = parseFloat(fila.querySelector('.input-monto-inmediato').value) || 0;
+            total += monto;
+        });
+        
+        if (totalPagadoInmediato) {
+            totalPagadoInmediato.textContent = `S/ ${total.toFixed(2)}`;
+            
+            // Lógica de colores UX:
+            const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
+            const totalPedido = parseFloat(totalTexto) || 0;
+
+            if (total > totalPedido) {
+                totalPagadoInmediato.className = 'fw-bold fs-5 text-danger'; // Rojo si se pasó
+            } else if (total === totalPedido && total > 0) {
+                totalPagadoInmediato.className = 'fw-bold fs-5 text-success'; // Verde si está exacto
+            } else {
+                totalPagadoInmediato.className = 'fw-bold fs-5 text-dark'; // Oscuro si falta
+            }
+        }
+    }
+
+    function agregarFilaPagoInmediato(montoSugerido = '') {
+        if (!contenedorMetodosPago) return;
+        
+        let opcionesCuentas = '<option value="" selected disabled>Cuenta Destino...</option>';
+        cuentasDisponibles.forEach(c => { opcionesCuentas += `<option value="${c.id}">${c.nombre} (${c.moneda})</option>`; });
+
+        let opcionesMetodos = '<option value="" selected disabled>Método...</option>';
+        metodosDisponibles.forEach(m => { opcionesMetodos += `<option value="${m.id}">${m.nombre}</option>`; });
+
+        const numFilas = contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato').length;
+
+        const div = document.createElement('div');
+        div.className = 'd-flex flex-column flex-sm-row gap-2 align-items-start align-items-sm-center bg-white p-2 rounded border border-success-subtle fila-pago-inmediato';
+        div.innerHTML = `
+            <div class="w-100">
+                <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-cuenta-inmediato" required>
+                    ${opcionesCuentas}
+                </select>
+            </div>
+            <div class="w-100">
+                <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-metodo-inmediato" required>
+                    ${opcionesMetodos}
+                </select>
+            </div>
+            <div class="w-100 d-flex gap-2 align-items-center">
+                <div class="input-group input-group-sm w-100">
+                    <span class="input-group-text bg-light text-muted fw-semibold border-secondary-subtle">S/</span>
+                    <input type="number" class="form-control text-end text-success fw-bold border-secondary-subtle input-monto-inmediato" min="0" step="0.01" placeholder="0.00" value="${montoSugerido}" required>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-quitar-pago ${numFilas === 0 ? 'd-none' : ''} px-2" title="Quitar pago"><i class="bi bi-trash"></i></button>
+            </div>
+        `;
+
+        contenedorMetodosPago.appendChild(div);
+
+        div.querySelector('.input-monto-inmediato').addEventListener('input', calcularTotalCobroInmediato);
+        div.querySelector('.btn-quitar-pago').addEventListener('click', () => {
+            div.remove();
+            const filasRestantes = contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato');
+            if (filasRestantes.length === 1) filasRestantes[0].querySelector('.btn-quitar-pago').classList.add('d-none');
+            calcularTotalCobroInmediato();
+        });
+        calcularTotalCobroInmediato();
+    }
+
+    switchCobroInmediato?.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            seccionCobroInmediato.classList.remove('d-none');
+            contenedorMetodosPago.innerHTML = '';
+            
+            const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
+            const totalNumerico = parseFloat(totalTexto) || 0;
+            agregarFilaPagoInmediato(totalNumerico > 0 ? totalNumerico.toFixed(2) : '');
+        } else {
+            seccionCobroInmediato.classList.add('d-none');
+            contenedorMetodosPago.innerHTML = '';
+            calcularTotalCobroInmediato();
+        }
+    });
+
+    btnAgregarPagoInmediato?.addEventListener('click', () => {
+        // Calcular cuánto falta pagar automáticamente
+        const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
+        const totalPedido = parseFloat(totalTexto) || 0;
+        
+        let totalPagadoHastaAhora = 0;
+        contenedorMetodosPago.querySelectorAll('.input-monto-inmediato').forEach(inp => {
+            totalPagadoHastaAhora += parseFloat(inp.value) || 0;
+        });
+
+        let faltante = totalPedido - totalPagadoHastaAhora;
+        if (faltante < 0) faltante = 0;
+
+        // Agrega la fila con el monto sugerido que falta
+        agregarFilaPagoInmediato(faltante > 0 ? faltante.toFixed(2) : '');
+        contenedorMetodosPago.querySelectorAll('.btn-quitar-pago').forEach(btn => btn.classList.remove('d-none'));
+    });
 
     function obtenerFechaLocalISO() {
         const ahora = new Date();
@@ -331,6 +448,15 @@
         
         // --- MODIFICADO: Actualizar el span del peso total ---
         if (ventaPesoTotal) ventaPesoTotal.textContent = `${pesoTotalKg.toFixed(3)} kg`;
+
+        // --- NUEVO: ACTUALIZAR AUTOMÁTICAMENTE EL MONTO DE COBRO INMEDIATO ---
+        if (switchCobroInmediato && switchCobroInmediato.checked && !esDonacion) {
+            const filasPago = contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato');
+            if (filasPago.length === 1) { 
+                filasPago[0].querySelector('.input-monto-inmediato').value = total.toFixed(2);
+                calcularTotalCobroInmediato();
+            }
+        }
     }
 
     if (tipoImpuesto) {
@@ -629,6 +755,13 @@
             const tbodyDevHistorico = document.querySelector('#tablaDevolucionesHistorico tbody');
             if (tbodyDevHistorico) tbodyDevHistorico.innerHTML = '';
         }
+
+        // --- NUEVO: Limpieza UI Cobro Inmediato ---
+        if (switchCobroContainer) switchCobroContainer.style.display = 'block';
+        if (switchCobroInmediato) switchCobroInmediato.checked = false;
+        if (seccionCobroInmediato) seccionCobroInmediato.classList.add('d-none');
+        if (contenedorMetodosPago) contenedorMetodosPago.innerHTML = '';
+        if (totalPagadoInmediato) totalPagadoInmediato.textContent = 'S/ 0.00';
     }
 
     document.getElementById('btnAgregarFilaVenta')?.addEventListener('click', async () => {
@@ -679,6 +812,42 @@
                 }
             }
 
+            // --- NUEVO: Validar Cobro Inmediato ---
+            let esCobroInmediato = false;
+            const metodosPagoFinales = [];
+
+            if (switchCobroInmediato && switchCobroInmediato.checked && tipoOperacion.value !== 'DONACION') {
+                esCobroInmediato = true;
+                contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato').forEach(fila => {
+                    const idCuenta = fila.querySelector('.select-cuenta-inmediato').value;
+                    const idMetodo = fila.querySelector('.select-metodo-inmediato').value;
+                    const monto = parseFloat(fila.querySelector('.input-monto-inmediato').value) || 0;
+                    
+                    if (idCuenta && idMetodo && monto > 0) {
+                        metodosPagoFinales.push({ id_cuenta: idCuenta, id_metodo: idMetodo, monto: monto });
+                    }
+                });
+
+                if (metodosPagoFinales.length === 0) {
+                    throw new Error("Debe completar Cuenta, Método y Monto para el cobro inmediato.");
+                }
+            }
+
+            // --- NUEVO: Validar que el pago coincida EXACTAMENTE con el total del pedido ---
+            if (esCobroInmediato) {
+                let sumaPagos = 0;
+                metodosPagoFinales.forEach(p => sumaPagos += p.monto);
+                
+                const totalPedTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
+                const totalPedNumerico = parseFloat(totalPedTexto) || 0;
+
+                // Tolerancia de 1 céntimo por temas de redondeo en JS
+                if (Math.abs(sumaPagos - totalPedNumerico) > 0.01) {
+                    throw new Error(`El total de los métodos de pago (S/ ${sumaPagos.toFixed(2)}) no coincide con el total del pedido (S/ ${totalPedNumerico.toFixed(2)}). Ajuste los montos.`);
+                }
+            }
+            // ---------------------------------------------------------------------------------
+
             if (excedeStock) {
                 const confirmacion = await Swal.fire({
                     icon: 'warning',
@@ -704,6 +873,9 @@
                 observaciones: ventaObservaciones.value,
                 tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'exonerado',
                 detalle: detalle,
+                // --- AÑADE ESTAS DOS LÍNEAS ---
+                cobro_inmediato: esCobroInmediato,
+                metodos_pago: metodosPagoFinales
             });
 
             await Swal.fire('Guardado', payload.mensaje, 'success');
@@ -730,7 +902,7 @@
         
         // --- NUEVO: Resetear estado de envases ---
         envasesRequeridosActuales = [];
-        if (tbodyRetornoEnvases) tbodyRetornoEnvases.innerHTML = '';
+        if (contenedorRetornoEnvases) contenedorRetornoEnvases.innerHTML = '';
         if (seccionRetornoEnvases) seccionRetornoEnvases.classList.add('d-none');
 
         // Configurar Fecha de Despacho
@@ -769,30 +941,24 @@
         modalDespacho.show();
     }
 
-    // --- NUEVO: Función para dibujar y actualizar la tabla de envases vacíos ---
+    // --- NUEVO: Función para dibujar y actualizar los envases vacíos (DISEÑO MODERNO) ---
     function dibujarTablaEnvases() {
-        if (!seccionRetornoEnvases || !tbodyRetornoEnvases) return;
+        if (!seccionRetornoEnvases || !contenedorRetornoEnvases) return;
 
-        // Si no hay envases requeridos en el pedido, mantenemos la tarjeta oculta
         if (envasesRequeridosActuales.length === 0) {
             seccionRetornoEnvases.classList.add('d-none');
             return;
         }
 
-        // 1. Agrupar la cantidad de envases a entregar según lo que se esté despachando ahora
-        const totalesLlenos = {}; // formato: { id_envase: { nombre: '', cantidad: 0 } }
+        const totalesLlenos = {}; 
         
-        // Revisamos qué está escrito en los inputs "A Despachar"
         const filasDespacho = [...tbodyDespacho.querySelectorAll('tr')];
-        
         filasDespacho.forEach(f => {
             const idDetalle = Number(f.dataset.idDetalle);
             const cantDespachando = Number(f.querySelector('.despacho-cantidad')?.value || 0);
             
             if (cantDespachando > 0) {
-                // Buscamos si esta línea del pedido requiere envases
                 const envasesDeEstaLinea = envasesRequeridosActuales.filter(e => e.id_detalle === idDetalle);
-                
                 envasesDeEstaLinea.forEach(env => {
                     if (!totalesLlenos[env.id_envase]) {
                         totalesLlenos[env.id_envase] = { nombre: env.nombre, cantidad: 0 };
@@ -802,8 +968,7 @@
             }
         });
 
-        // 2. Pintar la tabla de envases
-        tbodyRetornoEnvases.innerHTML = '';
+        contenedorRetornoEnvases.innerHTML = '';
         let hayEnvasesAEntregar = false;
 
         for (const [idEnvase, datos] of Object.entries(totalesLlenos)) {
@@ -812,24 +977,34 @@
             
             hayEnvasesAEntregar = true;
             
-            // Truco UI: Ver si ya teníamos un valor escrito por el usuario para no borrárselo si cambia otra fila
-            const trExistente = tbodyRetornoEnvases.querySelector(`tr[data-id-envase="${idEnvase}"]`);
-            const valorPrevio = trExistente ? trExistente.querySelector('.input-retorno-vacio').value : cantLlenos;
+            // Mantener el valor si el usuario ya lo había escrito
+            const divExistente = contenedorRetornoEnvases.querySelector(`div[data-id-envase="${idEnvase}"]`);
+            const valorPrevio = divExistente ? divExistente.querySelector('.input-retorno-vacio').value : cantLlenos;
 
-            const tr = document.createElement('tr');
-            tr.dataset.idEnvase = idEnvase;
-            tr.innerHTML = `
-                <td class="ps-3 fw-bold text-dark">${datos.nombre}</td>
-                <td class="text-center text-primary fw-bold fs-5">${cantLlenos}</td>
-                <td class="px-3">
-                    <input type="number" class="form-control form-control-sm text-center border-primary-subtle fw-bold input-retorno-vacio text-success" 
-                           min="0" value="${valorPrevio}">
-                </td>
+            const itemDiv = document.createElement('div');
+            // Clases flex para que en PC se vea horizontal y en móvil se apile verticalmente si no cabe
+            itemDiv.className = 'd-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between bg-white p-2 rounded shadow-sm border border-info-subtle item-envase-retorno';
+            itemDiv.dataset.idEnvase = idEnvase;
+            itemDiv.innerHTML = `
+                <div class="fw-bold text-dark mb-2 mb-sm-0 d-flex align-items-center w-100">
+                    <i class="bi bi-box-seam me-2 text-muted"></i> <span class="text-truncate">${datos.nombre}</span>
+                </div>
+                
+                <div class="d-flex align-items-center justify-content-between justify-content-sm-end w-100 gap-3">
+                    <div class="text-center px-2">
+                        <small class="text-muted d-block lh-1" style="font-size: 0.7rem;">ENTREGAS</small>
+                        <span class="fw-bold text-dark">${cantLlenos}</span>
+                    </div>
+                    
+                    <div class="input-group flex-nowrap shadow-sm" style="width: 140px;">
+                        <span class="input-group-text bg-light border-info-subtle text-muted" style="font-size: 0.8rem;">Retorna</span>
+                        <input type="number" class="form-control text-center text-success fw-bold border-info-subtle input-retorno-vacio" min="0" value="${valorPrevio}">
+                    </div>
+                </div>
             `;
-            tbodyRetornoEnvases.appendChild(tr);
+            contenedorRetornoEnvases.appendChild(itemDiv);
         }
 
-        // 3. Mostrar u ocultar la tarjeta según los cálculos
         if (hayEnvasesAEntregar) {
             seccionRetornoEnvases.classList.remove('d-none');
         } else {
@@ -1114,8 +1289,10 @@
             if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione almacén para todas las filas con cantidad.');
             if (tbodyDespacho.querySelector('.is-invalid')) throw new Error('Corrija las cantidades marcadas en rojo (exceden stock o pendiente).');
 
+            // --- NUEVO: Validar fecha de despacho ---
             const fechaDespachoVal = despachoFecha ? despachoFecha.value : '';
             if (!fechaDespachoVal) throw new Error('Debe especificar la fecha de despacho.');
+            // ----------------------------------------
 
             const resumenPorItem = {}; 
             filas.forEach(f => {
@@ -1132,14 +1309,14 @@
                 if (despachando < pendiente - 0.01) esParcial = true;
             });
 
-            // --- NUEVO: Capturar Envases Retornados ---
+            // --- NUEVO: Capturar Envases Retornados (Adaptado al nuevo DOM) ---
             const envasesDevueltos = [];
-            if (tbodyRetornoEnvases && !seccionRetornoEnvases.classList.contains('d-none')) {
-                tbodyRetornoEnvases.querySelectorAll('tr').forEach(tr => {
-                    const cant = Number(tr.querySelector('.input-retorno-vacio').value || 0);
+            if (contenedorRetornoEnvases && !seccionRetornoEnvases.classList.contains('d-none')) {
+                contenedorRetornoEnvases.querySelectorAll('.item-envase-retorno').forEach(div => {
+                    const cant = Number(div.querySelector('.input-retorno-vacio').value || 0);
                     if (cant > 0) {
                         envasesDevueltos.push({
-                            id_envase: Number(tr.dataset.idEnvase),
+                            id_envase: Number(div.dataset.idEnvase),
                             cantidad: cant
                         });
                     }
@@ -1319,21 +1496,18 @@
                 } else {
                     await agregarFilaVenta(null, esBorrador);
                 }
-
-                const btnGuardar = document.getElementById('btnGuardarVenta');
                 
+                const btnGuardar = document.getElementById('btnGuardarVenta');
                 if (esBorrador) {
                     btnGuardar.style.display = 'block';
                     btnGuardar.textContent = 'Actualizar Pedido';
-                    
-                    if (!document.getElementById('alertaBorradorInfo')) {
-                    const contenedor = document.getElementById('alertaBorradorContenedor');
-                    if (contenedor) {
-                        contenedor.innerHTML = `<span id="alertaBorradorInfo" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
-                    }
-                }
+                    document.getElementById('alertaBorradorContenedor').innerHTML = `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
+                    // Mostrar switch si es borrador
+                    if (switchCobroContainer) switchCobroContainer.style.display = 'block';
                 } else {
                     btnGuardar.style.display = 'none';
+                    // Ocultar switch si ya está aprobado/despachado
+                    if (switchCobroContainer) switchCobroContainer.style.display = 'none';
                 }
 
                 // --- NUEVO: PINTAR HISTORIAL DE DEVOLUCIONES ---
