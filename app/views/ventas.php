@@ -358,16 +358,6 @@ $formatearFechaDMY = static function ($fecha): string {
     </div>
 </div>
 
-                </form>
-            </div>
-            <div class="modal-footer bg-white border-top-0">
-                <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-primary px-4 fw-bold" id="btnGuardarVenta"><i class="bi bi-save me-2"></i>Guardar Pedido</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="modal fade" id="modalDespacho" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
