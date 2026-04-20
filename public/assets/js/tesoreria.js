@@ -92,6 +92,24 @@
         }
     }
 
+    const formFiltrosCxc = document.getElementById('formFiltrosCxc');
+    if (formFiltrosCxc) {
+        let filtroTimer = null;
+        const enviarFiltros = () => {
+            if (filtroTimer) {
+                clearTimeout(filtroTimer);
+            }
+            filtroTimer = setTimeout(() => formFiltrosCxc.submit(), 250);
+        };
+        const campos = formFiltrosCxc.querySelectorAll('select[name="estado"], select[name="tipo_tercero"], input[name="fecha_desde"], input[name="fecha_hasta"]');
+        campos.forEach((campo) => {
+            campo.addEventListener('change', enviarFiltros);
+            if (campo.tagName === 'INPUT') {
+                campo.addEventListener('input', enviarFiltros);
+            }
+        });
+    }
+
     // ========================================================================
     // 1. GESTIÓN DE FORMULARIO DE CUENTAS (UX)
     // ========================================================================
