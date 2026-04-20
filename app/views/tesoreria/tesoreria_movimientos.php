@@ -25,17 +25,6 @@ if (!empty($_GET['error'])) {
             </h1>
             <p class="text-muted small mb-0 ms-1">Ledger operativo de cobros y pagos.</p>
         </div>
-        <div class="d-flex gap-2 flex-wrap justify-content-end">
-            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
-                <i class="bi bi-bank me-2 text-primary"></i>Ir a Cuentas
-            </a>
-            <a href="<?php echo e(route_url('tesoreria/cxc')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
-                <i class="bi bi-cash-stack me-2 text-success"></i>Ir a CxC
-            </a>
-            <a href="<?php echo e(route_url('tesoreria/cxp')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
-                <i class="bi bi-shop me-2 text-warning"></i>Ir a CxP
-            </a>
-        </div>
     </div>
     <?php if ($swalMessage !== null): ?>
         <script>
@@ -53,7 +42,30 @@ if (!empty($_GET['error'])) {
         </script>
     <?php endif; ?>
 
-    <div class="card border-0 shadow-sm mb-4">
+    <ul class="nav nav-tabs border-bottom-1 mb-0 px-2">
+        <li class="nav-item">
+            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="nav-link fs-6 fw-semibold py-3 text-secondary bg-light border-0">
+                <i class="bi bi-bank me-2"></i>Cuentas
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="nav-link fs-6 fw-semibold py-3 active text-primary border-primary border-bottom-0">
+                <i class="bi bi-journal-text me-2"></i>Movimientos
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="<?php echo e(route_url('tesoreria/cxc')); ?>" class="nav-link fs-6 fw-semibold py-3 text-secondary bg-light border-0">
+                <i class="bi bi-cash-stack me-2"></i>CxC
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="<?php echo e(route_url('tesoreria/cxp')); ?>" class="nav-link fs-6 fw-semibold py-3 text-secondary bg-light border-0">
+                <i class="bi bi-shop me-2"></i>CxP
+            </a>
+        </li>
+    </ul>
+
+    <div class="card border-0 shadow-sm mb-4 rounded-top-0 border-top border-primary border-3">
         <div class="card-body p-3 p-md-4">
             <form method="get" action="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="row g-3 align-items-end" id="formFiltrosMovimientos">
                 <input type="hidden" name="ruta" value="tesoreria/movimientos">
