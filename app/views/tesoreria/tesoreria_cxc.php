@@ -84,7 +84,7 @@ if (!empty($_GET['error'])) {
             <form method="get" action="" class="row g-3 align-items-end" id="formFiltrosCxc">
                 <input type="hidden" name="ruta" value="tesoreria/cxc">
 
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Estado de Cuenta</label>
                     <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="estado">
                         <option value="">Todos los estados</option>
@@ -93,16 +93,26 @@ if (!empty($_GET['error'])) {
                         <?php endforeach; ?>
                     </select>
                 </div>
-                
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted fw-bold mb-1">Tipo de Tercero</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="tipo_tercero">
+                        <option value="">Todos</option>
+                        <option value="cliente_distribuidor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente_distribuidor') ? 'selected' : ''; ?>>Cliente / Distribuidor</option>
+                        <option value="cliente" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente') ? 'selected' : ''; ?>>Cliente</option>
+                        <option value="distribuidor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'distribuidor') ? 'selected' : ''; ?>>Distribuidor</option>
+                    </select>
+                </div>
+
                 <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Desde (Vencimiento)</label>
                     <input
                         type="date"
                         class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium"
                         name="fecha_desde"
-                        value="<?php echo e((string) ($filtros['fecha_desde'] ?? date('Y-m-d'))); ?>">
+                        value="<?php echo e((string) ($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-6 days')))); ?>">
                 </div>
-                
+
                 <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Hasta (Vencimiento)</label>
                     <input
@@ -110,12 +120,6 @@ if (!empty($_GET['error'])) {
                         class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium"
                         name="fecha_hasta"
                         value="<?php echo e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d'))); ?>">
-                </div>
-
-                <div class="col-12 col-md-2">
-                    <button type="submit" class="btn btn-primary w-100 shadow-sm fw-semibold">
-                        <i class="bi bi-funnel me-1"></i>Aplicar
-                    </button>
                 </div>
             </form>
         </div>
