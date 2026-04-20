@@ -10,6 +10,7 @@ class TesoreriaCxcModel extends Modelo
         $sql = 'SELECT c.*, COALESCE(t.nombre_completo, "Cliente Eliminado/Desconocido") AS cliente
                 FROM tesoreria_cxc c
                 LEFT JOIN terceros t ON t.id = c.id_cliente
+                LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
                 WHERE c.deleted_at IS NULL';
 
         $params = [];
@@ -17,6 +18,16 @@ class TesoreriaCxcModel extends Modelo
         if (!empty($filtros['estado'])) {
             $sql .= ' AND c.estado = :estado';
             $params['estado'] = (string) $filtros['estado'];
+        }
+
+        if (!empty($filtros['tipo_tercero'])) {
+            if ($filtros['tipo_tercero'] === 'cliente_distribuidor') {
+                $sql .= ' AND COALESCE(t.es_cliente, 0) = 1 AND d.id_tercero IS NOT NULL';
+            } elseif ($filtros['tipo_tercero'] === 'cliente') {
+                $sql .= ' AND COALESCE(t.es_cliente, 0) = 1';
+            } elseif ($filtros['tipo_tercero'] === 'distribuidor') {
+                $sql .= ' AND d.id_tercero IS NOT NULL';
+            }
         }
 
         if (!empty($filtros['fecha_desde'])) {
