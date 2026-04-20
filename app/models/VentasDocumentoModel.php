@@ -364,9 +364,37 @@ class VentasDocumentoModel extends Modelo
     public function anular(int $idDocumento, int $userId): bool
     {
         $db = $this->db();
+
+        // --- 1. BLINDAJE DE SEGURIDAD ANTES DE ABRIR TRANSACCIÓN ---
+        
+        // A. Verificar estado del documento
+        $stmtVenta = $db->prepare('SELECT estado FROM ventas_documentos WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+        $stmtVenta->execute(['id' => $idDocumento]);
+        $estadoActual = (int) $stmtVenta->fetchColumn();
+
+        if ($estadoActual === 3 || $estadoActual === 4 || $estadoActual === 5) {
+            throw new RuntimeException('El pedido ya tiene mercadería despachada. No se puede anular, debe ir a la opción "Registrar Devolución".');
+        }
+
+        // B. Verificar si hay dinero en caja (Cuentas por Cobrar)
+        try {
+            // Buscamos usando la columna correcta: id_documento_venta
+            $stmtCxc = $db->prepare('SELECT monto_pagado FROM tesoreria_cxc WHERE id_documento_venta = :id_documento AND deleted_at IS NULL LIMIT 1');
+            $stmtCxc->execute(['id_documento' => $idDocumento]);
+            $cxc = $stmtCxc->fetch(PDO::FETCH_ASSOC);
+
+            if ($cxc !== false && (float)$cxc['monto_pagado'] > 0) {
+                throw new RuntimeException('El pedido tiene pagos registrados (S/ ' . number_format((float)$cxc['monto_pagado'], 2) . '). Primero debe ir a Tesorería y anular el recibo de pago.');
+            }
+        } catch (\Throwable $e) {
+            // Ignoramos pacíficamente si por alguna razón la tabla no está accesible
+        }
+
+        // --- 2. PROCESO DE ANULACIÓN ---
         $db->beginTransaction();
 
         try {
+            // Anular la cabecera del documento
             $stmt = $db->prepare('UPDATE ventas_documentos
                                   SET estado = 9,
                                       deleted_at = NOW(),
@@ -380,15 +408,28 @@ class VentasDocumentoModel extends Modelo
                 'deleted_user' => $userId,
                 'updated_user' => $userId,
             ]);
+            
             if ($stmt->rowCount() === 0) {
-                throw new RuntimeException('No se pudo anular el pedido.');
+                throw new RuntimeException('No se pudo anular el pedido o ya estaba anulado.');
             }
 
+            // Anular el detalle
             $db->prepare('UPDATE ventas_documentos_detalle
                           SET deleted_at = NOW(), updated_by = :user, updated_at = NOW()
                           WHERE id_documento_venta = :id_documento
                             AND deleted_at IS NULL')
                 ->execute(['id_documento' => $idDocumento, 'user' => $userId]);
+
+            // --- 3. LIMPIEZA: Anular también la deuda pendiente en Tesorería ---
+            try {
+                // Actualizamos usando la columna correcta: id_documento_venta
+                $db->prepare('UPDATE tesoreria_cxc 
+                              SET estado = "ANULADA", deleted_at = NOW(), updated_by = :user, updated_at = NOW() 
+                              WHERE id_documento_venta = :id_documento AND deleted_at IS NULL')
+                   ->execute(['id_documento' => $idDocumento, 'user' => $userId]);
+            } catch (\Throwable $e) {
+                // Ignorar si no existe la relación
+            }
 
             $db->commit();
             return true;

@@ -982,9 +982,11 @@ class VentasDespachoModel extends Modelo
     {
         if ($totalDevuelto <= 0) return;
         $resolucionNormalizada = trim(strtolower($resolucion));
-        if (!in_array($resolucionNormalizada, ['descuento_cxc', 'saldo_favor'], true)) return;
+        
+        // CAMBIO: Ahora permitimos que procese tanto descuentos como reembolsos
+        if (!in_array($resolucionNormalizada, ['descuento_cxc', 'saldo_favor', 'reembolso_dinero', 'salida_dinero'], true)) return;
 
-        $stmt = $db->prepare('SELECT id, monto_total, monto_pagado
+        $stmt = $db->prepare('SELECT id, id_cliente, monto_total, monto_pagado, moneda
                               FROM tesoreria_cxc
                               WHERE id_documento_venta = :id_documento
                                 AND deleted_at IS NULL
@@ -998,14 +1000,27 @@ class VentasDespachoModel extends Modelo
 
         $montoTotalActual = (float) ($cxc['monto_total'] ?? 0);
         $montoPagadoActual = (float) ($cxc['monto_pagado'] ?? 0);
+        
+        // 1. Reducimos el total de la deuda porque el cliente devolvió mercancía
         $nuevoMontoTotal = max(0.0, $montoTotalActual - $totalDevuelto);
-        $nuevoPagado = min($montoPagadoActual, $nuevoMontoTotal);
+        
+        // 2. Verificamos si el cliente había pagado más del nuevo total (Dinero a su favor)
+        $excedenteADevolver = 0.0;
+        if ($montoPagadoActual > $nuevoMontoTotal) {
+            $excedenteADevolver = $montoPagadoActual - $nuevoMontoTotal;
+            // Ajustamos lo pagado en CxC para que cuadre exacto con el nuevo total
+            $nuevoPagado = $nuevoMontoTotal; 
+        } else {
+            $nuevoPagado = $montoPagadoActual;
+        }
+
         $nuevoSaldo = max(0.0, $nuevoMontoTotal - $nuevoPagado);
 
         $estado = 'PENDIENTE';
         if ($nuevoSaldo <= 0.00001) $estado = 'PAGADA';
         elseif ($nuevoPagado > 0) $estado = 'PARCIAL';
 
+        // 3. Actualizamos la Cuenta por Cobrar (CxC)
         $db->prepare('UPDATE tesoreria_cxc
                       SET monto_total = :monto_total,
                           monto_pagado = :monto_pagado,
@@ -1022,6 +1037,30 @@ class VentasDespachoModel extends Modelo
                 'user' => $userId,
                 'id' => (int) ($cxc['id'] ?? 0),
             ]);
+
+        // 4. Si hay excedente y se eligió "Reembolso", creamos una Cuenta por Pagar (CXP)
+        if ($excedenteADevolver > 0 && in_array($resolucionNormalizada, ['reembolso_dinero', 'salida_dinero'], true)) {
+            try {
+                // El cliente actúa como un "proveedor" al que le debemos dinero
+                $stmtCxp = $db->prepare('INSERT INTO tesoreria_cxp 
+                    (id_proveedor, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, observaciones, created_by, updated_by, created_at, updated_at) 
+                    VALUES 
+                    (:id_proveedor, CURDATE(), CURDATE(), :moneda, :monto_total, 0, :saldo, "PENDIENTE", :observaciones, :created_by, :updated_by, NOW(), NOW())');
+                
+                $stmtCxp->execute([
+                    'id_proveedor' => (int) $cxc['id_cliente'], // En la tabla terceros, cliente y proveedor comparten ID
+                    'moneda' => $cxc['moneda'] ?? 'PEN',
+                    'monto_total' => round($excedenteADevolver, 4),
+                    'saldo' => round($excedenteADevolver, 4),
+                    'observaciones' => 'Reembolso por devolución de Pedido #' . $idDocumento,
+                    'created_by' => $userId,
+                    'updated_by' => $userId
+                ]);
+            } catch (\Throwable $e) {
+                // Si la tabla CXP no existe o hay error, se ignora para no romper la devolución
+                error_log('Error creando CXP por devolución: ' . $e->getMessage());
+            }
+        }
     }
 
     private function asegurarTablasDevolucion(PDO $db): void

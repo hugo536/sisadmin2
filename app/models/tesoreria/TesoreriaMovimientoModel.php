@@ -205,8 +205,8 @@ class TesoreriaMovimientoModel extends Modelo
                 'monto_capital' => $montoCapital,
                 'monto_interes' => $montoInteres,
                 'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null,
-                'referencia'     => $data['referencia'] ?: null,
-                'observaciones'  => $data['observaciones'] ?: null,
+                'referencia'     => $data['referencia'] ?? null,
+                'observaciones'  => $data['observaciones'] ?? null,
                 'created_by'     => $userId,
                 'updated_by'     => $userId,
             ]);
@@ -286,8 +286,8 @@ class TesoreriaMovimientoModel extends Modelo
                     'fecha'          => $data['fecha'],
                     'moneda'         => $moneda,
                     'monto'          => $montoAPagarAqui,
-                    'referencia'     => $data['referencia'],
-                    'observaciones'  => $data['observaciones']
+                    'referencia'     => $data['referencia'] ?? null,
+                    'observaciones'  => $data['observaciones'] ?? null
                 ], $userId);
 
                 $restante = round($restante - $montoAPagarAqui, 4);
