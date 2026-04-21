@@ -954,14 +954,15 @@ class VentasDespachoModel extends Modelo
     }
 
     private function resolverPoliticaDevolucion(string $motivo, string $motivoCodigo, string $resolucion): array
-    {
-        $resolucionesPermitidas = ['saldo_favor', 'descuento_cxc', 'reembolso_dinero', 'salida_dinero'];
+{
+    // Asegúrate de que 'descuento_cxc' esté en este array:
+    $resolucionesPermitidas = ['saldo_favor', 'descuento_cxc', 'reembolso_dinero', 'salida_dinero'];
 
-        $resolucionNormalizada = trim(strtolower($resolucion));
+    $resolucionNormalizada = trim(strtolower($resolucion));
 
-        if (!in_array($resolucionNormalizada, $resolucionesPermitidas, true)) {
-            throw new RuntimeException('La resolución comercial seleccionada no es válida.');
-        }
+    if (!in_array($resolucionNormalizada, $resolucionesPermitidas, true)) {
+        throw new RuntimeException('La resolución comercial seleccionada no es válida.');
+    }
 
         $motivoTexto = trim($motivo);
         
@@ -983,7 +984,7 @@ class VentasDespachoModel extends Modelo
         if ($totalDevuelto <= 0) return;
         $resolucionNormalizada = trim(strtolower($resolucion));
         
-        // CAMBIO: Ahora permitimos que procese tanto descuentos como reembolsos
+        // Permitimos que procese tanto descuentos como reembolsos
         if (!in_array($resolucionNormalizada, ['descuento_cxc', 'saldo_favor', 'reembolso_dinero', 'salida_dinero'], true)) return;
 
         $stmt = $db->prepare('SELECT id, id_cliente, monto_total, monto_pagado, moneda
@@ -1016,9 +1017,20 @@ class VentasDespachoModel extends Modelo
 
         $nuevoSaldo = max(0.0, $nuevoMontoTotal - $nuevoPagado);
 
+        // ------------------------------------------------------------------
+        // MEJORA: Lógica de estados corregida para devoluciones totales
+        // ------------------------------------------------------------------
         $estado = 'PENDIENTE';
-        if ($nuevoSaldo <= 0.00001) $estado = 'PAGADA';
-        elseif ($nuevoPagado > 0) $estado = 'PARCIAL';
+        
+        if ($nuevoMontoTotal <= 0.00001) {
+            // Si el total bajó a 0 por la devolución, la cuenta queda anulada/sin efecto.
+            $estado = 'ANULADA';
+        } elseif ($nuevoSaldo <= 0.00001) {
+            $estado = 'PAGADA';
+        } elseif ($nuevoPagado > 0) {
+            $estado = 'PARCIAL';
+        }
+        // ------------------------------------------------------------------
 
         // 3. Actualizamos la Cuenta por Cobrar (CxC)
         $db->prepare('UPDATE tesoreria_cxc
@@ -1048,7 +1060,7 @@ class VentasDespachoModel extends Modelo
                     (:id_proveedor, CURDATE(), CURDATE(), :moneda, :monto_total, 0, :saldo, "PENDIENTE", :observaciones, :created_by, :updated_by, NOW(), NOW())');
                 
                 $stmtCxp->execute([
-                    'id_proveedor' => (int) $cxc['id_cliente'], // En la tabla terceros, cliente y proveedor comparten ID
+                    'id_proveedor' => (int) $cxc['id_cliente'],
                     'moneda' => $cxc['moneda'] ?? 'PEN',
                     'monto_total' => round($excedenteADevolver, 4),
                     'saldo' => round($excedenteADevolver, 4),
@@ -1057,7 +1069,6 @@ class VentasDespachoModel extends Modelo
                     'updated_by' => $userId
                 ]);
             } catch (\Throwable $e) {
-                // Si la tabla CXP no existe o hay error, se ignora para no romper la devolución
                 error_log('Error creando CXP por devolución: ' . $e->getMessage());
             }
         }

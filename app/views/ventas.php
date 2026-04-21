@@ -476,13 +476,19 @@ $formatearFechaDMY = static function ($fecha): string {
                     <div class="col-md-6">
                         <label class="form-label fw-bold small text-muted">Resolución Comercial <span class="text-danger">*</span></label>
                         <select id="devolucionVentaResolucion" class="form-select border-warning-subtle" required>
+                              
+                            <optgroup label="🔄 Ajuste de Deuda (Sin pagos previos)">
+                                <option value="descuento_cxc" selected>Reducción / Anulación de Deuda</option>
+                            </optgroup>
+
                             <optgroup label="💳 Saldo a Favor (No sale dinero)">
-                                <option value="descuento_cxc" selected>Nota de Crédito (Descontar de futuras compras / CxC)</option>
+                                <option value="saldo_favor">Nota de Crédito (Descontar de futuras compras / CxC)</option>
                             </optgroup>
                             
                             <optgroup label="💵 Salida de Dinero (Tesorería)">
                                 <option value="reembolso_dinero">Reembolso al cliente (Efectivo / Transferencia)</option>
                             </optgroup>
+                            
                         </select>
                         <small id="devolucionVentaResolucionHint" class="text-muted d-block mt-1"></small>
                     </div>
