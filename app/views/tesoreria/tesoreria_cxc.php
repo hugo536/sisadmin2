@@ -253,7 +253,7 @@ if (!empty($_GET['error'])) {
                     <div class="row g-3">
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Cliente <span class="text-danger">*</span></label>
-                            <select name="id_tercero" class="form-select shadow-sm border-secondary-subtle" required>
+                            <select name="id_tercero" id="cobroManualCliente" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" selected disabled>Seleccione un cliente...</option>
                                 <?php foreach($clientes as $cli): ?>
                                     <option value="<?php echo (int) $cli['id']; ?>"><?php echo e((string) $cli['nombre_completo']); ?></option>
@@ -262,9 +262,9 @@ if (!empty($_GET['error'])) {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Moneda <span class="text-danger">*</span></label>
-                            <select name="moneda" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="" selected disabled>Seleccione moneda...</option>
-                                <option value="PEN">PEN (Soles)</option>
+                            <select name="moneda" id="cobroManualMoneda" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="" disabled>Seleccione moneda...</option>
+                                <option value="PEN" selected>PEN (Soles)</option>
                                 <option value="USD">USD (Dólares)</option>
                             </select>
                         </div>
@@ -274,7 +274,7 @@ if (!empty($_GET['error'])) {
                         </div>
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Cuenta Destino <span class="text-danger">*</span></label>
-                            <select name="id_cuenta" class="form-select shadow-sm border-secondary-subtle" required>
+                            <select name="id_cuenta" id="cobroManualCuentaDestino" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" selected disabled>Seleccione cuenta destino...</option>
                                 <?php foreach($cuentas as $c): ?>
                                     <?php $tieneAdvertenciaContable = empty($c['id_cuenta_contable']); ?>

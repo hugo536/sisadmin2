@@ -888,6 +888,70 @@
         });
     }
 
+    // --- Lógica para COBRO MANUAL CXC ---
+    const modalCobroManualEl = document.getElementById('modalCobroManual');
+    const selectClienteCobroManual = document.getElementById('cobroManualCliente');
+    const selectMonedaCobroManual = document.getElementById('cobroManualMoneda');
+    const selectCuentaCobroManual = document.getElementById('cobroManualCuentaDestino');
+
+    if (selectClienteCobroManual && typeof TomSelect !== 'undefined' && !selectClienteCobroManual.tomselect) {
+        new TomSelect(selectClienteCobroManual, {
+            create: false,
+            allowEmptyOption: true,
+            placeholder: 'Buscar cliente o distribuidor...',
+            maxOptions: 150,
+            closeAfterSelect: true,
+            render: {
+                no_results: function () {
+                    return '<div class="no-results py-2 px-3 text-muted">Sin coincidencias.</div>';
+                }
+            }
+        });
+    }
+
+    const filtrarCuentasCobroManualPorMoneda = () => {
+        if (!selectMonedaCobroManual || !selectCuentaCobroManual) return;
+
+        const moneda = String(selectMonedaCobroManual.value || '').toUpperCase();
+        const opciones = selectCuentaCobroManual.querySelectorAll('option');
+        let primeraOpcionValida = null;
+
+        opciones.forEach(opcion => {
+            if (opcion.value === '') {
+                opcion.selected = true;
+                opcion.style.display = '';
+                opcion.disabled = false;
+                return;
+            }
+
+            if (moneda && opcion.textContent.toUpperCase().includes(`(${moneda})`)) {
+                opcion.style.display = '';
+                opcion.disabled = false;
+                if (!primeraOpcionValida) primeraOpcionValida = opcion.value;
+            } else if (moneda) {
+                opcion.style.display = 'none';
+                opcion.disabled = true;
+            } else {
+                opcion.style.display = '';
+                opcion.disabled = false;
+            }
+        });
+
+        selectCuentaCobroManual.value = primeraOpcionValida || '';
+    };
+
+    if (selectMonedaCobroManual && selectCuentaCobroManual) {
+        selectMonedaCobroManual.addEventListener('change', filtrarCuentasCobroManualPorMoneda);
+        // Moneda PEN por defecto y filtro aplicado al abrir.
+        filtrarCuentasCobroManualPorMoneda();
+    }
+
+    if (modalCobroManualEl) {
+        modalCobroManualEl.addEventListener('shown.bs.modal', function () {
+            filtrarCuentasCobroManualPorMoneda();
+        });
+    }
+
     // ========================================================================
     // 7. ESTADO DE CUENTA (NUEVO FLUJO: SALDOS INICIALES, ITEMS Y AMORTIZACIONES)
     // ========================================================================
