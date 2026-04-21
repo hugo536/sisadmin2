@@ -309,7 +309,7 @@ class ReportesController extends Controlador
             'productosFiltro' => $this->ventasDocumentoModel->buscarItems('', 0, 0, 1, 200),
             'porCliente' => ($seccionActiva === 'clientes') ? $this->ventas->ventasPorCliente($f, $pagina, $tamano) : [],
             'pendientes' => ($seccionActiva === 'pendientes') ? $this->ventas->pendientesDespacho($f, $pagina, $tamano) : [],
-            'topProductos' => ($seccionActiva === 'productos') ? $this->ventas->topProductos($f, 10) : [],
+            'topProductos' => ($seccionActiva === 'productos') ? $this->ventas->topProductos($f, 999999) : [],
             'porPeriodo' => ($seccionActiva === 'tendencias') ? $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], 12) : [],
             'pagina' => $pagina,
             'tamano' => $tamano,
