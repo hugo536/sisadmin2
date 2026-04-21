@@ -779,36 +779,55 @@ class TesoreriaController extends Controlador
                 'id_centro_costo' => (int) ($_POST['id_centro_costo'] ?? 0),
             ];
 
+            $cuentaDestinoIds = $_POST['cuenta_destino_ids'] ?? [];
             $metodoIds = $_POST['metodo_pago_ids'] ?? [];
             $metodoMontos = $_POST['metodo_montos'] ?? [];
             $distribucion = [];
 
-            if (is_array($metodoIds) && is_array($metodoMontos) && count($metodoIds) > 0) {
+            if (is_array($cuentaDestinoIds) && is_array($metodoIds) && is_array($metodoMontos) && count($metodoIds) > 0) {
                 $totalDistribuido = 0.0;
                 foreach ($metodoIds as $idx => $idMetodoRaw) {
+                    $idCuenta = (int) ($cuentaDestinoIds[$idx] ?? 0);
                     $idMetodo = (int) $idMetodoRaw;
                     $montoMetodo = round((float) ($metodoMontos[$idx] ?? 0), 4);
-                    if ($idMetodo <= 0 || $montoMetodo <= 0) {
+                    if ($idCuenta <= 0 || $idMetodo <= 0 || $montoMetodo <= 0) {
                         continue;
                     }
-                    $distribucion[] = ['id_metodo_pago' => $idMetodo, 'monto' => $montoMetodo];
+                    $distribucion[] = [
+                        'id_cuenta'      => $idCuenta,
+                        'id_metodo_pago' => $idMetodo,
+                        'monto'          => $montoMetodo
+                    ];
                     $totalDistribuido += $montoMetodo;
                 }
 
                 if (!empty($distribucion) && abs(round($totalDistribuido, 4) - $montoTotal) > 0.0001) {
-                    throw new RuntimeException('La suma de los métodos de pago debe coincidir con el monto total del cobro.');
+                    throw new RuntimeException('La suma de la distribución por cuenta y método debe coincidir con el monto total del cobro.');
                 }
             }
 
             if (empty($distribucion)) {
+                $idCuentaUnica = (int) ($_POST['id_cuenta'] ?? 0);
                 $idMetodoUnico = (int) ($_POST['id_metodo_pago'] ?? 0);
-                if ($idMetodoUnico <= 0) {
-                    throw new RuntimeException('Debe seleccionar al menos un método de cobro.');
+                if ($idCuentaUnica <= 0 || $idMetodoUnico <= 0) {
+                    throw new RuntimeException('Debe seleccionar al menos una cuenta destino y un método de cobro.');
                 }
-                $distribucion[] = ['id_metodo_pago' => $idMetodoUnico, 'monto' => $montoTotal];
+                $distribucion[] = [
+                    'id_cuenta'      => $idCuentaUnica,
+                    'id_metodo_pago' => $idMetodoUnico,
+                    'monto'          => $montoTotal
+                ];
             }
 
-            $this->validarPermisoOperacionCuenta((int) $payloadBase['id_cuenta'], $origen);
+            $cuentasValidadas = [];
+            foreach ($distribucion as $itemDistribucion) {
+                $idCuentaDistribucion = (int) ($itemDistribucion['id_cuenta'] ?? 0);
+                if ($idCuentaDistribucion <= 0 || isset($cuentasValidadas[$idCuentaDistribucion])) {
+                    continue;
+                }
+                $this->validarPermisoOperacionCuenta($idCuentaDistribucion, $origen);
+                $cuentasValidadas[$idCuentaDistribucion] = true;
+            }
 
             $userId = $this->obtenerUsuarioId();
             $db = Conexion::get();
@@ -826,6 +845,7 @@ class TesoreriaController extends Controlador
                 }
 
                 $payload = $payloadBase;
+                $payload['id_cuenta'] = (int) $item['id_cuenta'];
                 $payload['id_metodo_pago'] = (int) $item['id_metodo_pago'];
                 $payload['monto'] = $montoParcial;
 

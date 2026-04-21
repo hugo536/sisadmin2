@@ -272,6 +272,115 @@
     // ========================================================================
     // 4. RELLENAR DATOS EN EL MODAL DE COBRO REGULAR (CXC)
     // ========================================================================
+    const cobroDistribucionRows = document.getElementById('cobroDistribucionRows');
+    const btnAddCobroDistribucion = document.getElementById('btnAddCobroDistribucion');
+    const cobroDistribucionHint = document.getElementById('cobroDistribucionHint');
+
+    function getCobroDistribucionRows() {
+        if (!cobroDistribucionRows) return [];
+        return Array.from(cobroDistribucionRows.querySelectorAll('.js-cobro-distribucion-row'));
+    }
+
+    function actualizarBotonesEliminarDistribucion() {
+        const rows = getCobroDistribucionRows();
+        rows.forEach((row, index) => {
+            const btnRemove = row.querySelector('.js-remove-cobro-row');
+            if (!btnRemove) return;
+            btnRemove.classList.toggle('d-none', rows.length <= 1 || index === 0);
+        });
+    }
+
+    function filtrarCuentasDistribucionPorMoneda(moneda) {
+        const monedaUpper = String(moneda || '').toUpperCase();
+        getCobroDistribucionRows().forEach((row) => {
+            const selectCuenta = row.querySelector('.js-cobro-cuenta');
+            if (!selectCuenta) return;
+            let primeraValida = '';
+            Array.from(selectCuenta.options).forEach((option) => {
+                if (!option.value) {
+                    option.hidden = false;
+                    option.disabled = false;
+                    return;
+                }
+                const optionMoneda = String(option.dataset.moneda || '').toUpperCase();
+                const esValida = monedaUpper === '' || optionMoneda === monedaUpper;
+                option.hidden = !esValida;
+                option.disabled = !esValida;
+                if (esValida && !primeraValida) {
+                    primeraValida = option.value;
+                }
+            });
+            if (!selectCuenta.value || (selectCuenta.selectedOptions[0] && selectCuenta.selectedOptions[0].disabled)) {
+                selectCuenta.value = primeraValida || '';
+            }
+        });
+    }
+
+    function recalcularDistribucionCobro() {
+        if (!inputMontoTotalCobro || !cobroDistribucionHint) return;
+        const total = parseFloat(inputMontoTotalCobro.value || '0') || 0;
+        const suma = getCobroDistribucionRows().reduce((acum, row) => {
+            const inputMonto = row.querySelector('.js-cobro-monto-distribucion');
+            return acum + (parseFloat(inputMonto?.value || '0') || 0);
+        }, 0);
+        const diferencia = roundTo((total - suma), 2);
+        if (Math.abs(diferencia) < 0.01) {
+            cobroDistribucionHint.textContent = `Distribución cuadrada: ${suma.toFixed(2)}`;
+            cobroDistribucionHint.classList.remove('text-danger');
+            cobroDistribucionHint.classList.add('text-success');
+        } else {
+            cobroDistribucionHint.textContent = `Falta distribuir ${diferencia.toFixed(2)} del total`;
+            cobroDistribucionHint.classList.remove('text-success');
+            cobroDistribucionHint.classList.add('text-danger');
+        }
+    }
+
+    function agregarFilaDistribucionCobro() {
+        if (!cobroDistribucionRows) return;
+        const rows = getCobroDistribucionRows();
+        if (!rows.length) return;
+        const nuevaFila = rows[0].cloneNode(true);
+        const nuevoIndex = rows.length;
+        nuevaFila.dataset.rowIndex = String(nuevoIndex);
+        const selectCuenta = nuevaFila.querySelector('.js-cobro-cuenta');
+        const selectMetodo = nuevaFila.querySelector('.js-cobro-metodo');
+        const inputMonto = nuevaFila.querySelector('.js-cobro-monto-distribucion');
+        if (selectCuenta) selectCuenta.value = '';
+        if (selectMetodo) selectMetodo.value = '';
+        if (inputMonto) inputMonto.value = '';
+        cobroDistribucionRows.appendChild(nuevaFila);
+        actualizarBotonesEliminarDistribucion();
+        filtrarCuentasDistribucionPorMoneda(document.getElementById('cobroMoneda')?.value || '');
+        recalcularDistribucionCobro();
+    }
+
+    function roundTo(value, decimals) {
+        const factor = Math.pow(10, decimals);
+        return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
+    }
+
+    if (cobroDistribucionRows) {
+        cobroDistribucionRows.addEventListener('click', (e) => {
+            const btnRemove = e.target.closest('.js-remove-cobro-row');
+            if (!btnRemove) return;
+            const rows = getCobroDistribucionRows();
+            if (rows.length <= 1) return;
+            const row = btnRemove.closest('.js-cobro-distribucion-row');
+            if (row) row.remove();
+            actualizarBotonesEliminarDistribucion();
+            recalcularDistribucionCobro();
+        });
+        cobroDistribucionRows.addEventListener('input', (e) => {
+            if (e.target.matches('.js-cobro-monto-distribucion')) {
+                recalcularDistribucionCobro();
+            }
+        });
+    }
+
+    if (btnAddCobroDistribucion) {
+        btnAddCobroDistribucion.addEventListener('click', agregarFilaDistribucionCobro);
+    }
+
     document.addEventListener('click', function(e) {
         const btn = e.target.closest('.js-open-cobro');
         if (!btn) return;
@@ -293,42 +402,9 @@
             inputMonto.value = saldo;
             inputMonto.setAttribute('max', saldo);
         }
-        const selectCuentaDestino = document.getElementById('selectCuentaDestino');
-        if (selectCuentaDestino && moneda) {
-            const opciones = selectCuentaDestino.querySelectorAll('option');
-            let primeraOpcionValida = null;
-
-            opciones.forEach(opcion => {
-                if (opcion.value === "") {
-                    opcion.selected = true;
-                    opcion.style.display = '';
-                    opcion.disabled = false;
-                    return;
-                }
-
-                const tieneAdvertencia = opcion.dataset.tieneAdvertencia === '1';
-                if (tieneAdvertencia) {
-                    opcion.style.display = 'none';
-                    opcion.disabled = true;
-                    return;
-                }
-                
-                if (opcion.textContent.toUpperCase().includes(`(${moneda.toUpperCase()})`)) {
-                    opcion.style.display = '';
-                    opcion.disabled = false;
-                    if (!primeraOpcionValida) primeraOpcionValida = opcion.value;
-                } else {
-                    opcion.style.display = 'none';
-                    opcion.disabled = true;
-                }
-            });
-
-            if (primeraOpcionValida) {
-                selectCuentaDestino.value = primeraOpcionValida;
-            } else {
-                selectCuentaDestino.value = "";
-            }
-        }
+        filtrarCuentasDistribucionPorMoneda(moneda);
+        actualizarBotonesEliminarDistribucion();
+        recalcularDistribucionCobro();
 
         const naturalezaSelect = document.getElementById('cobroNaturaleza');
         if (naturalezaSelect) {
@@ -398,6 +474,9 @@
     [inputMontoTotalCobro, inputCapitalCobro, inputInteresCobro].forEach(input => {
         if (input) input.addEventListener('input', validarMontosMixtosCobro);
     });
+    if (inputMontoTotalCobro) {
+        inputMontoTotalCobro.addEventListener('input', recalcularDistribucionCobro);
+    }
 
     const formCobro = document.getElementById('formCobro');
     if (formCobro) {
@@ -420,6 +499,29 @@
                     }
                 }
             }
+
+            const rows = getCobroDistribucionRows();
+            const sumaDistribucion = rows.reduce((acum, row) => {
+                const cuenta = row.querySelector('.js-cobro-cuenta')?.value || '';
+                const metodo = row.querySelector('.js-cobro-metodo')?.value || '';
+                const monto = parseFloat(row.querySelector('.js-cobro-monto-distribucion')?.value || '0') || 0;
+                if (!cuenta || !metodo || monto <= 0) {
+                    return acum;
+                }
+                return acum + monto;
+            }, 0);
+
+            if (Math.abs(roundTo(sumaDistribucion, 2) - roundTo(total, 2)) > 0.009) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Distribución incompleta',
+                        text: 'La suma de la distribución por cuenta/método debe ser igual al monto total del cobro.'
+                    });
+                }
+            }
         });
     }
 
@@ -432,16 +534,38 @@
             if(inputCapitalCobro) inputCapitalCobro.classList.remove('is-invalid');
             if(inputInteresCobro) inputInteresCobro.classList.remove('is-invalid');
 
-            const selectCuentaDestino = document.getElementById('selectCuentaDestino');
-            if (selectCuentaDestino) {
-                const opciones = selectCuentaDestino.querySelectorAll('option');
-                opciones.forEach(opcion => {
-                    opcion.style.display = '';
-                    opcion.disabled = false;
-                });
-                selectCuentaDestino.value = ""; 
+            const rows = getCobroDistribucionRows();
+            rows.forEach((row, idx) => {
+                if (idx === 0) {
+                    const cuenta = row.querySelector('.js-cobro-cuenta');
+                    const metodo = row.querySelector('.js-cobro-metodo');
+                    const monto = row.querySelector('.js-cobro-monto-distribucion');
+                    if (cuenta) cuenta.value = '';
+                    if (metodo) metodo.value = '';
+                    if (monto) monto.value = '';
+                } else {
+                    row.remove();
+                }
+            });
+            getCobroDistribucionRows().forEach((row) => {
+                const cuenta = row.querySelector('.js-cobro-cuenta');
+                if (cuenta) {
+                    Array.from(cuenta.options).forEach((option) => {
+                        option.hidden = false;
+                        option.disabled = false;
+                    });
+                }
+            });
+            const hiddenCuenta = document.getElementById('selectCuentaDestino');
+            const hiddenMetodo = document.getElementById('selectMetodoCobroUnico');
+            if (hiddenCuenta) hiddenCuenta.value = '';
+            if (hiddenMetodo) hiddenMetodo.value = '';
+            if (cobroDistribucionHint) {
+                cobroDistribucionHint.textContent = '';
+                cobroDistribucionHint.classList.remove('text-success', 'text-danger');
             }
 
+            actualizarBotonesEliminarDistribucion();
             syncNaturalezaCobro();
         });
     }
