@@ -956,7 +956,15 @@ class TesoreriaController extends Controlador
 
     private function listarClientesActivos(): array
     {
-        $sql = 'SELECT id, nombre_completo FROM terceros WHERE estado = 1 AND es_cliente = 1 AND deleted_at IS NULL ORDER BY nombre_completo ASC';
+        $sql = 'SELECT DISTINCT t.id, t.nombre_completo
+                FROM terceros t
+                LEFT JOIN distribuidores d
+                  ON d.id_tercero = t.id
+                 AND d.deleted_at IS NULL
+                WHERE t.estado = 1
+                  AND t.deleted_at IS NULL
+                  AND (t.es_cliente = 1 OR d.id_tercero IS NOT NULL)
+                ORDER BY t.nombre_completo ASC';
         return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
