@@ -361,33 +361,13 @@ if (!empty($_GET['error'])) {
                         </div>
                         
                         <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-2">Métodos de Cobro <span class="text-danger">*</span></label>
-                            <div id="cobroMetodosContainer" class="d-flex flex-column gap-2">
-                                <div class="row g-2 js-metodo-row" data-row-index="0">
-                                    <div class="col-md-7">
-                                        <select name="metodo_pago_ids[]" class="form-select shadow-sm border-secondary-subtle js-metodo-select" required>
-                                            <option value="" selected disabled>Seleccione un método...</option>
-                                            <?php foreach($metodos as $m): ?>
-                                                <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <input type="number" step="0.01" min="0.01" name="metodo_montos[]" class="form-control shadow-sm border-secondary-subtle js-metodo-monto" placeholder="Monto" required>
-                                    </div>
-                                    <div class="col-md-1 d-flex align-items-center justify-content-end">
-                                        <button type="button" class="btn btn-light border js-remove-metodo" title="Quitar método" disabled>
-                                            <i class="bi bi-x-lg"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center mt-2">
-                                <small class="text-muted">Puedes dividir el cobro en efectivo, Yape, transferencia, etc.</small>
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAgregarMetodoCobro">
-                                    <i class="bi bi-plus-circle me-1"></i>Agregar método
-                                </button>
-                            </div>
+                            <label class="form-label small text-muted fw-bold mb-2">Método de Cobro <span class="text-danger">*</span></label>
+                            <select name="id_metodo_pago" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="" selected disabled>Seleccione un método...</option>
+                                <?php foreach($metodos as $m): ?>
+                                    <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
 
                         <div class="col-md-6">

@@ -293,15 +293,6 @@
             inputMonto.value = saldo;
             inputMonto.setAttribute('max', saldo);
         }
-        if (metodosContainerCobro) {
-            const filaBase = metodosContainerCobro.querySelector('.js-metodo-row');
-            if (filaBase) {
-                const montoBase = filaBase.querySelector('.js-metodo-monto');
-                if (montoBase) montoBase.value = saldo;
-            }
-            sincronizarMontosMetodosCobro();
-        }
-
         const selectCuentaDestino = document.getElementById('selectCuentaDestino');
         if (selectCuentaDestino && moneda) {
             const opciones = selectCuentaDestino.querySelectorAll('option');
@@ -351,56 +342,6 @@
     const inputCapitalCobro = document.getElementById('cobroMontoCapital');
     const inputInteresCobro = document.getElementById('cobroMontoInteres');
     const inputMontoTotalCobro = document.getElementById('cobroMonto');
-    const metodosContainerCobro = document.getElementById('cobroMetodosContainer');
-    const btnAgregarMetodoCobro = document.getElementById('btnAgregarMetodoCobro');
-
-    function actualizarBotonesEliminarMetodoCobro() {
-        if (!metodosContainerCobro) return;
-        const filas = metodosContainerCobro.querySelectorAll('.js-metodo-row');
-        filas.forEach((fila, idx) => {
-            const btn = fila.querySelector('.js-remove-metodo');
-            if (!btn) return;
-            btn.disabled = filas.length <= 1;
-            fila.dataset.rowIndex = String(idx);
-        });
-    }
-
-    function sincronizarMontosMetodosCobro() {
-        if (!metodosContainerCobro || !inputMontoTotalCobro) return;
-        const total = parseFloat(inputMontoTotalCobro.value) || 0;
-        const montos = Array.from(metodosContainerCobro.querySelectorAll('.js-metodo-monto'));
-        if (montos.length === 1 && document.activeElement !== montos[0]) {
-            montos[0].value = total > 0 ? total.toFixed(2) : '';
-            montos[0].setCustomValidity('');
-            return;
-        }
-
-        const suma = montos.reduce((acc, input) => acc + (parseFloat(input.value) || 0), 0);
-        const descuadre = Math.abs(suma - total) > 0.009;
-        montos.forEach(input => {
-            input.setCustomValidity(descuadre ? 'La suma de métodos debe coincidir con el monto total.' : '');
-            input.classList.toggle('is-invalid', descuadre);
-        });
-    }
-
-    function agregarFilaMetodoCobro() {
-        if (!metodosContainerCobro) return;
-        const primeraFila = metodosContainerCobro.querySelector('.js-metodo-row');
-        if (!primeraFila) return;
-        const nuevaFila = primeraFila.cloneNode(true);
-        const select = nuevaFila.querySelector('.js-metodo-select');
-        const monto = nuevaFila.querySelector('.js-metodo-monto');
-        const btnRemove = nuevaFila.querySelector('.js-remove-metodo');
-        if (select) select.value = '';
-        if (monto) {
-            monto.value = '';
-            monto.classList.remove('is-invalid');
-            monto.setCustomValidity('');
-        }
-        if (btnRemove) btnRemove.disabled = false;
-        metodosContainerCobro.appendChild(nuevaFila);
-        actualizarBotonesEliminarMetodoCobro();
-    }
 
 
     function syncNaturalezaCobro() {
@@ -458,52 +399,10 @@
         if (input) input.addEventListener('input', validarMontosMixtosCobro);
     });
 
-    if (btnAgregarMetodoCobro) {
-        btnAgregarMetodoCobro.addEventListener('click', agregarFilaMetodoCobro);
-    }
-    if (metodosContainerCobro) {
-        actualizarBotonesEliminarMetodoCobro();
-        metodosContainerCobro.addEventListener('click', function (e) {
-            const btn = e.target.closest('.js-remove-metodo');
-            if (!btn) return;
-            const fila = btn.closest('.js-metodo-row');
-            if (!fila) return;
-            if (metodosContainerCobro.querySelectorAll('.js-metodo-row').length <= 1) return;
-            fila.remove();
-            actualizarBotonesEliminarMetodoCobro();
-            sincronizarMontosMetodosCobro();
-        });
-        metodosContainerCobro.addEventListener('input', function (e) {
-            if (e.target && e.target.classList.contains('js-metodo-monto')) {
-                sincronizarMontosMetodosCobro();
-            }
-        });
-    }
-    if (inputMontoTotalCobro) {
-        inputMontoTotalCobro.addEventListener('input', sincronizarMontosMetodosCobro);
-    }
-
     const formCobro = document.getElementById('formCobro');
     if (formCobro) {
         formCobro.addEventListener('submit', function(e) {
             const total = parseFloat(inputMontoTotalCobro?.value || '0') || 0;
-            if (metodosContainerCobro) {
-                const montos = Array.from(metodosContainerCobro.querySelectorAll('.js-metodo-monto'));
-                const sumaMetodos = montos.reduce((acc, input) => acc + (parseFloat(input.value) || 0), 0);
-                if (Math.abs(sumaMetodos - total) > 0.009) {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    sincronizarMontosMetodosCobro();
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Montos descuadrados',
-                            text: `La suma por métodos (${sumaMetodos.toFixed(2)}) debe ser igual al monto total (${total.toFixed(2)}).`
-                        });
-                    }
-                    return;
-                }
-            }
 
             if (naturalezaCobro && naturalezaCobro.value === 'MIXTO') {
                 const capital = parseFloat(inputCapitalCobro.value) || 0;
@@ -532,24 +431,6 @@
             if(inputMontoTotalCobro) inputMontoTotalCobro.classList.remove('is-invalid');
             if(inputCapitalCobro) inputCapitalCobro.classList.remove('is-invalid');
             if(inputInteresCobro) inputInteresCobro.classList.remove('is-invalid');
-            if (metodosContainerCobro) {
-                const filas = metodosContainerCobro.querySelectorAll('.js-metodo-row');
-                filas.forEach((fila, idx) => {
-                    if (idx > 0) fila.remove();
-                });
-                const filaBase = metodosContainerCobro.querySelector('.js-metodo-row');
-                if (filaBase) {
-                    const select = filaBase.querySelector('.js-metodo-select');
-                    const monto = filaBase.querySelector('.js-metodo-monto');
-                    if (select) select.value = '';
-                    if (monto) {
-                        monto.value = '';
-                        monto.classList.remove('is-invalid');
-                        monto.setCustomValidity('');
-                    }
-                }
-                actualizarBotonesEliminarMetodoCobro();
-            }
 
             const selectCuentaDestino = document.getElementById('selectCuentaDestino');
             if (selectCuentaDestino) {
