@@ -956,6 +956,105 @@
     // ==========================================
     let envasesRequeridosActuales = []; // --- NUEVO: Estado global de envases requeridos ---
 
+    function actualizarTotalDevolucionVenta() {
+        if (!tbodyDevolucionVenta || !devolucionVentaTotal) return;
+
+        let total = 0;
+        tbodyDevolucionVenta.querySelectorAll('tr').forEach((tr) => {
+            const cantidad = Number(tr.querySelector('.input-devolver-venta')?.value || 0);
+            const precio = Number(tr.dataset.precio || 0);
+            total += (cantidad * precio);
+        });
+
+        devolucionVentaTotal.textContent = `S/ ${total.toFixed(2)}`;
+    }
+
+    function agregarFilaDevolucionVenta(linea) {
+        if (!tbodyDevolucionVenta) return;
+
+        const cantidadDespachada = Number(linea.cantidad_despachada || 0);
+        const precioUnitario = Number(linea.precio_unitario || 0);
+
+        const tr = document.createElement('tr');
+        tr.dataset.idDetalle = Number(linea.id || 0);
+        tr.dataset.idItem = String(linea.id_item || '');
+        tr.dataset.max = String(cantidadDespachada);
+        tr.dataset.precio = String(precioUnitario);
+
+        tr.innerHTML = `
+            <td class="align-middle py-3 ps-3">
+                <div class="fw-bold text-dark" style="font-size: 0.95rem;">${linea.item_nombre || ''}</div>
+            </td>
+            <td class="text-center align-middle">
+                <span class="badge bg-info-subtle text-info rounded-pill px-3 py-2 fw-bold">
+                    ${cantidadDespachada.toFixed(2)}
+                </span>
+            </td>
+            <td class="text-center align-middle fw-semibold text-secondary">
+                S/ ${precioUnitario.toFixed(2)}
+            </td>
+            <td class="align-middle px-2">
+                <input type="number" class="form-control form-control-sm text-center input-devolver-venta fw-bold text-warning-emphasis border-warning mx-auto shadow-none"
+                       min="0" max="${cantidadDespachada}" step="0.01" value="0.00" style="max-width: 120px;">
+            </td>
+            <td class="text-end align-middle pe-4 fw-bold text-dark subtotal-fila-dev-venta">S/ 0.00</td>
+        `;
+
+        const inputCantidad = tr.querySelector('.input-devolver-venta');
+        const tdSubtotal = tr.querySelector('.subtotal-fila-dev-venta');
+
+        const recalcularFila = () => {
+            const maximo = Number(tr.dataset.max || 0);
+            let cantidad = Number(inputCantidad.value || 0);
+
+            if (cantidad < 0) cantidad = 0;
+            if (cantidad > maximo) cantidad = maximo;
+
+            inputCantidad.value = cantidad.toFixed(2);
+
+            const subtotal = cantidad * precioUnitario;
+            tdSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
+            actualizarTotalDevolucionVenta();
+        };
+
+        inputCantidad.addEventListener('input', recalcularFila);
+        inputCantidad.addEventListener('change', recalcularFila);
+
+        tbodyDevolucionVenta.appendChild(tr);
+    }
+
+    async function abrirModalDevolucionVenta(idDocumento) {
+        if (!modalDevolucionVenta || !tbodyDevolucionVenta || !devolucionVentaDocumentoId) {
+            throw new Error('El modal de devolución no está disponible en la vista actual.');
+        }
+
+        const payload = await getJson(`${urls.index}&accion=ver&id=${idDocumento}`);
+        const venta = payload.data || {};
+        const detalle = Array.isArray(venta.detalle) ? venta.detalle : [];
+
+        devolucionVentaDocumentoId.value = String(Number(venta.id || idDocumento));
+        if (devolucionVentaMotivo) devolucionVentaMotivo.value = '';
+        if (devolucionVentaResolucion) devolucionVentaResolucion.value = 'descuento_cxc';
+        tbodyDevolucionVenta.innerHTML = '';
+        if (devolucionVentaTotal) devolucionVentaTotal.textContent = 'S/ 0.00';
+
+        let lineasDisponibles = 0;
+        detalle.forEach((linea) => {
+            if (Number(linea.cantidad_despachada || 0) > 0.0001) {
+                lineasDisponibles++;
+                agregarFilaDevolucionVenta(linea);
+            }
+        });
+
+        if (lineasDisponibles === 0) {
+            throw new Error('Este pedido no tiene cantidades despachadas disponibles para devolución.');
+        }
+
+        actualizarHintDevolucionVenta();
+        actualizarTotalDevolucionVenta();
+        modalDevolucionVenta.show();
+    }
+
     async function abrirModalDespacho(idDocumento) {
         const payload = await getJson(`${urls.index}&accion=ver&id=${idDocumento}`);
         const venta = payload.data;
@@ -1675,7 +1774,7 @@
                 throw new Error('Seleccione una resolución comercial válida.');
             }
 
-            if (resolucionSeleccionada === 'salida_dinero') {
+            if (resolucionSeleccionada === 'salida_dinero' || resolucionSeleccionada === 'reembolso_dinero') {
                 const confirmacionTesoreria = await Swal.fire({
                     icon: 'warning',
                     title: 'Se registrará salida de dinero',
