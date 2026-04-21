@@ -343,31 +343,51 @@ if (!empty($_GET['error'])) {
                         </div>
                         
                         <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Cuenta Destino <span class="text-danger">*</span></label>
-                            <select name="id_cuenta" id="selectCuentaDestino" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="" selected disabled>Seleccione cuenta destino...</option>
-                                <?php foreach($cuentas as $c): ?>
-                                    <?php $tieneAdvertenciaContable = empty($c['id_cuenta_contable']); ?>
-                                    <?php if (!$tieneAdvertenciaContable): ?>
-                                        <option
-                                            value="<?php echo (int) $c['id']; ?>"
-                                            data-tipo="<?php echo e($c['tipo']); ?>"
-                                            data-tiene-advertencia="0">
-                                            <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
-                                        </option>
-                                    <?php endif; ?>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-2">Método de Cobro <span class="text-danger">*</span></label>
-                            <select name="id_metodo_pago" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="" selected disabled>Seleccione un método...</option>
-                                <?php foreach($metodos as $m): ?>
-                                    <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                            <label class="form-label small text-muted fw-bold mb-2">Distribución del cobro <span class="text-danger">*</span></label>
+                            <div class="small text-muted mb-2">Puedes dividir el cobro en varias cuentas y métodos (ej: S/ 7 Yape + S/ 3 Efectivo).</div>
+                            <div id="cobroDistribucionRows" class="d-grid gap-2">
+                                <div class="row g-2 js-cobro-distribucion-row" data-row-index="0">
+                                    <div class="col-md-5">
+                                        <select name="cuenta_destino_ids[]" class="form-select shadow-sm border-secondary-subtle js-cobro-cuenta" required>
+                                            <option value="" selected disabled>Cuenta destino...</option>
+                                            <?php foreach($cuentas as $c): ?>
+                                                <?php $tieneAdvertenciaContable = empty($c['id_cuenta_contable']); ?>
+                                                <?php if (!$tieneAdvertenciaContable): ?>
+                                                    <option
+                                                        value="<?php echo (int) $c['id']; ?>"
+                                                        data-tipo="<?php echo e($c['tipo']); ?>"
+                                                        data-moneda="<?php echo e(strtoupper((string) $c['moneda'])); ?>"
+                                                        data-tiene-advertencia="0">
+                                                        <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
+                                                    </option>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <select name="metodo_pago_ids[]" class="form-select shadow-sm border-secondary-subtle js-cobro-metodo" required>
+                                            <option value="" selected disabled>Método de cobro...</option>
+                                            <?php foreach($metodos as $m): ?>
+                                                <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="input-group">
+                                            <input type="number" step="0.01" min="0.01" name="metodo_montos[]" class="form-control shadow-sm border-secondary-subtle js-cobro-monto-distribucion" placeholder="Monto" required>
+                                            <button type="button" class="btn btn-outline-danger js-remove-cobro-row d-none" title="Quitar fila"><i class="bi bi-dash"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <button type="button" id="btnAddCobroDistribucion" class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-plus-circle me-1"></i>Agregar fila
+                                </button>
+                                <small id="cobroDistribucionHint" class="text-muted"></small>
+                            </div>
+                            <input type="hidden" name="id_cuenta" id="selectCuentaDestino" value="">
+                            <input type="hidden" name="id_metodo_pago" id="selectMetodoCobroUnico" value="">
                         </div>
 
                         <div class="col-md-6">
