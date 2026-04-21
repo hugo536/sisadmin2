@@ -74,11 +74,11 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                     $sinTarifas = (int)($acuerdo['sin_tarifas'] ?? 0) === 1;
                                     $isSelected = $acuerdoSeleccionado && (int)$acuerdoSeleccionado['id'] === (int)$acuerdo['id'];
                                     ?>
-                                    <button type="button"
-                                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-start acuerdo-sidebar-item <?php echo $isSelected ? 'active' : ''; ?>"
-                                            data-id-acuerdo="<?php echo (int)$acuerdo['id']; ?>"
-                                            data-search="<?php echo e(mb_strtolower($acuerdo['cliente_nombre'])); ?>">
-                                        <div class="me-2">
+                                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-start acuerdo-sidebar-item <?php echo $isSelected ? 'active' : ''; ?>"
+                                         role="button"
+                                         data-id-acuerdo="<?php echo (int)$acuerdo['id']; ?>"
+                                         data-search="<?php echo e(mb_strtolower($acuerdo['cliente_nombre'])); ?>">
+                                        <div class="me-2 flex-grow-1">
                                             <div class="fw-semibold"><?php echo e($acuerdo['cliente_nombre']); ?></div>
                                             <?php if ((int)$acuerdo['id'] === 0): ?>
                                                 <small class="text-muted"><?php echo (int)$acuerdo['total_productos']; ?> productos</small>
@@ -90,8 +90,18 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                                 <small class="text-muted"><?php echo (int)$acuerdo['total_productos']; ?> productos</small>
                                             <?php endif; ?>
                                         </div>
-                                        <span class="rounded-circle mt-1 flex-shrink-0" style="width:10px;height:10px;background:<?php echo $isActive ? '#22c55e' : '#9ca3af'; ?>;"></span>
-                                    </button>
+                                        <div class="d-flex align-items-start gap-2 flex-shrink-0">
+                                            <?php if ((int)$acuerdo['id'] !== 0): ?>
+                                                <button type="button"
+                                                        class="btn btn-sm btn-link text-danger p-0 mt-1 js-eliminar-acuerdo-sidebar"
+                                                        title="Eliminar acuerdo"
+                                                        aria-label="Eliminar acuerdo">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            <?php endif; ?>
+                                            <span class="rounded-circle mt-1" style="width:10px;height:10px;background:<?php echo $isActive ? '#22c55e' : '#9ca3af'; ?>;"></span>
+                                        </div>
+                                    </div>
                                 <?php endforeach; ?>
                                 <div class="px-3 py-4 text-center text-muted small d-none" id="sidebarNoResults">No hay coincidencias.</div>
                             <?php endif; ?>

@@ -323,6 +323,47 @@ function initComercialApp() {
 
     if (sidebarList) {
         sidebarList.addEventListener('click', (e) => {
+            const btnDeleteSidebar = e.target.closest('.js-eliminar-acuerdo-sidebar');
+            if (btnDeleteSidebar) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const itemDelete = btnDeleteSidebar.closest('.acuerdo-sidebar-item');
+                const idAcuerdoEliminar = parseInt(itemDelete?.dataset.idAcuerdo || '0', 10);
+                if (!idAcuerdoEliminar) return;
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Romper acuerdo',
+                    text: 'Esta acción eliminará el acuerdo y su matriz.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Eliminar acuerdo',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545'
+                }).then(async (confirm) => {
+                    if (!confirm.isConfirmed) return;
+                    try {
+                        await postForm(urls.eliminarAcuerdo, { id_acuerdo: idAcuerdoEliminar });
+                        const acuerdoActual = getAcuerdoId();
+                        if (acuerdoActual === idAcuerdoEliminar) {
+                            softReloadSPA('?ruta=comercial/listas');
+                            return;
+                        }
+                        itemDelete.remove();
+                        const empty = document.getElementById('sidebarNoResults');
+                        const totalItems = sidebarList.querySelectorAll('.acuerdo-sidebar-item').length;
+                        if (empty && totalItems === 0) {
+                            empty.textContent = 'No hay clientes vinculados.';
+                            empty.classList.remove('d-none');
+                            empty.classList.add('d-block');
+                        }
+                    } catch (err) {
+                        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+                    }
+                });
+                return;
+            }
+
             const item = e.target.closest('.acuerdo-sidebar-item');
             if (!item) return;
             e.preventDefault();
