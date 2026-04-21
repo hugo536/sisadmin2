@@ -171,6 +171,7 @@
         saldo_favor: 'Se registra como saldo a favor del cliente (sin salida de caja).',
         descuento_cxc: 'Se descuenta en CxC / próxima facturación.',
         salida_dinero: 'Se registra para reembolso en tesorería (salida de dinero).',
+        reembolso_dinero: 'Se registra para reembolso en tesorería (salida de dinero).',
     };
 
     function actualizarHintDevolucionVenta() {
