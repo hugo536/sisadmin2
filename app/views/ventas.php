@@ -144,7 +144,7 @@ $formatearFechaDMY = static function ($fecha): string {
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Anular Pedido"><i class="bi bi-trash fs-5"></i></button>
                                                 
-                                            <?php elseif ($estado === 3 || $estado === 4 || $estado === 5): ?>
+                                            <?php elseif ($estado === 3 || $estado === 5): ?>
                                                 <button class="btn btn-sm btn-light text-warning border-0 btn-devolucion rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Registrar Devolución"><i class="bi bi-arrow-return-left fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                                 
