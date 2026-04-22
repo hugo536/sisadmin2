@@ -476,7 +476,7 @@ $formatearFechaDMY = static function ($fecha): string {
                     <div class="col-md-6">
                         <label class="form-label fw-bold small text-muted">Resolución Comercial <span class="text-danger">*</span></label>
                         <select id="devolucionVentaResolucion" class="form-select border-warning-subtle" required>
-                              
+
                             <optgroup label="🔄 Ajuste de Deuda (Sin pagos previos)">
                                 <option value="descuento_cxc" selected>Reducción / Anulación de Deuda</option>
                             </optgroup>
@@ -628,7 +628,7 @@ $formatearFechaDMY = static function ($fecha): string {
         <td class="align-top py-3 px-2" data-label="Precio Unit.">
             <div class="input-group input-group-sm">
                 <span class="input-group-text border-end-0 text-muted bg-light border-secondary-subtle">S/</span>
-                <input type="number" class="form-control border-start-0 text-end detalle-precio shadow-none border-secondary-subtle" min="0" step="0.01" value="0.00" required>
+                <input type="number" class="form-control border-start-0 text-end detalle-precio shadow-none border-secondary-subtle" min="0" step="0.0001" value="0.00" required>
             </div>
         </td>
         <td class="text-end align-top py-3 fw-bold text-dark detalle-subtotal fs-6" data-label="Subtotal">S/ 0.00</td>

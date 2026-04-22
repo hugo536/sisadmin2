@@ -584,7 +584,7 @@
         if (precioNuevo === null) return;
         
         if (precioNuevo > 0) {
-            inputPrecio.value = precioNuevo.toFixed(2);
+            inputPrecio.value = precioNuevo.toFixed(4);
         }
         recalcularTotalVenta();
     }
@@ -669,7 +669,8 @@
                     }
 
                     filaReal.querySelector('.detalle-stock').textContent = selectedOption.stock.toFixed(2);
-                    inputPrecio.value = selectedOption.precio.toFixed(2);
+                    // Permitimos que la cajita reciba hasta 4 decimales
+                    inputPrecio.value = selectedOption.precio.toFixed(4);
                     filaReal.dataset.pesoKg = String(Number(selectedOption.pesoKg || 0));
                     
                     // MEJORA UX: Evitar el 0 molesto
@@ -730,7 +731,8 @@
             if (!esBorrador) tom.disable(); 
 
             configurarInputCantidad(inputCantidad, item.permite_decimales, item.cantidad || 0);
-            inputPrecio.value = Number(item.precio_unitario || 0).toFixed(2);
+            // Respetamos los 4 decimales del precio guardado en la BD
+            inputPrecio.value = Number(item.precio_unitario || 0).toFixed(4);
             
             // Mostrar stock inicial de la línea cargada (sin depender de selectedOption del onChange)
             const stockItem = Number(item.stock_actual || 0);
