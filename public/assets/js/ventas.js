@@ -583,6 +583,7 @@
         
         if (precioNuevo === null) return;
         
+
         if (precioNuevo > 0) {
             inputPrecio.value = precioNuevo.toFixed(4);
         }
@@ -1725,6 +1726,31 @@
             } catch (err) {
                 console.error('Error al abrir pedido:', err);
                 Swal.fire('Error', err.message || 'No se pudo cargar', 'error');
+            }
+        }
+
+        // --- NUEVO: BOTÓN REVERTIR A BORRADOR ---
+        if (btn.classList.contains('btn-revertir')) {
+            const ok = await Swal.fire({ 
+                icon: 'warning', 
+                title: '¿Revertir a Borrador?', 
+                text: 'El pedido volverá a estado inicial y podrá ser editado. Se eliminará la cuenta por cobrar (si existe).',
+                showCancelButton: true, 
+                confirmButtonText: 'Sí, revertir',
+                confirmButtonColor: '#ffc107', // Color advertencia
+                cancelButtonColor: '#6c757d'
+            });
+            
+            if (ok.isConfirmed) {
+                try {
+                    // Usamos tu helper postJson. 
+                    // Asegúrate de que tu backend reciba la acción 'revertir'
+                    const res = await postJson(`${urls.index}&accion=revertir`, { id });
+                    await Swal.fire('Revertido', res.mensaje, 'success');
+                    recargarTabla();
+                } catch (err) { 
+                    Swal.fire('Error', err.message, 'error'); 
+                }
             }
         }
 

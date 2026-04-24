@@ -1119,4 +1119,59 @@ class VentasDespachoModel extends Modelo
         $correlativo = (int) $db->query('SELECT COUNT(*) FROM ventas_despachos')->fetchColumn() + 1;
         return 'GUIA-' . date('Y') . '-' . str_pad((string) $correlativo, 6, '0', STR_PAD_LEFT);
     }
+    // =========================================================================
+    // --- NUEVA FUNCIÓN: REVERTIR A BORRADOR ---
+    // =========================================================================
+    public function revertirABorrador(int $idDocumento, int $userId): void
+    {
+        $db = $this->db();
+        $db->beginTransaction();
+
+        try {
+            // 1. Verificamos el estado actual del documento
+            $stmt = $db->prepare('SELECT estado FROM ventas_documentos WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE');
+            $stmt->execute(['id' => $idDocumento]);
+            $estadoActual = $stmt->fetchColumn();
+
+            if ($estadoActual === false) {
+                throw new RuntimeException('El pedido no existe o ha sido eliminado.');
+            }
+
+            // 2. Solo permitimos revertir si está en estado 2 (Aprobado)
+            if ((int) $estadoActual !== 2) {
+                throw new RuntimeException('Solo se pueden revertir a borrador los pedidos que están en estado Aprobado. Si el pedido ya fue despachado, debe registrar una devolución.');
+            }
+
+            // 3. Actualizamos el estado a 0 (Borrador)
+            $stmtUpdate = $db->prepare('UPDATE ventas_documentos 
+                                        SET estado = 0, 
+                                            updated_by = :user, 
+                                            updated_at = NOW() 
+                                        WHERE id = :id');
+            $stmtUpdate->execute([
+                'user' => $userId,
+                'id' => $idDocumento
+            ]);
+
+            // 4. Limpieza Financiera: Si se había creado una Cuenta por Cobrar (CxC) al aprobar,
+            // la eliminamos lógicamente para no generar deudas falsas.
+            $stmtCxc = $db->prepare('UPDATE tesoreria_cxc 
+                                     SET deleted_at = NOW(),
+                                         updated_by = :user,
+                                         updated_at = NOW()
+                                     WHERE id_documento_venta = :id 
+                                       AND deleted_at IS NULL');
+            $stmtCxc->execute([
+                'user' => $userId,
+                'id' => $idDocumento
+            ]);
+
+            $db->commit();
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $e;
+        }
+    }
 }

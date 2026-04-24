@@ -140,6 +140,10 @@ $formatearFechaDMY = static function ($fecha): string {
                                                 <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Anular Pedido"><i class="bi bi-trash fs-5"></i></button>
                                                 
                                             <?php elseif ($estado === 2): ?> 
+                                                <button class="btn btn-sm btn-light text-secondary border-0 btn-revertir rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Volver a Borrador">
+                                                    <i class="bi bi-arrow-counterclockwise fs-5"></i>
+                                                </button>
+
                                                 <button class="btn btn-sm btn-light text-info border-0 btn-despachar rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Despachar Mercadería"><i class="bi bi-truck fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Anular Pedido"><i class="bi bi-trash fs-5"></i></button>
