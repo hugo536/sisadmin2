@@ -62,6 +62,30 @@
         if (window.Swal) return window.Swal.fire({ icon: 'success', title: 'Correcto', text: message, timer: 1500, showConfirmButton: false });
     }
 
+    async function confirmarAccion({
+        title = '¿Confirmar acción?',
+        text = '',
+        icon = 'question',
+        confirmButtonText = 'Aceptar',
+        cancelButtonText = 'Cancelar',
+        confirmButtonColor = '#0d6efd'
+    } = {}) {
+        if (window.Swal) {
+            const result = await window.Swal.fire({
+                icon,
+                title,
+                text,
+                showCancelButton: true,
+                confirmButtonText,
+                cancelButtonText,
+                confirmButtonColor,
+                reverseButtons: true
+            });
+            return !!result.isConfirmed;
+        }
+        return window.confirm(`${title}\n${text}`.trim());
+    }
+
     function setEstadoBotonEliminar(idPack) {
         if (!btnEliminarPack) return;
         const visible = Number(idPack || 0) > 0;
@@ -127,7 +151,17 @@
             }
 
             const btnEliminar = clon.querySelector('.btn-eliminar-componente');
-            btnEliminar.addEventListener('click', () => {
+            btnEliminar.addEventListener('click', async () => {
+                const confirmar = await confirmarAccion({
+                    title: '¿Quitar componente temporal?',
+                    text: 'Este componente se eliminará de la lista antes de guardar el combo.',
+                    icon: 'warning',
+                    confirmButtonText: 'Sí, quitar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545'
+                });
+                if (!confirmar) return;
+
                 componentesLocales.splice(index, 1);
                 renderTablaLocales();
             });
@@ -175,7 +209,14 @@
                 return;
             }
 
-            const confirmar = window.confirm('¿Estás seguro de quitar este componente del Pack?');
+            const confirmar = await confirmarAccion({
+                title: '¿Quitar componente del combo?',
+                text: 'Este componente dejará de formar parte del combo guardado.',
+                icon: 'warning',
+                confirmButtonText: 'Sí, quitar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc3545'
+            });
             if (!confirmar) return;
 
             try {
@@ -476,21 +517,14 @@
             const idPack = Number(idPackSeleccionadoInput.value || 0);
             if (idPack <= 0) return;
 
-            let confirmado = false;
-            if (window.Swal) {
-                const result = await window.Swal.fire({
-                    icon: 'warning',
-                    title: '¿Eliminar combo?',
-                    text: 'Se ocultará del catálogo y de buscar producto. Esta acción no borra físicamente la BD.',
-                    showCancelButton: true,
-                    confirmButtonText: 'Sí, eliminar',
-                    cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#dc3545'
-                });
-                confirmado = !!result.isConfirmed;
-            } else {
-                confirmado = window.confirm('¿Eliminar combo? Se ocultará del catálogo.');
-            }
+            const confirmado = await confirmarAccion({
+                icon: 'warning',
+                title: '¿Eliminar combo?',
+                text: 'Se ocultará del catálogo y de buscar producto. Esta acción no borra físicamente la BD.',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc3545'
+            });
             if (!confirmado) return;
 
             try {
