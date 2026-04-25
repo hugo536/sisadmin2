@@ -38,10 +38,7 @@
         console.warn('TomSelect no se pudo cargar en Compras. Se usará selector simple.');
     }
 
-    const obtenerDropdownParentModalCompras = () => {
-        const modal = document.getElementById('modalOrdenCompra');
-        return modal || document.body;
-    };
+    const obtenerDropdownParentModalCompras = () => document.body;
 
     let tomSelectProveedor = null;
     if (document.getElementById('idProveedor') && tomSelectListo) {
