@@ -86,19 +86,27 @@
             plugins: ['clear_button'],
             placeholder: "Buscar cliente por nombre o documento...",
             dropdownParent: obtenerDropdownParentModalVenta(),
+            preload: true,
+            loadThrottle: 250,
             load: function(query, callback) {
-                if (!query.length) return callback();
-                const url = `${urls.index}&accion=buscar_clientes&q=${encodeURIComponent(query)}`;
+                const termino = (query || '').trim();
+                const url = `${urls.index}&accion=buscar_clientes&q=${encodeURIComponent(termino)}`;
                 
                 fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
                 .then(json => {
                     const items = (json.data || []).map(item => ({
                         id: item.id,
                         text: `${item.nombre_completo} (${item.num_doc || 'S/D'})`
                     }));
                     callback(items);
-                }).catch(() => callback());
+                }).catch((error) => {
+                    console.error('No se pudieron cargar clientes para TomSelect:', error);
+                    callback();
+                });
             },
             render: {
                 no_results: (data, escape) => '<div class="no-results">No se encontraron coincidencias</div>',
@@ -799,6 +807,7 @@
         if (tomSelectCliente) {
             tomSelectCliente.clear();
             tomSelectCliente.clearOptions();
+            tomSelectCliente.load('');
         }
         fechaEmision.value = obtenerFechaLocalISO();
         ventaObservaciones.value = '';
