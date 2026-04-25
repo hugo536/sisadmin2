@@ -114,7 +114,12 @@ $formatearFechaDMY = static function ($fecha): string {
                                 ?>
                                 <tr data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>" class="border-bottom" data-search="<?php echo e(mb_strtolower((string) ($venta['codigo'] ?? '') . ' ' . (string) ($venta['cliente'] ?? ''))); ?>">
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($venta['codigo'] ?? '')); ?></td>
-                                    <td class="fw-semibold text-dark"><?php echo e((string) ($venta['cliente'] ?? '')); ?></td>
+                                    <td>
+                                        <div class="fw-semibold text-dark"><?php echo e((string) ($venta['cliente'] ?? '')); ?></div>
+                                        <?php if (!empty($venta['observaciones'])): ?>
+                                            <div class="small text-muted mt-1"><?php echo e((string) $venta['observaciones']); ?></div>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <div class="fw-bold text-dark" title="Fecha de Registro: <?php echo date('d/m/Y H:i', strtotime($venta['created_at'])); ?>">
                                             <i class="bi bi-calendar3 me-1 text-muted"></i> <?php echo e($formatearFechaDMY($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?>

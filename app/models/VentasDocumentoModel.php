@@ -11,6 +11,7 @@ class VentasDocumentoModel extends Modelo
                        v.tipo_operacion,
                        v.id_cliente,
                        t.nombre_completo AS cliente,
+                       v.observaciones,
                        v.fecha_emision,
                        v.fecha_despacho, /* <-- NUEVO CAMPO */
                        v.total,
