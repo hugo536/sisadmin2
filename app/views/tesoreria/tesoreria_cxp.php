@@ -6,6 +6,23 @@ $metodos = $metodos ?? [];
 $proveedores = $proveedores ?? [];
 $centros_costo = $centros_costo ?? []; 
 
+// CAMBIO: Ordenamiento de los registros
+usort($registros, function($a, $b) {
+    // 1. Extraemos las fechas (si no hay, la mandamos al final)
+    $fechaA = strtotime($a['fecha_vencimiento'] ?? '9999-12-31');
+    $fechaB = strtotime($b['fecha_vencimiento'] ?? '9999-12-31');
+    
+    // 2. Si las fechas son iguales, ordenamos por número de recepción (descendente)
+    if ($fechaA === $fechaB) {
+        $docA = (int) ($a['id_recepcion'] ?? 0);
+        $docB = (int) ($b['id_recepcion'] ?? 0);
+        return $docB <=> $docA;
+    }
+    
+    // 3. Si son distintas, ordenamos por fecha (ascendente)
+    return $fechaA <=> $fechaB;
+});
+
 $badge = static function (string $estado): string {
     if ($estado === 'PAGADA') {
         return 'bg-success-subtle text-success border border-success-subtle';
@@ -117,7 +134,7 @@ if (!empty($_GET['error'])) {
             </div>
             <div class="input-group shadow-sm" style="max-width: 300px;">
                 <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
-                <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchCxp" placeholder="Buscar proveedor o documento...">
+                <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchCxp" placeholder="Buscar proveedor, doc o fecha...">
             </div>
         </div>
         
@@ -156,7 +173,13 @@ if (!empty($_GET['error'])) {
                             <?php foreach ($registros as $r): ?>
                                 <?php 
                                     $estadoStr = (string) ($r['estado'] ?? 'PENDIENTE');
-                                    $searchStr = strtolower(($r['proveedor'] ?? '') . ' ' . ($r['id_recepcion'] ?? '') . ' ' . ($r['documento_referencia'] ?? '') . ' ' . $estadoStr);
+                                    
+                                    // CAMBIO: Formateamos la fecha a DD-MM-YYYY
+                                    $fechaVencimientoOriginal = (string) ($r['fecha_vencimiento'] ?? '');
+                                    $fechaVencimientoFormateada = !empty($fechaVencimientoOriginal) ? date('d-m-Y', strtotime($fechaVencimientoOriginal)) : '';
+
+                                    // CAMBIO: Añadimos la fecha formateada al string de búsqueda
+                                    $searchStr = strtolower(($r['proveedor'] ?? '') . ' ' . ($r['id_recepcion'] ?? '') . ' ' . ($r['documento_referencia'] ?? '') . ' ' . $estadoStr . ' ' . $fechaVencimientoFormateada);
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
                                     <td class="ps-4 fw-bold text-dark align-top pt-3">
@@ -171,9 +194,11 @@ if (!empty($_GET['error'])) {
                                             #<?php echo str_pad((string) ($r['id_recepcion'] ?? 0), 6, '0', STR_PAD_LEFT); ?>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-center align-top pt-3 text-muted">
-                                        <i class="bi bi-calendar-event small me-1 opacity-50"></i><?php echo e((string) ($r['fecha_vencimiento'] ?? '')); ?>
+                                    
+                                    <td class="text-center align-top pt-3 text-muted" data-sort="<?php echo e($fechaVencimientoOriginal); ?>">
+                                        <i class="bi bi-calendar-event small me-1 opacity-50"></i><?php echo e($fechaVencimientoFormateada); ?>
                                     </td>
+
                                     <td class="text-end align-top pt-3 fw-medium text-secondary">
                                         <span class="small text-muted me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format((float) ($r['monto_total'] ?? 0), 2); ?>
                                     </td>

@@ -5,6 +5,23 @@ $cuentas = $cuentas ?? [];
 $metodos = $metodos ?? [];
 $clientes = $clientes ?? [];
 
+// CAMBIO: Ordenamiento de los registros
+usort($registros, function($a, $b) {
+    // 1. Extraemos las fechas (si no hay, la mandamos al final)
+    $fechaA = strtotime($a['fecha_vencimiento'] ?? '9999-12-31');
+    $fechaB = strtotime($b['fecha_vencimiento'] ?? '9999-12-31');
+    
+    // 2. Si las fechas son iguales, ordenamos por número de documento (descendente)
+    if ($fechaA === $fechaB) {
+        $docA = (int) ($a['id_documento_venta'] ?? 0);
+        $docB = (int) ($b['id_documento_venta'] ?? 0);
+        return $docB <=> $docA;
+    }
+    
+    // 3. Si son distintas, ordenamos por fecha (ascendente)
+    return $fechaA <=> $fechaB;
+});
+
 $badge = static function (string $estado): string {
     if ($estado === 'PAGADA') {
         return 'bg-success-subtle text-success border border-success-subtle';
@@ -22,7 +39,6 @@ $badge = static function (string $estado): string {
         return 'bg-secondary-subtle text-secondary border border-secondary-subtle';
     }
 
-    // CAMBIO: Se añade PENDIENTE y se mantiene ABIERTA por retrocompatibilidad
     return 'bg-primary-subtle text-primary border border-primary-subtle';
 };
 ?>
@@ -133,7 +149,7 @@ if (!empty($_GET['error'])) {
             </div>
             <div class="input-group shadow-sm" style="max-width: 300px;">
                 <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
-                <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchCxc" placeholder="Buscar cliente o documento...">
+                <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchCxc" placeholder="Buscar cliente, doc o fecha...">
             </div>
         </div>
         
@@ -148,16 +164,18 @@ if (!empty($_GET['error'])) {
                        data-info-text-template="Mostrando {start} a {end} de {total} registros"
                        data-pagination-controls="#cxcPaginationControls"
                        data-pagination-info="#cxcPaginationInfo">
-                    <thead class="bg-light border-bottom">
+                    <thead class="bg-dark text-white border-bottom">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold">Cliente</th>
-                            <th class="text-secondary fw-semibold">Documento</th>
-                            <th class="text-center text-secondary fw-semibold">Vencimiento</th>
-                            <th class="text-end text-secondary fw-semibold">Total</th>
-                            <th class="text-end text-secondary fw-semibold">Pagado</th>
-                            <th class="text-end text-dark fw-bold">Saldo</th>
-                            <th class="text-center text-secondary fw-semibold">Estado</th>
-                            <th class="text-center pe-4 text-secondary fw-semibold">Acciones</th>
+                            <th class="ps-4 fw-semibold" style="width: 25%; min-width: 180px;">Cliente</th>
+                            
+                            <th class="fw-semibold" style="white-space: nowrap !important; width: 10%;">Documento</th>
+                            <th class="text-center fw-semibold" style="white-space: nowrap !important; width: 10%;">Vencimiento</th>
+                            <th class="text-end fw-semibold" style="white-space: nowrap !important; width: 12%;">Total</th>
+                            <th class="text-end fw-semibold" style="white-space: nowrap !important; width: 12%;">Pagado</th>
+                            <th class="text-end fw-bold" style="white-space: nowrap !important; width: 12%;">Saldo</th>
+                            <th class="text-center fw-semibold" style="white-space: nowrap !important; width: 10%;">Estado</th>
+                            
+                            <th class="text-center pe-4 fw-semibold" style="white-space: nowrap !important; width: 130px; min-width: 130px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="cxcTableBody">
@@ -171,10 +189,14 @@ if (!empty($_GET['error'])) {
                         <?php else: ?>
                             <?php foreach ($registros as $r): ?>
                                 <?php 
-                                    // CAMBIO: El valor por defecto al fallar ahora es PENDIENTE
                                     $estadoStr = (string) ($r['estado'] ?? 'PENDIENTE');
-                                    // String de búsqueda para JS
-                                    $searchStr = strtolower(($r['cliente'] ?? '') . ' ' . ($r['id_documento_venta'] ?? '') . ' ' . ($r['documento_referencia'] ?? '') . ' ' . $estadoStr);
+                                    
+                                    // CAMBIO: Formateamos la fecha a DD-MM-YYYY
+                                    $fechaVencimientoOriginal = (string) ($r['fecha_vencimiento'] ?? '');
+                                    $fechaVencimientoFormateada = !empty($fechaVencimientoOriginal) ? date('d-m-Y', strtotime($fechaVencimientoOriginal)) : '';
+
+                                    // CAMBIO: Añadimos la fecha formateada al string de búsqueda
+                                    $searchStr = strtolower(($r['cliente'] ?? '') . ' ' . ($r['id_documento_venta'] ?? '') . ' ' . ($r['documento_referencia'] ?? '') . ' ' . $estadoStr . ' ' . $fechaVencimientoFormateada);
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
                                     <td class="ps-4 align-top pt-3">
@@ -192,9 +214,11 @@ if (!empty($_GET['error'])) {
                                             #<?php echo str_pad((string) ($r['id_documento_venta'] ?? 0), 6, '0', STR_PAD_LEFT); ?>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-center align-top pt-3 text-muted">
-                                        <i class="bi bi-calendar-event small me-1 opacity-50"></i><?php echo e((string) ($r['fecha_vencimiento'] ?? '')); ?>
+                                    
+                                    <td class="text-center align-top pt-3 text-muted" data-sort="<?php echo e($fechaVencimientoOriginal); ?>">
+                                        <i class="bi bi-calendar-event small me-1 opacity-50"></i><?php echo e($fechaVencimientoFormateada); ?>
                                     </td>
+
                                     <td class="text-end align-top pt-3 fw-medium text-secondary">
                                         <span class="small text-muted me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format((float) ($r['monto_total'] ?? 0), 2); ?>
                                     </td>
@@ -244,6 +268,7 @@ if (!empty($_GET['error'])) {
         </div>
     </div>
 </div>
+
 <div class="modal fade" id="modalCobroManual" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
