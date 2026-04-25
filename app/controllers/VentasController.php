@@ -120,6 +120,28 @@ class VentasController extends Controlador
             return;
         }
 
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'revertir') {
+            try {
+                $payload = $this->leerJson();
+                $idDocumento = (int) ($payload['id'] ?? 0);
+                $userId = $this->obtenerUsuarioId();
+
+                if ($idDocumento <= 0) {
+                    throw new RuntimeException('ID de pedido inválido para revertir.');
+                }
+
+                $this->despachoModel->revertirABorrador($idDocumento, $userId);
+
+                json_response([
+                    'ok' => true,
+                    'mensaje' => 'El pedido ha regresado a Borrador exitosamente.'
+                ]);
+            } catch (Throwable $e) {
+                json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
+            }
+            return; // ¡Este return es el que evita que se cargue la vista HTML completa!
+        }
+
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'precio_item') {
             $idCliente = (int) ($_GET['id_cliente'] ?? 0);
             $idItemRaw = (string) ($_GET['id_item'] ?? '');
