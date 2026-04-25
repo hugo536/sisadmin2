@@ -7,9 +7,12 @@ class TesoreriaCxcModel extends Modelo
     public function listar(array $filtros = []): array
     {
         // MEJORA: Usamos LEFT JOIN para no perder la deuda si el cliente fue "soft-deleted"
-        $sql = 'SELECT c.*, COALESCE(t.nombre_completo, "Cliente Eliminado/Desconocido") AS cliente
+        $sql = 'SELECT c.*,
+                       COALESCE(t.nombre_completo, "Cliente Eliminado/Desconocido") AS cliente,
+                       COALESCE(NULLIF(TRIM(c.observaciones), ""), NULLIF(TRIM(v.observaciones), "")) AS observacion_subtitulo
                 FROM tesoreria_cxc c
                 LEFT JOIN terceros t ON t.id = c.id_cliente
+                LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta AND v.deleted_at IS NULL
                 LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
                 WHERE c.deleted_at IS NULL';
 

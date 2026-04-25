@@ -177,8 +177,11 @@ if (!empty($_GET['error'])) {
                                     $searchStr = strtolower(($r['cliente'] ?? '') . ' ' . ($r['id_documento_venta'] ?? '') . ' ' . ($r['documento_referencia'] ?? '') . ' ' . $estadoStr);
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
-                                    <td class="ps-4 fw-bold text-dark align-top pt-3">
-                                        <?php echo e((string) ($r['cliente'] ?? '')); ?>
+                                    <td class="ps-4 align-top pt-3">
+                                        <div class="fw-bold text-dark"><?php echo e((string) ($r['cliente'] ?? '')); ?></div>
+                                        <?php if (!empty($r['observacion_subtitulo'])): ?>
+                                            <div class="small text-muted mt-1"><?php echo e((string) $r['observacion_subtitulo']); ?></div>
+                                        <?php endif; ?>
                                     </td>
                                     <td class="align-top pt-3 text-muted fw-medium">
                                         <?php if (($r['origen'] ?? 'SISTEMA') === 'MIGRACION'): ?>
