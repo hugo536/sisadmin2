@@ -38,13 +38,18 @@
         console.warn('TomSelect no se pudo cargar en Compras. Se usará selector simple.');
     }
 
+    const obtenerDropdownParentModalCompras = () => {
+        const modal = document.getElementById('modalOrdenCompra');
+        return modal || document.body;
+    };
+
     let tomSelectProveedor = null;
     if (document.getElementById('idProveedor') && tomSelectListo) {
         tomSelectProveedor = new TomSelect('#idProveedor', {
             create: false,
             sortField: { field: 'text', direction: 'asc' },
             placeholder: 'Escribe para buscar proveedor...',
-            dropdownParent: 'body',
+            dropdownParent: obtenerDropdownParentModalCompras(),
         });
     }
 
@@ -82,6 +87,20 @@
     const btnConfirmarRecepcion = document.getElementById('btnConfirmarRecepcion');
     const DECIMALES_RECEPCION = 4;
     const EPSILON_RECEPCION = 0.0001;
+
+    function limpiarBloqueoVisualModales() {
+        const hayModalesAbiertos = document.querySelectorAll('.modal.show').length > 0;
+        if (!hayModalesAbiertos) {
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('padding-right');
+            document.body.style.removeProperty('overflow');
+            document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
+        }
+    }
+
+    [modalOrdenElement, modalRecepcionEl, modalDevolucionEl].forEach((modalEl) => {
+        modalEl?.addEventListener('hidden.bs.modal', limpiarBloqueoVisualModales);
+    });
 
     let ordenEnEdicionId = 0;
     let modalSoloLecturaActiva = false;
@@ -364,7 +383,7 @@
                 create: false,
                 sortField: { field: 'text', direction: 'asc' },
                 placeholder: 'Buscar ítem...',
-                dropdownParent: 'body',
+                dropdownParent: obtenerDropdownParentModalCompras(),
             });
         }
 

@@ -75,6 +75,11 @@
         console.warn('TomSelect no se pudo cargar en Ventas. Revise conectividad o CDN.');
     }
 
+    const obtenerDropdownParentModalVenta = () => {
+        const modal = document.getElementById('modalVenta');
+        return modal || document.body;
+    };
+
     if (idClienteEl && tomSelectListo) {
         tomSelectCliente = new TomSelect("#idCliente", {
             valueField: 'id',
@@ -83,7 +88,7 @@
             allowEmptyOption: true,
             plugins: ['clear_button'],
             placeholder: "Buscar cliente por nombre o documento...",
-            dropdownParent: 'body',
+            dropdownParent: obtenerDropdownParentModalVenta(),
             load: function(query, callback) {
                 if (!query.length) return callback();
                 const url = `${urls.index}&accion=buscar_clientes&q=${encodeURIComponent(query)}`;
@@ -112,6 +117,18 @@
     const modalDespacho = new bootstrap.Modal(modalDespachoEl);
     const modalDevolucionVentaEl = document.getElementById('modalDevolucionVenta');
     const modalDevolucionVenta = modalDevolucionVentaEl ? new bootstrap.Modal(modalDevolucionVentaEl) : null;
+
+    // Endurecer limpieza de estado visual para evitar "pantalla bloqueada" por
+    // backdrops huérfanos o body con clases de scroll-lock cuando el modal cierra.
+    modalVentaEl?.addEventListener('hidden.bs.modal', () => {
+        const hayModalesAbiertos = document.querySelectorAll('.modal.show').length > 0;
+        if (!hayModalesAbiertos) {
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('padding-right');
+            document.body.style.removeProperty('overflow');
+            document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
+        }
+    });
 
     const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
     const templateFilaVenta = document.getElementById('templateFilaVenta');
@@ -645,7 +662,7 @@
             labelField: 'text',
             searchField: 'text',
             placeholder: "Buscar producto...",
-            dropdownParent: 'body',
+            dropdownParent: obtenerDropdownParentModalVenta(),
             load: function(query, callback) {
                 const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0);
                 const cantidadActual = Number(inputCantidad.value || 1) || 1;
