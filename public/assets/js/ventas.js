@@ -206,6 +206,7 @@
 
     function actualizarBloqueoFormularioPorCliente() {
         const bloquearControlesVenta = bloqueoEdicionVenta || !clienteSeleccionado();
+        const esDonacion = tipoOperacion && tipoOperacion.value === 'DONACION';
 
         const btnAgregarFilaVenta = document.getElementById('btnAgregarFilaVenta');
         const btnGuardarVenta = document.getElementById('btnGuardarVenta');
@@ -213,13 +214,18 @@
         if (btnAgregarFilaVenta) btnAgregarFilaVenta.disabled = bloquearControlesVenta;
         if (btnGuardarVenta) btnGuardarVenta.disabled = bloquearControlesVenta;
 
-        if (switchCobroInmediato) {
-            switchCobroInmediato.disabled = bloquearControlesVenta;
-            if (bloquearControlesVenta) switchCobroInmediato.checked = false;
+        if (switchCobroContainer) {
+            switchCobroContainer.style.display = (bloqueoEdicionVenta || esDonacion) ? 'none' : 'block';
         }
 
-        if (seccionCobroInmediato && bloquearControlesVenta) {
+        if (switchCobroInmediato) {
+            switchCobroInmediato.disabled = bloquearControlesVenta || esDonacion;
+            if (bloquearControlesVenta || esDonacion) switchCobroInmediato.checked = false;
+        }
+
+        if (seccionCobroInmediato && (bloquearControlesVenta || esDonacion)) {
             seccionCobroInmediato.classList.add('d-none');
+            if (esDonacion && contenedorMetodosPago) contenedorMetodosPago.innerHTML = '';
         }
 
         tbodyVenta.querySelectorAll('tr').forEach((fila) => {
@@ -527,11 +533,16 @@
                     tipoImpuesto.value = 'exonerado';
                     tipoImpuesto.disabled = true;
                 }
+                if (switchCobroInmediato) switchCobroInmediato.checked = false;
+                if (seccionCobroInmediato) seccionCobroInmediato.classList.add('d-none');
+                if (contenedorMetodosPago) contenedorMetodosPago.innerHTML = '';
+                if (totalPagadoInmediato) totalPagadoInmediato.textContent = 'S/ 0.00';
             } else {
                 if (tipoImpuesto && !tipoImpuesto.hasAttribute('data-readonly')) {
                     tipoImpuesto.disabled = false;
                 }
             }
+            actualizarBloqueoFormularioPorCliente();
             recalcularTotalVenta();
         });
     }
