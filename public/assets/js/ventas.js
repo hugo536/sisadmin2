@@ -75,6 +75,15 @@
         console.warn('TomSelect no se pudo cargar en Ventas. Revise conectividad o CDN.');
     }
 
+    const appSelectsDisponibles = !!window.AppSelects;
+
+    function initSelectAjax(target, urlBackend, options = {}) {
+        if (appSelectsDisponibles && typeof window.AppSelects.initAjax === 'function') {
+            return window.AppSelects.initAjax(target, urlBackend, options);
+        }
+        return new TomSelect(target, options);
+    }
+
     const obtenerDropdownParentModalVenta = () => {
         // Si el modal está en el DOM, lo agregamos a su contenido para heredar su z-index
         const modalContent = document.querySelector('#modalVenta .modal-content');
@@ -82,12 +91,8 @@
     };
 
     if (idClienteEl && tomSelectListo) {
-        tomSelectCliente = new TomSelect("#idCliente", {
-            valueField: 'id',
-            labelField: 'text',
-            searchField: 'text',
+        tomSelectCliente = initSelectAjax('#idCliente', `${urls.index}&accion=buscar_clientes`, {
             allowEmptyOption: true,
-            plugins: ['clear_button'],
             placeholder: "Buscar cliente por nombre o documento...",
             dropdownParent: obtenerDropdownParentModalVenta(),
             preload: true,
@@ -666,10 +671,7 @@
             return;
         }
 
-        const tom = new TomSelect(selectItem, {
-            valueField: 'id',
-            labelField: 'text',
-            searchField: 'text',
+        const tom = initSelectAjax(selectItem, `${urls.index}&accion=buscar_items`, {
             placeholder: "Buscar producto...",
             dropdownParent: obtenerDropdownParentModalVenta(),
             load: function(query, callback) {
