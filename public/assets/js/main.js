@@ -336,10 +336,8 @@
         plugins: ['clear_button'],
         preload: false,
         loadThrottle: 300,
-        // ESTÁNDAR: Anulamos el filtro local para confiar 100% en lo que devuelve el backend
-        score: function(search) {
-          return function(item) { return 1; };
-        },
+        // Comportamiento esperado: mostrar solo coincidencias reales según el término buscado.
+        // Si algún módulo necesita anular este filtro, puede sobreescribir `score` en customOptions.
         load: function(query, callback) {
           const termino = (query || '').trim();
           if (!termino && !this.settings.preload) return callback();
