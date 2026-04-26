@@ -596,6 +596,32 @@ iframe {
     cursor: not-allowed !important;
 }
 
+
+/* 4. Forzar visibilidad del menú de resultados en TomSelect (especialmente dentro de modales) */
+.ts-dropdown,
+.ts-dropdown.form-control {
+    z-index: 3000 !important;
+    background-color: #ffffff !important;
+    color: #212529 !important;
+    border: 1px solid #dee2e6 !important;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12) !important;
+}
+
+.ts-dropdown .option,
+.ts-dropdown .no-results,
+.ts-dropdown .create,
+.ts-dropdown .spinner-border + span,
+.ts-dropdown [data-selectable] {
+    color: #212529 !important;
+    opacity: 1 !important;
+}
+
+.ts-dropdown .active,
+.ts-dropdown .option:hover,
+.ts-dropdown [data-selectable].active {
+    background-color: #e9f2ff !important;
+    color: #0d3b8e !important;
+}
 /* 3. Asegurar que los inputs y selects nativos bloqueados sean idénticos al TomSelect */
 .form-control:disabled, 
 .form-control[readonly], 
