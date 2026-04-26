@@ -44,7 +44,7 @@ class VentasController extends Controlador
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar') {
             json_response(['ok' => true, 'data' => $this->documentoModel->listar($filtros)]);
-            return;
+            exit; // <-- CAMBIO VITAL
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'ver') {
@@ -68,13 +68,13 @@ class VentasController extends Controlador
             }
 
             json_response(['ok' => true, 'data' => $venta]);
-            return;
+            exit; // <-- CAMBIO VITAL
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_clientes') {
             $q = trim((string) ($_GET['q'] ?? ''));
             json_response(['ok' => true, 'data' => $this->documentoModel->buscarClientes($q)]);
-            return;
+            exit; // <-- CAMBIO VITAL: Usar exit en lugar de return
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_items') {
@@ -89,7 +89,7 @@ class VentasController extends Controlador
                 'data' => $this->documentoModel->buscarItems($q, $idAlmacen, $idCliente, $cantidad),
                 'meta' => $metaAcuerdo,
             ]);
-            return;
+            exit; // <-- CAMBIO VITAL
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'guardar_devolucion') {

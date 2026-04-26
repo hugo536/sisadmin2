@@ -75,7 +75,11 @@
         console.warn('TomSelect no se pudo cargar en Ventas. Revise conectividad o CDN.');
     }
 
-    const obtenerDropdownParentModalVenta = () => document.body;
+    const obtenerDropdownParentModalVenta = () => {
+        // Si el modal está en el DOM, lo agregamos a su contenido para heredar su z-index
+        const modalContent = document.querySelector('#modalVenta .modal-content');
+        return modalContent ? modalContent : document.body;
+    };
 
     if (idClienteEl && tomSelectListo) {
         tomSelectCliente = new TomSelect("#idCliente", {

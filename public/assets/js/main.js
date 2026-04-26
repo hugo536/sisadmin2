@@ -303,4 +303,72 @@
 
   notifyRouteLoaded({ url: window.location.href, initial: true });
 
+  // =========================================================
+  // 4) ESTANDARIZACIÓN DE TOMSELECT (WRAPPERS)
+  // =========================================================
+  window.AppSelects = {
+    /**
+     * Inicializa un Select Local (Para listas que ya están en el HTML)
+     * Ej: Proveedores, Monedas, Centros de Costo, etc.
+     */
+    initLocal: function(selector, customOptions = {}) {
+      const defaultOptions = {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        // ESTÁNDAR: Siempre buscar en texto visible y en el value (ID)
+        searchField: ['text', 'value'], 
+        plugins: ['clear_button']
+      };
+      
+      const config = Object.assign({}, defaultOptions, customOptions);
+      return new TomSelect(selector, config);
+    },
+
+    /**
+     * Inicializa un Select AJAX (Para buscar en la base de datos)
+     * Ej: Clientes, Productos, etc.
+     */
+    initAjax: function(selector, urlBackend, customOptions = {}) {
+      const defaultOptions = {
+        valueField: 'id',
+        labelField: 'text',
+        searchField: 'text',
+        plugins: ['clear_button'],
+        preload: false,
+        loadThrottle: 300,
+        // ESTÁNDAR: Anulamos el filtro local para confiar 100% en lo que devuelve el backend
+        score: function(search) {
+          return function(item) { return 1; };
+        },
+        load: function(query, callback) {
+          const termino = (query || '').trim();
+          if (!termino && !this.settings.preload) return callback();
+          
+          const separador = urlBackend.includes('?') ? '&' : '?';
+          const url = `${urlBackend}${separador}q=${encodeURIComponent(termino)}`;
+          
+          fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(response => {
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              return response.json();
+            })
+            .then(json => {
+              // Asumimos que tu backend devuelve un array en json.data
+              callback(json.data || []);
+            }).catch((error) => {
+              console.error('Error cargando datos para TomSelect:', error);
+              callback();
+            });
+        },
+        render: {
+          no_results: () => '<div class="no-results px-2 py-1 text-muted">No se encontraron resultados</div>',
+          loading: () => '<div class="spinner-border spinner-border-sm text-primary m-2"></div> Buscando...'
+        }
+      };
+
+      // Si pasas un render personalizado o load personalizado en customOptions, sobreescribirá al por defecto
+      const config = Object.assign({}, defaultOptions, customOptions);
+      return new TomSelect(selector, config);
+    }
+  };
 })();
