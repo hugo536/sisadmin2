@@ -86,8 +86,7 @@
         const fallbackOptions = Object.assign({
             valueField: 'id',
             labelField: 'text',
-            searchField: ['text', 'value'],
-            score: function() { return function() { return 1; }; } // Obliga a mostrar todo lo del backend
+            searchField: ['text', 'value']
         }, options);
 
         return new TomSelect(target, fallbackOptions);
