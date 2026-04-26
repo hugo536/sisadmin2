@@ -1,93 +1,131 @@
 <?php
 /**
- * 🔍 SCRIPT DE DEPURACIÓN DIRECTA V2: Buscador de Clientes
+ * 🔍 SUPER CHECKER - Diagnóstico Total del Buscador (BD + AJAX + FRONTEND)
  */
 declare(strict_types=1);
 error_reporting(E_ALL); ini_set('display_errors', '1');
 
-echo "<div style='font-family: system-ui, sans-serif; padding: 30px; background: #0d1117; color: #c9d1d9; border-radius: 8px;'>";
-echo "<h1 style='color: #58a6ff;'>🕵️‍♂️ CHECK.PHP - Depurando Buscador de Clientes</h1>";
-echo "<hr style='border-color: #30363d;'>";
-
-// CREDENCIALES
+// --- CREDENCIALES ---
 $host = '127.0.0.1';
 $db   = 'sisadmin2';
 $user = 'root';
 $pass = '';
-$charset = 'utf8mb4';
 
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+$termino_busqueda = $_GET['q'] ?? 'oficina';
 
+echo "<!DOCTYPE html><html><head><title>Debugger Buscador</title>";
+// Cargamos TomSelect para la prueba de "Cuarto Limpio"
+echo '<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">';
+echo '<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>';
+echo "</head><body style='font-family: system-ui, sans-serif; padding: 30px; background: #0d1117; color: #c9d1d9;'>";
+
+echo "<h1 style='color: #58a6ff;'>🕵️‍♂️ DIAGNÓSTICO TOTAL: Buscador de Clientes</h1>";
+echo "<p>Simulando búsqueda para el término: <strong style='color:#f0883e;'>'$termino_busqueda'</strong> <i>(Puedes probar otros añadiendo ?q=palabra a la URL)</i></p>";
+echo "<hr style='border-color: #30363d;'>";
+
+// ==========================================
+// 1. TEST DE BASE DE DATOS
+// ==========================================
+echo "<h3 style='color: #ff7b72;'>1️⃣ TEST DE BASE DE DATOS</h3>";
 try {
-    $pdo = new PDO($dsn, $user, $pass, [
+    $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8mb4", $user, $pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
-    echo "<p style='color: #3fb950;'>✅ Conexión a la BD `$db` exitosa.</p>";
+    echo "✅ Conexión a BD exitosa.<br>";
 
-    // Vamos a probar con la palabra "suy"
-    $termino_busqueda = 'suy'; 
-    
-    echo "<h3 style='color: #ff7b72;'>▶ Simulando lo que busca TomSelect: '$termino_busqueda'</h3>";
-
-    // CORREGIDO: numero_documento
-    $sql = "SELECT id, nombre_completo, numero_documento, estado, deleted_at, es_cliente 
-            FROM terceros 
-            WHERE (nombre_completo LIKE :q1 OR numero_documento LIKE :q2)";
-    
-    $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare("SELECT id, nombre_completo, numero_documento, estado, deleted_at, es_cliente FROM terceros WHERE (nombre_completo LIKE :q1 OR numero_documento LIKE :q2)");
     $stmt->execute(['q1' => "%$termino_busqueda%", 'q2' => "%$termino_busqueda%"]);
-    $coincidencias = $stmt->fetchAll();
+    $clientes = $stmt->fetchAll();
 
-    if(count($coincidencias) === 0) {
-        echo "<p style='color: #f85149;'>❌ FATAL: No existe ningún registro en la tabla `terceros` que contenga la palabra '$termino_busqueda'.</p>";
+    if (empty($clientes)) {
+        echo "❌ <b style='color:#f85149'>No hay coincidencias en la BD</b> para '$termino_busqueda'.<br>";
     } else {
-        echo "<p style='color: #3fb950;'>✅ Se encontraron " . count($coincidencias) . " posibles coincidencias.</p>";
-        
-        echo "<table style='width:100%; text-align:left; border-collapse: collapse; margin-top: 10px; background: #161b22; border-radius: 8px; overflow: hidden;'>";
-        echo "<tr style='border-bottom: 1px solid #30363d; background: #21262d;'><th style='padding:10px;'>ID</th><th>Nombre</th><th>es_cliente (Debe ser 1)</th><th>estado (Debe ser 1)</th><th>deleted_at (Debe ser NULL)</th><th>¿LO MUESTRA TOM SELECT?</th></tr>";
-        
-        $pasaron_prueba = 0;
-
-        foreach($coincidencias as $c) {
-            $es_cliente_ok = ($c['es_cliente'] == 1);
-            $estado_ok = ($c['estado'] == 1);
-            $no_eliminado_ok = ($c['deleted_at'] === null);
-
-            $esValido = ($es_cliente_ok && $estado_ok && $no_eliminado_ok);
-            if($esValido) $pasaron_prueba++;
-
-            $color = $esValido ? '#3fb950' : '#f85149';
-            $textoAparece = $esValido ? '✅ SÍ' : '❌ NO';
-            
-            echo "<tr style='border-bottom: 1px solid #30363d;'>";
-            echo "<td style='padding:10px;'>" . $c['id'] . "</td>";
-            echo "<td>" . htmlspecialchars($c['nombre_completo']) . "</td>";
-            echo "<td style='color: " . ($es_cliente_ok ? '#c9d1d9' : '#f85149') . ";'>" . $c['es_cliente'] . "</td>";
-            echo "<td style='color: " . ($estado_ok ? '#c9d1d9' : '#f85149') . ";'>" . $c['estado'] . "</td>";
-            echo "<td style='color: " . ($no_eliminado_ok ? '#c9d1d9' : '#f85149') . ";'>" . ($c['deleted_at'] ?? 'NULL') . "</td>";
-            echo "<td style='color: $color; font-weight:bold;'>$textoAparece</td>";
-            echo "</tr>";
+        echo "✅ Se encontraron " . count($clientes) . " registros brutos en la BD.<br>";
+        $validos = 0;
+        foreach($clientes as $c) {
+            if ($c['estado'] == 1 && $c['es_cliente'] == 1 && $c['deleted_at'] === null) $validos++;
         }
-        echo "</table>";
-
-        echo "<div style='background: #1f2428; padding: 20px; margin-top:20px; border-radius: 5px; border-left: 5px solid #58a6ff;'>";
-        echo "<h4 style='margin-top:0;'>🕵️‍♂️ DIAGNÓSTICO FINAL:</h4>";
-        
-        if($pasaron_prueba === 0) {
-            echo "<p style='color:#ff7b72'><b>El problema son los datos en la tabla.</b> Tus clientes llamados 'suy' o 'oficina' tienen el estado en 0 o no están marcados como clientes.</p>";
+        if ($validos === 0) {
+            echo "❌ <b style='color:#f85149'>Niguno es válido</b> (Revisa que estado=1, es_cliente=1 y deleted_at=null).<br>";
         } else {
-            echo "<p style='color:#3fb950'><b>La base de datos está PERFECTA.</b> Si esto no carga en pantalla, el culpable es tu <b>Controlador PHP</b> (el archivo que recibe <code>accion=buscar_clientes</code>).</p>";
-            echo "Asegúrate de que en el controlador tengas algo como esto:<br>";
-            echo "<code>\$resultados = \$modelo->buscarClientes(\$_GET['q'] ?? '');<br>";
-            echo "echo json_encode(['data' => \$resultados, 'ok' => true]);<br>";
-            echo "exit;</code>";
+            echo "✅ $validos registros son clientes 100% válidos.<br>";
         }
-        echo "</div>";
     }
-
-} catch (\PDOException $e) {
-    echo "<p style='color: #f85149;'>❌ Error: " . $e->getMessage() . "</p>";
+} catch (Exception $e) {
+    echo "❌ Error BD: " . $e->getMessage() . "<br>";
 }
 
+// ==========================================
+// 2. TEST DEL ENDPOINT AJAX (CONTROLADOR PHP)
+// ==========================================
+echo "<h3 style='color: #ff7b72; margin-top:30px;'>2️⃣ TEST DEL CONTROLADOR AJAX</h3>";
+$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
+$base_url = $protocol . "://" . $_SERVER['HTTP_HOST'] . str_replace(basename($_SERVER['SCRIPT_NAME']), '', $_SERVER['REQUEST_URI']);
+$ajax_url = $base_url . "?ruta=ventas&accion=buscar_clientes&q=" . urlencode($termino_busqueda);
+
+echo "<p>Haciendo petición GET a: <code>$ajax_url</code></p>";
+
+$context = stream_context_create(["http" => ["header" => "X-Requested-With: XMLHttpRequest\r\n"]]);
+$response = @file_get_contents($ajax_url, false, $context);
+
+if ($response === false) {
+    echo "❌ <b style='color:#f85149'>El controlador devolvió un error 500 o la ruta no existe.</b><br>";
+} else {
+    $json = json_decode($response, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        echo "❌ <b style='color:#f85149'>El controlador NO está devolviendo JSON válido.</b> Devuelve esto:<br>";
+        echo "<pre style='background:#161b22; padding:10px; border-radius:5px; color:#a5d6ff; max-height:200px; overflow:auto;'>" . htmlspecialchars($response) . "</pre>";
+    } else {
+        echo "✅ El controlador devuelve un JSON válido.<br>";
+        if (!isset($json['data'])) {
+            echo "❌ <b style='color:#f85149'>Falta la llave 'data' en el JSON.</b> TomSelect crasheará porque necesita `{ \"data\": [...] }`.<br>";
+        } else {
+            echo "✅ El JSON tiene la llave 'data' con " . count($json['data']) . " elementos.<br>";
+            if (count($json['data']) > 0) {
+                echo "<i>Así se ve el primer registro que le llega al Javascript:</i><br>";
+                echo "<pre style='background:#161b22; padding:10px; border-radius:5px; color:#a5d6ff;'>" . htmlspecialchars(json_encode($json['data'][0], JSON_PRETTY_PRINT)) . "</pre>";
+            }
+        }
+    }
+}
+
+// ==========================================
+// 3. FRONTEND 'CLEAN ROOM' TEST
+// ==========================================
+echo "<h3 style='color: #ff7b72; margin-top:30px;'>3️⃣ TEST FRONTEND 'CLEAN ROOM'</h3>";
+echo "<p>Esta es una prueba aislada de TomSelect SIN tu app.css y SIN los modales de Bootstrap.</p>";
+echo "<div style='background:#ffffff; padding: 20px; border-radius: 8px; color: #000; width: 400px;'>";
+echo "<label style='font-weight:bold; display:block; margin-bottom:10px;'>Buscador Aislado:</label>";
+echo "<select id='testSelect' placeholder='Escribe para buscar...'></select>";
 echo "</div>";
+?>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const baseUrl = "<?php echo $base_url . '?ruta=ventas&accion=buscar_clientes&q='; ?>";
+    
+    new TomSelect('#testSelect', {
+        valueField: 'id',
+        labelField: 'text',
+        searchField: ['text', 'value'],
+        score: function() { return function() { return 1; }; }, // Obliga a mostrar todo lo que traiga el servidor
+        load: function(query, callback) {
+            fetch(baseUrl + encodeURIComponent(query), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json())
+            .then(json => {
+                const items = (json.data || []).map(item => ({
+                    id: item.id,
+                    text: `${item.nombre_completo} (${item.num_doc || 'S/D'})`
+                }));
+                console.log("✅ TomSelect recibió:", items);
+                callback(items);
+            }).catch(e => {
+                console.error("❌ Error en JS:", e);
+                callback();
+            });
+        }
+    });
+});
+</script>
+</body></html>

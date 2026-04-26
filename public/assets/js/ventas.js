@@ -97,7 +97,7 @@
         tomSelectCliente = initSelectAjax('#idCliente', `${urls.index}&accion=buscar_clientes`, {
             allowEmptyOption: true,
             placeholder: "Buscar cliente por nombre o documento...",
-            dropdownParent: 'body', // <-- CAMBIA ESTO
+            dropdownParent: 'body', // <--- CAMBIAR ESTO
             preload: true,
             loadThrottle: 250,
             load: function(query, callback) {
@@ -129,11 +129,14 @@
 
     // --- REFERENCIAS DOM ---
     const modalVentaEl = document.getElementById('modalVenta');
-    const modalVenta = new bootstrap.Modal(modalVentaEl);
+    // APAGAMOS EL FOCUS TRAP PARA QUE TOMSELECT FUNCIONE
+    const modalVenta = new bootstrap.Modal(modalVentaEl, { focus: false });
+    
     const modalDespachoEl = document.getElementById('modalDespacho');
-    const modalDespacho = new bootstrap.Modal(modalDespachoEl);
+    const modalDespacho = new bootstrap.Modal(modalDespachoEl, { focus: false });
+    
     const modalDevolucionVentaEl = document.getElementById('modalDevolucionVenta');
-    const modalDevolucionVenta = modalDevolucionVentaEl ? new bootstrap.Modal(modalDevolucionVentaEl) : null;
+    const modalDevolucionVenta = modalDevolucionVentaEl ? new bootstrap.Modal(modalDevolucionVentaEl, { focus: false }) : null;
 
     // Endurecer limpieza de estado visual para evitar "pantalla bloqueada" por
     // backdrops huérfanos o body con clases de scroll-lock cuando el modal cierra.
@@ -676,7 +679,7 @@
 
         const tom = initSelectAjax(selectItem, `${urls.index}&accion=buscar_items`, {
             placeholder: "Buscar producto...",
-            dropdownParent: obtenerDropdownParentModalVenta(),
+            dropdownParent: 'body', // <--- CAMBIAR ESTO
             load: function(query, callback) {
                 const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0);
                 const cantidadActual = Number(inputCantidad.value || 1) || 1;

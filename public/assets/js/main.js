@@ -371,4 +371,32 @@
       return new TomSelect(selector, config);
     }
   };
+
+  // =========================================================
+  // 5) FIX GLOBAL: UX ELEGANTE PARA TOMSELECT EN MÓVILES Y DESKTOP
+  // =========================================================
+  const handleTomSelectUX = function(event) {
+      // 1. Ignorar si el usuario está haciendo scroll DENTRO de la lista de resultados
+      if (event && event.target && event.target.classList) {
+          if (event.target.classList.contains('ts-dropdown-content') || 
+              event.target.classList.contains('ts-dropdown')) {
+              return;
+          }
+      }
+
+      // 2. Comportamiento de App Nativa:
+      // Si el usuario scrollea el modal o la pantalla cambia de tamaño, cerramos el buscador.
+      // Esto oculta el teclado del celular al instante, libera espacio y mata al "cajón volador".
+      document.querySelectorAll('.tomselected').forEach(function(el) {
+          if (el.tomselect && el.tomselect.isOpen) {
+              el.tomselect.blur(); 
+          }
+      });
+  };
+
+  // Escuchar scroll en cualquier contenedor (fase de captura 'true' es vital para modales)
+  document.addEventListener('scroll', handleTomSelectUX, true);
+  
+  // Escuchar también cuando el teclado del celular se abre o se cierra
+  window.addEventListener('resize', handleTomSelectUX);
 })();

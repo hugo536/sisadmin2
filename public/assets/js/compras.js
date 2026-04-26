@@ -1,7 +1,7 @@
 (async function initCompras() {
 
     const modalDevolucionEl = document.getElementById('modalDevolucionCompra');
-    const modalDevolucion = modalDevolucionEl ? new bootstrap.Modal(modalDevolucionEl) : null;
+    const modalDevolucion = modalDevolucionEl ? new bootstrap.Modal(modalDevolucionEl, { focus: false }) : null;
     const devolucionOrdenId = document.getElementById('devolucionOrdenId');
     const devolucionMotivo = document.getElementById('devolucionMotivo');
     const devolucionResolucion = document.getElementById('devolucionResolucion');
@@ -38,28 +38,32 @@
         console.warn('TomSelect no se pudo cargar en Compras. Se usará selector simple.');
     }
 
-    const appSelectsDisponibles = !!window.AppSelects;
-
+    // FIX: Evaluación en tiempo real y fallback seguro para selects Locales
     function initSelectLocal(target, options = {}) {
-        if (appSelectsDisponibles && typeof window.AppSelects.initLocal === 'function') {
+        if (typeof window !== 'undefined' && window.AppSelects && typeof window.AppSelects.initLocal === 'function') {
             return window.AppSelects.initLocal(target, options);
         }
-        return new TomSelect(target, options);
+        
+        console.warn('AppSelects no detectado a tiempo. Usando configuración local de emergencia.');
+        return new TomSelect(target, Object.assign({
+            create: false,
+            sortField: { field: 'text', direction: 'asc' },
+            searchField: ['text', 'value'], // Buscar por nombre y por ID
+            plugins: ['clear_button']
+        }, options));
     }
-
-    const obtenerDropdownParentModalCompras = () => document.body;
 
     let tomSelectProveedor = null;
     if (document.getElementById('idProveedor') && tomSelectListo) {
         tomSelectProveedor = initSelectLocal('#idProveedor', {
             placeholder: 'Escribe para buscar proveedor...',
-            dropdownParent: obtenerDropdownParentModalCompras(),
+            dropdownParent: 'body', // <-- DIRECTO AL BODY
         });
     }
 
     // --- VARIABLES ORDEN DE COMPRA ---
     const modalOrdenElement = document.getElementById('modalOrdenCompra');
-    const modalOrden = new bootstrap.Modal(modalOrdenElement);
+    const modalOrden = new bootstrap.Modal(modalOrdenElement, { focus: false });
     const tablaCompras = document.getElementById('tablaCompras');
     const tbodyTabla = tablaCompras.querySelector('tbody');
     const filtroBusqueda = document.getElementById('filtroBusqueda');
@@ -83,7 +87,7 @@
 
     // --- VARIABLES RECEPCIÓN PARCIAL / MULTI-ALMACÉN ---
     const modalRecepcionEl = document.getElementById('modalRecepcionCompra');
-    const modalRecepcion = new bootstrap.Modal(modalRecepcionEl);
+    const modalRecepcion = new bootstrap.Modal(modalRecepcionEl, { focus: false });
     const recepcionOrdenId = document.getElementById('recepcionOrdenId');
     const cerrarForzadoRecepcion = document.getElementById('cerrarForzadoRecepcion');
     const tbodyRecepcion = document.querySelector('#tablaDetalleRecepcion tbody');
@@ -385,7 +389,7 @@
         if (tomSelectListo) {
             tomSelectItem = initSelectLocal(inputItem, {
                 placeholder: 'Buscar ítem...',
-                dropdownParent: obtenerDropdownParentModalCompras(),
+                dropdownParent: 'body', // <-- DIRECTO AL BODY
             });
         }
 
