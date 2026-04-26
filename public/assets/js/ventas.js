@@ -75,26 +75,29 @@
         console.warn('TomSelect no se pudo cargar en Ventas. Revise conectividad o CDN.');
     }
 
-    const appSelectsDisponibles = !!window.AppSelects;
-
     function initSelectAjax(target, urlBackend, options = {}) {
-        if (appSelectsDisponibles && typeof window.AppSelects.initAjax === 'function') {
+        // 1. Evaluamos en tiempo real (así no importa si main.js tardó 2 milisegundos más en cargar)
+        if (typeof window !== 'undefined' && window.AppSelects && typeof window.AppSelects.initAjax === 'function') {
             return window.AppSelects.initAjax(target, urlBackend, options);
         }
-        return new TomSelect(target, options);
-    }
+        
+        // 2. SALVAVIDAS: Si main.js falla o no ha cargado, inyectamos los campos vitales que borraste
+        console.warn('AppSelects no detectado a tiempo. Usando configuración de emergencia.');
+        const fallbackOptions = Object.assign({
+            valueField: 'id',
+            labelField: 'text',
+            searchField: ['text', 'value'],
+            score: function() { return function() { return 1; }; } // Obliga a mostrar todo lo del backend
+        }, options);
 
-    const obtenerDropdownParentModalVenta = () => {
-        // Si el modal está en el DOM, lo agregamos a su contenido para heredar su z-index
-        const modalContent = document.querySelector('#modalVenta .modal-content');
-        return modalContent ? modalContent : document.body;
-    };
+        return new TomSelect(target, fallbackOptions);
+    }
 
     if (idClienteEl && tomSelectListo) {
         tomSelectCliente = initSelectAjax('#idCliente', `${urls.index}&accion=buscar_clientes`, {
             allowEmptyOption: true,
             placeholder: "Buscar cliente por nombre o documento...",
-            dropdownParent: obtenerDropdownParentModalVenta(),
+            dropdownParent: 'body', // <-- CAMBIA ESTO
             preload: true,
             loadThrottle: 250,
             load: function(query, callback) {
