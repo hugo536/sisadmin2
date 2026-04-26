@@ -38,13 +38,20 @@
         console.warn('TomSelect no se pudo cargar en Compras. Se usará selector simple.');
     }
 
+    const appSelectsDisponibles = !!window.AppSelects;
+
+    function initSelectLocal(target, options = {}) {
+        if (appSelectsDisponibles && typeof window.AppSelects.initLocal === 'function') {
+            return window.AppSelects.initLocal(target, options);
+        }
+        return new TomSelect(target, options);
+    }
+
     const obtenerDropdownParentModalCompras = () => document.body;
 
     let tomSelectProveedor = null;
     if (document.getElementById('idProveedor') && tomSelectListo) {
-        tomSelectProveedor = new TomSelect('#idProveedor', {
-            create: false,
-            sortField: { field: 'text', direction: 'asc' },
+        tomSelectProveedor = initSelectLocal('#idProveedor', {
             placeholder: 'Escribe para buscar proveedor...',
             dropdownParent: obtenerDropdownParentModalCompras(),
         });
@@ -376,9 +383,7 @@
 
         let tomSelectItem = null;
         if (tomSelectListo) {
-            tomSelectItem = new TomSelect(inputItem, {
-                create: false,
-                sortField: { field: 'text', direction: 'asc' },
+            tomSelectItem = initSelectLocal(inputItem, {
                 placeholder: 'Buscar ítem...',
                 dropdownParent: obtenerDropdownParentModalCompras(),
             });
