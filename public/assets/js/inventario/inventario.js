@@ -52,6 +52,7 @@
 
   const lineasMovimiento = [];
   const cacheUnidadesItem = new Map();
+  let stockActualBase = null;
 
   function obtenerUnidadBaseItemActual() {
     if (!tomSelectItem) return 'Unidad base';
@@ -78,6 +79,31 @@
     const opt = unidadMovimiento.options[unidadMovimiento.selectedIndex];
     const factor = Number((opt && opt.dataset && opt.dataset.factor) || 1);
     return Number.isFinite(factor) && factor > 0 ? factor : 1;
+  }
+
+  function obtenerEtiquetaUnidadTransaccional() {
+    const unidadBase = obtenerUnidadBaseItemActual();
+    if (!unidadMovimiento || !unidadMovimiento.value) return unidadBase;
+    const opt = unidadMovimiento.options[unidadMovimiento.selectedIndex];
+    const texto = ((opt && opt.textContent) || '').trim();
+    if (!texto) return unidadBase;
+    return texto.split(' (x')[0].trim() || unidadBase;
+  }
+
+  function actualizarStockMostradoSegunUnidad() {
+    if (typeof stockActualBase !== 'number' || !Number.isFinite(stockActualBase)) return;
+    const factor = obtenerFactorUnidadSeleccionada();
+    const stockConvertido = factor > 0 ? (stockActualBase / factor) : stockActualBase;
+    const unidadLabel = obtenerEtiquetaUnidadTransaccional();
+
+    if (stockActualItemLabel) {
+      stockActualItemLabel.value = stockConvertido.toFixed(4);
+    }
+
+    if (stockHint && esTipoSalida((tipo && tipo.value) || '')) {
+      stockHint.textContent = `Stock total en almacén: ${stockConvertido.toFixed(4)} ${unidadLabel}`;
+      stockHint.className = stockActualBase <= 0 ? 'form-text text-danger fw-bold' : 'form-text text-success';
+    }
   }
 
   async function obtenerUnidadesItem(idItem) {
@@ -571,6 +597,7 @@
     const idAlmacen = Number(almacen.value || '0');
 
     if (idConsulta <= 0 || idAlmacen <= 0) {
+      stockActualBase = 0;
       stockActualItemLabel.value = '0.0000';
       return;
     }
@@ -579,8 +606,10 @@
 
     try {
       const stock = await obtenerStockActual(idConsulta, idAlmacen, tipoRegistro);
-      stockActualItemLabel.value = Number(stock || 0).toFixed(4);
+      stockActualBase = Number(stock || 0);
+      actualizarStockMostradoSegunUnidad();
     } catch (error) {
+      stockActualBase = 0;
       stockActualItemLabel.value = '0.0000';
     }
   }
@@ -645,9 +674,8 @@
       const url = `${window.BASE_URL}?ruta=inventario/stockItem&id_item=${idConsulta}&id_almacen=${idAlmacen}&tipo_registro=${encodeURIComponent(tipoRegistro)}`;
       const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       const data = await response.json();
-      const stock = Number((data && data.stock) || 0);
-      stockHint.textContent = `Stock total en almacén: ${stock.toFixed(4)}`;
-      stockHint.className = stock <= 0 ? 'form-text text-danger fw-bold' : 'form-text text-success';
+      stockActualBase = Number((data && data.stock) || 0);
+      actualizarStockMostradoSegunUnidad();
     } catch (error) {
       stockHint.textContent = '';
     }
@@ -710,6 +738,7 @@
             ? `La cantidad se convertirá a ${unidadBase} con factor x${factor}.`
             : `Se registrará en ${unidadBase}.`;
         }
+        actualizarStockMostradoSegunUnidad();
       });
     }
 
@@ -730,6 +759,7 @@
       if (inputVencimiento) inputVencimiento.value = '';
       if (costoUnitarioInput) costoUnitarioInput.value = '0';
       if (stockHint) stockHint.textContent = '';
+      stockActualBase = null;
       if (stockActualItemLabel) stockActualItemLabel.value = '0.0000';
       limpiarUnidadesTransferencia();
       actualizarUIModal();
