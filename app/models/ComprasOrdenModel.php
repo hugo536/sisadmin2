@@ -546,16 +546,18 @@ class ComprasOrdenModel extends Modelo
                 throw new RuntimeException('Debe indicar cómo se resolverá la devolución con el proveedor.');
             }
 
-            // 2) Obtener almacén de la última recepción
+            // 2) Tomar almacén de referencia (última recepción) para priorizar salidas.
+            // La selección final se recalcula por línea para evitar falsos "stock insuficiente"
+            // cuando el stock real está en otro almacén activo.
             $stmtAlmacen = $db->prepare("SELECT id_almacen FROM compras_recepciones WHERE id_orden_compra = ? ORDER BY id DESC LIMIT 1");
             $stmtAlmacen->execute([$idOrden]);
-            $idAlmacenOrigen = (int) $stmtAlmacen->fetchColumn();
+            $idAlmacenPreferido = (int) $stmtAlmacen->fetchColumn();
 
-            if ($idAlmacenOrigen <= 0) {
+            if ($idAlmacenPreferido <= 0) {
                 $stmtFallback = $db->query("SELECT id FROM almacenes WHERE estado = 1 AND deleted_at IS NULL ORDER BY id ASC LIMIT 1");
-                $idAlmacenOrigen = (int) $stmtFallback->fetchColumn();
+                $idAlmacenPreferido = (int) $stmtFallback->fetchColumn();
             }
-            if ($idAlmacenOrigen <= 0) {
+            if ($idAlmacenPreferido <= 0) {
                 throw new RuntimeException('No existe un almacén activo para procesar la salida de la devolución.');
             }
 
@@ -622,6 +624,8 @@ class ComprasOrdenModel extends Modelo
                     throw new RuntimeException('No puede devolver más cantidad que la ya recepcionada.');
                 }
 
+                $idAlmacenOrigen = $this->resolverAlmacenOrigenDevolucion($db, $idItemLinea, $cantidadBase, $idAlmacenPreferido);
+
                 $subtotalLinea = $cantidadBase * $costoBase;
                 $totalDevuelto += $subtotalLinea;
 
@@ -671,6 +675,44 @@ class ComprasOrdenModel extends Modelo
             $db->rollBack();
             throw $e;
         }
+    }
+
+
+    private function resolverAlmacenOrigenDevolucion(PDO $db, int $idItem, float $cantidadBase, int $idAlmacenPreferido): int
+    {
+        if ($idItem <= 0) {
+            throw new RuntimeException('Ítem inválido para calcular almacén de salida.');
+        }
+
+        if ($cantidadBase <= 0) {
+            throw new RuntimeException('Cantidad inválida para calcular almacén de salida.');
+        }
+
+        $sql = 'SELECT s.id_almacen
+                FROM inventario_stock s
+                INNER JOIN almacenes a ON a.id = s.id_almacen
+                WHERE s.id_item = :id_item
+                  AND s.stock_actual >= :cantidad
+                  AND a.estado = 1
+                  AND a.deleted_at IS NULL
+                ORDER BY CASE WHEN s.id_almacen = :id_preferido THEN 0 ELSE 1 END,
+                         s.stock_actual DESC,
+                         s.id_almacen ASC
+                LIMIT 1';
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            'id_item' => $idItem,
+            'cantidad' => $cantidadBase,
+            'id_preferido' => $idAlmacenPreferido,
+        ]);
+
+        $idAlmacen = (int) $stmt->fetchColumn();
+        if ($idAlmacen <= 0) {
+            throw new RuntimeException('Stock insuficiente para realizar el movimiento.');
+        }
+
+        return $idAlmacen;
     }
 
     private function aplicarAjusteCxpPorDevolucion(PDO $db, int $idOrden, string $resolucion, float $totalDevuelto, int $userId): void
