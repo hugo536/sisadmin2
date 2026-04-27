@@ -6,21 +6,18 @@ $metodos = $metodos ?? [];
 $proveedores = $proveedores ?? [];
 $centros_costo = $centros_costo ?? []; 
 
-// CAMBIO: Ordenamiento de los registros
+// Orden por fecha más reciente a más antigua (mismo criterio visual que CxC).
 usort($registros, function($a, $b) {
-    // 1. Extraemos las fechas (si no hay, la mandamos al final)
-    $fechaA = strtotime($a['fecha_vencimiento'] ?? '9999-12-31');
-    $fechaB = strtotime($b['fecha_vencimiento'] ?? '9999-12-31');
-    
-    // 2. Si las fechas son iguales, ordenamos por número de recepción (descendente)
+    $fechaA = strtotime((string) ($a['fecha_vencimiento'] ?? '')) ?: 0;
+    $fechaB = strtotime((string) ($b['fecha_vencimiento'] ?? '')) ?: 0;
+
     if ($fechaA === $fechaB) {
         $docA = (int) ($a['id_recepcion'] ?? 0);
         $docB = (int) ($b['id_recepcion'] ?? 0);
         return $docB <=> $docA;
     }
-    
-    // 3. Si son distintas, ordenamos por fecha (ascendente)
-    return $fechaA <=> $fechaB;
+
+    return $fechaB <=> $fechaA;
 });
 
 $badge = static function (string $estado): string {
@@ -96,7 +93,7 @@ if (!empty($_GET['error'])) {
             <form method="get" action="" class="row g-3 align-items-end" id="formFiltrosCxp">
                 <input type="hidden" name="ruta" value="tesoreria/cxp">
 
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Estado de Cuenta</label>
                     <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="estado">
                         <option value="">Todos los estados</option>
@@ -106,21 +103,32 @@ if (!empty($_GET['error'])) {
                     </select>
                 </div>
                 
-                <div class="col-12 col-md-4">
-                    <label class="form-label small text-muted fw-bold mb-1">Moneda</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="moneda">
-                        <option value="">Todas las monedas</option>
-                        <option value="PEN" <?php echo (($filtros['moneda'] ?? '') === 'PEN') ? 'selected' : ''; ?>>PEN (Soles)</option>
-                        <option value="USD" <?php echo (($filtros['moneda'] ?? '') === 'USD') ? 'selected' : ''; ?>>USD (Dólares)</option>
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted fw-bold mb-1">Tipo de Tercero</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="tipo_tercero">
+                        <option value="">Todos</option>
+                        <option value="cliente_distribuidor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente_distribuidor') ? 'selected' : ''; ?>>Cliente / Distribuidor</option>
+                        <option value="cliente" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente') ? 'selected' : ''; ?>>Cliente</option>
+                        <option value="distribuidor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'distribuidor') ? 'selected' : ''; ?>>Distribuidor</option>
                     </select>
                 </div>
-                
-                <div class="col-12 col-md-4">
-                    <label class="form-label small text-muted fw-bold mb-1">Vencimiento</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="vencimiento">
-                        <option value="">Todos los registros</option>
-                        <option value="vencidas" <?php echo (($filtros['vencimiento'] ?? '') === 'vencidas') ? 'selected' : ''; ?>>Solo cuentas vencidas</option>
-                    </select>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted fw-bold mb-1">Desde (Vencimiento)</label>
+                    <input
+                        type="date"
+                        class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium"
+                        name="fecha_desde"
+                        value="<?php echo e((string) ($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-6 days')))); ?>">
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted fw-bold mb-1">Hasta (Vencimiento)</label>
+                    <input
+                        type="date"
+                        class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium"
+                        name="fecha_hasta"
+                        value="<?php echo e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d'))); ?>">
                 </div>
             </form>
         </div>

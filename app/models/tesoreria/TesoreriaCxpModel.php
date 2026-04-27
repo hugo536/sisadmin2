@@ -12,6 +12,7 @@ class TesoreriaCxpModel extends Modelo
         $sql = 'SELECT p.*, COALESCE(t.nombre_completo, "Proveedor Eliminado/Desconocido") AS proveedor
                 FROM tesoreria_cxp p
                 LEFT JOIN terceros t ON t.id = p.id_proveedor
+                LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
                 WHERE p.deleted_at IS NULL';
 
         $params = [];
@@ -21,18 +22,27 @@ class TesoreriaCxpModel extends Modelo
             $params['estado'] = (string) $filtros['estado'];
         }
 
-        if (!empty($filtros['moneda'])) {
-            $sql .= ' AND p.moneda = :moneda';
-            $params['moneda'] = (string) $filtros['moneda'];
+        if (!empty($filtros['tipo_tercero'])) {
+            if ($filtros['tipo_tercero'] === 'cliente_distribuidor') {
+                $sql .= ' AND COALESCE(t.es_cliente, 0) = 1 AND d.id_tercero IS NOT NULL';
+            } elseif ($filtros['tipo_tercero'] === 'cliente') {
+                $sql .= ' AND COALESCE(t.es_cliente, 0) = 1';
+            } elseif ($filtros['tipo_tercero'] === 'distribuidor') {
+                $sql .= ' AND d.id_tercero IS NOT NULL';
+            }
         }
 
-        if (!empty($filtros['vencimiento']) && $filtros['vencimiento'] === 'vencidas') {
-            // MEJORA: DATE() asegura que la comparación sea estricta por día
-            $sql .= ' AND p.saldo > 0 AND DATE(p.fecha_vencimiento) < CURDATE()';
+        if (!empty($filtros['fecha_desde'])) {
+            $sql .= ' AND DATE(p.fecha_vencimiento) >= :fecha_desde';
+            $params['fecha_desde'] = (string) $filtros['fecha_desde'];
         }
 
-        // NUEVO CÓDIGO (Los más recientes siempre arriba):
-        $sql .= ' ORDER BY p.id DESC';
+        if (!empty($filtros['fecha_hasta'])) {
+            $sql .= ' AND DATE(p.fecha_vencimiento) <= :fecha_hasta';
+            $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
+        }
+
+        $sql .= ' ORDER BY p.fecha_vencimiento DESC, p.id DESC';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);
