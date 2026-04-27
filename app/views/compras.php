@@ -86,8 +86,7 @@ $estadoLabels = [
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
                             <th class="text-secondary fw-semibold">Proveedor</th>
-                            <th class="text-secondary fw-semibold">Fecha Emisión</th>
-                            <th class="text-secondary fw-semibold text-primary">Fecha Entrega</th>
+                            <th class="text-secondary fw-semibold">Fecha</th>
                             <th class="text-end text-secondary fw-semibold">Total</th>
                             <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
@@ -104,9 +103,6 @@ $estadoLabels = [
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($orden['codigo'] ?? '')); ?></td>
                                     <td class="fw-semibold text-dark"><?php echo e((string) ($orden['proveedor'] ?? '')); ?></td>
                                     <td><?php echo e((string) ($orden['fecha_orden'] ?? '')); ?></td>
-                                    
-                                    <td class="fw-semibold text-primary"><?php echo e((string) ($orden['fecha_entrega'] ?? '-')); ?></td>
-                                    
                                     <td class="text-end fw-bold">S/ <?php echo number_format((float) ($orden['total'] ?? 0), 2); ?></td>
                                     <td class="text-center">
                                         <span class="badge px-3 py-2 rounded-pill <?php echo e($badge['clase']); ?>">
@@ -133,7 +129,7 @@ $estadoLabels = [
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr class="empty-msg-row"><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay órdenes registradas.</td></tr>
+                            <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay órdenes registradas.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
