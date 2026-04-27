@@ -751,6 +751,9 @@
         // 1. EXTRAER EL COSTO REAL DE LA ORDEN DE COMPRA
         const factorCompra = parseFloat(linea.factor_conversion_aplicado || 1);
         const costoCompra = parseFloat(linea.costo_unitario || 0); 
+        const cantidadRecibidaEnUnidadCompra = factorCompra > 0 ? (cantRecibidaBase / factorCompra) : cantRecibidaBase;
+        const unidadCompraLabel = (linea.unidad_nombre || '').trim();
+        const mostrarResumenUnidadCompra = unidadCompraLabel !== '' && Math.abs(factorCompra - 1) > 0.0001;
         // Costo por unidad base real con el que entró al Kardex
         const costoBaseReal = costoCompra / factorCompra;
 
@@ -765,7 +768,12 @@
                 <small class="text-muted dev-info-conversion">Unidad base: ${linea.unidad_base}</small>
             </td>
             <td class="text-center align-middle">
-                <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 fw-bold">
+                ${mostrarResumenUnidadCompra ? `
+                    <div class="fw-semibold text-dark">
+                        ${cantidadRecibidaEnUnidadCompra.toFixed(2)} ${unidadCompraLabel}
+                    </div>
+                ` : ''}
+                <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 fw-bold mt-1">
                     ${cantRecibidaBase.toFixed(2)} ${linea.unidad_base}
                 </span>
             </td>
