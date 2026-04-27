@@ -107,16 +107,17 @@
                             <div class="modal-pastel-card overflow-hidden bg-white">
                                 <div class="table-responsive">
                                     <table class="table table-sm align-middle mb-0 table-pro table-pastel" id="tablaDetalleUnidadesConversion">
-                                        <thead>
-                                            <tr>
-                                                <th class="ps-4 py-3">Nombre</th>
-                                                <th class="py-3">Código</th>
-                                                <th class="text-end py-3">Factor</th>
-                                                <th class="text-end py-3" title="Peso en KG">Peso</th>
-                                                <th class="text-center py-3">Est.</th>
-                                                <th class="text-end pe-4 py-3"></th> 
-                                            </tr>
-                                        </thead>
+                                    <thead>
+                                        <tr>
+                                            <th class="ps-4 py-3">Nombre</th>
+                                            <th class="py-3">Código</th>
+                                            <th class="text-end py-3">Factor</th>
+                                            <th class="text-end py-3" title="Peso en KG">Peso</th>
+                                            <th class="text-center py-3" title="Predeterminada para Inventario">Pref.</th>
+                                            <th class="text-center py-3">Est.</th>
+                                            <th class="text-end pe-4 py-3"></th> 
+                                        </tr>
+                                    </thead>
                                         <tbody>
                                             <tr><td colspan="6" class="text-center text-muted py-5">Selecciona un ítem para ver sus unidades de conversión.</td></tr>
                                         </tbody>

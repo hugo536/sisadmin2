@@ -69,7 +69,7 @@
                     confirmButtonText: 'OK', // Texto que mostrará el botón
                     confirmButtonColor: '#198754', // Color verde estándar para coincidir con tu sistema
                     timer: 2000,             // Tiempo en milisegundos (2 segundos) para que desaparezca sola
-                    showConfirmButton: true  // <-- CAMBIO: Activamos el botón para que el usuario pueda cerrarlo inmediatamente
+                    showConfirmButton: true  // Activamos el botón para que el usuario pueda cerrarlo inmediatamente
                 });
                 return;
             }
@@ -184,7 +184,8 @@
 
         const renderDetalle = (items = []) => {
             if (!Array.isArray(items) || items.length === 0) {
-                tbodyDetalle.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay unidades registradas para este ítem.</td></tr>';
+                // MODIFICADO: colspan de 6 a 7 por la nueva columna
+                tbodyDetalle.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay unidades registradas para este ítem.</td></tr>';
                 return;
             }
 
@@ -199,14 +200,29 @@
                 const btnEliminar = IconosAccion.crear('eliminar', item.id, 'js-uc-eliminar');
                 const accionesHTML = IconosAccion.agrupar(btnEditar, btnEliminar);
 
+                // --- NUEVO: Lógica de la Estrellita ---
+                const isPredeterminada = Number(item.es_predeterminada || 0) === 1;
+                const starClass = isPredeterminada ? 'bi-star-fill text-warning' : 'bi-star text-secondary opacity-50';
+                const starBtn = `
+                    <button type="button" class="btn btn-sm btn-light border-0 js-uc-predeterminada p-1 rounded-circle shadow-none" 
+                            data-id="${item.id}" data-item="${item.id_item}" 
+                            title="Usar como predeterminada en Inventario">
+                        <i class="bi ${starClass} fs-5"></i>
+                    </button>
+                `;
+                // --------------------------------------
+
                 return `
-                    <tr>
+                    <tr class="border-bottom">
                         <td class="fw-semibold text-dark" style="max-width: 150px;">
                             <div class="text-truncate" title="${item.nombre || ''}">${item.nombre || ''}</div>
                         </td>
                         <td class="small text-muted">${item.codigo_unidad || '-'}</td>
                         <td class="text-end fw-medium text-primary">${Number(item.factor_conversion || 0).toFixed(4)}</td>
                         <td class="text-end small">${Number(item.peso_kg || 0).toFixed(3)}</td>
+                        
+                        <td class="text-center bg-light-subtle">${starBtn}</td>
+                        
                         <td class="text-center">${badge}</td>
                         <td class="text-end pe-3">${accionesHTML}</td>
                     </tr>
@@ -248,6 +264,35 @@
                     }
                 });
             });
+
+            // --- NUEVO: Bind Eventos de la Estrellita (Predeterminada) ---
+            tbodyDetalle.querySelectorAll('.js-uc-predeterminada').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const idUnidad = Number(btn.dataset.id || 0);
+                    const idItem = Number(btn.dataset.item || 0);
+                    if (idUnidad <= 0 || idItem <= 0) return;
+
+                    // Cambiar icono a "Cargando" (Spinner)
+                    const icon = btn.querySelector('i');
+                    const originalClass = icon.className;
+                    icon.className = 'bi bi-hourglass-split text-info fs-5 spinner-border spinner-border-sm border-0';
+
+                    try {
+                        await postAction({
+                            accion: 'fijar_predeterminada_unidad',
+                            id: String(idUnidad),
+                            id_item: String(idItem)
+                        });
+                        
+                        // Recargamos la tablita para que pinte la estrellita correctamente
+                        await cargarDetalle(idItem);
+                    } catch (error) {
+                        icon.className = originalClass;
+                        showError(error.message);
+                    }
+                });
+            });
+            // -------------------------------------------------------------
         };
 
         const renderResumen = (items = []) => {
@@ -407,7 +452,7 @@
                 if (btnAgregar) btnAgregar.disabled = true;
                 if (tituloSeleccion) tituloSeleccion.textContent = 'Selecciona un ítem para gestionar sus conversiones';
                 
-                tbodyDetalle.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">Selecciona un ítem para ver sus unidades de conversión.</td></tr>';
+                tbodyDetalle.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-5">Selecciona un ítem para ver sus unidades de conversión.</td></tr>';
                 
                 resetFormulario();
                 await cargarResumen();

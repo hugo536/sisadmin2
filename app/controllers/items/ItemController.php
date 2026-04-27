@@ -191,6 +191,23 @@ class ItemController extends Controlador
                     $respuesta = ['ok' => true, 'mensaje' => 'Unidad de conversión eliminada correctamente.'];
                 }
 
+                // =========================================================================
+                // NUEVA ACCIÓN: FIJAR UNIDAD PREDETERMINADA
+                // =========================================================================
+                if ($accion === 'fijar_predeterminada_unidad') {
+                    require_permiso('items.editar');
+                    $idUnidad = (int) ($_POST['id'] ?? 0);
+                    $idItem = (int) ($_POST['id_item'] ?? 0);
+                    
+                    if ($idUnidad <= 0 || $idItem <= 0) {
+                        throw new RuntimeException('Parámetros inválidos para fijar la unidad predeterminada.');
+                    }
+
+                    $this->unidadConversionModel->marcarComoPredeterminada($idUnidad, $idItem, $userId);
+                    $respuesta = ['ok' => true, 'mensaje' => 'Unidad predeterminada actualizada correctamente.'];
+                }
+                // =========================================================================
+
                 if ($accion === 'editar') {
                     require_permiso('items.editar');
                     $id = (int) ($_POST['id'] ?? 0);
@@ -403,9 +420,7 @@ class ItemController extends Controlador
         }
 
         $this->render('items/index', [
-            // ESTA ES LA LÍNEA QUE FALTABA
             'items' => $this->itemsModel->listarTodos(),
-
             'rubros' => $this->rubroModel->listarRubrosActivos(),
             'rubros_gestion' => $this->rubroModel->listarRubros(),
             'categorias' => $this->categoriaModel->listarCategoriasActivas(),

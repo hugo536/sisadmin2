@@ -25,7 +25,8 @@ class UnidadConversionModel extends Modelo
             return [];
         }
 
-        $sql = 'SELECT id, id_item, nombre, codigo_unidad, factor_conversion, peso_kg, estado
+        // AGREGADO: Se incluyó 'es_predeterminada' en el SELECT
+        $sql = 'SELECT id, id_item, nombre, codigo_unidad, factor_conversion, peso_kg, estado, es_predeterminada
                 FROM items_unidades
                 WHERE id_item = :id_item
                   AND deleted_at IS NULL
@@ -101,5 +102,37 @@ class UnidadConversionModel extends Modelo
             'id' => $id,
             'id_item' => $idItem
         ]);
+    }
+
+    /**
+     * =========================================================================
+     * NUEVA FUNCIÓN: Marca una unidad como predeterminada y apaga las demás
+     * =========================================================================
+     */
+    public function marcarComoPredeterminada(int $idUnidad, int $idItem, int $userId): bool
+    {
+        $db = $this->db();
+        $db->beginTransaction();
+
+        try {
+            // 1. Apagamos todas las unidades de este ítem (es_predeterminada = 0)
+            $stmt1 = $db->prepare('UPDATE items_unidades 
+                                   SET es_predeterminada = 0, updated_by = :user, updated_at = NOW() 
+                                   WHERE id_item = :id_item');
+            $stmt1->execute(['user' => $userId, 'id_item' => $idItem]);
+
+            // 2. Encendemos SOLO la unidad que el usuario seleccionó (es_predeterminada = 1)
+            $stmt2 = $db->prepare('UPDATE items_unidades 
+                                   SET es_predeterminada = 1, updated_by = :user, updated_at = NOW() 
+                                   WHERE id = :id AND id_item = :id_item');
+            $stmt2->execute(['user' => $userId, 'id' => $idUnidad, 'id_item' => $idItem]);
+
+            $db->commit();
+            return true;
+
+        } catch (Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
     }
 }
