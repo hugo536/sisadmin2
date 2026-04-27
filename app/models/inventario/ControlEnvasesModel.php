@@ -93,24 +93,29 @@ class ControlEnvasesModel extends Modelo {
                 throw new RuntimeException('No se pudo registrar el movimiento de envases en cuenta corriente.');
             }
 
-            if (in_array($tipoOperacion, ['RECEPCION_VACIO', 'ENTREGA_LLENO'], true)) {
+            // CORRECCIÓN DE LÓGICA DE INVENTARIO:
+            // Solo impactamos el Kardex del envase físico (BIDON PET) cuando el cliente 
+            // nos lo DEVUELVE VACÍO (RECEPCION_VACIO).
+            // Cuando entregamos lleno (ENTREGA_LLENO), el stock físico ya fue descontado 
+            // por la Venta del Producto Terminado o el Consumo de Producción.
+            if ($tipoOperacion === 'RECEPCION_VACIO') {
                 if ($idAlmacen <= 0) {
-                    throw new InvalidArgumentException('Debe seleccionar un almacén para impactar Kardex.');
+                    throw new InvalidArgumentException('Debe seleccionar un almacén físico para ingresar los envases devueltos.');
                 }
 
                 $inventarioModel = new InventarioModel();
-                $referencia = 'ENVASE | ' . $tipoOperacion . ' | Tercero:' . $idTercero . ' | OP:' . $operacionUuid;
+                $referencia = 'ENVASE | RECEPCION_VACIO | Tercero:' . $idTercero . ' | OP:' . $operacionUuid;
 
                 $datosKardex = [
-                    'tipo_movimiento' => $tipoOperacion === 'RECEPCION_VACIO' ? 'AJ+' : 'VEN',
+                    'tipo_movimiento' => 'AJ+', // Ingreso positivo del envase vacío
                     'tipo_registro' => 'item',
                     'id_item' => $idItemEnvase,
                     'cantidad' => $cantidad,
                     'referencia' => $referencia,
                     'created_by' => $idUsuario,
                     'operacion_uuid' => $operacionUuid,
-                    'id_almacen_origen' => $tipoOperacion === 'ENTREGA_LLENO' ? $idAlmacen : 0,
-                    'id_almacen_destino' => $tipoOperacion === 'RECEPCION_VACIO' ? $idAlmacen : 0,
+                    'id_almacen_origen' => 0, // Es entrada, no tiene origen
+                    'id_almacen_destino' => $idAlmacen,
                 ];
 
                 $inventarioModel->registrarMovimiento($datosKardex);

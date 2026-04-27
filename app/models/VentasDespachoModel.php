@@ -251,41 +251,39 @@ class VentasDespachoModel extends Modelo
             if (!empty($envasesDevueltos) && is_array($envasesDevueltos)) {
                 $idCliente = (int) ($documento['id_cliente'] ?? 0);
                 if ($idCliente > 0) {
-                    $operacionUuid = bin2hex(random_bytes(8));
-                    $usaFechaMovimiento = $this->ctaCteEnvasesTieneColumna($db, 'fecha_movimiento');
                     
-                    $sqlCtaCteVacio = 'INSERT INTO cta_cte_envases (id_tercero, id_item_envase, tipo_operacion, cantidad, id_venta, observaciones';
-                    $sqlCtaCteVacio .= $usaFechaMovimiento ? ', fecha_movimiento' : '';
-                    $sqlCtaCteVacio .= ') VALUES (:id_tercero, :id_item_envase, :tipo_operacion, :cantidad, :id_venta, :observaciones';
+                    // 1. Instanciamos el modelo correcto para respetar la lógica del Kardex
+                    require_once BASE_PATH . '/app/models/inventario/ControlEnvasesModel.php';
+                    $controlEnvasesModel = new ControlEnvasesModel();
                     
-                    if ($usaFechaMovimiento) {
-                        $sqlCtaCteVacio .= $fechaDespachoHora ? ', :fecha_movimiento' : ', NOW()';
+                    // 2. Necesitamos saber a qué almacén físico ingresarán estos envases.
+                    // Tomaremos el mismo almacén desde donde se despachó la mercadería.
+                    $idAlmacenReceptor = !empty($despachosAgrupados) ? array_key_first($despachosAgrupados) : 0;
+                    
+                    // Fallback de seguridad por si no hay almacén en el array
+                    if ($idAlmacenReceptor <= 0) {
+                        $idAlmacenReceptor = (int) $db->query('SELECT id FROM almacenes WHERE estado = 1 AND deleted_at IS NULL LIMIT 1')->fetchColumn();
                     }
-                    $sqlCtaCteVacio .= ')';
-                    
-                    $stmtCtaCteVacio = $db->prepare($sqlCtaCteVacio);
 
                     foreach ($envasesDevueltos as $envDevuelto) {
                         $idEnvase = (int) ($envDevuelto['id_envase'] ?? 0);
-                        $cantVacia = (float) ($envDevuelto['cantidad'] ?? 0);
+                        $cantVacia = (int) ($envDevuelto['cantidad'] ?? 0); // Lo pasamos a entero por seguridad
 
                         if ($idEnvase > 0 && $cantVacia > 0) {
-                            $obsFinalVacio = 'Retorno inmediato por despacho ' . $primerCodigoDespacho . ' | OP:' . $operacionUuid;
+                            $obsFinalVacio = 'Retorno inmediato por despacho ' . $primerCodigoDespacho;
                             
-                            $paramsVacio = [
-                                'id_tercero' => $idCliente,
-                                'id_item_envase' => $idEnvase,
-                                'tipo_operacion' => 'RECEPCION_VACIO', // Se registra como entrada de vacío
-                                'cantidad' => $cantVacia,
-                                'id_venta' => $idDocumento,
-                                'observaciones' => $obsFinalVacio,
-                            ];
-                            
-                            if ($usaFechaMovimiento && $fechaDespachoHora) {
-                                $paramsVacio['fecha_movimiento'] = $fechaDespachoHora;
-                            }
-                            
-                            $stmtCtaCteVacio->execute($paramsVacio);
+                            // 3. ¡Magia! Llamamos a la función que actualiza la Cuenta Corriente Y el Inventario Físico
+                            $controlEnvasesModel->registrarMovimientoConKardex(
+                                $idCliente,
+                                $idEnvase,
+                                'RECEPCION_VACIO',
+                                $cantVacia,
+                                $idDocumento,
+                                $obsFinalVacio,
+                                $userId,
+                                $idAlmacenReceptor,
+                                $fechaDespachoHora
+                            );
                         }
                     }
                 }

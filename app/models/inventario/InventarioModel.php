@@ -1493,4 +1493,25 @@ class InventarioModel extends Modelo
         $stmt->execute([$idItem, $idAlmacen]);
         return (float) ($stmt->fetchColumn() ?: 0.0);
     }
+
+    /**
+     * Obtiene los lotes disponibles de un ítem en un almacén específico
+     */
+    public function listarLotesDisponibles(int $idItem, int $idAlmacen): array
+    {
+        $sql = 'SELECT lote, fecha_vencimiento, stock_lote 
+                FROM inventario_lotes 
+                WHERE id_item = :id_item 
+                  AND id_almacen = :id_almacen 
+                  AND stock_lote > 0 
+                ORDER BY (fecha_vencimiento IS NULL) ASC, fecha_vencimiento ASC';
+                
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute([
+            'id_item' => $idItem, 
+            'id_almacen' => $idAlmacen
+        ]);
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 }
