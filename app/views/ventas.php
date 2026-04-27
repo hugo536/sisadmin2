@@ -371,7 +371,7 @@ $formatearFechaDMY = static function ($fecha): string {
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-info text-white border-bottom-0 pb-4">
-                <h5 class="modal-title fw-bold"><i class="bi bi-truck me-2"></i>Despachar Pedido</h5>
+                <h5 class="modal-title fw-bold d-flex flex-wrap align-items-center gap-2"><span><i class="bi bi-truck me-2"></i>Despachar Pedido</span><small id="despachoClienteNombre" class="fw-semibold text-white-50"></small></h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">

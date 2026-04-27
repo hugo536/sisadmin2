@@ -137,6 +137,10 @@
     const modalDevolucionVentaEl = document.getElementById('modalDevolucionVenta');
     const modalDevolucionVenta = modalDevolucionVentaEl ? new bootstrap.Modal(modalDevolucionVentaEl, { focus: false }) : null;
 
+    modalDespachoEl?.addEventListener('hidden.bs.modal', () => {
+        if (despachoClienteNombre) despachoClienteNombre.textContent = '';
+    });
+
     // Endurecer limpieza de estado visual para evitar "pantalla bloqueada" por
     // backdrops huérfanos o body con clases de scroll-lock cuando el modal cierra.
     modalVentaEl?.addEventListener('hidden.bs.modal', () => {
@@ -171,6 +175,7 @@
     const despachoDocumentoId = document.getElementById('despachoDocumentoId');
     const despachoObservaciones = document.getElementById('despachoObservaciones');
     const cerrarForzado = document.getElementById('cerrarForzado');
+    const despachoClienteNombre = document.getElementById('despachoClienteNombre');
 
     // --- NUEVO: VARIABLES DE TESORERÍA Y COBRO INMEDIATO ---
     const cuentasDisponibles = window.TESORERIA_CUENTAS || [];
@@ -1112,6 +1117,11 @@
         despachoObservaciones.value = '';
         cerrarForzado.checked = false;
         tbodyDespacho.innerHTML = '';
+
+        if (despachoClienteNombre) {
+            const cliente = String(venta.cliente || '').trim();
+            despachoClienteNombre.textContent = cliente ? `- ${cliente}` : '';
+        }
         
         // --- NUEVO: Resetear estado de envases ---
         envasesRequeridosActuales = [];
