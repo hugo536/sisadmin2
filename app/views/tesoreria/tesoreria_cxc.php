@@ -7,9 +7,9 @@ $clientes = $clientes ?? [];
 
 // CAMBIO: Ordenamiento de los registros
 usort($registros, function($a, $b) {
-    // 1. Extraemos las fechas (si no hay, la mandamos al final)
-    $fechaA = strtotime($a['fecha_vencimiento'] ?? '9999-12-31');
-    $fechaB = strtotime($b['fecha_vencimiento'] ?? '9999-12-31');
+    // 1. Extraemos las fechas (si no hay, la mandamos al final como más antiguas)
+    $fechaA = strtotime((string) ($a['fecha_vencimiento'] ?? '')) ?: 0;
+    $fechaB = strtotime((string) ($b['fecha_vencimiento'] ?? '')) ?: 0;
     
     // 2. Si las fechas son iguales, ordenamos por número de documento (descendente)
     if ($fechaA === $fechaB) {
@@ -18,8 +18,8 @@ usort($registros, function($a, $b) {
         return $docB <=> $docA;
     }
     
-    // 3. Si son distintas, ordenamos por fecha (ascendente)
-    return $fechaA <=> $fechaB;
+    // 3. Si son distintas, ordenamos por fecha (descendente: más reciente primero)
+    return $fechaB <=> $fechaA;
 });
 
 $badge = static function (string $estado): string {
