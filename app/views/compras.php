@@ -342,9 +342,12 @@ $estadoLabels = [
                     <div class="col-md-6">
                         <label class="form-label fw-bold small text-muted">Resolución con el Proveedor <span class="text-danger">*</span></label>
                         <select id="devolucionResolucion" class="form-select border-warning-subtle" required>
-                            <option value="descuento_cxp" selected>Nota de Crédito (Descontar de la deuda / Saldo a favor)</option>
-                            <option value="reembolso_dinero">Reembolso en efectivo / Transferencia</option>
+                            <option value="descuento_cxp" selected>Aplicar NOTA DE CRÉDITO (baja tu deuda con el proveedor)</option>
+                            <option value="reembolso_dinero">Pedir REEMBOLSO (el proveedor te devuelve dinero)</option>
                         </select>
+                        <div id="devolucionResolucionHint" class="form-text text-secondary mt-1">
+                            ✅ Recomendado cuando tienes facturas pendientes: reduce tu cuenta por pagar automáticamente.
+                        </div>
                     </div>
                 </div>
 
