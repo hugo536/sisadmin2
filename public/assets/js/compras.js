@@ -5,6 +5,7 @@
     const devolucionOrdenId = document.getElementById('devolucionOrdenId');
     const devolucionMotivo = document.getElementById('devolucionMotivo');
     const devolucionResolucion = document.getElementById('devolucionResolucion');
+    const devolucionResolucionHint = document.getElementById('devolucionResolucionHint');
     const tbodyDevolucion = document.querySelector('#tablaDetalleDevolucion tbody');
     const devolucionTotal = document.getElementById('devolucionTotal');
     const btnConfirmarDevolucion = document.getElementById('btnConfirmarDevolucion');
@@ -24,6 +25,20 @@
     };
 
     const cacheUnidades = new Map();
+
+    function actualizarHintResolucionDevolucion() {
+        if (!devolucionResolucionHint || !devolucionResolucion) return;
+
+        const resolucion = devolucionResolucion.value;
+        if (resolucion === 'descuento_cxp') {
+            devolucionResolucionHint.textContent = '✅ Recomendado cuando tienes facturas pendientes: reduce tu cuenta por pagar automáticamente.';
+            devolucionResolucionHint.className = 'form-text text-secondary mt-1';
+            return;
+        }
+
+        devolucionResolucionHint.textContent = '💸 Úsalo cuando el proveedor te devolverá dinero (caja/transferencia). No descuenta la deuda automáticamente.';
+        devolucionResolucionHint.className = 'form-text text-secondary mt-1';
+    }
 
     async function esperarTomSelect(maxIntentos = 20, esperaMs = 150) {
         for (let i = 0; i < maxIntentos; i++) {
@@ -697,6 +712,10 @@
 
             devolucionOrdenId.value = orden.id;
             devolucionMotivo.value = '';
+            if (devolucionResolucion) {
+                devolucionResolucion.value = 'descuento_cxp';
+                actualizarHintResolucionDevolucion();
+            }
             tbodyDevolucion.innerHTML = '';
             devolucionTotal.textContent = 'S/ 0.00';
 
@@ -993,6 +1012,9 @@
             }
         });
     }
+
+    devolucionResolucion?.addEventListener('change', actualizarHintResolucionDevolucion);
+    actualizarHintResolucionDevolucion();
 
     tbodyTabla.addEventListener('click', async (e) => {
         const target = e.target.closest('button');
