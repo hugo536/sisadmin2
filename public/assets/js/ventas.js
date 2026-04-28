@@ -1130,13 +1130,23 @@
 
         // Configurar Fecha de Despacho
         if (despachoFecha) {
-            despachoFecha.value = obtenerFechaLocalISO(); // Siempre "hoy" por defecto
-            
-            // Extraer solo la parte "YYYY-MM-DD" de la fecha de creación para el límite mínimo
+            const hoy = obtenerFechaLocalISO();
+            let fechaMinima = '';
+
+            // Extraer solo la parte "YYYY-MM-DD" de la fecha de creación o emisión
             if (venta.created_at) {
-                despachoFecha.min = venta.created_at.substring(0, 10);
+                fechaMinima = venta.created_at.substring(0, 10);
             } else if (venta.fecha_emision) {
-                despachoFecha.min = venta.fecha_emision;
+                fechaMinima = String(venta.fecha_emision).split(' ')[0];
+            }
+
+            if (fechaMinima) {
+                despachoFecha.min = fechaMinima;
+                // Si por alguna razón (zona horaria o error de PC) "hoy" es menor que la mínima, forzamos la mínima
+                despachoFecha.value = hoy < fechaMinima ? fechaMinima : hoy;
+            } else {
+                despachoFecha.removeAttribute('min'); // Limpiamos por seguridad
+                despachoFecha.value = hoy;
             }
         }
 

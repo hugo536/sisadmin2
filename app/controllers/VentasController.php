@@ -430,6 +430,17 @@ class VentasController extends Controlador
             }
 
             $userId = $this->obtenerUsuarioId(); 
+
+            // --- TOQUE DE ORO: VALIDACIÓN ESTRICTA DE FECHAS EN BACKEND ---
+            $ventaData = $this->documentoModel->obtener($idDocumento);
+            if (!empty($ventaData['fecha_emision'])) {
+                // Extraemos solo el YYYY-MM-DD
+                $fechaEmisionSoloDia = explode(' ', $ventaData['fecha_emision'])[0];
+                if ($fechaDespacho < $fechaEmisionSoloDia) {
+                    throw new RuntimeException("Error: La fecha de despacho ($fechaDespacho) no puede ser anterior a la emisión del pedido ($fechaEmisionSoloDia).");
+                }
+            }
+            // --------------------------------------------------------------
             
             $this->documentoModel->guardarDespacho($idDocumento, $detalle, $observaciones, $cerrarForzado, $userId, $fechaDespacho, $envasesDevueltos);
             
