@@ -4,7 +4,14 @@ declare(strict_types=1);
 
 class ComprasRecepcionModel extends Modelo
 {
-    public function registrarRecepcion(int $idOrden, array $detalleIngreso, bool $cerrarForzado, int $userId): int
+    public function registrarRecepcion(
+        int $idOrden,
+        array $detalleIngreso,
+        bool $cerrarForzado,
+        int $userId,
+        string $fechaRecepcion = '',
+        string $observaciones = ''
+    ): int
     {
         $db = $this->db();
         $db->beginTransaction();
@@ -15,8 +22,8 @@ class ComprasRecepcionModel extends Modelo
                 throw new RuntimeException('La orden no existe o no está en estado válido para recepcionar.');
             }
 
-            // Usamos la fecha en que se emitió la orden como la fecha del documento real
-            $fechaDocumento = $orden['fecha_emision'] ?? date('Y-m-d'); 
+            $fechaDocumento = $this->normalizarFechaRecepcion($fechaRecepcion);
+            $observaciones = trim($observaciones);
 
             if (!$this->proveedorActivo($db, (int) $orden['id_proveedor'])) {
                 throw new RuntimeException('No se puede recepcionar: el proveedor está inactivo.');
@@ -34,13 +41,14 @@ class ComprasRecepcionModel extends Modelo
                             codigo, id_orden_compra, id_almacen, fecha_recepcion,
                             created_by, updated_by, created_at, updated_at
                           ) VALUES (
-                            :codigo, :id_orden, :id_almacen, NOW(),
+                            :codigo, :id_orden, :id_almacen, :fecha_recepcion,
                             :created_by, :updated_by, NOW(), NOW()
                           )';
             $db->prepare($sqlRecep)->execute([
                 'codigo' => $codigo,
                 'id_orden' => $idOrden,
                 'id_almacen' => $idAlmacenPrincipal,
+                'fecha_recepcion' => $fechaDocumento,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ]);
@@ -103,6 +111,9 @@ class ComprasRecepcionModel extends Modelo
 
                 $codigoOrdenStr = (string) ($orden['codigo'] ?? $idOrden);
                 $referencia = 'Recepción ' . $codigo . ' - OC ' . $codigoOrdenStr . ' | Ingreso: ' . $cantidadBase . ' UND';
+                if ($observaciones !== '') {
+                    $referencia .= ' | Obs: ' . mb_substr($observaciones, 0, 120);
+                }
 
                 $stmtMov->execute([
                     'tipo_movimiento' => 'COM',
@@ -204,6 +215,15 @@ class ComprasRecepcionModel extends Modelo
         if (abs($valor) < 0.0000001) return '0';
         $texto = rtrim(rtrim(number_format($valor, 4, '.', ''), '0'), '.');
         return $texto === '' ? '0' : $texto;
+    }
+
+    private function normalizarFechaRecepcion(string $fecha): string
+    {
+        $fecha = trim($fecha);
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            return date('Y-m-d');
+        }
+        return $fecha;
     }
 
     private function actualizarStock(PDO $db, int $idItem, int $idAlmacen, float $cantidadBase): void

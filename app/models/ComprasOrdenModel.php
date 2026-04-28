@@ -68,13 +68,15 @@ class ComprasOrdenModel extends Modelo
 
     public function obtener(int $id): array
     {
-        $sql = 'SELECT id, codigo, id_proveedor, 
+        $sql = 'SELECT o.id, o.codigo, o.id_proveedor,
+                       t.nombre_completo AS proveedor,
                        fecha_emision AS fecha_orden, 
                        fecha_entrega_estimada AS fecha_entrega, 
                        observaciones, subtotal, total, estado
-                FROM compras_ordenes
-                WHERE id = :id
-                  AND deleted_at IS NULL
+                FROM compras_ordenes o
+                INNER JOIN terceros t ON t.id = o.id_proveedor AND t.deleted_at IS NULL
+                WHERE o.id = :id
+                  AND o.deleted_at IS NULL
                 LIMIT 1';
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id' => $id]);
@@ -83,6 +85,7 @@ class ComprasOrdenModel extends Modelo
         if (!$orden) {
             return [];
         }
+        $orden['fecha_recepcion_sugerida'] = date('Y-m-d');
 
         // AGREGAMOS: cantidad_recibida, cantidad_pendiente, cantidad_unidad y unidad_base
         $detalleSql = 'SELECT d.id,

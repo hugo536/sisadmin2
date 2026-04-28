@@ -300,7 +300,10 @@ $formatearFechaDMY = static function ($fecha): string {
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-info text-white border-bottom-0 pb-4">
-                <h5 class="modal-title fw-bold"><i class="bi bi-box-seam me-2"></i>Recepcionar Mercadería</h5>
+                <h5 class="modal-title fw-bold d-flex flex-wrap align-items-center gap-2">
+                    <span><i class="bi bi-box-seam me-2"></i>Recepcionar Mercadería</span>
+                    <small id="recepcionProveedorNombre" class="fw-semibold text-white-50"></small>
+                </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
@@ -313,24 +316,47 @@ $formatearFechaDMY = static function ($fecha): string {
                     <?php endforeach; ?>
                 </select>
 
-                <div class="alert alert-info d-flex align-items-center mb-4 shadow-sm border-0 rounded-3">
-                    <i class="bi bi-info-circle-fill me-3 fs-4"></i>
-                    <div>
-                        <strong>Modo Recepción Parcial:</strong> Puede editar la cantidad a ingresar. Si recibe menos de lo pedido, la orden quedará abierta a menos que fuerce el cierre.
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-4">
+                                <label for="recepcionFecha" class="form-label text-muted small fw-bold mb-1">Fecha de Recepción <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-secondary-subtle"><i class="bi bi-calendar-check text-muted"></i></span>
+                                    <input type="date" class="form-control border-secondary-subtle" id="recepcionFecha" value="<?php echo date('Y-m-d'); ?>" required>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <label for="recepcionObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones / Guía de Remisión</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-secondary-subtle"><i class="bi bi-file-earmark-text text-muted"></i></span>
+                                    <input type="text" class="form-control border-secondary-subtle" id="recepcionObservaciones" maxlength="180" placeholder="Opcional - Ingresar número de guía">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0 px-3 pt-3 pb-2 d-flex flex-wrap align-items-center gap-2">
+                        <h6 class="fw-bold text-dark mb-0">Detalle de Productos</h6>
+                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle fw-medium px-2 py-1">
+                            <i class="bi bi-info-circle me-1"></i>Modo Recepción Parcial: Puede editar la cantidad a ingresar
+                        </span>
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1">
+                            <i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico
+                        </span>
+                    </div>
                     <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table align-middle mb-0 table-pro" id="tablaDetalleRecepcion">
+                        <div class="table-responsive border rounded-3 mb-0">
+                            <table class="table table-sm align-middle mb-0 table-pro table-pastel" id="tablaDetalleRecepcion">
                                 <thead>
                                     <tr>
-                                        <th class="ps-3 text-secondary col-min-w-300">Producto / Pedido</th>
-                                        <th class="text-center text-secondary col-w-250">Almacén Destino</th>
-                                        <th class="text-center text-secondary col-w-100">Pendiente</th>
-                                        <th class="text-end pe-3 text-secondary col-w-160">A Ingresar (Base)</th>
-                                        <th class="text-center text-secondary col-w-80">Acciones</th>
+                                        <th class="ps-3 text-secondary col-min-w-300 py-2">Producto / Pedido</th>
+                                        <th class="text-center text-secondary col-w-250 py-2">Almacén Destino</th>
+                                        <th class="text-center text-secondary col-w-100 py-2">Pendiente</th>
+                                        <th class="text-center text-secondary col-w-160 py-2">A Ingresar (Base)</th>
+                                        <th class="text-center text-secondary col-w-80 py-2">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white"></tbody>
