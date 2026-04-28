@@ -202,8 +202,8 @@ $formatearFechaDMY = static function ($fecha): string {
                                 </div>
                                 
                                 <div class="col-md-3">
-                                    <label for="fechaEntrega" class="form-label text-muted small fw-bold mb-1">Fecha Entrega Est. <span class="text-danger">*</span></label>
-                                    <input type="date" class="form-control" id="fechaEntrega" required>
+                                    <label for="fechaEntrega" class="form-label text-muted small fw-bold mb-1">Fecha Emisión <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control shadow-none" id="fechaEntrega" value="<?php echo date('Y-m-d'); ?>" required>
                                 </div>
 
                                 <div class="col-md-3">
@@ -230,15 +230,15 @@ $formatearFechaDMY = static function ($fecha): string {
                             </div>
                             
                             <div class="table-responsive">
-                                <table class="table align-middle mb-0 table-pro" id="tablaDetalleCompra">
-                                    <thead>
+                                <table class="table table-sm align-middle mb-0 table-pro table-pastel" id="tablaDetalleCompra">
+                                    <thead class="table-light border-bottom">
                                         <tr>
-                                            <th class="ps-3 text-secondary col-min-w-320">Ítem / Producto</th>
-                                            <th class="text-secondary text-center col-w-140">Cantidad</th>
-                                            <th class="text-secondary text-center col-w-160">Costo Unit.</th>
-                                            <th class="text-secondary text-center col-w-200">Centro de Costo</th>
-                                            <th class="text-end text-secondary col-w-150">Subtotal</th>
-                                            <th class="text-center col-w-60"></th>
+                                            <th class="ps-3 text-secondary col-min-w-320 py-2">Ítem / Producto</th>
+                                            <th class="text-secondary text-center col-w-140 py-2">Cantidad</th>
+                                            <th class="text-secondary text-center col-w-160 py-2">Costo Unit.</th>
+                                            <th class="text-secondary text-center col-w-200 py-2">Centro de Costo</th>
+                                            <th class="text-end text-secondary col-w-150 py-2">Subtotal</th>
+                                            <th class="text-center col-w-60 py-2"></th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white"></tbody>
@@ -249,21 +249,28 @@ $formatearFechaDMY = static function ($fecha): string {
                                                     <i class="bi bi-plus-lg me-1"></i>Agregar Ítem
                                                 </button>
                                             </td>
-                                            <td class="text-end fw-bold py-2 text-secondary align-middle border-bottom-0">SUBTOTAL:</td>
-                                            <td class="text-end fw-bold py-2 text-dark align-middle border-bottom-0" id="ordenSubtotal">S/ 0.00</td>
-                                            <td class="border-bottom-0"></td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="3" class="border-0"></td>
-                                            <td class="text-end fw-bold py-2 text-secondary align-middle border-bottom-0">IGV (18%):</td>
-                                            <td class="text-end fw-bold py-2 text-dark align-middle border-bottom-0" id="ordenIgv">S/ 0.00</td>
-                                            <td class="border-bottom-0"></td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="3" class="border-0"></td>
-                                            <td class="text-end fw-bold py-3 text-secondary align-middle">TOTAL ORDEN:</td>
-                                            <td class="text-end fw-bold py-3 fs-4 text-primary align-middle" id="ordenTotal">S/ 0.00</td>
-                                            <td></td>
+                                            <td colspan="3" class="pe-4 py-3 align-middle border-bottom-0">
+                                                <div class="d-flex flex-wrap justify-content-end align-items-center gap-3 gap-md-4">
+                                                    <div class="d-flex flex-column text-end">
+                                                        <span class="text-muted small fw-bold mb-1">SUBTOTAL</span>
+                                                        <span class="text-dark fw-bold" id="ordenSubtotal">S/ 0.00</span>
+                                                    </div>
+                                                    
+                                                    <div class="vr d-none d-sm-block bg-secondary opacity-25" style="width: 2px;"></div>
+                                                    
+                                                    <div class="d-flex flex-column text-end">
+                                                        <span class="text-muted small fw-bold mb-1">IGV (18%)</span>
+                                                        <span class="text-dark fw-bold" id="ordenIgv">S/ 0.00</span>
+                                                    </div>
+                                                    
+                                                    <div class="vr d-none d-sm-block bg-secondary opacity-25" style="width: 2px;"></div>
+                                                    
+                                                    <div class="d-flex flex-column text-end">
+                                                        <span class="text-secondary small fw-bold mb-1">TOTAL ORDEN</span>
+                                                        <span class="text-primary fw-bold fs-5 lh-1" id="ordenTotal">S/ 0.00</span>
+                                                    </div>
+                                                </div>
+                                            </td>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -273,9 +280,17 @@ $formatearFechaDMY = static function ($fecha): string {
                     <div class="form-text mt-2 ms-2"><i class="bi bi-info-circle me-1 text-primary"></i> Asegúrese de revisar la configuración de impuestos.</div>
                 </form>
             </div>
-            <div class="modal-footer bg-white border-top-0">
-                <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-primary px-4 fw-bold" id="btnGuardarOrden"><i class="bi bi-save me-2"></i>Guardar Orden</button>
+            <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="form-check form-switch m-0 ps-5" id="switchCobroContainerCompra">
+                    <input class="form-check-input" type="checkbox" id="switchCobroInmediatoCompra" style="cursor: pointer;">
+                    <label class="form-check-label fw-bold text-primary small" for="switchCobroInmediatoCompra" style="cursor: pointer;">
+                        Cobrar Al Contado (Inmediato)
+                    </label>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-light text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-primary px-4 fw-bold" id="btnGuardarOrden"><i class="bi bi-save me-2"></i>Guardar Orden</button>
+                </div>
             </div>
         </div>
     </div>

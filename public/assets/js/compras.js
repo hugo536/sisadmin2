@@ -99,6 +99,8 @@
     const btnGuardarOrden = document.getElementById('btnGuardarOrden');
     const tituloModalOrden = document.querySelector('#modalOrdenCompra .modal-title');
     const btnAgregarFila = document.getElementById('btnAgregarFila');
+    const switchCobroContainerCompra = document.getElementById('switchCobroContainerCompra');
+    const switchCobroInmediatoCompra = document.getElementById('switchCobroInmediatoCompra');
 
     // --- VARIABLES RECEPCIÓN PARCIAL / MULTI-ALMACÉN ---
     const modalRecepcionEl = document.getElementById('modalRecepcionCompra');
@@ -133,6 +135,14 @@
         const parsedId = Number(id || 0);
         ordenEnEdicionId = Number.isFinite(parsedId) ? parsedId : 0;
         ordenId.value = String(ordenEnEdicionId);
+    }
+
+    function obtenerFechaLocalISO() {
+        const ahora = new Date();
+        const year = ahora.getFullYear();
+        const month = String(ahora.getMonth() + 1).padStart(2, '0');
+        const day = String(ahora.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
     function formatearCantidadRecepcion(valor) {
@@ -556,6 +566,14 @@
             btnAgregarFila.disabled = deshabilitar;
         }
 
+        if (switchCobroContainerCompra) {
+            switchCobroContainerCompra.style.display = deshabilitar ? 'none' : 'block';
+        }
+        if (switchCobroInmediatoCompra) {
+            switchCobroInmediatoCompra.disabled = deshabilitar;
+            if (deshabilitar) switchCobroInmediatoCompra.checked = false;
+        }
+
         btnGuardarOrden.style.display = deshabilitar ? 'none' : 'block';
     }
 
@@ -571,6 +589,8 @@
 
         tbodyDetalle.innerHTML = '';
         ordenTotal.textContent = 'S/ 0.00';
+        fechaEntrega.value = obtenerFechaLocalISO();
+        if (switchCobroInmediatoCompra) switchCobroInmediatoCompra.checked = false;
         setModoSoloLectura(false, 0);
     }
 
@@ -868,7 +888,7 @@
     // --- EVENTOS PRINCIPALES ---
     btnGuardarOrden.addEventListener('click', async () => {
         if (!idProveedor.value) return Swal.fire('Falta Proveedor', 'Debe seleccionar un proveedor.', 'warning');
-        if (!fechaEntrega.value) return Swal.fire('Falta Fecha', 'La fecha de entrega estimada es obligatoria.', 'warning');
+        if (!fechaEntrega.value) return Swal.fire('Falta Fecha', 'La fecha de emisión es obligatoria.', 'warning');
 
         const detalle = [];
         let errorDetalle = false;
@@ -1145,4 +1165,8 @@
             recargarPagina();
         }
     });
+
+    if (fechaEntrega && !fechaEntrega.value) {
+        fechaEntrega.value = obtenerFechaLocalISO();
+    }
 })();
