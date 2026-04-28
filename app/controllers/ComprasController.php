@@ -308,16 +308,15 @@ class ComprasController extends Controlador
 
         if (!es_ajax()) {
             json_response(['ok' => false, 'mensaje' => 'Solicitud inválida.'], 400);
-            return;
+            return; // Aquí está bien usar return porque no hay html que se renderice después
         }
 
         try {
             $payload = $this->leerJson();
             $idOrden = (int) ($payload['id_orden'] ?? 0);
             
-            // Recibimos los nuevos parámetros configurados en JS
             $detalleIngreso = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
-            $cerrarForzado = !empty($payload['cerrar_forzado']); // Convertimos a booleano
+            $cerrarForzado = !empty($payload['cerrar_forzado']); 
             $fechaRecepcion = trim((string) ($payload['fecha_recepcion'] ?? ''));
             $observaciones = trim((string) ($payload['observaciones'] ?? ''));
             
@@ -331,7 +330,19 @@ class ComprasController extends Controlador
                 throw new RuntimeException('Debe proporcionar el detalle de productos a ingresar.');
             }
 
-            // Llamamos a la nueva función del modelo con los parámetros
+            // --- TOQUE DE ORO: VALIDACIÓN ESTRICTA DE FECHAS EN BACKEND ---
+            if (!empty($fechaRecepcion)) {
+                $ordenData = $this->ordenModel->obtener($idOrden);
+                if (!empty($ordenData['fecha_orden'])) {
+                    // Extraemos solo el YYYY-MM-DD por si viene con horas
+                    $fechaOrdenSoloDia = explode(' ', $ordenData['fecha_orden'])[0];
+                    if ($fechaRecepcion < $fechaOrdenSoloDia) {
+                        throw new RuntimeException("Error: La fecha de recepción ($fechaRecepcion) no puede ser anterior a la emisión del pedido ($fechaOrdenSoloDia).");
+                    }
+                }
+            }
+            // --------------------------------------------------------------
+
             $idRecepcion = $this->recepcionModel->registrarRecepcion(
                 $idOrden,
                 $detalleIngreso,
@@ -341,7 +352,6 @@ class ComprasController extends Controlador
                 $observaciones
             );
 
-            // Generamos la CxP (Cuentas por Pagar) enlazada a esta recepción
             $this->tesoreriaCxpModel->crearDesdeRecepcion($idRecepcion, $userId);
 
             json_response([

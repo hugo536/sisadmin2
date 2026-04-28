@@ -614,16 +614,29 @@
 
             recepcionOrdenId.value = orden.id;
             cerrarForzadoRecepcion.checked = false;
+            
             if (recepcionProveedorNombre) {
                 const proveedor = String(orden.proveedor || '').trim();
                 recepcionProveedorNombre.textContent = proveedor ? `- ${proveedor}` : '';
             }
+            
             if (recepcionFecha) {
                 recepcionFecha.value = orden.fecha_recepcion_sugerida || obtenerFechaLocalISO();
+                
+                // NUEVO: Bloquear fechas anteriores a la fecha de la orden
+                if (orden.fecha_orden) {
+                    // Extraemos solo la fecha (YYYY-MM-DD) ignorando las horas si las hubiera
+                    const fechaMinima = String(orden.fecha_orden).split(' ')[0];
+                    recepcionFecha.min = fechaMinima;
+                } else {
+                    recepcionFecha.removeAttribute('min'); // Limpiar por seguridad
+                }
             }
+            
             if (recepcionObservaciones) {
                 recepcionObservaciones.value = '';
             }
+            
             tbodyRecepcion.innerHTML = '';
 
             const detalle = Array.isArray(orden.detalle) ? orden.detalle : [];
@@ -632,6 +645,7 @@
                     agregarFilaRecepcion(linea, null);
                 }
             });
+            
             if (tbodyRecepcion.children.length === 0) {
                 Swal.fire('Aviso', 'Esta orden ya no tiene cantidades pendientes por recepcionar.', 'info');
                 return;
