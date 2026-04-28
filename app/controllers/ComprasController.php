@@ -55,20 +55,24 @@ class ComprasController extends Controlador
                     throw new RuntimeException('Faltan datos obligatorios para la devolución.');
                 }
 
-                // Llamamos a una nueva función en el modelo
+                // NUEVO: Capturamos la decisión logística (por defecto true por seguridad)
+                $esperarReemplazo = isset($payload['esperar_reemplazo']) ? (bool) $payload['esperar_reemplazo'] : true;
+
+                // Llamamos al modelo pasando el nuevo parámetro al final
                 $this->ordenModel->registrarDevolucion(
                     (int) $payload['id_orden'], 
                     $payload['motivo'], 
                     $payload['resolucion'], 
                     $payload['detalle'], 
-                    $userId
+                    $userId,
+                    $esperarReemplazo // <-- AQUÍ PASAMOS EL DATO
                 );
 
                 json_response(['ok' => true, 'mensaje' => 'Devolución registrada correctamente. La cuenta por pagar y el inventario han sido actualizados.']);
             } catch (Throwable $e) {
                 json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
             }
-            exit; // <-- FIX: Usar exit en lugar de return
+            exit; 
         }
 
         // Listar AJAX

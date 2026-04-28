@@ -531,7 +531,7 @@ class ComprasOrdenModel extends Modelo
         }
     }
 
-    public function registrarDevolucion(int $idOrden, string $motivo, string $resolucion, array $detalle, int $userId): void
+    public function registrarDevolucion(int $idOrden, string $motivo, string $resolucion, array $detalle, int $userId, bool $esperarReemplazo = true): void
     {
         $db = $this->db();
         $db->beginTransaction();
@@ -555,9 +555,7 @@ class ComprasOrdenModel extends Modelo
                 throw new RuntimeException('Debe indicar cómo se resolverá la devolución con el proveedor.');
             }
 
-            // 2) Tomar almacén de referencia (última recepción) para priorizar salidas.
-            // La selección final se recalcula por línea para evitar falsos "stock insuficiente"
-            // cuando el stock real está en otro almacén activo.
+            // 2) Tomar almacén de referencia (última recepción)
             $stmtAlmacen = $db->prepare("SELECT id_almacen FROM compras_recepciones WHERE id_orden_compra = ? ORDER BY id DESC LIMIT 1");
             $stmtAlmacen->execute([$idOrden]);
             $idAlmacenPreferido = (int) $stmtAlmacen->fetchColumn();
@@ -586,18 +584,21 @@ class ComprasOrdenModel extends Modelo
             
             $idDevolucion = (int) $db->lastInsertId();
 
-            // 4) Dependencias necesarias para vincular inventario/kardex.
+            // 4) Dependencias necesarias
             require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
             $inventarioModel = new InventarioModel();
 
-            // 5) Insertar detalle + validar contra lo realmente recepcionado + salida de inventario
+            // 5) Insertar detalle + validar en BD + Seguridad de costo
             $sqlDet = "INSERT INTO compras_devoluciones_detalle (id_devolucion, id_item, id_item_unidad, cantidad, cantidad_base, costo_unitario, subtotal)
                        VALUES (:id_dev, :id_item, :id_unidad, :cant, :cant_base, :costo, :subtotal)";
             $stmtDet = $db->prepare($sqlDet);
-            $stmtOrdenDetalle = $db->prepare("SELECT id_item, COALESCE(cantidad_recibida, 0) AS cantidad_recibida, id_centro_costo 
+            
+            $stmtOrdenDetalle = $db->prepare("SELECT id_item, COALESCE(cantidad_recibida, 0) AS cantidad_recibida, id_centro_costo,
+                                                     costo_unitario_pactado, COALESCE(factor_conversion_aplicado, 1) AS factor_conversion_aplicado
                                               FROM compras_ordenes_detalle 
                                               WHERE id = :id_det AND id_orden = :id_orden AND deleted_at IS NULL
                                               LIMIT 1");
+                                              
             $stmtUpdateOrdenDet = $db->prepare("UPDATE compras_ordenes_detalle 
                                                 SET cantidad_recibida = cantidad_recibida - :cant_base
                                                 WHERE id = :id_doc_det");
@@ -607,13 +608,9 @@ class ComprasOrdenModel extends Modelo
                 $idItemLinea = (int) ($linea['id_item'] ?? 0);
                 $cantidadInput = (float) ($linea['cantidad_input'] ?? 0);
                 $cantidadBase = (float) ($linea['cantidad_base'] ?? 0);
-                $costoBase = (float) ($linea['costo_base'] ?? 0);
 
                 if ($idDetalleOrden <= 0 || $idItemLinea <= 0 || $cantidadInput <= 0 || $cantidadBase <= 0) {
                     throw new RuntimeException('Una línea de devolución no tiene datos válidos.');
-                }
-                if ($costoBase < 0) {
-                    throw new RuntimeException('El costo de devolución no puede ser negativo.');
                 }
 
                 $stmtOrdenDetalle->execute([
@@ -621,6 +618,7 @@ class ComprasOrdenModel extends Modelo
                     'id_orden' => $idOrden,
                 ]);
                 $ordenDet = $stmtOrdenDetalle->fetch(PDO::FETCH_ASSOC);
+                
                 if (!$ordenDet) {
                     throw new RuntimeException('No se encontró una línea de orden asociada a la devolución.');
                 }
@@ -633,9 +631,14 @@ class ComprasOrdenModel extends Modelo
                     throw new RuntimeException('No puede devolver más cantidad que la ya recepcionada.');
                 }
 
+                // CÁLCULO SEGURO DEL COSTO BASE 
+                $costoPactadoBD = (float) ($ordenDet['costo_unitario_pactado'] ?? 0);
+                $factorAplicadoBD = (float) ($ordenDet['factor_conversion_aplicado'] ?? 1);
+                $costoBaseSeguro = $factorAplicadoBD > 0 ? ($costoPactadoBD / $factorAplicadoBD) : $costoPactadoBD;
+
                 $idAlmacenOrigen = $this->resolverAlmacenOrigenDevolucion($db, $idItemLinea, $cantidadBase, $idAlmacenPreferido);
 
-                $subtotalLinea = $cantidadBase * $costoBase;
+                $subtotalLinea = $cantidadBase * $costoBaseSeguro;
                 $totalDevuelto += $subtotalLinea;
 
                 $stmtDet->execute([
@@ -644,7 +647,7 @@ class ComprasOrdenModel extends Modelo
                     'id_unidad' => !empty($linea['id_unidad']) ? (int) $linea['id_unidad'] : null,
                     'cant' => $cantidadInput,
                     'cant_base' => $cantidadBase,
-                    'costo' => $costoBase,
+                    'costo' => $costoBaseSeguro,
                     'subtotal' => $subtotalLinea
                 ]);
 
@@ -660,11 +663,11 @@ class ComprasOrdenModel extends Modelo
                     'id_item_unidad' => !empty($linea['id_unidad']) ? (int) $linea['id_unidad'] : 0,
                     'id_almacen_origen' => $idAlmacenOrigen,
                     'cantidad' => $cantidadBase,
-                    'costo_unitario' => $costoBase,
+                    'costo_unitario' => $costoBaseSeguro,
                     'referencia' => 'Devolución OC ' . $codigoOrden . ' | ' . trim($motivo),
                     'id_centro_costo' => !empty($ordenDet['id_centro_costo']) ? (int) $ordenDet['id_centro_costo'] : null,
                     'created_by' => $userId,
-                    'fecha_documento' => date('Y-m-d'), // <-- AQUÍ AGREGAMOS LA FECHA
+                    'fecha_documento' => date('Y-m-d'),
                 ]);
             }
 
@@ -672,9 +675,10 @@ class ComprasOrdenModel extends Modelo
             $db->prepare("UPDATE compras_devoluciones SET total_devuelto = ? WHERE id = ?")
                ->execute([$totalDevuelto, $idDevolucion]);
 
-            // 7) Ajustar estado de la orden
-            $db->prepare("UPDATE compras_ordenes SET estado = 2, updated_at = NOW() WHERE id = ?")
-               ->execute([$idOrden]);
+            // 7) Ajustar estado de la orden (NUEVA LÓGICA DE SWITCH)
+            $nuevoEstado = $esperarReemplazo ? 2 : 3; // 2 = Aprobada, 3 = Recepcionada (Cerrada)
+            $db->prepare("UPDATE compras_ordenes SET estado = ?, updated_at = NOW() WHERE id = ?")
+               ->execute([$nuevoEstado, $idOrden]);
 
             // 8) Vincular con Tesorería (CxP)
             $this->aplicarAjusteCxpPorDevolucion($db, $idOrden, $resolucion, $totalDevuelto, $userId);
@@ -685,7 +689,6 @@ class ComprasOrdenModel extends Modelo
             throw $e;
         }
     }
-
 
     private function resolverAlmacenOrigenDevolucion(PDO $db, int $idItem, float $cantidadBase, int $idAlmacenPreferido): int
     {

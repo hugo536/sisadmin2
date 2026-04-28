@@ -1069,10 +1069,15 @@
                 const separador = urls.index.includes('?') ? '&' : '?';
                 const urlPost = `${urls.index}${separador}accion=guardar_devolucion`;
 
+                // NUEVO: Capturamos el valor del switch
+                const checkReemplazo = document.getElementById('devolucionEsperarReemplazo');
+                const esperarReemplazo = checkReemplazo ? checkReemplazo.checked : true; // Por defecto true si no lo encuentra
+
                 const payload = {
                     id_orden: Number(devolucionOrdenId.value),
                     motivo: devolucionMotivo.value,
                     resolucion: devolucionResolucion.value,
+                    esperar_reemplazo: esperarReemplazo, // <-- LO ENVIAMOS AL BACKEND
                     detalle: detalle
                 };
 
