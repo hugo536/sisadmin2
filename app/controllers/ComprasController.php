@@ -169,7 +169,9 @@ class ComprasController extends Controlador
             $idOrden = (int) ($payload['id'] ?? 0);
             $idProveedor = (int) ($payload['id_proveedor'] ?? 0);
             
-            $fechaEntrega = !empty($payload['fecha_entrega']) ? trim((string) $payload['fecha_entrega']) : null;
+            $fechaEmision = !empty($payload['fecha_emision'])
+                ? trim((string) $payload['fecha_emision'])
+                : trim((string) ($payload['fecha_entrega'] ?? ''));
             $observaciones = trim((string) ($payload['observaciones'] ?? ''));
             $tipoImpuesto = trim((string) ($payload['tipo_impuesto'] ?? 'incluido'));
             $detalle = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
@@ -178,8 +180,8 @@ class ComprasController extends Controlador
                 throw new RuntimeException('Seleccione un proveedor válido.');
             }
 
-            if (empty($fechaEntrega)) {
-                throw new RuntimeException('La fecha de entrega estimada es obligatoria.');
+            if (empty($fechaEmision)) {
+                throw new RuntimeException('La fecha de emisión es obligatoria.');
             }
 
             if (empty($detalle)) {
@@ -233,7 +235,7 @@ class ComprasController extends Controlador
             $id = $this->ordenModel->crearOActualizar([
                 'id' => $idOrden,
                 'id_proveedor' => $idProveedor,
-                'fecha_entrega' => $fechaEntrega,
+                'fecha_emision' => $fechaEmision,
                 'observaciones' => $observaciones,
                 'tipo_impuesto' => $tipoImpuesto,       
                 'subtotal' => round($subtotal, 4),      

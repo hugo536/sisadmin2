@@ -135,8 +135,10 @@ class ComprasOrdenModel extends Modelo
             $idOrden = (int) ($cabecera['id'] ?? 0);
             $estado = array_key_exists('estado', $cabecera) ? (int) $cabecera['estado'] : 0;
             
-            // Preparar fecha de entrega (puede ser null)
-            $fechaEntrega = !empty($cabecera['fecha_entrega']) ? $cabecera['fecha_entrega'] : null;
+            $fechaEmision = !empty($cabecera['fecha_emision']) ? (string) $cabecera['fecha_emision'] : '';
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaEmision)) {
+                throw new RuntimeException('La fecha de emisión no es válida.');
+            }
 
             if ($idOrden > 0) {
                 $actual = $this->obtener($idOrden);
@@ -149,7 +151,8 @@ class ComprasOrdenModel extends Modelo
                 }
 
                 $sqlUpdate = 'UPDATE compras_ordenes
-                              SET id_proveedor = :id_proveedor,
+                                  SET id_proveedor = :id_proveedor,
+                                  fecha_emision = :fecha_emision,
                                   fecha_entrega_estimada = :fecha_entrega,
                                   observaciones = :observaciones,
                                   tipo_impuesto = :tipo_impuesto,
@@ -165,7 +168,8 @@ class ComprasOrdenModel extends Modelo
                 $db->prepare($sqlUpdate)->execute([
                     'id' => $idOrden,
                     'id_proveedor' => (int) $cabecera['id_proveedor'],
-                    'fecha_entrega' => $fechaEntrega,
+                    'fecha_emision' => $fechaEmision,
+                    'fecha_entrega' => $fechaEmision,
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'tipo_impuesto' => $cabecera['tipo_impuesto'],
                     'subtotal' => (float) $cabecera['subtotal'],
@@ -199,7 +203,7 @@ class ComprasOrdenModel extends Modelo
                               ) VALUES (
                                 :codigo,
                                 :id_proveedor,
-                                NOW(),
+                                :fecha_emision,
                                 :fecha_entrega,
                                 :observaciones,
                                 :tipo_impuesto,
@@ -216,7 +220,8 @@ class ComprasOrdenModel extends Modelo
                 $db->prepare($sqlInsert)->execute([
                     'codigo' => $codigo,
                     'id_proveedor' => (int) $cabecera['id_proveedor'],
-                    'fecha_entrega' => $fechaEntrega,
+                    'fecha_emision' => $fechaEmision,
+                    'fecha_entrega' => $fechaEmision,
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'tipo_impuesto' => $cabecera['tipo_impuesto'],
                     'subtotal' => (float) $cabecera['subtotal'],
