@@ -1679,28 +1679,41 @@
 
         if (btn.classList.contains('btn-editar')) {
             try {
-                const separador = urls.index.includes('?') ? '&' : '?';
-                const payload = await getJson(`${urls.index}${separador}accion=ver&id=${id}`);
+                const payload = await getJson(`${urls.index}&accion=ver&id=${id}`);
                 const venta = payload.data;
                 if (!venta || !venta.id) throw new Error('No se encontró información del pedido seleccionado.');
                 
                 const estadoDoc = Number(venta.estado || 0);
 
-                // --- NUEVO: Si la venta está despachada/cerrada (estado 3 o superior), abrimos el modal de Resumen ---
+                // --- MODAL DE RESUMEN (Estado 3 o superior) ---
                 if (estadoDoc >= 3) {
                     const modalResumenEl = document.getElementById('modalResumenVenta');
                     if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
 
-                    // Llenar datos generales
+                    // EXTRAER NOMBRE DE CLIENTE DE LA TABLA
+                    const nombreClienteTabla = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente No Especificado';
+
+                    // HELPER PARA FORMATEAR FECHA (YYYY-MM-DD a DD/MM/YYYY)
+                    const formatDMY = (fechaStr) => {
+                        if (!fechaStr) return '-';
+                        const partes = String(fechaStr).split(' ')[0].split('-');
+                        if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
+                        return fechaStr;
+                    };
+
+                    // LLENAR DATOS GENERALES
                     document.getElementById('resumenVentaCodigo').textContent = venta.codigo || '-';
-                    document.getElementById('resumenVentaCliente').textContent = venta.cliente || '-';
+                    document.getElementById('resumenVentaCliente').textContent = nombreClienteTabla;
                     document.getElementById('resumenVentaOperacion').textContent = venta.tipo_operacion || 'VENTA';
-                    document.getElementById('resumenVentaFechaEmision').textContent = venta.fecha_emision || '-';
-                    document.getElementById('resumenVentaFechaDespacho').textContent = venta.fecha_despacho || 'Pendiente';
+                    
+                    // APLICAMOS LA FUNCIÓN FORMATDMY AQUÍ
+                    document.getElementById('resumenVentaFechaEmision').textContent = formatDMY(venta.fecha_emision);
+                    document.getElementById('resumenVentaFechaDespacho').textContent = venta.fecha_despacho ? formatDMY(venta.fecha_despacho) : 'Pendiente';
+                    
                     document.getElementById('resumenVentaObservaciones').textContent = venta.observaciones || 'Sin observaciones.';
                     document.getElementById('resumenVentaTotalFinal').textContent = `S/ ${Number(venta.total || 0).toFixed(2)}`;
 
-                    // Llenar tabla de productos
+                    // LLENAR TABLA DE PRODUCTOS
                     const tbodyResumen = document.querySelector('#tablaResumenProductos tbody');
                     tbodyResumen.innerHTML = '';
 
@@ -1711,15 +1724,15 @@
                             const precio = Number(item.precio_unitario || 0);
                             const subtotal = cantDesp * precio;
 
-                            const tr = document.createElement('tr');
-                            tr.innerHTML = `
+                            const trRes = document.createElement('tr');
+                            trRes.innerHTML = `
                                 <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
                                 <td class="text-center py-2 text-muted">${cantSol.toFixed(2)}</td>
                                 <td class="text-center py-2 fw-bold text-success">${cantDesp.toFixed(2)}</td>
                                 <td class="text-end py-2 text-muted">S/ ${precio.toFixed(2)}</td>
                                 <td class="text-end pe-3 py-2 fw-bold text-dark">S/ ${subtotal.toFixed(2)}</td>
                             `;
-                            tbodyResumen.appendChild(tr);
+                            tbodyResumen.appendChild(trRes);
                         });
                     } else {
                         tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
@@ -1727,19 +1740,18 @@
 
                     const modalResumen = bootstrap.Modal.getOrCreateInstance(modalResumenEl);
                     modalResumen.show();
-                    return; // Salimos para no abrir el modal de edición
+                    return; // Salimos para no abrir el modal de edición normal
                 }
                 // ------------------------------------------------------------------------------------------------------
 
-
-                // Si no está cerrada (es borrador o pendiente), abrimos el modal de edición normal
+                // Si NO está despachada, abrimos el modal normal (El resto de tu código sigue igual)
                 limpiarModalVenta();
                 ventaId.value = venta.id;
                 
                 const esBorrador = estadoDoc === 0;
                 bloqueoEdicionVenta = !esBorrador;
                 
-                const nombreCliente = tr?.querySelector('td:nth-child(2)')?.textContent?.trim() || 'Cliente';
+                const nombreCliente = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente';
                 if (tomSelectCliente) {
                     tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente });
                     tomSelectCliente.setValue(venta.id_cliente);
@@ -1754,7 +1766,7 @@
                 const inputFecha = document.getElementById('fechaEmision');
                 const inputObs = document.getElementById('ventaObservaciones');
                 
-                inputFecha.value = venta.fecha_emision || '';
+                inputFecha.value = venta.fecha_emision ? venta.fecha_emision.split(' ')[0] : '';
                 inputObs.value = venta.observaciones || '';
                 
                 if (tipoOperacion) {
@@ -1787,22 +1799,25 @@
                     btnGuardar.style.display = 'block';
                     btnGuardar.textContent = 'Actualizar Pedido';
                     document.getElementById('alertaBorradorContenedor').innerHTML = `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
+                    // Mostrar switch si es borrador
                     if (switchCobroContainer) switchCobroContainer.style.display = 'block';
                 } else {
                     btnGuardar.style.display = 'none';
+                    // Ocultar switch si ya está aprobado/despachado
                     if (switchCobroContainer) switchCobroContainer.style.display = 'none';
                 }
 
                 actualizarBloqueoFormularioPorCliente();
 
+                // PINTAR HISTORIAL DE DEVOLUCIONES
                 const seccionDevoluciones = document.getElementById('seccionDevolucionesVenta');
                 const tbodyDevHistorico = document.querySelector('#tablaDevolucionesHistorico tbody');
                 
                 if (seccionDevoluciones && tbodyDevHistorico) {
-                    tbodyDevHistorico.innerHTML = '';
+                    tbodyDevHistorico.innerHTML = ''; // Limpiar historial anterior
                     
                     if (venta.devoluciones && venta.devoluciones.length > 0) {
-                        seccionDevoluciones.classList.remove('d-none');
+                        seccionDevoluciones.classList.remove('d-none'); // Mostrar la sección
                         
                         venta.devoluciones.forEach(dev => {
                             let detallesHTML = '<ul class="mb-0 ps-3 text-muted" style="font-size: 0.85rem;">';
@@ -1811,6 +1826,7 @@
                             });
                             detallesHTML += '</ul>';
 
+                            // Formatear la resolución para que sea más legible
                             let resTexto = dev.tipo_resolucion;
                             if (resTexto === 'descuento_cxc') resTexto = 'Nota de Crédito (CxC)';
                             else if (resTexto === 'reembolso_dinero') resTexto = 'Reembolso (Caja/Bancos)';
@@ -1829,7 +1845,7 @@
                             tbodyDevHistorico.appendChild(trDev);
                         });
                     } else {
-                        seccionDevoluciones.classList.add('d-none');
+                        seccionDevoluciones.classList.add('d-none'); // Ocultar si no hay devoluciones
                     }
                 }
                 
