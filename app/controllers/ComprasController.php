@@ -311,6 +311,8 @@ class ComprasController extends Controlador
             // Recibimos los nuevos parámetros configurados en JS
             $detalleIngreso = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
             $cerrarForzado = !empty($payload['cerrar_forzado']); // Convertimos a booleano
+            $fechaRecepcion = trim((string) ($payload['fecha_recepcion'] ?? ''));
+            $observaciones = trim((string) ($payload['observaciones'] ?? ''));
             
             $userId = $this->obtenerUsuarioId();
 
@@ -327,7 +329,9 @@ class ComprasController extends Controlador
                 $idOrden,
                 $detalleIngreso,
                 $cerrarForzado,
-                $userId
+                $userId,
+                $fechaRecepcion,
+                $observaciones
             );
 
             // Generamos la CxP (Cuentas por Pagar) enlazada a esta recepción

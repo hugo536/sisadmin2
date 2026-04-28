@@ -106,6 +106,9 @@
     const modalRecepcionEl = document.getElementById('modalRecepcionCompra');
     const modalRecepcion = new bootstrap.Modal(modalRecepcionEl, { focus: false });
     const recepcionOrdenId = document.getElementById('recepcionOrdenId');
+    const recepcionProveedorNombre = document.getElementById('recepcionProveedorNombre');
+    const recepcionFecha = document.getElementById('recepcionFecha');
+    const recepcionObservaciones = document.getElementById('recepcionObservaciones');
     const cerrarForzadoRecepcion = document.getElementById('cerrarForzadoRecepcion');
     const tbodyRecepcion = document.querySelector('#tablaDetalleRecepcion tbody');
     const selectTemplateAlmacen = document.getElementById('recepcionAlmacen');
@@ -611,6 +614,16 @@
 
             recepcionOrdenId.value = orden.id;
             cerrarForzadoRecepcion.checked = false;
+            if (recepcionProveedorNombre) {
+                const proveedor = String(orden.proveedor || '').trim();
+                recepcionProveedorNombre.textContent = proveedor ? `- ${proveedor}` : '';
+            }
+            if (recepcionFecha) {
+                recepcionFecha.value = orden.fecha_recepcion_sugerida || obtenerFechaLocalISO();
+            }
+            if (recepcionObservaciones) {
+                recepcionObservaciones.value = '';
+            }
             tbodyRecepcion.innerHTML = '';
 
             const detalle = Array.isArray(orden.detalle) ? orden.detalle : [];
@@ -619,6 +632,10 @@
                     agregarFilaRecepcion(linea, null);
                 }
             });
+            if (tbodyRecepcion.children.length === 0) {
+                Swal.fire('Aviso', 'Esta orden ya no tiene cantidades pendientes por recepcionar.', 'info');
+                return;
+            }
             modalRecepcion.show();
         } catch (error) {
             Swal.fire('Error', error.message || 'No se pudo preparar la recepción.', 'error');
@@ -979,6 +996,8 @@
             const payload = await postJson(urls.recepcionar, {
                 id_orden: Number(recepcionOrdenId.value || 0),
                 cerrar_forzado: cerrarForzadoRecepcion.checked,
+                fecha_recepcion: (recepcionFecha?.value || '').trim(),
+                observaciones: (recepcionObservaciones?.value || '').trim(),
                 detalle: detalle
             }, btnConfirmarRecepcion);
 
