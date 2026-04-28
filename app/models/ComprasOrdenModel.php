@@ -642,8 +642,15 @@ class ComprasOrdenModel extends Modelo
 
             $db->prepare("UPDATE compras_devoluciones SET total_devuelto = ? WHERE id = ?")->execute([$totalDevuelto, $idDevolucion]);
 
-            // ESTADO 4 SI EL USUARIO NO ESPERA REEMPLAZO
-            $nuevoEstado = $esperarReemplazo ? 2 : 4; 
+            $stmtPendiente = $db->prepare("SELECT COUNT(*) FROM compras_ordenes_detalle WHERE id_orden = ? AND deleted_at IS NULL AND COALESCE(cantidad_recibida, 0) > 0.00001");
+            $stmtPendiente->execute([$idOrden]);
+            $lineasConRecepcionPendiente = (int) $stmtPendiente->fetchColumn();
+
+            $devolucionTotalCompletada = $lineasConRecepcionPendiente === 0;
+
+            // Si se devolvió toda la mercadería recepcionada, marcamos la orden como anulada.
+            // Si no, mantenemos la lógica existente.
+            $nuevoEstado = $devolucionTotalCompletada ? 9 : ($esperarReemplazo ? 2 : 4);
             $db->prepare("UPDATE compras_ordenes SET estado = ?, updated_at = NOW() WHERE id = ?")->execute([$nuevoEstado, $idOrden]);
 
             $this->aplicarAjusteCxpPorDevolucion($db, $idOrden, $resolucion, $totalDevuelto, $userId);
