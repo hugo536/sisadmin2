@@ -885,8 +885,26 @@
             if (linea.id_item_unidad) {
                 selectUnidad.value = String(linea.id_item_unidad);
             }
+
+            // Fallback: si no existe coincidencia por ID, usamos la unidad/factor original de compra.
+            if (selectUnidad.value === '' && factorCompra > 1) {
+                const optCompra = document.createElement('option');
+                optCompra.value = `compra_${linea.id_item_unidad || 'orig'}`;
+                optCompra.dataset.factor = String(factorCompra);
+                optCompra.textContent = `${linea.unidad_nombre || 'Unidad compra'} (x ${factorCompra})`;
+                selectUnidad.appendChild(optCompra);
+                selectUnidad.value = optCompra.value;
+            }
         } catch (e) {
             console.warn("No se pudieron cargar unidades para el ítem", linea.id_item);
+            if (factorCompra > 1) {
+                const optCompra = document.createElement('option');
+                optCompra.value = `compra_${linea.id_item_unidad || 'orig'}`;
+                optCompra.dataset.factor = String(factorCompra);
+                optCompra.textContent = `${linea.unidad_nombre || 'Unidad compra'} (x ${factorCompra})`;
+                selectUnidad.appendChild(optCompra);
+                selectUnidad.value = optCompra.value;
+            }
         }
 
         const recalcularLinea = () => {
