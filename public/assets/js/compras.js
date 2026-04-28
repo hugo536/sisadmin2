@@ -905,8 +905,9 @@
                 inputCant.classList.remove('is-invalid', 'border-danger');
             }
 
-            // Usamos el costo base real que calculamos arriba
-            const subtotal = cantBaseCalculada * costoBaseReal;
+            // Convertimos el costo base a la unidad de devolución seleccionada
+            const costoUnitarioSegunUnidad = costoBaseReal * factorSeleccionado;
+            const subtotal = cantInput * costoUnitarioSegunUnidad;
             tdSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
             
             if (factorSeleccionado > 1) {
@@ -929,7 +930,8 @@
             const selectU = fila.querySelector('.dev-select-unidad');
             const factor = parseFloat(selectU.options[selectU.selectedIndex]?.dataset.factor || 1);
             const costoBase = parseFloat(fila.dataset.costoBase || 0);
-            total += (cant * factor) * costoBase;
+            const costoUnitarioSegunUnidad = costoBase * factor;
+            total += cant * costoUnitarioSegunUnidad;
         });
         devolucionTotal.textContent = `S/ ${total.toFixed(2)}`;
     }
