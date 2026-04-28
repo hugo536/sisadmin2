@@ -1665,6 +1665,28 @@
         }
     });
     
+    // Helper para mostrar fechas como DD/MM/YYYY en toda la sección de ventas.
+    const formatearFechaVista = (fechaStr) => {
+        if (!fechaStr) return '-';
+
+        const fechaBase = String(fechaStr).trim().split(' ')[0];
+        const matchIso = fechaBase.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (matchIso) {
+            return `${matchIso[3]}/${matchIso[2]}/${matchIso[1]}`;
+        }
+
+        const timestamp = Date.parse(fechaBase);
+        if (!Number.isNaN(timestamp)) {
+            return new Date(timestamp).toLocaleDateString('es-PE', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        }
+
+        return fechaStr;
+    };
+
     // --- EVENTO DE CLICS EN LA TABLA (EDICIÓN, ANULACIÓN, IMPRESIÓN) ---
     document.querySelector('#tablaVentas tbody')?.addEventListener('click', async (e) => {
         const btn = e.target.closest('button');
@@ -1693,22 +1715,14 @@
                     // EXTRAER NOMBRE DE CLIENTE DE LA TABLA
                     const nombreClienteTabla = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente No Especificado';
 
-                    // HELPER PARA FORMATEAR FECHA (YYYY-MM-DD a DD/MM/YYYY)
-                    const formatDMY = (fechaStr) => {
-                        if (!fechaStr) return '-';
-                        const partes = String(fechaStr).split(' ')[0].split('-');
-                        if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
-                        return fechaStr;
-                    };
-
                     // LLENAR DATOS GENERALES
                     document.getElementById('resumenVentaCodigo').textContent = venta.codigo || '-';
                     document.getElementById('resumenVentaCliente').textContent = nombreClienteTabla;
                     document.getElementById('resumenVentaOperacion').textContent = venta.tipo_operacion || 'VENTA';
                     
                     // APLICAMOS LA FUNCIÓN FORMATDMY AQUÍ
-                    document.getElementById('resumenVentaFechaEmision').textContent = formatDMY(venta.fecha_emision);
-                    document.getElementById('resumenVentaFechaDespacho').textContent = venta.fecha_despacho ? formatDMY(venta.fecha_despacho) : 'Pendiente';
+                    document.getElementById('resumenVentaFechaEmision').textContent = formatearFechaVista(venta.fecha_emision);
+                    document.getElementById('resumenVentaFechaDespacho').textContent = venta.fecha_despacho ? formatearFechaVista(venta.fecha_despacho) : 'Pendiente';
                     
                     document.getElementById('resumenVentaObservaciones').textContent = venta.observaciones || 'Sin observaciones.';
                     document.getElementById('resumenVentaTotalFinal').textContent = `S/ ${Number(venta.total || 0).toFixed(2)}`;
