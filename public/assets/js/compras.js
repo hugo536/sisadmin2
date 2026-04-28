@@ -991,7 +991,7 @@
             const payload = {
                 id: Number(ordenEnEdicionId || 0),
                 id_proveedor: Number(idProveedor.value),
-                fecha_entrega: fechaEntrega.value,
+                fecha_emision: fechaEntrega.value,
                 observaciones: observaciones.value,
                 tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'incluido',
                 detalle,
@@ -1195,7 +1195,7 @@
                     if (tomSelectProveedor) tomSelectProveedor.setValue(d.id_proveedor);
                     else idProveedor.value = d.id_proveedor;
 
-                    fechaEntrega.value = d.fecha_entrega || '';
+                    fechaEntrega.value = d.fecha_orden || d.fecha_entrega || '';
                     observaciones.value = d.observaciones || '';
                     if (tipoImpuesto && d.tipo_impuesto) tipoImpuesto.value = d.tipo_impuesto;
 
