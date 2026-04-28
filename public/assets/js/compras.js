@@ -152,6 +152,18 @@
         return Number(valor || 0).toFixed(DECIMALES_RECEPCION);
     }
 
+    function formatearFechaDMY(fechaTexto) {
+        const texto = String(fechaTexto || '').trim();
+        if (!texto) return '-';
+
+        const soloFecha = texto.split(' ')[0].slice(0, 10);
+        const match = soloFecha.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return texto;
+
+        const [, anio, mes, dia] = match;
+        return `${dia}/${mes}/${anio}`;
+    }
+
     function recargarPagina() {
         const params = new URLSearchParams(window.location.search);
         params.delete('ruta');
@@ -1110,7 +1122,7 @@
                         const fechaRecepcionTabla = filaTabla?.querySelector('.bi-box-arrow-in-down')?.parentElement?.textContent?.trim() || '-';
                         
                         document.getElementById('resumenCompraProveedor').textContent = nombreProveedor;
-                        document.getElementById('resumenCompraFechaOrden').textContent = d.fecha_orden || '-';
+                        document.getElementById('resumenCompraFechaOrden').textContent = formatearFechaDMY(d.fecha_orden);
                         document.getElementById('resumenCompraFechaRecepcion').textContent = fechaRecepcionTabla;
                         document.getElementById('resumenCompraObservaciones').textContent = d.observaciones || 'Sin observaciones.';
                         document.getElementById('resumenCompraTotalFinal').textContent = `S/ ${Number(d.total || 0).toFixed(2)}`;
