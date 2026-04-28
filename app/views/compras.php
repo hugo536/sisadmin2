@@ -21,6 +21,19 @@ $estadoLabels = [
     3 => ['texto' => 'Recepcionada', 'clase' => 'bg-success-subtle text-success border border-success-subtle'],
     9 => ['texto' => 'Anulada', 'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
 ];
+
+// Formateador de fechas
+$formatearFechaDMY = static function ($fecha): string {
+    $texto = trim((string) $fecha);
+    if ($texto === '') {
+        return '-';
+    }
+    $timestamp = strtotime($texto);
+    if ($timestamp === false) {
+        return $texto;
+    }
+    return date('d/m/Y', $timestamp);
+};
 ?>
 
 <div class="container-fluid p-4" id="comprasApp"
@@ -69,6 +82,12 @@ $estadoLabels = [
                 <div class="col-6 col-md-3">
                     <input type="date" class="form-control bg-light" id="filtroFechaHasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>" title="Fecha Hasta">
                 </div>
+                <div class="col-12 col-md-3">
+                    <select class="form-select bg-light" id="filtroOrdenFecha" title="Ordenar por fecha">
+                        <option value="orden" <?php echo (($filtros['orden_fecha'] ?? 'orden') === 'orden') ? 'selected' : ''; ?>>Ordenar por fecha de orden</option>
+                        <option value="recepcion" <?php echo (($filtros['orden_fecha'] ?? '') === 'recepcion') ? 'selected' : ''; ?>>Ordenar por fecha de recepción</option>
+                    </select>
+                </div>
             </div>
         </div>
     </div>
@@ -86,7 +105,7 @@ $estadoLabels = [
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
                             <th class="text-secondary fw-semibold">Proveedor</th>
-                            <th class="text-secondary fw-semibold">Fecha</th>
+                            <th class="text-secondary fw-semibold">Fechas</th>
                             <th class="text-end text-secondary fw-semibold">Total</th>
                             <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
@@ -102,7 +121,17 @@ $estadoLabels = [
                                 <tr data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>" class="border-bottom" data-search="<?php echo e(mb_strtolower((string) ($orden['codigo'] ?? '') . ' ' . (string) ($orden['proveedor'] ?? ''))); ?>">
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($orden['codigo'] ?? '')); ?></td>
                                     <td class="fw-semibold text-dark"><?php echo e((string) ($orden['proveedor'] ?? '')); ?></td>
-                                    <td><?php echo e((string) ($orden['fecha_orden'] ?? '')); ?></td>
+                                    <td>
+                                        <div class="fw-bold text-dark" title="Fecha de Registro: <?php echo isset($orden['created_at']) ? date('d/m/Y H:i', strtotime($orden['created_at'])) : ''; ?>">
+                                            <i class="bi bi-calendar3 me-1 text-muted"></i> <?php echo e($formatearFechaDMY($orden['fecha_orden'] ?? $orden['fecha_documento'] ?? '')); ?>
+                                        </div>
+                                        
+                                        <?php if (!empty($orden['fecha_recepcion'])): ?>
+                                            <div class="text-info small fw-semibold mt-1" title="Fecha de ingreso a almacén">
+                                                <i class="bi bi-box-arrow-in-down me-1"></i> <?php echo e($formatearFechaDMY($orden['fecha_recepcion'])); ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="text-end fw-bold">S/ <?php echo number_format((float) ($orden['total'] ?? 0), 2); ?></td>
                                     <td class="text-center">
                                         <span class="badge px-3 py-2 rounded-pill <?php echo e($badge['clase']); ?>">

@@ -6,12 +6,17 @@ class ComprasOrdenModel extends Modelo
 {
     public function listar(array $filtros = []): array
     {
+        // 1. AGREGAMOS EL SUBQUERY PARA OBTENER LA FECHA DE RECEPCIÓN
         $sql = 'SELECT o.id,
                        o.codigo,
                        o.id_proveedor,
                        t.nombre_completo AS proveedor,
                        DATE_FORMAT(o.fecha_emision, "%d/%m/%Y") AS fecha_orden,
                        DATE_FORMAT(o.fecha_entrega_estimada, "%d/%m/%Y") AS fecha_entrega,
+                       (SELECT cr.created_at 
+                        FROM compras_recepciones cr 
+                        WHERE cr.id_orden_compra = o.id 
+                        ORDER BY cr.id DESC LIMIT 1) AS fecha_recepcion,
                        o.total,
                        o.estado,
                        o.created_at
@@ -23,37 +28,37 @@ class ComprasOrdenModel extends Modelo
         $params = [];
 
         if (!empty($filtros['q'])) {
-            // Usamos dos nombres distintos: :q1 y :q2
             $sql .= ' AND (o.codigo LIKE :q1 OR t.nombre_completo LIKE :q2)';
-            
             $valorBusqueda = '%' . trim((string) $filtros['q']) . '%';
-            
-            // Le pasamos el mismo valor a ambos parámetros
             $params[':q1'] = $valorBusqueda;
             $params[':q2'] = $valorBusqueda;
         }
 
         if (isset($filtros['estado']) && $filtros['estado'] !== '' && $filtros['estado'] !== null) {
             $sql .= ' AND o.estado = :estado';
-            // Agregamos el prefijo ':' a la clave del array
             $params[':estado'] = (int) $filtros['estado'];
         }
 
         if (!empty($filtros['fecha_desde'])) {
-            // Usamos DATE() para comparar solo la parte de la fecha, ignorando la hora
             $sql .= ' AND DATE(o.fecha_emision) >= :fecha_desde';
-            // Agregamos el prefijo ':' a la clave del array
             $params[':fecha_desde'] = (string) $filtros['fecha_desde'];
         }
 
         if (!empty($filtros['fecha_hasta'])) {
-            // Usamos DATE() para comparar solo la parte de la fecha, ignorando la hora
             $sql .= ' AND DATE(o.fecha_emision) <= :fecha_hasta';
-             // Agregamos el prefijo ':' a la clave del array
             $params[':fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
-        $sql .= ' ORDER BY COALESCE(o.updated_at, o.created_at) DESC, o.id DESC';
+        // 2. AGREGAMOS EL SOPORTE PARA EL NUEVO FILTRO DE ORDENAMIENTO
+        $ordenFecha = $filtros['orden_fecha'] ?? 'orden';
+        
+        if ($ordenFecha === 'recepcion') {
+            // Ordenar por la fecha en que ingresó al almacén
+            $sql .= ' ORDER BY fecha_recepcion DESC, o.id DESC';
+        } else {
+            // Ordenar por la fecha de emisión del pedido (comportamiento original)
+            $sql .= ' ORDER BY o.fecha_emision DESC, o.id DESC';
+        }
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);
