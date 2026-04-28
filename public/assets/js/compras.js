@@ -811,18 +811,24 @@
     async function agregarFilaDevolucion(linea, cantRecibidaBase) {
         const tr = document.createElement('tr');
         
-        // 1. EXTRAER EL COSTO REAL DE LA ORDEN DE COMPRA
+        // --- FÓRMULA ANTIBALAS PARA EL COSTO REAL ---
         const factorCompra = parseFloat(linea.factor_conversion_aplicado || 1);
-        const costoCompra = parseFloat(linea.costo_unitario || 0); 
+        const cantidadBaseTotal = parseFloat(linea.cantidad_base || 1);
+        const subtotalLinea = parseFloat(linea.subtotal || 0);
+        
+        // Obtenemos el costo real dividiendo el subtotal entre la cantidad de botellas totales.
+        const costoBaseReal = cantidadBaseTotal > 0 ? (subtotalLinea / cantidadBaseTotal) : 0;
+        
+        // Multiplicamos para mostrar en pantalla cuánto costó la plancha
+        const costoCompraDisplay = costoBaseReal * factorCompra; 
+
         const cantidadRecibidaEnUnidadCompra = factorCompra > 0 ? (cantRecibidaBase / factorCompra) : cantRecibidaBase;
         const unidadCompraLabel = (linea.unidad_nombre || '').trim();
         const mostrarResumenUnidadCompra = unidadCompraLabel !== '' && Math.abs(factorCompra - 1) > 0.0001;
-        // Costo por unidad base real con el que entró al Kardex
-        const costoBaseReal = costoCompra / factorCompra;
 
         tr.dataset.idDetalle = linea.id;
         tr.dataset.idItem = linea.id_item;
-        tr.dataset.costoBase = costoBaseReal; // <-- GUARDAMOS EL COSTO BASE REAL
+        tr.dataset.costoBase = costoBaseReal; // <-- GUARDAMOS EL COSTO BASE REAL EXACTO
         tr.dataset.maxBase = cantRecibidaBase; 
 
         tr.innerHTML = `
@@ -841,7 +847,7 @@
                 </span>
             </td>
             <td class="text-center align-middle">
-                <div class="fw-semibold text-secondary">S/ ${costoCompra.toFixed(2)}</div>
+                <div class="fw-semibold text-secondary">S/ ${costoCompraDisplay.toFixed(2)}</div>
                 <small style="font-size: 0.75em;" class="text-muted">x ${linea.unidad_nombre}</small>
             </td>
             <td class="align-middle px-2">

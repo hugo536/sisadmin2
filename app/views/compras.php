@@ -19,6 +19,7 @@ $estadoLabels = [
     1 => ['texto' => 'Pendiente', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'],
     2 => ['texto' => 'Aprobada', 'clase' => 'bg-primary-subtle text-primary border border-primary-subtle'],
     3 => ['texto' => 'Recepcionada', 'clase' => 'bg-success-subtle text-success border border-success-subtle'],
+    4 => ['texto' => 'Cerrada', 'clase' => 'bg-dark-subtle text-dark border border-dark-subtle'], // <-- NUEVO ESTADO
     9 => ['texto' => 'Anulada', 'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
 ];
 

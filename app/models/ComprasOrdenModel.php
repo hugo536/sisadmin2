@@ -537,7 +537,6 @@ class ComprasOrdenModel extends Modelo
         $db->beginTransaction();
 
         try {
-            // 1) Obtener cabecera de la orden
             $stmtOrd = $db->prepare("SELECT codigo, id_proveedor FROM compras_ordenes WHERE id = ?");
             $stmtOrd->execute([$idOrden]);
             $ordenData = $stmtOrd->fetch(PDO::FETCH_ASSOC);
@@ -548,14 +547,9 @@ class ComprasOrdenModel extends Modelo
                 throw new RuntimeException("La orden no existe.");
             }
 
-            if (trim($motivo) === '') {
-                throw new RuntimeException('Debe indicar el motivo de la devolución.');
-            }
-            if (trim($resolucion) === '') {
-                throw new RuntimeException('Debe indicar cómo se resolverá la devolución con el proveedor.');
-            }
+            if (trim($motivo) === '') throw new RuntimeException('Debe indicar el motivo de la devolución.');
+            if (trim($resolucion) === '') throw new RuntimeException('Debe indicar cómo se resolverá la devolución.');
 
-            // 2) Tomar almacén de referencia (última recepción)
             $stmtAlmacen = $db->prepare("SELECT id_almacen FROM compras_recepciones WHERE id_orden_compra = ? ORDER BY id DESC LIMIT 1");
             $stmtAlmacen->execute([$idOrden]);
             $idAlmacenPreferido = (int) $stmtAlmacen->fetchColumn();
@@ -570,38 +564,29 @@ class ComprasOrdenModel extends Modelo
 
             $totalDevuelto = 0.0;
 
-            // 3) Crear cabecera de devolución
             $sqlDev = "INSERT INTO compras_devoluciones (id_orden, id_proveedor, motivo, tipo_resolucion, total_devuelto, created_by) 
                        VALUES (:id_orden, :id_proveedor, :motivo, :resolucion, 0, :user)";
-            
             $db->prepare($sqlDev)->execute([
-                'id_orden' => $idOrden,
-                'id_proveedor' => $idProveedor,
-                'motivo' => trim($motivo),
-                'resolucion' => trim($resolucion),
-                'user' => $userId
+                'id_orden' => $idOrden, 'id_proveedor' => $idProveedor,
+                'motivo' => trim($motivo), 'resolucion' => trim($resolucion), 'user' => $userId
             ]);
-            
             $idDevolucion = (int) $db->lastInsertId();
 
-            // 4) Dependencias necesarias
             require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
             $inventarioModel = new InventarioModel();
 
-            // 5) Insertar detalle + validar en BD + Seguridad de costo
             $sqlDet = "INSERT INTO compras_devoluciones_detalle (id_devolucion, id_item, id_item_unidad, cantidad, cantidad_base, costo_unitario, subtotal)
                        VALUES (:id_dev, :id_item, :id_unidad, :cant, :cant_base, :costo, :subtotal)";
             $stmtDet = $db->prepare($sqlDet);
             
+            // FÓRMULA ANTIBALAS BACKEND
             $stmtOrdenDetalle = $db->prepare("SELECT id_item, COALESCE(cantidad_recibida, 0) AS cantidad_recibida, id_centro_costo,
-                                                     costo_unitario_pactado, COALESCE(factor_conversion_aplicado, 1) AS factor_conversion_aplicado
+                                                     (COALESCE(cantidad_conversion, cantidad_solicitada) * costo_unitario_pactado) AS subtotal_linea,
+                                                     COALESCE(cantidad_base_solicitada, cantidad_solicitada) AS cantidad_base_total
                                               FROM compras_ordenes_detalle 
-                                              WHERE id = :id_det AND id_orden = :id_orden AND deleted_at IS NULL
-                                              LIMIT 1");
+                                              WHERE id = :id_det AND id_orden = :id_orden AND deleted_at IS NULL LIMIT 1");
                                               
-            $stmtUpdateOrdenDet = $db->prepare("UPDATE compras_ordenes_detalle 
-                                                SET cantidad_recibida = cantidad_recibida - :cant_base
-                                                WHERE id = :id_doc_det");
+            $stmtUpdateOrdenDet = $db->prepare("UPDATE compras_ordenes_detalle SET cantidad_recibida = cantidad_recibida - :cant_base WHERE id = :id_doc_det");
 
             foreach ($detalle as $linea) {
                 $idDetalleOrden = (int) ($linea['id_documento_detalle'] ?? 0);
@@ -613,17 +598,11 @@ class ComprasOrdenModel extends Modelo
                     throw new RuntimeException('Una línea de devolución no tiene datos válidos.');
                 }
 
-                $stmtOrdenDetalle->execute([
-                    'id_det' => $idDetalleOrden,
-                    'id_orden' => $idOrden,
-                ]);
+                $stmtOrdenDetalle->execute(['id_det' => $idDetalleOrden, 'id_orden' => $idOrden]);
                 $ordenDet = $stmtOrdenDetalle->fetch(PDO::FETCH_ASSOC);
                 
-                if (!$ordenDet) {
-                    throw new RuntimeException('No se encontró una línea de orden asociada a la devolución.');
-                }
-                if ((int) ($ordenDet['id_item'] ?? 0) !== $idItemLinea) {
-                    throw new RuntimeException('La línea de devolución no coincide con el ítem de la orden.');
+                if (!$ordenDet || (int) ($ordenDet['id_item'] ?? 0) !== $idItemLinea) {
+                    throw new RuntimeException('Línea de devolución no coincide.');
                 }
 
                 $cantidadRecibidaActual = (float) ($ordenDet['cantidad_recibida'] ?? 0);
@@ -631,10 +610,10 @@ class ComprasOrdenModel extends Modelo
                     throw new RuntimeException('No puede devolver más cantidad que la ya recepcionada.');
                 }
 
-                // CÁLCULO SEGURO DEL COSTO BASE 
-                $costoPactadoBD = (float) ($ordenDet['costo_unitario_pactado'] ?? 0);
-                $factorAplicadoBD = (float) ($ordenDet['factor_conversion_aplicado'] ?? 1);
-                $costoBaseSeguro = $factorAplicadoBD > 0 ? ($costoPactadoBD / $factorAplicadoBD) : $costoPactadoBD;
+                // CÁLCULO SEGURO DEL COSTO BASE
+                $subtotalLineaBD = (float) ($ordenDet['subtotal_linea'] ?? 0);
+                $cantidadBaseTotalBD = (float) ($ordenDet['cantidad_base_total'] ?? 1);
+                $costoBaseSeguro = $cantidadBaseTotalBD > 0 ? ($subtotalLineaBD / $cantidadBaseTotalBD) : 0;
 
                 $idAlmacenOrigen = $this->resolverAlmacenOrigenDevolucion($db, $idItemLinea, $cantidadBase, $idAlmacenPreferido);
 
@@ -642,45 +621,31 @@ class ComprasOrdenModel extends Modelo
                 $totalDevuelto += $subtotalLinea;
 
                 $stmtDet->execute([
-                    'id_dev' => $idDevolucion,
-                    'id_item' => $idItemLinea,
+                    'id_dev' => $idDevolucion, 'id_item' => $idItemLinea,
                     'id_unidad' => !empty($linea['id_unidad']) ? (int) $linea['id_unidad'] : null,
-                    'cant' => $cantidadInput,
-                    'cant_base' => $cantidadBase,
-                    'costo' => $costoBaseSeguro,
-                    'subtotal' => $subtotalLinea
+                    'cant' => $cantidadInput, 'cant_base' => $cantidadBase,
+                    'costo' => $costoBaseSeguro, 'subtotal' => $subtotalLinea
                 ]);
 
-                $stmtUpdateOrdenDet->execute([
-                    'cant_base' => $cantidadBase,
-                    'id_doc_det' => $idDetalleOrden,
-                ]);
+                $stmtUpdateOrdenDet->execute(['cant_base' => $cantidadBase, 'id_doc_det' => $idDetalleOrden]);
 
                 $inventarioModel->registrarMovimiento([
-                    'tipo_movimiento' => 'AJ-',
-                    'tipo_registro' => 'item',
-                    'id_item' => $idItemLinea,
+                    'tipo_movimiento' => 'AJ-', 'tipo_registro' => 'item', 'id_item' => $idItemLinea,
                     'id_item_unidad' => !empty($linea['id_unidad']) ? (int) $linea['id_unidad'] : 0,
-                    'id_almacen_origen' => $idAlmacenOrigen,
-                    'cantidad' => $cantidadBase,
+                    'id_almacen_origen' => $idAlmacenOrigen, 'cantidad' => $cantidadBase,
                     'costo_unitario' => $costoBaseSeguro,
                     'referencia' => 'Devolución OC ' . $codigoOrden . ' | ' . trim($motivo),
                     'id_centro_costo' => !empty($ordenDet['id_centro_costo']) ? (int) $ordenDet['id_centro_costo'] : null,
-                    'created_by' => $userId,
-                    'fecha_documento' => date('Y-m-d'),
+                    'created_by' => $userId, 'fecha_documento' => date('Y-m-d'),
                 ]);
             }
 
-            // 6) Actualizar total en cabecera
-            $db->prepare("UPDATE compras_devoluciones SET total_devuelto = ? WHERE id = ?")
-               ->execute([$totalDevuelto, $idDevolucion]);
+            $db->prepare("UPDATE compras_devoluciones SET total_devuelto = ? WHERE id = ?")->execute([$totalDevuelto, $idDevolucion]);
 
-            // 7) Ajustar estado de la orden (NUEVA LÓGICA DE SWITCH)
-            $nuevoEstado = $esperarReemplazo ? 2 : 3; // 2 = Aprobada, 3 = Recepcionada (Cerrada)
-            $db->prepare("UPDATE compras_ordenes SET estado = ?, updated_at = NOW() WHERE id = ?")
-               ->execute([$nuevoEstado, $idOrden]);
+            // ESTADO 4 SI EL USUARIO NO ESPERA REEMPLAZO
+            $nuevoEstado = $esperarReemplazo ? 2 : 4; 
+            $db->prepare("UPDATE compras_ordenes SET estado = ?, updated_at = NOW() WHERE id = ?")->execute([$nuevoEstado, $idOrden]);
 
-            // 8) Vincular con Tesorería (CxP)
             $this->aplicarAjusteCxpPorDevolucion($db, $idOrden, $resolucion, $totalDevuelto, $userId);
 
             $db->commit();
