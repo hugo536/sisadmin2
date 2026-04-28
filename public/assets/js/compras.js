@@ -1094,6 +1094,59 @@
 
                 if (json.ok && json.data) {
                     const d = json.data;
+                    const estadoDoc = Number(d.estado || 0);
+
+                    // --- NUEVO: Si la orden está recepcionada o finalizada (estado 3 o superior), abrimos el modal de Resumen ---
+                    if (estadoDoc >= 3) {
+                        const modalResumenEl = document.getElementById('modalResumenCompra');
+                        if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
+
+                        // Llenar datos generales
+                        document.getElementById('resumenCompraCodigo').textContent = d.codigo || '-';
+                        
+                        // Extraemos el proveedor y la fecha de recepción de la tabla principal
+                        const filaTabla = target.closest('tr');
+                        const nombreProveedor = filaTabla?.querySelector('td:nth-child(2)')?.textContent?.trim() || 'Proveedor';
+                        const fechaRecepcionTabla = filaTabla?.querySelector('.bi-box-arrow-in-down')?.parentElement?.textContent?.trim() || '-';
+                        
+                        document.getElementById('resumenCompraProveedor').textContent = nombreProveedor;
+                        document.getElementById('resumenCompraFechaOrden').textContent = d.fecha_orden || '-';
+                        document.getElementById('resumenCompraFechaRecepcion').textContent = fechaRecepcionTabla;
+                        document.getElementById('resumenCompraObservaciones').textContent = d.observaciones || 'Sin observaciones.';
+                        document.getElementById('resumenCompraTotalFinal').textContent = `S/ ${Number(d.total || 0).toFixed(2)}`;
+
+                        // Llenar tabla de productos
+                        const tbodyResumen = document.querySelector('#tablaResumenProductosCompra tbody');
+                        tbodyResumen.innerHTML = '';
+
+                        if (d.detalle && d.detalle.length > 0) {
+                            d.detalle.forEach(item => {
+                                const cantSol = Number(item.cantidad || 0);
+                                const cantRecibida = Number(item.cantidad_recibida || 0);
+                                const precio = Number(item.costo_unitario || 0);
+                                const subtotal = cantRecibida * precio;
+
+                                const trItem = document.createElement('tr');
+                                trItem.innerHTML = `
+                                    <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
+                                    <td class="text-center py-2 text-muted">${cantSol.toFixed(2)}</td>
+                                    <td class="text-center py-2 fw-bold text-success">${cantRecibida.toFixed(2)}</td>
+                                    <td class="text-end py-2 text-muted">S/ ${precio.toFixed(2)}</td>
+                                    <td class="text-end pe-3 py-2 fw-bold text-dark">S/ ${subtotal.toFixed(2)}</td>
+                                `;
+                                tbodyResumen.appendChild(trItem);
+                            });
+                        } else {
+                            tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
+                        }
+
+                        const modalResumen = bootstrap.Modal.getOrCreateInstance(modalResumenEl);
+                        modalResumen.show();
+                        return; // Salimos para no abrir el modal de edición normal
+                    }
+                    // -----------------------------------------------------------------------------------------------
+
+                    // Si no está recepcionada (es borrador o aprobada), abrimos el modal de edición bloqueado o editable según estado
                     limpiarModalOrden();
                     setOrdenEnEdicion(d.id);
                     if (tomSelectProveedor) tomSelectProveedor.setValue(d.id_proveedor);
@@ -1106,7 +1159,6 @@
                     if (d.detalle && d.detalle.length > 0) d.detalle.forEach((item) => agregarFila(item));
                     else agregarFila();
 
-                    const estadoDoc = Number(d.estado || 0);
                     setModoSoloLectura(estadoDoc !== 0, estadoDoc);
                     modalOrden.show();
                 }

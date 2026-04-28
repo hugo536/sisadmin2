@@ -1679,13 +1679,64 @@
 
         if (btn.classList.contains('btn-editar')) {
             try {
-                const payload = await getJson(`${urls.index}&accion=ver&id=${id}`);
+                const separador = urls.index.includes('?') ? '&' : '?';
+                const payload = await getJson(`${urls.index}${separador}accion=ver&id=${id}`);
                 const venta = payload.data;
                 if (!venta || !venta.id) throw new Error('No se encontró información del pedido seleccionado.');
+                
+                const estadoDoc = Number(venta.estado || 0);
+
+                // --- NUEVO: Si la venta está despachada/cerrada (estado 3 o superior), abrimos el modal de Resumen ---
+                if (estadoDoc >= 3) {
+                    const modalResumenEl = document.getElementById('modalResumenVenta');
+                    if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
+
+                    // Llenar datos generales
+                    document.getElementById('resumenVentaCodigo').textContent = venta.codigo || '-';
+                    document.getElementById('resumenVentaCliente').textContent = venta.cliente || '-';
+                    document.getElementById('resumenVentaOperacion').textContent = venta.tipo_operacion || 'VENTA';
+                    document.getElementById('resumenVentaFechaEmision').textContent = venta.fecha_emision || '-';
+                    document.getElementById('resumenVentaFechaDespacho').textContent = venta.fecha_despacho || 'Pendiente';
+                    document.getElementById('resumenVentaObservaciones').textContent = venta.observaciones || 'Sin observaciones.';
+                    document.getElementById('resumenVentaTotalFinal').textContent = `S/ ${Number(venta.total || 0).toFixed(2)}`;
+
+                    // Llenar tabla de productos
+                    const tbodyResumen = document.querySelector('#tablaResumenProductos tbody');
+                    tbodyResumen.innerHTML = '';
+
+                    if (venta.detalle && venta.detalle.length > 0) {
+                        venta.detalle.forEach(item => {
+                            const cantSol = Number(item.cantidad || 0);
+                            const cantDesp = Number(item.cantidad_despachada || 0);
+                            const precio = Number(item.precio_unitario || 0);
+                            const subtotal = cantDesp * precio;
+
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
+                                <td class="text-center py-2 text-muted">${cantSol.toFixed(2)}</td>
+                                <td class="text-center py-2 fw-bold text-success">${cantDesp.toFixed(2)}</td>
+                                <td class="text-end py-2 text-muted">S/ ${precio.toFixed(2)}</td>
+                                <td class="text-end pe-3 py-2 fw-bold text-dark">S/ ${subtotal.toFixed(2)}</td>
+                            `;
+                            tbodyResumen.appendChild(tr);
+                        });
+                    } else {
+                        tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
+                    }
+
+                    const modalResumen = bootstrap.Modal.getOrCreateInstance(modalResumenEl);
+                    modalResumen.show();
+                    return; // Salimos para no abrir el modal de edición
+                }
+                // ------------------------------------------------------------------------------------------------------
+
+
+                // Si no está cerrada (es borrador o pendiente), abrimos el modal de edición normal
                 limpiarModalVenta();
                 ventaId.value = venta.id;
                 
-                const esBorrador = Number(venta.estado) === 0;
+                const esBorrador = estadoDoc === 0;
                 bloqueoEdicionVenta = !esBorrador;
                 
                 const nombreCliente = tr?.querySelector('td:nth-child(2)')?.textContent?.trim() || 'Cliente';
@@ -1736,25 +1787,22 @@
                     btnGuardar.style.display = 'block';
                     btnGuardar.textContent = 'Actualizar Pedido';
                     document.getElementById('alertaBorradorContenedor').innerHTML = `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
-                    // Mostrar switch si es borrador
                     if (switchCobroContainer) switchCobroContainer.style.display = 'block';
                 } else {
                     btnGuardar.style.display = 'none';
-                    // Ocultar switch si ya está aprobado/despachado
                     if (switchCobroContainer) switchCobroContainer.style.display = 'none';
                 }
 
                 actualizarBloqueoFormularioPorCliente();
 
-                // --- NUEVO: PINTAR HISTORIAL DE DEVOLUCIONES ---
                 const seccionDevoluciones = document.getElementById('seccionDevolucionesVenta');
                 const tbodyDevHistorico = document.querySelector('#tablaDevolucionesHistorico tbody');
                 
                 if (seccionDevoluciones && tbodyDevHistorico) {
-                    tbodyDevHistorico.innerHTML = ''; // Limpiar historial anterior
+                    tbodyDevHistorico.innerHTML = '';
                     
                     if (venta.devoluciones && venta.devoluciones.length > 0) {
-                        seccionDevoluciones.classList.remove('d-none'); // Mostrar la sección
+                        seccionDevoluciones.classList.remove('d-none');
                         
                         venta.devoluciones.forEach(dev => {
                             let detallesHTML = '<ul class="mb-0 ps-3 text-muted" style="font-size: 0.85rem;">';
@@ -1763,14 +1811,13 @@
                             });
                             detallesHTML += '</ul>';
 
-                            // Formatear la resolución para que sea más legible
                             let resTexto = dev.tipo_resolucion;
                             if (resTexto === 'descuento_cxc') resTexto = 'Nota de Crédito (CxC)';
                             else if (resTexto === 'reembolso_dinero') resTexto = 'Reembolso (Caja/Bancos)';
                             else if (resTexto === 'saldo_favor') resTexto = 'Saldo a Favor';
 
-                            const tr = document.createElement('tr');
-                            tr.innerHTML = `
+                            const trDev = document.createElement('tr');
+                            trDev.innerHTML = `
                                 <td class="ps-3 text-dark fw-semibold" style="font-size: 0.9rem;">${dev.created_at.substring(0, 16)}</td>
                                 <td>
                                     <div class="fw-bold text-dark" style="font-size: 0.9rem;">${dev.motivo}</div>
@@ -1779,13 +1826,12 @@
                                 <td>${detallesHTML}</td>
                                 <td class="text-end pe-4 fw-bold text-danger">S/ ${Number(dev.total_devuelto).toFixed(2)}</td>
                             `;
-                            tbodyDevHistorico.appendChild(tr);
+                            tbodyDevHistorico.appendChild(trDev);
                         });
                     } else {
-                        seccionDevoluciones.classList.add('d-none'); // Ocultar si no hay devoluciones
+                        seccionDevoluciones.classList.add('d-none');
                     }
                 }
-                // -----------------------------------------------
                 
                 modalVenta.show();
             } catch (err) {

@@ -454,6 +454,82 @@ $formatearFechaDMY = static function ($fecha): string {
     </div>
 </div>
 
+<div class="modal fade" id="modalResumenCompra" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Resumen de Compra Recepcionada</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                            <h6 class="fw-bold text-dark mb-0">Información de la Orden</h6>
+                            <span class="badge bg-success-subtle text-success fs-6 px-3" id="resumenCompraCodigo">OC-0000</span>
+                        </div>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <small class="text-muted fw-bold d-block mb-1">Proveedor</small>
+                                <div class="fw-semibold text-dark" id="resumenCompraProveedor">-</div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted fw-bold d-block mb-1">Estado</small>
+                                <div class="fw-semibold text-success" id="resumenCompraEstado">Recepcionada</div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted fw-bold d-block mb-1">Fechas</small>
+                                <div><i class="bi bi-calendar3 text-muted me-1"></i> Orden: <span class="fw-semibold" id="resumenCompraFechaOrden">-</span></div>
+                                <div class="mt-1"><i class="bi bi-box-arrow-in-down text-info me-1"></i> Recepción: <span class="fw-semibold text-info" id="resumenCompraFechaRecepcion">-</span></div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted fw-bold d-block mb-1">Observaciones</small>
+                                <div class="text-secondary" id="resumenCompraObservaciones">Sin observaciones.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="p-3 border-bottom bg-white rounded-top d-flex align-items-center">
+                            <i class="bi bi-box-seam text-primary me-2 fs-5"></i>
+                            <h6 class="mb-0 fw-bold text-dark">Productos Recepcionados</h6>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0 table-hover" id="tablaResumenProductosCompra">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3 text-secondary small fw-bold">Producto</th>
+                                        <th class="text-center text-secondary small fw-bold">Cant. Pedida</th>
+                                        <th class="text-center text-secondary small fw-bold">Cant. Recibida</th>
+                                        <th class="text-end text-secondary small fw-bold">Costo Unit.</th>
+                                        <th class="text-end pe-3 text-secondary small fw-bold">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white">
+                                    </tbody>
+                                <tfoot class="bg-light border-top">
+                                    <tr>
+                                        <td colspan="4" class="text-end fw-bold py-3 text-secondary">TOTAL FINAL:</td>
+                                        <td class="text-end fw-bold py-3 fs-5 text-primary pe-3" id="resumenCompraTotalFinal">S/ 0.00</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer bg-white border-top-0">
+                <button type="button" class="btn btn-secondary fw-semibold px-4" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <template id="templateFilaDetalle">
     <tr class="border-bottom">
         <td class="ps-3 py-3 align-top">
