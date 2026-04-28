@@ -754,7 +754,7 @@ class VentasDespachoModel extends Modelo
         return (bool) $stmt->fetchColumn();
     }
 
-    public function registrarDevolucion(int $idDocumento, string $motivo, string $resolucion, array $detalle, int $userId, string $motivoCodigo = ''): void
+    public function registrarDevolucion(int $idDocumento, string $motivo, string $resolucion, array $detalle, int $userId, string $motivoCodigo = '', bool $enviarReemplazo = false): void
     {
         if ($idDocumento <= 0) throw new RuntimeException('Documento inválido para devolución.');
         if ($userId <= 0) throw new RuntimeException('Usuario inválido para registrar devolución.');
@@ -818,7 +818,8 @@ class VentasDespachoModel extends Modelo
             require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
             $inventarioModel = new InventarioModel();
 
-            $stmtDetVenta = $db->prepare('SELECT id, id_item, id_presentacion, cantidad_despachada
+            // FÓRMULA ANTIBALAS: Leemos precio_unitario y cantidad desde la BD
+            $stmtDetVenta = $db->prepare('SELECT id, id_item, id_presentacion, cantidad_despachada, cantidad, precio_unitario, (cantidad * precio_unitario) as subtotal_linea
                                           FROM ventas_documentos_detalle
                                           WHERE id = :id_detalle
                                             AND id_documento_venta = :id_documento
@@ -840,7 +841,6 @@ class VentasDespachoModel extends Modelo
             foreach ($detalle as $linea) {
                 $idDetalle = (int) ($linea['id_documento_detalle'] ?? 0);
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
-                $costo = max(0.0, (float) ($linea['costo_unitario'] ?? 0));
 
                 if ($idDetalle <= 0 || $cantidad <= 0) {
                     throw new RuntimeException('Una línea de devolución no tiene datos válidos.');
@@ -863,7 +863,12 @@ class VentasDespachoModel extends Modelo
                     throw new RuntimeException('No puede devolver más cantidad que la ya despachada.');
                 }
 
-                $subtotal = round($cantidad * $costo, 4);
+                // CÁLCULO SEGURO DEL PRECIO DE DEVOLUCIÓN
+                $subtotalLineaBD = (float) ($detVenta['subtotal_linea'] ?? 0);
+                $cantidadTotalBD = (float) ($detVenta['cantidad'] ?? 1);
+                $precioSeguro = $cantidadTotalBD > 0 ? ($subtotalLineaBD / $cantidadTotalBD) : (float) ($detVenta['precio_unitario'] ?? 0);
+
+                $subtotal = round($cantidad * $precioSeguro, 4);
                 $totalDevuelto += $subtotal;
 
                 $stmtInsDet->execute([
@@ -872,7 +877,7 @@ class VentasDespachoModel extends Modelo
                     'id_item' => $idItemDB,
                     'id_presentacion' => $idPresentacionDB,
                     'cantidad' => $cantidad,
-                    'costo_unitario' => $costo,
+                    'costo_unitario' => $precioSeguro,
                     'subtotal' => $subtotal,
                 ]);
 
@@ -904,7 +909,7 @@ class VentasDespachoModel extends Modelo
                             'id_item' => $idItemDB,
                             'id_almacen_destino' => $idAlmacenDestino,
                             'cantidad' => $cantidad,
-                            'costo_unitario' => $costo,
+                            'costo_unitario' => $precioSeguro,
                             'referencia' => 'Devolución venta ' . (string) ($documento['codigo'] ?? '') . ' | ' . $politica['motivo_label'],
                             'created_by' => $userId,
                             'fecha_documento' => $fechaDocumento
@@ -930,7 +935,12 @@ class VentasDespachoModel extends Modelo
             $stmtCheck->execute(['id' => $idDocumento]);
             $totalDespachadoRestante = (float) $stmtCheck->fetchColumn();
 
-            $nuevoEstadoVenta = ($totalDespachadoRestante <= 0.0001) ? 4 : 5;
+            // NUEVA LÓGICA DE ESTADO (EL SWITCH)
+            if ($enviarReemplazo) {
+                $nuevoEstadoVenta = 2; // Estado Aprobado / Pendiente de Despacho
+            } else {
+                $nuevoEstadoVenta = ($totalDespachadoRestante <= 0.0001) ? 4 : 5; // 4 = Devuelto Total, 5 = Dev Parcial
+            }
 
             $db->prepare('UPDATE ventas_documentos
                           SET estado = :estado, 
@@ -952,7 +962,7 @@ class VentasDespachoModel extends Modelo
     }
 
     private function resolverPoliticaDevolucion(string $motivo, string $motivoCodigo, string $resolucion): array
-{
+    {
     // Asegúrate de que 'descuento_cxc' esté en este array:
     $resolucionesPermitidas = ['saldo_favor', 'descuento_cxc', 'reembolso_dinero', 'salida_dinero'];
 

@@ -101,13 +101,18 @@ class VentasController extends Controlador
                     throw new RuntimeException('Faltan datos obligatorios para la devolución.');
                 }
 
+                // NUEVO: Capturamos la decisión logística (por defecto falso si no viene, para cerrar la orden)
+                $enviarReemplazo = isset($payload['enviar_reemplazo']) ? (bool) $payload['enviar_reemplazo'] : false;
+
+                // Modificamos la llamada para pasar el nuevo parámetro al final
                 $this->despachoModel->registrarDevolucion(
                     (int) ($payload['id_documento'] ?? 0),
                     (string) ($payload['motivo'] ?? ''),
                     (string) ($payload['resolucion'] ?? ''),
                     is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [],
                     $userId,
-                    (string) ($payload['motivo_codigo'] ?? '')
+                    (string) ($payload['motivo_codigo'] ?? ''),
+                    $enviarReemplazo // <-- AQUÍ PASAMOS EL DATO AL MODELO
                 );
 
                 json_response([

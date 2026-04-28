@@ -1971,11 +1971,16 @@
 
             if (!detalle.length) throw new Error('Ingrese al menos una cantidad a devolver mayor a cero.');
 
+            // --- NUEVO: CAPTURAR EL SWITCH DE REEMPLAZO ---
+            const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
+            const enviarReemplazo = checkReemplazo ? checkReemplazo.checked : false;
+
             const payload = await postJson(`${urls.index}&accion=guardar_devolucion`, {
                 id_documento: Number(devolucionVentaDocumentoId?.value || 0),
                 motivo: motivoCfg.label,
                 motivo_codigo: motivoSeleccionado,
                 resolucion: resolucionSeleccionada,
+                enviar_reemplazo: enviarReemplazo, // <-- LO ENVIAMOS AL BACKEND
                 detalle,
             });
 

@@ -503,6 +503,21 @@ $formatearFechaDMY = static function ($fecha): string {
                     </div>
                 </div>
 
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="form-check form-switch bg-white border rounded-3 p-3 d-flex align-items-center shadow-sm">
+                            <input class="form-check-input ms-0 me-3" type="checkbox" id="devolucionEnviarReemplazo" checked style="cursor: pointer; transform: scale(1.3); margin-top: 0;">
+                            <div>
+                                <label class="form-check-label fw-bold text-dark d-block" for="devolucionEnviarReemplazo" style="cursor: pointer;">
+                                    Enviar mercadería de reemplazo (Cambio / Garantía)
+                                </label>
+                                <small class="text-muted">
+                                    El pedido volverá a estado "Pendiente" para que almacén pueda despachar los productos de reemplazo.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="table-responsive border rounded-3 mb-0">
