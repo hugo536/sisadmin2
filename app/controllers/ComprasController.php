@@ -68,7 +68,7 @@ class ComprasController extends Controlador
             } catch (Throwable $e) {
                 json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
             }
-            return;
+            exit; // <-- FIX: Usar exit en lugar de return
         }
 
         // Listar AJAX
@@ -77,7 +77,7 @@ class ComprasController extends Controlador
                 'ok' => true,
                 'data' => $this->ordenModel->listar($filtros),
             ]);
-            return;
+            exit; // <-- FIX: Usar exit en lugar de return
         }
 
 
@@ -94,7 +94,7 @@ class ComprasController extends Controlador
                     'mensaje' => 'No se pudieron cargar unidades de conversión.',
                 ], 500);
             }
-            return;
+            exit; // <-- FIX: Usar exit en lugar de return
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'precio_sugerido_proveedor') {
@@ -103,7 +103,7 @@ class ComprasController extends Controlador
             $idUnidad = (int) ($_GET['id_unidad'] ?? 0);
             if ($idProveedor <= 0 || $idItem <= 0) {
                 json_response(['ok' => false, 'mensaje' => 'Parámetros inválidos.'], 422);
-                return;
+                exit; // <-- FIX: Usar exit en lugar de return
             }
 
             $precio = $this->listaPrecioModel->obtenerPrecioRecomendadoProveedor(
@@ -116,17 +116,24 @@ class ComprasController extends Controlador
                 'encontrado' => $precio !== null,
                 'precio_recomendado' => $precio,
             ]);
-            return;
+            exit; // <-- FIX: Usar exit en lugar de return
         }
 
         // Ver detalle AJAX
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'ver') {
-            $id = (int) ($_GET['id'] ?? 0);
-            json_response([
-                'ok' => true,
-                'data' => $this->ordenModel->obtener($id),
-            ]);
-            return;
+            try {
+                $id = (int) ($_GET['id'] ?? 0);
+                json_response([
+                    'ok' => true,
+                    'data' => $this->ordenModel->obtener($id),
+                ]);
+            } catch (Throwable $e) {
+                json_response([
+                    'ok' => false,
+                    'mensaje' => 'Error al obtener los detalles de la orden: ' . $e->getMessage()
+                ], 500);
+            }
+            exit; // <-- FIX: Usar exit en lugar de return
         }
 
         // Renderizar Vista
@@ -160,7 +167,7 @@ class ComprasController extends Controlador
             
             $fechaEntrega = !empty($payload['fecha_entrega']) ? trim((string) $payload['fecha_entrega']) : null;
             $observaciones = trim((string) ($payload['observaciones'] ?? ''));
-            $tipoImpuesto = trim((string) ($payload['tipo_impuesto'] ?? 'incluido')); // NUEVO
+            $tipoImpuesto = trim((string) ($payload['tipo_impuesto'] ?? 'incluido'));
             $detalle = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
 
             if ($idProveedor <= 0 || !$this->ordenModel->proveedorEsValido($idProveedor)) {
@@ -224,10 +231,10 @@ class ComprasController extends Controlador
                 'id_proveedor' => $idProveedor,
                 'fecha_entrega' => $fechaEntrega,
                 'observaciones' => $observaciones,
-                'tipo_impuesto' => $tipoImpuesto,       // <-- NUEVO
-                'subtotal' => round($subtotal, 4),      // <-- ACTUALIZADO
-                'igv_monto' => round($igvMonto, 4),     // <-- NUEVO
-                'total' => round($totalFinal, 2),       // <-- ACTUALIZADO
+                'tipo_impuesto' => $tipoImpuesto,       
+                'subtotal' => round($subtotal, 4),      
+                'igv_monto' => round($igvMonto, 4),     
+                'total' => round($totalFinal, 2),       
                 'estado' => 0, 
             ], $detalle, $userId);
 
@@ -324,7 +331,7 @@ class ComprasController extends Controlador
                 throw new RuntimeException('Debe proporcionar el detalle de productos a ingresar.');
             }
 
-            // Llamamos a la nueva función del modelo con los 4 parámetros
+            // Llamamos a la nueva función del modelo con los parámetros
             $idRecepcion = $this->recepcionModel->registrarRecepcion(
                 $idOrden,
                 $detalleIngreso,
@@ -389,10 +396,10 @@ class ComprasController extends Controlador
         }
 
         try {
-            // Instanciamos el modelo que editamos en el paso anterior
+            // Instanciamos el modelo 
             $modelo = new ComprasOrdenModel();
             
-            // Llamamos a la nueva función
+            // Llamamos a la función
             $precio = $modelo->obtenerPrecioProveedor($idProveedor, $idItem, $idUnidad);
 
             echo json_encode([

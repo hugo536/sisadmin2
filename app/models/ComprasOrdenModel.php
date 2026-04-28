@@ -68,11 +68,12 @@ class ComprasOrdenModel extends Modelo
 
     public function obtener(int $id): array
     {
+        // Solución: Agregamos el prefijo o. a las columnas para evitar la ambigüedad
         $sql = 'SELECT o.id, o.codigo, o.id_proveedor,
                        t.nombre_completo AS proveedor,
-                       fecha_emision AS fecha_orden, 
-                       fecha_entrega_estimada AS fecha_entrega, 
-                       observaciones, subtotal, total, estado
+                       o.fecha_emision AS fecha_orden, 
+                       o.fecha_entrega_estimada AS fecha_entrega, 
+                       o.observaciones, o.subtotal, o.total, o.estado
                 FROM compras_ordenes o
                 INNER JOIN terceros t ON t.id = o.id_proveedor AND t.deleted_at IS NULL
                 WHERE o.id = :id
@@ -87,7 +88,7 @@ class ComprasOrdenModel extends Modelo
         }
         $orden['fecha_recepcion_sugerida'] = date('Y-m-d');
 
-        // AGREGAMOS: cantidad_recibida, cantidad_pendiente, cantidad_unidad y unidad_base
+        // El detalle se mantiene igual
         $detalleSql = 'SELECT d.id,
                               d.id_item,
                               i.sku,
