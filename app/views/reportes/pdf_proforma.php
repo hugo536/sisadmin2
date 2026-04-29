@@ -103,6 +103,25 @@
             </tr>
         </table>
 
+        <?php
+            $subtotalCalculado = 0.0;
+            foreach (($venta['detalle'] ?? []) as $itemTotal) {
+                $cantidadItem = (float) ($itemTotal['cantidad'] ?? 0);
+                if ($cantidadItem <= 0) {
+                    continue;
+                }
+
+                $subtotalLinea = isset($itemTotal['subtotal'])
+                    ? (float) $itemTotal['subtotal']
+                    : $cantidadItem * (float) ($itemTotal['precio_unitario'] ?? 0);
+
+                $subtotalCalculado += $subtotalLinea;
+            }
+
+            $igvCalculado = (float) ($venta['igv_monto'] ?? 0);
+            $totalCalculado = $subtotalCalculado + $igvCalculado;
+        ?>
+
         <table class="detalle-tabla">
             <thead>
                 <tr>
@@ -129,6 +148,10 @@
                         <td class="text-right">S/ <?php echo number_format((float)($item['subtotal'] ?? 0), 2); ?></td>
                     </tr>
                 <?php endforeach; ?>
+                <tr>
+                    <td colspan="4" class="text-right" style="font-weight: bold; background-color: #f8f9fa;">TOTAL SUBTOTALES</td>
+                    <td class="text-right" style="font-weight: bold; background-color: #f8f9fa;">S/ <?php echo number_format($subtotalCalculado, 2); ?></td>
+                </tr>
             </tbody>
         </table>
 
@@ -148,7 +171,7 @@
                 <table class="totales-tabla">
                     <tr>
                         <td class="text-right"><strong>SUBTOTAL:</strong></td>
-                        <td class="text-right">S/ <?php echo number_format((float)($venta['subtotal'] ?? 0), 2); ?></td>
+                        <td class="text-right">S/ <?php echo number_format($subtotalCalculado, 2); ?></td>
                     </tr>
                     <tr>
                         <td class="text-right"><strong>IGV (18%):</strong></td>
@@ -156,7 +179,7 @@
                     </tr>
                     <tr>
                         <td class="text-right total-final">TOTAL:</td>
-                        <td class="text-right total-final">S/ <?php echo number_format((float)($venta['total'] ?? 0), 2); ?></td>
+                        <td class="text-right total-final">S/ <?php echo number_format($totalCalculado, 2); ?></td>
                     </tr>
                 </table>
             </div>
