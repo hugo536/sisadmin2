@@ -307,6 +307,32 @@ class ComprasController extends Controlador
         }
     }
 
+    public function revertirBorrador(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('compras.aprobar');
+
+        if (!es_ajax()) {
+            json_response(['ok' => false, 'mensaje' => 'Solicitud inválida.'], 400);
+            return;
+        }
+
+        try {
+            $payload = $this->leerJson();
+            $idOrden = (int) ($payload['id'] ?? 0);
+            $userId = $this->obtenerUsuarioId();
+
+            if ($idOrden <= 0) {
+                throw new RuntimeException('Orden inválida.');
+            }
+
+            $this->ordenModel->revertirABorrador($idOrden, $userId);
+            json_response(['ok' => true, 'mensaje' => 'Orden revertida a borrador correctamente.']);
+        } catch (Throwable $e) {
+            json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
+        }
+    }
+
     public function recepcionar(): void
     {
         AuthMiddleware::handle();
