@@ -9,6 +9,8 @@
     }
     window[MODULE_KEY] = true;
     const ROWS_PER_PAGE = 20;
+    const MAX_AUTO_RETRIES = 2;
+    const RETRY_DELAY_MS = 1200;
     let currentPage = 1;
 
     function getItemsEndpoint(extraParams = {}) {
@@ -756,7 +758,7 @@
                 .replace(/'/g, "&#039;");
         };
 
-        const loadTableData = async () => {
+        const loadTableData = async (retryAttempt = 0) => {
             tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>Cargando ítems...</td></tr>`;
 
             try {
@@ -792,7 +794,16 @@
                 }
             } catch (error) {
                 console.error(error);
-                tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4"><i class="bi bi-x-circle me-2"></i>Ocurrió un error al cargar los datos.</td></tr>`;
+
+                if (retryAttempt < MAX_AUTO_RETRIES) {
+                    tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-warning py-4"><div class="spinner-border spinner-border-sm text-warning me-2" role="status"></div>Reintentando carga de datos...</td></tr>`;
+                    setTimeout(() => {
+                        loadTableData(retryAttempt + 1);
+                    }, RETRY_DELAY_MS);
+                    return;
+                }
+
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4"><i class="bi bi-x-circle me-2"></i>Ocurrió un error al cargar los datos. Intenta recargar la página.</td></tr>`;
             }
         };
 
