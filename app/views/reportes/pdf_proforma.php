@@ -149,7 +149,7 @@
                     </tr>
                 <?php endforeach; ?>
                 <tr>
-                    <td colspan="4" class="text-right" style="font-weight: bold; background-color: #f8f9fa;">TOTAL SUBTOTALES</td>
+                    <td colspan="4" class="text-right" style="font-weight: bold; background-color: #f8f9fa;">TOTAL</td>
                     <td class="text-right" style="font-weight: bold; background-color: #f8f9fa;">S/ <?php echo number_format($subtotalCalculado, 2); ?></td>
                 </tr>
             </tbody>
