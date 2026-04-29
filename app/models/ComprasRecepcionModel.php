@@ -220,10 +220,19 @@ class ComprasRecepcionModel extends Modelo
     private function normalizarFechaRecepcion(string $fecha): string
     {
         $fecha = trim($fecha);
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
-            return date('Y-m-d');
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            return $fecha;
         }
-        return $fecha;
+
+        if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $fecha, $m)) {
+            $normalizada = sprintf('%04d-%02d-%02d', (int) $m[3], (int) $m[2], (int) $m[1]);
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $normalizada)) {
+                return $normalizada;
+            }
+        }
+
+        return date('Y-m-d');
     }
 
     private function actualizarStock(PDO $db, int $idItem, int $idAlmacen, float $cantidadBase): void

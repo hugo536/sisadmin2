@@ -349,7 +349,7 @@ class ComprasController extends Controlador
             
             $detalleIngreso = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
             $cerrarForzado = !empty($payload['cerrar_forzado']); 
-            $fechaRecepcion = trim((string) ($payload['fecha_recepcion'] ?? ''));
+            $fechaRecepcion = $this->normalizarFechaRecepcionPayload((string) ($payload['fecha_recepcion'] ?? ''));
             $observaciones = trim((string) ($payload['observaciones'] ?? ''));
             
             $userId = $this->obtenerUsuarioId();
@@ -363,7 +363,7 @@ class ComprasController extends Controlador
             }
 
             // --- TOQUE DE ORO: VALIDACIÓN ESTRICTA DE FECHAS EN BACKEND ---
-            if (!empty($fechaRecepcion)) {
+            if ($fechaRecepcion !== '') {
                 $ordenData = $this->ordenModel->obtener($idOrden);
                 if (!empty($ordenData['fecha_orden'])) {
                     // Extraemos solo el YYYY-MM-DD por si viene con horas
@@ -417,6 +417,24 @@ class ComprasController extends Controlador
             throw new RuntimeException('La sesión ha expirado o es inválida.');
         }
         return $id;
+    }
+
+    private function normalizarFechaRecepcionPayload(string $fecha): string
+    {
+        $fecha = trim($fecha);
+        if ($fecha === '') {
+            return '';
+        }
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            return $fecha;
+        }
+
+        if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $fecha, $m)) {
+            return sprintf('%04d-%02d-%02d', (int) $m[3], (int) $m[2], (int) $m[1]);
+        }
+
+        return $fecha;
     }
 
     public function precioSugeridoAjax(): void
