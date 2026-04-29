@@ -18,6 +18,7 @@
         index: app.dataset.urlIndex,
         guardar: app.dataset.urlGuardar,
         aprobar: app.dataset.urlAprobar,
+        revertirBorrador: app.dataset.urlRevertirBorrador,
         anular: app.dataset.urlAnular,
         recepcionar: app.dataset.urlRecepcionar,
         unidadesItem: app.dataset.urlUnidadesItem,
@@ -1223,6 +1224,27 @@
             try {
                 const res = await postJson(urls.aprobar, { id }, target);
                 await Swal.fire('Aprobada', res.mensaje, 'success');
+                recargarPagina();
+            } catch (e) {
+                Swal.fire('Error', e.message, 'error');
+            }
+            return;
+        }
+
+        if (target.classList.contains('btn-revertir-borrador')) {
+            const confirm = await Swal.fire({
+                title: '¿Revertir a borrador?',
+                text: 'La orden volverá al estado inicial para que puedas editarla antes de recepción.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, revertir',
+            });
+
+            if (!confirm.isConfirmed) return;
+
+            try {
+                const res = await postJson(urls.revertirBorrador, { id }, target);
+                await Swal.fire('Revertida', res.mensaje, 'success');
                 recargarPagina();
             } catch (e) {
                 Swal.fire('Error', e.message, 'error');

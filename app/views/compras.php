@@ -41,6 +41,7 @@ $formatearFechaDMY = static function ($fecha): string {
      data-url-index="<?php echo e(route_url('compras')); ?>"
      data-url-guardar="<?php echo e(route_url('compras/guardar')); ?>"
      data-url-aprobar="<?php echo e(route_url('compras/aprobar')); ?>"
+     data-url-revertir-borrador="<?php echo e(route_url('compras/revertirBorrador')); ?>"
      data-url-anular="<?php echo e(route_url('compras/anular')); ?>"
      data-url-recepcionar="<?php echo e(route_url('compras/recepcionar')); ?>"
      data-url-unidades-item="<?php echo e(route_url('compras')); ?>"
@@ -146,6 +147,7 @@ $formatearFechaDMY = static function ($fecha): string {
                                                 <button class="btn btn-sm btn-light text-success border-0 btn-aprobar rounded-circle" data-bs-toggle="tooltip" title="Aprobar Orden"><i class="bi bi-check2-circle fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-bs-toggle="tooltip" title="Anular Orden"><i class="bi bi-trash fs-5"></i></button>
                                             <?php elseif ($estado === 2): ?> 
+                                                <button class="btn btn-sm btn-light text-warning border-0 btn-revertir-borrador rounded-circle" data-bs-toggle="tooltip" title="Revertir a Borrador"><i class="bi bi-arrow-counterclockwise fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-info border-0 btn-recepcionar rounded-circle" data-bs-toggle="tooltip" title="Recepcionar Mercadería"><i class="bi bi-box-seam fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                             <?php elseif ($estado === 3): ?> 

@@ -372,6 +372,47 @@ class ComprasOrdenModel extends Modelo
         }
     }
 
+    public function revertirABorrador(int $idOrden, int $userId): bool
+    {
+        if ($idOrden <= 0) {
+            throw new RuntimeException('Orden inválida.');
+        }
+
+        $stmtExiste = $this->db()->prepare('SELECT estado
+                                            FROM compras_ordenes
+                                            WHERE id = :id
+                                              AND deleted_at IS NULL
+                                            LIMIT 1');
+        $stmtExiste->execute(['id' => $idOrden]);
+        $orden = $stmtExiste->fetch(PDO::FETCH_ASSOC);
+
+        if (!$orden) {
+            throw new RuntimeException('La orden no existe o fue eliminada.');
+        }
+
+        if ((int) ($orden['estado'] ?? -1) !== 2) {
+            throw new RuntimeException('Solo se pueden revertir órdenes en estado aprobada.');
+        }
+
+        $stmt = $this->db()->prepare('UPDATE compras_ordenes
+                                      SET estado = 0,
+                                          updated_by = :user,
+                                          updated_at = NOW()
+                                      WHERE id = :id
+                                        AND estado = 2
+                                        AND deleted_at IS NULL');
+        $stmt->execute([
+            'id' => $idOrden,
+            'user' => $userId,
+        ]);
+
+        if ($stmt->rowCount() <= 0) {
+            throw new RuntimeException('No se pudo revertir la orden a borrador.');
+        }
+
+        return true;
+    }
+
     public function listarProveedoresActivos(): array
     {
         $sql = 'SELECT t.id, t.nombre_completo
