@@ -39,6 +39,13 @@ class ComprasController extends Controlador
             'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
         ];
 
+        // --- NUEVO CÓDIGO ---
+        // Si el usuario no filtró por un estado específico, le decimos al modelo que ignore las anuladas (9)
+        if ($filtros['estado'] === null) {
+            $filtros['excluir_estado'] = 9; 
+        }
+        // --------------------
+
         if ($filtros['fecha_desde'] === '' && $filtros['fecha_hasta'] === '') {
             $hoy = new DateTimeImmutable('today');
             $filtros['fecha_hasta'] = $hoy->format('Y-m-d');

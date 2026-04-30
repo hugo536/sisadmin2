@@ -39,6 +39,13 @@ class ComprasOrdenModel extends Modelo
             $params[':estado'] = (int) $filtros['estado'];
         }
 
+        // 👇 --- NUEVO CÓDIGO: AGREGAR ESTE BLOQUE AQUÍ --- 👇
+        if (isset($filtros['excluir_estado'])) {
+            $sql .= ' AND o.estado != :excluir_estado';
+            $params[':excluir_estado'] = (int) $filtros['excluir_estado'];
+        }
+        // 👆 ----------------------------------------------- 👆
+
         if (!empty($filtros['fecha_desde'])) {
             $sql .= ' AND DATE(o.fecha_emision) >= :fecha_desde';
             $params[':fecha_desde'] = (string) $filtros['fecha_desde'];

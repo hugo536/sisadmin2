@@ -114,10 +114,19 @@ $formatearFechaDMY = static function ($fecha): string {
                         </tr>
                     </thead>
                     <tbody>
+                        <tbody>
                         <?php if (!empty($ordenes)): ?>
                             <?php foreach ($ordenes as $orden): ?>
                                 <?php 
                                     $estado = (int) ($orden['estado'] ?? 0); 
+
+                                    // --- NUEVO CÓDIGO: FILTRO INTELIGENTE ---
+                                    // Si el estado es 9 (Anulada) Y el usuario NO ha filtrado explícitamente por "Anulada", la ignoramos.
+                                    if ($estado === 9 && (!isset($filtros['estado']) || $filtros['estado'] !== '9')) {
+                                        continue; 
+                                    }
+                                    // ----------------------------------------
+
                                     $badge = $estadoLabels[$estado] ?? $estadoLabels[0]; 
                                 ?>
                                 <tr data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>" class="border-bottom" data-search="<?php echo e(mb_strtolower((string) ($orden['codigo'] ?? '') . ' ' . (string) ($orden['proveedor'] ?? ''))); ?>">
