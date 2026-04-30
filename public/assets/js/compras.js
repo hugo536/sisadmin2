@@ -1121,9 +1121,20 @@
     devolucionResolucion?.addEventListener('change', actualizarHintResolucionDevolucion);
     actualizarHintResolucionDevolucion();
 
+    function ocultarTooltipBoton(boton) {
+        if (!boton || typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+        const tooltip = bootstrap.Tooltip.getInstance(boton);
+        if (tooltip) {
+            tooltip.hide();
+        }
+    }
+
     tbodyTabla.addEventListener('click', async (e) => {
         const target = e.target.closest('button');
         if (!target) return;
+
+        target.blur();
+        ocultarTooltipBoton(target);
 
         const fila = target.closest('tr');
         const id = Number(target.dataset.id || fila?.dataset?.id || 0);
