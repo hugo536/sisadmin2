@@ -131,7 +131,14 @@ $formatearFechaDMY = static function ($fecha): string {
                                 ?>
                                 <tr data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>" class="border-bottom" data-search="<?php echo e(mb_strtolower((string) ($orden['codigo'] ?? '') . ' ' . (string) ($orden['proveedor'] ?? ''))); ?>">
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($orden['codigo'] ?? '')); ?></td>
-                                    <td class="fw-semibold text-dark"><?php echo e((string) ($orden['proveedor'] ?? '')); ?></td>
+                                    <td>
+                                        <div class="fw-semibold text-dark"><?php echo e((string) ($orden['proveedor'] ?? '')); ?></div>
+                                        <?php if (!empty($orden['observaciones'])): ?>
+                                            <small class="text-info fw-semibold d-block mt-1">
+                                                <i class="bi bi-chat-left-text me-1"></i><?php echo e((string) $orden['observaciones']); ?>
+                                            </small>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <div class="fw-bold text-dark" title="Fecha de Registro: <?php echo isset($orden['created_at']) ? date('d/m/Y H:i', strtotime($orden['created_at'])) : ''; ?>">
                                             <i class="bi bi-calendar3 me-1 text-muted"></i> <?php echo e($formatearFechaDMY($orden['fecha_orden'] ?? $orden['fecha_documento'] ?? '')); ?>
