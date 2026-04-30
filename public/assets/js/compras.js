@@ -1126,7 +1126,11 @@
         if (!target) return;
 
         const fila = target.closest('tr');
-        const id = Number(fila.dataset.id);
+        const id = Number(target.dataset.id || fila?.dataset?.id || 0);
+        if (!id) {
+            Swal.fire('Error', 'No se pudo identificar la orden seleccionada. Recarga la página e inténtalo de nuevo.', 'error');
+            return;
+        }
 
         if (target.classList.contains('btn-editar')) {
             try {
