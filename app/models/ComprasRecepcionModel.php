@@ -38,10 +38,10 @@ class ComprasRecepcionModel extends Modelo
             $idAlmacenPrincipal = (int) $detalleIngreso[0]['id_almacen'];
 
             $sqlRecep = 'INSERT INTO compras_recepciones (
-                            codigo, id_orden_compra, id_almacen, fecha_recepcion,
+                            codigo, id_orden_compra, id_almacen, fecha_recepcion, observaciones,
                             created_by, updated_by, created_at, updated_at
                           ) VALUES (
-                            :codigo, :id_orden, :id_almacen, :fecha_recepcion,
+                            :codigo, :id_orden, :id_almacen, :fecha_recepcion, :observaciones,
                             :created_by, :updated_by, NOW(), NOW()
                           )';
             $db->prepare($sqlRecep)->execute([
@@ -49,6 +49,7 @@ class ComprasRecepcionModel extends Modelo
                 'id_orden' => $idOrden,
                 'id_almacen' => $idAlmacenPrincipal,
                 'fecha_recepcion' => $fechaDocumento,
+                'observaciones' => $observaciones !== '' ? $observaciones : null,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ]);
