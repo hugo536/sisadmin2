@@ -358,6 +358,8 @@
         const inputUnidad = fila.querySelector('.detalle-unidad-compra');
         const info = fila.querySelector('.detalle-conversion-info');
         const inputCosto = fila.querySelector('.detalle-costo');
+        const requestToken = String(Date.now() + Math.random());
+        fila.dataset.unidadRequestToken = requestToken;
 
         inputUnidad.innerHTML = '<option value="">Unidad de compra...</option>';
         inputUnidad.classList.add('d-none');
@@ -382,6 +384,9 @@
 
         try {
             const unidades = await obtenerUnidadesItem(Number(inputItem.value));
+            if (fila.dataset.unidadRequestToken !== requestToken) {
+                return;
+            }
             unidades.forEach((u) => {
                 const option = document.createElement('option');
                 option.value = String(u.id || '');
