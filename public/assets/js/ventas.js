@@ -1599,21 +1599,23 @@
     // ==========================================
     
     function recargarTabla() {
-        // Leemos la URL actual para no perder la ruta base (?ruta=ventas)
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        // Limpiamos 'accion' para que sea una carga de vista normal y no un JSON AJAX
+        const nextUrl = new URL(window.location.href);
+        const urlParams = nextUrl.searchParams;
+
         urlParams.delete('accion');
 
-        // Seteamos o eliminamos parámetros según lo que el usuario tenga en pantalla
         if (filtroBusqueda.value.trim()) urlParams.set('q', filtroBusqueda.value.trim()); else urlParams.delete('q');
         if (filtroEstado.value !== '') urlParams.set('estado', filtroEstado.value); else urlParams.delete('estado');
         if (filtroFechaDesde.value) urlParams.set('fecha_desde', filtroFechaDesde.value); else urlParams.delete('fecha_desde');
         if (filtroFechaHasta.value) urlParams.set('fecha_hasta', filtroFechaHasta.value); else urlParams.delete('fecha_hasta');
         if (filtroOrdenFecha && filtroOrdenFecha.value) urlParams.set('orden_fecha', filtroOrdenFecha.value); else urlParams.delete('orden_fecha');
-        
-        // Recargamos la página aplicando la URL construida (persistencia total)
-        window.location.search = urlParams.toString();
+
+        if (typeof window.navigateWithoutReload === 'function') {
+            window.navigateWithoutReload(nextUrl, false);
+            return;
+        }
+
+        window.location.href = nextUrl.toString();
     }
 
     // PROTECCIÓN DE RANGO DE FECHAS

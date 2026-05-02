@@ -166,15 +166,21 @@
     }
 
     function recargarPagina() {
-        const params = new URLSearchParams(window.location.search);
-        params.delete('ruta');
-        params.set('q', filtroBusqueda.value.trim());
-        params.set('estado', filtroEstado.value);
-        params.set('fecha_desde', filtroFechaDesde.value);
-        params.set('fecha_hasta', filtroFechaHasta.value);
+        const nextUrl = new URL(window.location.href);
+        const params = nextUrl.searchParams;
 
-        const separador = urls.index.includes('?') ? '&' : '?';
-        window.location.href = `${urls.index}${separador}${params.toString()}`;
+        params.delete('accion');
+        if (filtroBusqueda.value.trim()) params.set('q', filtroBusqueda.value.trim()); else params.delete('q');
+        if (filtroEstado.value !== '') params.set('estado', filtroEstado.value); else params.delete('estado');
+        if (filtroFechaDesde.value) params.set('fecha_desde', filtroFechaDesde.value); else params.delete('fecha_desde');
+        if (filtroFechaHasta.value) params.set('fecha_hasta', filtroFechaHasta.value); else params.delete('fecha_hasta');
+
+        if (typeof window.navigateWithoutReload === 'function') {
+            window.navigateWithoutReload(nextUrl, false);
+            return;
+        }
+
+        window.location.href = nextUrl.toString();
     }
 
     async function parseJsonSafe(response) {
