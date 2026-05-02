@@ -919,8 +919,17 @@
             
             let cantBaseCalculada = cantInput * factorSeleccionado;
             
-            // Validar que no devuelva más de lo que recibió
-            if (cantBaseCalculada > cantRecibidaBase) {
+            // --- NUEVO: SOLUCIÓN A LA TRAMPA DE LOS DECIMALES ---
+            // ¿Cuánto es lo máximo que el usuario ve que puede devolver?
+            const maxInputVisible = parseFloat((cantRecibidaBase / factorSeleccionado).toFixed(2));
+            
+            // Si el usuario digitó exactamente ese máximo visible, forzamos la cantidad base original exacta (ej. 420)
+            if (Math.abs(cantInput - maxInputVisible) < 0.001) {
+                cantBaseCalculada = cantRecibidaBase;
+                inputCant.classList.remove('is-invalid', 'border-danger');
+            } 
+            // Si realmente se pasó (escribió 2 planchas en vez de 1.67)
+            else if (cantBaseCalculada > cantRecibidaBase + 0.0001) {
                 cantInput = cantRecibidaBase / factorSeleccionado;
                 cantBaseCalculada = cantRecibidaBase;
                 inputCant.value = cantInput.toFixed(2); 
@@ -928,6 +937,10 @@
             } else {
                 inputCant.classList.remove('is-invalid', 'border-danger');
             }
+            // ----------------------------------------------------
+
+            // Guardamos la cantidad base exacta a enviar al backend en el HTML
+            tr.dataset.cantBaseExacta = cantBaseCalculada;
 
             // Convertimos el costo base a la unidad de devolución seleccionada
             const costoUnitarioSegunUnidad = costoBaseReal * factorSeleccionado;
@@ -1080,16 +1093,20 @@
                     const selectU = tr.querySelector('.dev-select-unidad');
                     const factor = parseFloat(selectU.options[selectU.selectedIndex]?.dataset.factor || 1);
                     
+                    // NUEVO: Recuperamos la cantidad exacta que calculó recalcularLinea()
+                    // Si por algún motivo no existe, usamos el cálculo tradicional como fallback
+                    const cantidadBaseExacta = parseFloat(tr.dataset.cantBaseExacta || (cant * factor));
+                    
                     detalle.push({
                         id_documento_detalle: Number(tr.dataset.idDetalle),
                         id_item: Number(tr.dataset.idItem),
                         id_unidad: selectU.value ? Number(selectU.value) : null,
                         factor: factor,
                         cantidad_input: cant,
-                        cantidad_base: cant * factor,
+                        cantidad_base: cantidadBaseExacta, // <-- AQUÍ USAMOS LA EXACTA
                         costo_base: parseFloat(tr.dataset.costoBase)
                     });
-                    totalDevolverBase += (cant * factor);
+                    totalDevolverBase += cantidadBaseExacta;
                 }
             });
 
