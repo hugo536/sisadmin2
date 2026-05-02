@@ -86,6 +86,11 @@ class UnidadConversionModel extends Modelo
 
     public function eliminarUnidadConversion(int $id, int $idItem, int $userId): bool
     {
+        $bloqueos = $this->obtenerBloqueosEliminacionUnidad($id);
+        if ($bloqueos !== []) {
+            throw new RuntimeException('No se puede eliminar esta unidad porque ya tiene uso en: ' . implode(', ', $bloqueos) . '.');
+        }
+
         $sql = 'UPDATE items_unidades
                 SET deleted_at = NOW(),
                     deleted_by = :deleted_by,
@@ -102,6 +107,43 @@ class UnidadConversionModel extends Modelo
             'id' => $id,
             'id_item' => $idItem
         ]);
+    }
+
+    private function obtenerBloqueosEliminacionUnidad(int $idUnidad): array
+    {
+        $db = $this->db();
+        $usos = [];
+
+        $checks = [
+            'compras_ordenes_detalle' => 'SELECT COUNT(*) FROM compras_ordenes_detalle WHERE id_item_unidad = :id',
+            'compras_recepciones_detalle' => 'SELECT COUNT(*) FROM compras_recepciones_detalle WHERE id_item_unidad = :id',
+            'movimientos_inventario_detalle' => 'SELECT COUNT(*) FROM movimientos_inventario_detalle WHERE id_item_unidad = :id',
+            'comercial_acuerdos_proveedor_precios' => 'SELECT COUNT(*) FROM comercial_acuerdos_proveedor_precios WHERE id_unidad_conversion = :id',
+        ];
+
+        foreach ($checks as $tabla => $sql) {
+            if (!$this->tablaExiste($tabla)) {
+                continue;
+            }
+            $stmt = $db->prepare($sql);
+            $stmt->execute(['id' => $idUnidad]);
+            if ((int) $stmt->fetchColumn() > 0) {
+                $usos[] = $tabla;
+            }
+        }
+
+        return $usos;
+    }
+
+    private function tablaExiste(string $tabla): bool
+    {
+        try {
+            $stmt = $this->db()->prepare('SHOW TABLES LIKE :tabla');
+            $stmt->execute(['tabla' => $tabla]);
+            return (bool) $stmt->fetch(PDO::FETCH_NUM);
+        } catch (Throwable $e) {
+            return false;
+        }
     }
 
     /**
