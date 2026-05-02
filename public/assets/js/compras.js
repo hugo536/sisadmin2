@@ -1180,18 +1180,45 @@
 
                         if (d.detalle && d.detalle.length > 0) {
                             d.detalle.forEach(item => {
-                                const cantSol = Number(item.cantidad || 0);
-                                const cantRecibida = Number(item.cantidad_recibida || 0);
-                                const precio = Number(item.costo_unitario || 0);
-                                const subtotal = cantRecibida * precio;
+                                // 1. Extraemos variables y factor de conversión (igual que en tu función de devoluciones)
+                                const factor = Number(item.factor_conversion_aplicado || 1);
+                                
+                                // Cantidad Pedida
+                                const cantPedidaCompra = Number(item.cantidad || 0); // Ej: 4
+                                const cantPedidaBase = cantPedidaCompra * factor;    // Ej: 648
+                                
+                                // Cantidad Recibida (tu BD guarda esto en unidad base)
+                                const cantRecibidaBase = Number(item.cantidad_recibida || 0); // Ej: 648
+                                const cantRecibidaCompra = factor > 0 ? (cantRecibidaBase / factor) : cantRecibidaBase; // Ej: 4
 
+                                // Unidades
+                                const unidadCompra = item.unidad_nombre || 'UND';
+                                const unidadBase = item.unidad_base || 'UND';
+                                const requiereSubtitulo = factor > 1; // Solo mostramos subtítulo si hay conversión
+
+                                // Precios y Subtotal (Calculado en base a la unidad de compra para evitar el error de S/ 31,492)
+                                const precio = Number(item.costo_unitario || 0);
+                                const subtotal = cantRecibidaCompra * precio; 
+
+                                // 2. Construimos el HTML de las celdas
+                                let htmlPedida = `<span class="d-block fw-bold text-dark">${cantPedidaCompra.toFixed(2)} ${unidadCompra}</span>`;
+                                if (requiereSubtitulo) {
+                                    htmlPedida += `<small class="text-muted">(${cantPedidaBase.toFixed(2)} ${unidadBase})</small>`;
+                                }
+
+                                let htmlRecibida = `<span class="d-block fw-bold text-success">${cantRecibidaCompra.toFixed(2)} ${unidadCompra}</span>`;
+                                if (requiereSubtitulo) {
+                                    htmlRecibida += `<small class="text-muted">(${cantRecibidaBase.toFixed(2)} ${unidadBase})</small>`;
+                                }
+
+                                // 3. Insertamos la fila
                                 const trItem = document.createElement('tr');
                                 trItem.innerHTML = `
                                     <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
-                                    <td class="text-center py-2 text-muted">${cantSol.toFixed(2)}</td>
-                                    <td class="text-center py-2 fw-bold text-success">${cantRecibida.toFixed(2)}</td>
-                                    <td class="text-end py-2 text-muted">S/ ${precio.toFixed(2)}</td>
-                                    <td class="text-end pe-3 py-2 fw-bold text-dark">S/ ${subtotal.toFixed(2)}</td>
+                                    <td class="text-center py-2 align-middle">${htmlPedida}</td>
+                                    <td class="text-center py-2 align-middle">${htmlRecibida}</td>
+                                    <td class="text-end py-2 text-muted align-middle">S/ ${precio.toFixed(2)}</td>
+                                    <td class="text-end pe-3 py-2 fw-bold text-dark align-middle">S/ ${subtotal.toFixed(2)}</td>
                                 `;
                                 tbodyResumen.appendChild(trItem);
                             });
