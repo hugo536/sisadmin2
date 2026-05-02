@@ -18,10 +18,6 @@ SELECT o.id,
         FROM compras_recepciones cr
         WHERE cr.id_orden_compra = o.id
         ORDER BY cr.id DESC LIMIT 1) AS fecha_recepcion,
-       NULLIF(TRIM((SELECT cr.observaciones
-                    FROM compras_recepciones cr
-                    WHERE cr.id_orden_compra = o.id
-                    ORDER BY cr.id DESC LIMIT 1)), '') AS observacion_subtitulo,
        COALESCE(
            NULLIF(TRIM((SELECT cr.observaciones
                         FROM compras_recepciones cr
