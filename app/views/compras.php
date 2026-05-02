@@ -132,10 +132,8 @@ $formatearFechaDMY = static function ($fecha): string {
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($orden['codigo'] ?? '')); ?></td>
                                     <td>
                                         <div class="fw-semibold text-dark"><?php echo e((string) ($orden['proveedor'] ?? '')); ?></div>
-                                        <?php if (!empty($orden['observaciones'])): ?>
-                                            <small class="text-info fw-semibold d-block mt-1">
-                                                <i class="bi bi-chat-left-text me-1"></i><?php echo e((string) $orden['observaciones']); ?>
-                                            </small>
+                                        <?php if (!empty($orden['observacion_subtitulo'])): ?>
+                                            <div class="small text-muted mt-1"><?php echo e((string) $orden['observacion_subtitulo']); ?></div>
                                         <?php endif; ?>
                                     </td>
                                     <td>
