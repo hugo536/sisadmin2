@@ -114,7 +114,6 @@ $formatearFechaDMY = static function ($fecha): string {
                         </tr>
                     </thead>
                     <tbody>
-                        <tbody>
                         <?php if (!empty($ordenes)): ?>
                             <?php foreach ($ordenes as $orden): ?>
                                 <?php 
@@ -159,18 +158,18 @@ $formatearFechaDMY = static function ($fecha): string {
                                     <td class="text-end pe-4">
                                         <div class="d-inline-flex align-items-center gap-1">
                                             <?php if ($estado === 0): ?> 
-                                                <button class="btn btn-sm btn-light text-primary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Editar Orden"><i class="bi bi-pencil-square fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-success border-0 btn-aprobar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Aprobar Orden"><i class="bi bi-check2-circle fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Anular Orden"><i class="bi bi-trash fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-primary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Editar Orden"><i class="bi bi-pencil-square fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-success border-0 btn-aprobar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Aprobar Orden"><i class="bi bi-check2-circle fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Anular Orden"><i class="bi bi-trash fs-5"></i></button>
                                             <?php elseif ($estado === 2): ?> 
-                                                <button class="btn btn-sm btn-light text-warning border-0 btn-revertir-borrador rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Revertir a Borrador"><i class="bi bi-arrow-counterclockwise fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-info border-0 btn-recepcionar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Recepcionar Mercadería"><i class="bi bi-box-seam fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-warning border-0 btn-revertir-borrador rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Revertir a Borrador"><i class="bi bi-arrow-counterclockwise fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-info border-0 btn-recepcionar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Recepcionar Mercadería"><i class="bi bi-box-seam fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                             <?php elseif ($estado === 3): ?> 
-                                                <button class="btn btn-sm btn-light text-warning border-0 btn-devolver rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Registrar Devolución/Ajuste"><i class="bi bi-arrow-return-left fs-5"></i></button>
-                                                <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-warning border-0 btn-devolver rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Registrar Devolución/Ajuste"><i class="bi bi-arrow-return-left fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                             <?php else: ?> 
-                                                <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                             <?php endif; ?>
                                         </div>
                                     </td>
