@@ -7,23 +7,33 @@ class ComprasOrdenModel extends Modelo
     public function listar(array $filtros = []): array
     {
         // 1. AGREGAMOS EL SUBQUERY PARA OBTENER LA FECHA DE RECEPCIÓN
-        $sql = 'SELECT o.id,
-                       o.codigo,
-                       o.id_proveedor,
-                       t.nombre_completo AS proveedor,
-                       o.fecha_emision AS fecha_orden,
-                       o.fecha_entrega_estimada AS fecha_entrega,
-                       (SELECT cr.fecha_recepcion 
-                        FROM compras_recepciones cr 
-                        WHERE cr.id_orden_compra = o.id 
-                        ORDER BY cr.id DESC LIMIT 1) AS fecha_recepcion,
-                       o.total,
-                       o.estado,
-                       o.created_at
-                FROM compras_ordenes o
-                INNER JOIN terceros t ON t.id = o.id_proveedor
-                WHERE o.deleted_at IS NULL
-                  AND t.deleted_at IS NULL';
+        $sql = <<<SQL
+SELECT o.id,
+       o.codigo,
+       o.id_proveedor,
+       t.nombre_completo AS proveedor,
+       o.fecha_emision AS fecha_orden,
+       o.fecha_entrega_estimada AS fecha_entrega,
+       (SELECT cr.fecha_recepcion
+        FROM compras_recepciones cr
+        WHERE cr.id_orden_compra = o.id
+        ORDER BY cr.id DESC LIMIT 1) AS fecha_recepcion,
+       COALESCE(
+           NULLIF(TRIM((SELECT cr.observaciones
+                        FROM compras_recepciones cr
+                        WHERE cr.id_orden_compra = o.id
+                        ORDER BY cr.id DESC LIMIT 1)), ''),
+           NULLIF(TRIM(o.observaciones), '')
+       ) AS observacion_subtitulo,
+       o.total,
+       o.estado,
+       o.created_at
+FROM compras_ordenes o
+INNER JOIN terceros t ON t.id = o.id_proveedor
+WHERE o.deleted_at IS NULL
+  AND t.deleted_at IS NULL
+SQL;
+
 
         $params = [];
 
