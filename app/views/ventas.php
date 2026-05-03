@@ -695,8 +695,11 @@ $formatearFechaDMY = static function ($fecha): string {
                                     </tbody>
                                 <tfoot class="bg-light border-top">
                                     <tr>
-                                        <td colspan="4" class="text-end fw-bold py-3 text-secondary">TOTAL FINAL:</td>
-                                        <td class="text-end fw-bold py-3 fs-5 text-primary pe-3" id="resumenVentaTotalFinal">S/ 0.00</td>
+                                        <td colspan="2" class="ps-3 py-3">
+                                            <span class="badge rounded-pill text-bg-light border text-secondary fw-semibold px-3 py-2" id="resumenVentaPesoTotal">Peso total: 0.000 kg</span>
+                                        </td>
+                                        <td colspan="2" class="text-end fw-bold py-3 text-secondary">TOTAL FINAL:</td>
+                                        <td class="text-end fw-bold py-3 fs-5 text-primary pe-3 text-nowrap" id="resumenVentaTotalFinal">S/ 0.00</td>
                                     </tr>
                                 </tfoot>
                             </table>
