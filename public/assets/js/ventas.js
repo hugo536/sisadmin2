@@ -1731,6 +1731,8 @@
 
                     // LLENAR TABLA DE PRODUCTOS
                     const tbodyResumen = document.querySelector('#tablaResumenProductos tbody');
+                    const pesoTotalResumenEl = document.getElementById('resumenVentaPesoTotal');
+                    let pesoTotalResumen = 0;
                     tbodyResumen.innerHTML = '';
 
                     if (venta.detalle && venta.detalle.length > 0) {
@@ -1738,11 +1740,18 @@
                             const cantSol = Number(item.cantidad || 0);
                             const cantDesp = Number(item.cantidad_despachada || 0);
                             const precio = Number(item.precio_unitario || 0);
+                            const pesoUnitario = Number(item.peso_kg || 0);
+                            const pesoSubtotal = cantDesp * pesoUnitario;
                             const subtotal = cantDesp * precio;
+                            pesoTotalResumen += pesoSubtotal;
+
+                            const subtituloPeso = pesoUnitario > 0
+                                ? `<small class="text-muted d-block mt-1">Peso total: ${pesoSubtotal.toFixed(3)} kg</small>`
+                                : '<small class="text-muted d-block mt-1">Peso total: 0.000 kg</small>';
 
                             const trRes = document.createElement('tr');
                             trRes.innerHTML = `
-                                <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
+                                <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}${subtituloPeso}</td>
                                 <td class="text-center py-2 text-muted">${cantSol.toFixed(2)}</td>
                                 <td class="text-center py-2 fw-bold text-success">${cantDesp.toFixed(2)}</td>
                                 <td class="text-end py-2 text-muted">S/ ${precio.toFixed(2)}</td>
@@ -1752,6 +1761,10 @@
                         });
                     } else {
                         tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
+                    }
+
+                    if (pesoTotalResumenEl) {
+                        pesoTotalResumenEl.textContent = `Peso total: ${pesoTotalResumen.toFixed(3)} kg`;
                     }
 
                     const modalResumen = bootstrap.Modal.getOrCreateInstance(modalResumenEl);
