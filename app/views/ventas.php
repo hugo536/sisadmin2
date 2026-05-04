@@ -569,6 +569,7 @@ $formatearFechaDMY = static function ($fecha): string {
                     <select class="form-select shadow-none border-primary-subtle" id="tipoDocumentoImprimir">
                         <option value="imprimir">Pedido Interno (Despacho / Almacén)</option>
                         <option value="imprimir_proforma">Proforma / Cotización (Para el Cliente)</option>
+                        <option value="imprimir_nota_venta">Nota de Venta / Liquidación (Detalle y Deuda)</option>
                     </select>
                 </div>
 

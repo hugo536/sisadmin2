@@ -220,6 +220,40 @@ class VentasController extends Controlador
             return;
         }
 
+        // 👇 NUEVO BLOQUE: Impresión de Nota de Venta 👇
+        if ((string) ($_GET['accion'] ?? '') === 'imprimir_nota_venta') {
+            $id = (int) ($_GET['id'] ?? 0);
+            if ($id <= 0) die('ID de pedido inválido.');
+
+            $venta = $this->documentoModel->obtener($id);
+            if (empty($venta)) die('El pedido no existe.');
+
+            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php'; 
+            $empresaModel = new EmpresaModel();
+            $config = $empresaModel->obtener();
+            require_once BASE_PATH . '/vendor/autoload.php';
+
+            $dompdf = new \Dompdf\Dompdf();
+            $options = $dompdf->getOptions();
+            $options->set(array('isRemoteEnabled' => true));
+            $dompdf->setOptions($options);
+
+            // Variable mágica para cambiar el diseño en la vista
+            $tipo_impresion = 'nota_venta';
+
+            ob_start();
+            // Llamamos a la misma vista que ahora es dinámica
+            require BASE_PATH . '/app/views/reportes/pdf_proforma.php';
+            $html = (string) ob_get_clean();
+
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+            $dompdf->stream('NotaVenta_' . $venta['codigo'] . '.pdf', ['Attachment' => false]);
+            return;
+        }
+        // 👆 FIN DEL NUEVO BLOQUE 👆
+
         // Carga inicial de la página
         $this->render('ventas', [
             'ruta_actual' => 'ventas',

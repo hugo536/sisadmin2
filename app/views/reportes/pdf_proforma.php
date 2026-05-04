@@ -2,7 +2,13 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Proforma <?php echo htmlspecialchars($venta['codigo']); ?></title>
+    <title>
+        <?php 
+            $esNotaVenta = (isset($tipo_impresion) && $tipo_impresion === 'nota_venta');
+            echo $esNotaVenta ? 'Nota de Venta' : 'Proforma'; 
+        ?> 
+        <?php echo htmlspecialchars($venta['codigo']); ?>
+    </title>
     <style>
         /* ESTILOS FLUIDOS PARA CUALQUIER TAMAÑO DE HOJA */
         @page { margin: 1cm; }
@@ -50,6 +56,10 @@
 <body>
     <?php 
         $totalPaginas = isset($paginas) && $paginas > 0 ? (int) $paginas : 1;
+        
+        // Verificamos si el backend nos dijo que es una nota de venta
+        $esNotaVenta = (isset($tipo_impresion) && $tipo_impresion === 'nota_venta');
+        $textoCabecera = $esNotaVenta ? 'NOTA DE VENTA' : 'PROFORMA / COTIZACIÓN';
 
         for ($i = 1; $i <= $totalPaginas; $i++): 
     ?>
@@ -79,7 +89,7 @@
         </div>
 
         <div class="titulo-doc">
-            PROFORMA / COTIZACIÓN N° <?php echo htmlspecialchars($venta['codigo']); ?>
+            <?php echo $textoCabecera; ?> N° <?php echo htmlspecialchars($venta['codigo']); ?>
         </div>
 
         <table class="info-cliente">
@@ -94,8 +104,8 @@
                 <td><?php echo htmlspecialchars($venta['cliente_doc'] ?? 'S/D'); ?></td>
                 <td class="label">MONEDA:</td>
                 <td>Soles (S/)</td>
-                <td class="label">VALIDEZ:</td>
-                <td>15 Días</td>
+                <td class="label"><?php echo $esNotaVenta ? 'ESTADO:' : 'VALIDEZ:'; ?></td>
+                <td><?php echo $esNotaVenta ? 'Entregado / Finalizado' : '15 Días'; ?></td>
             </tr>
             <tr>
                 <td class="label">DIRECCIÓN:</td>
@@ -136,7 +146,6 @@
                 <?php $contadorItems = 1; ?>
                 <?php foreach ($venta['detalle'] as $item): ?>
                     <?php 
-                        // En proforma sí mostramos las cantidades solicitadas, aunque sean 0 en despacho
                         $cantidad = (float) ($item['cantidad'] ?? 0);
                         if ($cantidad <= 0) continue; 
                     ?>
@@ -155,35 +164,22 @@
             </tbody>
         </table>
 
-        <?php
-            $subtotalCalculado = 0.0;
-            foreach (($venta['detalle'] ?? []) as $itemTotal) {
-                $cantidadItem = (float) ($itemTotal['cantidad'] ?? 0);
-                if ($cantidadItem <= 0) {
-                    continue;
-                }
-
-                $subtotalLinea = isset($itemTotal['subtotal'])
-                    ? (float) $itemTotal['subtotal']
-                    : $cantidadItem * (float) ($itemTotal['precio_unitario'] ?? 0);
-
-                $subtotalCalculado += $subtotalLinea;
-            }
-
-            $igvCalculado = (float) ($venta['igv_monto'] ?? 0);
-            $totalCalculado = $subtotalCalculado + $igvCalculado;
-        ?>
-
         <div class="footer-container">
             <div class="terminos">
-                <div class="terminos-titulo">Términos y Condiciones Comerciales</div>
-                <p style="margin: 3px 0;"><strong>1. Validez:</strong> Esta cotización es válida por 15 días calendario.</p>
-                <p style="margin: 3px 0;"><strong>2. Forma de Pago:</strong> Contado / Transferencia Bancaria.</p>
-                <p style="margin: 3px 0;"><strong>3. Cuentas Bancarias:</strong><br>
-                   - BCP Soles: 123-456789-0-12 (CCI: 002123456789012345)<br>
-                   - BBVA Soles: 987-654321-0-98
-                </p>
-                <p style="margin: 3px 0; margin-top: 10px; font-style: italic;">* Para confirmar su pedido, favor de enviar la constancia de pago.</p>
+                <?php if ($esNotaVenta): ?>
+                    <div class="terminos-titulo">Información del Pedido</div>
+                    <p style="margin: 3px 0;"><strong>Comprobante de Control Interno.</strong></p>
+                    <p style="margin: 3px 0;">Este documento detalla los productos entregados y liquidados. No es válido para crédito fiscal ni reemplaza a un comprobante electrónico (Boleta o Factura) de la SUNAT.</p>
+                <?php else: ?>
+                    <div class="terminos-titulo">Términos y Condiciones Comerciales</div>
+                    <p style="margin: 3px 0;"><strong>1. Validez:</strong> Esta cotización es válida por 15 días calendario.</p>
+                    <p style="margin: 3px 0;"><strong>2. Forma de Pago:</strong> Contado / Transferencia Bancaria.</p>
+                    <p style="margin: 3px 0;"><strong>3. Cuentas Bancarias:</strong><br>
+                        - BCP Soles: 123-456789-0-12 (CCI: 002123456789012345)<br>
+                        - BBVA Soles: 987-654321-0-98
+                    </p>
+                    <p style="margin: 3px 0; margin-top: 10px; font-style: italic;">* Para confirmar su pedido, favor de enviar la constancia de pago.</p>
+                <?php endif; ?>
             </div>
 
             <div class="totales-container">
@@ -197,7 +193,7 @@
                         <td class="text-right">S/ <?php echo number_format((float)($venta['igv_monto'] ?? 0), 2); ?></td>
                     </tr>
                     <tr>
-                        <td class="text-right total-final">TOTAL:</td>
+                        <td class="text-right total-final">TOTAL FINAL:</td>
                         <td class="text-right total-final">S/ <?php echo number_format($totalCalculado, 2); ?></td>
                     </tr>
                 </table>
