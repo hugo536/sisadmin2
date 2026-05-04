@@ -129,6 +129,10 @@ $modoVista = ($acuerdoSeleccionado && ((int)($acuerdoSeleccionado['id'] ?? -1) =
                                 </small>
                             </div>
                             <div class="d-flex gap-2">
+                                <a class="btn btn-outline-danger btn-sm" target="_blank" id="btnImprimirAcuerdoCliente"
+                                   href="<?php echo e(route_url('comercial/imprimirAcuerdoPdf') . '&tipo=clientes&id=' . (int)($acuerdoSeleccionado['id'] ?? 0)); ?>">
+                                    <i class="bi bi-printer me-1"></i>Imprimir
+                                </a>
                                 <?php if ($presentacionesHabilitadas): ?>
                                 <button class="btn btn-primary btn-sm" id="btnAgregarProducto" type="button">
                                     <i class="bi bi-plus-lg me-1"></i><?php echo $modoVista === "volumen" ? "Agregar Escala" : "Agregar Producto"; ?>

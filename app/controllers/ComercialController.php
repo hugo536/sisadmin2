@@ -100,6 +100,66 @@ class ComercialController extends Controlador {
         ]);
     }
 
+
+    public function imprimirAcuerdoPdf() {
+        $tipo = (string)($_GET['tipo'] ?? 'clientes');
+        $idAcuerdo = (int)($_GET['id'] ?? 0);
+
+        $esProveedores = $tipo === 'proveedores';
+        $titulo = $esProveedores ? 'Acuerdos con Proveedores' : 'Acuerdos Comerciales';
+
+        $acuerdoSeleccionado = null;
+        $matriz = [];
+        $modoVista = 'acuerdo';
+
+        if ($esProveedores) {
+            if ($idAcuerdo <= 0) {
+                $acuerdos = $this->listaPrecioModel->listarAcuerdosProveedor();
+                $idAcuerdo = (int)($acuerdos[0]['id'] ?? 0);
+            }
+            if ($idAcuerdo > 0) {
+                $acuerdoSeleccionado = $this->listaPrecioModel->obtenerAcuerdoProveedor($idAcuerdo);
+                $matriz = $this->listaPrecioModel->obtenerMatrizPreciosProveedor($idAcuerdo);
+            }
+        } else {
+            if ($idAcuerdo === 0) {
+                $matriz = $this->listaPrecioModel->obtenerMatrizPreciosVolumen();
+                $itemsUnicos = count(array_unique(array_column($matriz, 'id_item')));
+                $acuerdoSeleccionado = [
+                    'id' => 0,
+                    'cliente_nombre' => 'Tarifa General (Por Volumen)',
+                    'total_productos' => $itemsUnicos,
+                ];
+                $modoVista = 'volumen';
+            } else {
+                if ($idAcuerdo <= 0) {
+                    $acuerdos = $this->listaPrecioModel->listarAcuerdos();
+                    $idAcuerdo = (int)($acuerdos[0]['id'] ?? 0);
+                }
+                if ($idAcuerdo > 0) {
+                    $acuerdoSeleccionado = $this->listaPrecioModel->obtenerAcuerdo($idAcuerdo);
+                    $matriz = $this->listaPrecioModel->obtenerMatrizPrecios($idAcuerdo);
+                }
+            }
+        }
+
+        ob_start();
+        require BASE_PATH . '/app/views/reportes/pdf_acuerdos_comerciales.php';
+        $html = ob_get_clean();
+
+        $dompdf = new \Dompdf\Dompdf();
+        $options = $dompdf->getOptions();
+        $options->set('isRemoteEnabled', true);
+        $dompdf->setOptions($options);
+
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'landscape');
+        $dompdf->render();
+
+        $nombre = $esProveedores ? 'Acuerdo_Proveedor' : 'Acuerdo_Cliente';
+        $dompdf->stream($nombre . '_' . date('Ymd_His') . '.pdf', ['Attachment' => false]);
+    }
+
     public function clientesDisponiblesAjax() {
         if (!$this->esPeticionAjax()) {
             json_response(['success' => false, 'message' => 'Petición inválida'], 400);

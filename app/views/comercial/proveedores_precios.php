@@ -69,9 +69,15 @@ $preciosMatriz = $precios_matriz ?? [];
                             <h5 class="mb-1 fw-bold text-primary" id="acuerdoProveedorTitulo"><?php echo e($acuerdoSeleccionado['proveedor_nombre']); ?></h5>
                             <small class="text-muted" id="acuerdoProveedorResumen"><?php echo count($preciosMatriz); ?> productos configurados</small>
                         </div>
-                        <button class="btn btn-primary btn-sm" id="btnAgregarProductoProveedor" type="button">
-                            <i class="bi bi-plus-lg me-1"></i>Agregar Producto
-                        </button>
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-outline-danger btn-sm" target="_blank" id="btnImprimirAcuerdoProveedor"
+                               href="<?php echo e(route_url('comercial/imprimirAcuerdoPdf') . '&tipo=proveedores&id=' . (int)($acuerdoSeleccionado['id'] ?? 0)); ?>">
+                                <i class="bi bi-printer me-1"></i>Imprimir
+                            </a>
+                            <button class="btn btn-primary btn-sm" id="btnAgregarProductoProveedor" type="button">
+                                <i class="bi bi-plus-lg me-1"></i>Agregar Producto
+                            </button>
+                        </div>
                     <?php else: ?>
                         <p class="text-muted mb-0">Selecciona o vincula un proveedor para configurar sus recomendaciones.</p>
                     <?php endif; ?>

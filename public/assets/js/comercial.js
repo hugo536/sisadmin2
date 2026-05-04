@@ -54,6 +54,7 @@ function initComercialApp() {
     const btnSuspender = document.getElementById('btnSuspenderAcuerdo');
     const btnActivar = document.getElementById('btnActivarAcuerdo');
     const btnEliminar = document.getElementById('btnEliminarAcuerdo');
+    const btnImprimirCliente = document.getElementById('btnImprimirAcuerdoCliente');
 
     const modalVincular = modalVincularEl ? new bootstrap.Modal(modalVincularEl) : null;
     const modalAgregar = modalAgregarEl ? new bootstrap.Modal(modalAgregarEl) : null;
@@ -239,6 +240,10 @@ function initComercialApp() {
         }
 
         if (tituloCliente) tituloCliente.textContent = json.acuerdo.cliente_nombre;
+
+        if (btnImprimirCliente) {
+            btnImprimirCliente.href = `?ruta=comercial/imprimirAcuerdoPdf&tipo=clientes&id=${encodeURIComponent(String(idAcuerdo))}`;
+        }
         
         let countProductos = 0;
 
@@ -712,6 +717,7 @@ function initComercialProveedorApp() {
     const selectProducto = document.getElementById('selectProductoProveedor');
     const inputPrecio = document.getElementById('inputPrecioProveedor');
     const btnAgregar = document.getElementById('btnAgregarProductoProveedor');
+    const btnImprimirProveedor = document.getElementById('btnImprimirAcuerdoProveedor');
     const selectUnidad = document.getElementById('selectUnidadProveedor');
 
     const modalVincular = modalVincularEl ? new bootstrap.Modal(modalVincularEl) : null;
@@ -844,6 +850,9 @@ function initComercialProveedorApp() {
         const totalProductos = (json.matriz || []).length;
         if (tabla) tabla.dataset.idAcuerdo = String(idAcuerdo);
         if (titulo) titulo.textContent = json.acuerdo.proveedor_nombre;
+        if (btnImprimirProveedor) {
+            btnImprimirProveedor.href = `?ruta=comercial/imprimirAcuerdoPdf&tipo=proveedores&id=${encodeURIComponent(String(idAcuerdo))}`;
+        }
         if (resumen) resumen.textContent = `${totalProductos} productos configurados`;
         renderRows(json.matriz || []);
         await hidratarUnidadesTabla();
