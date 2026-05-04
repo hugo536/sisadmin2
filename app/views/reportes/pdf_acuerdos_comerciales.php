@@ -43,6 +43,17 @@ $nombreAcuerdo = $esProveedores
                     <th class="right" style="width:140px;">Precio Und</th>
                 <?php else: ?>
                     <th class="right" style="width:140px;">Precio Und</th>
+                <th>Código</th>
+                <th>Producto</th>
+                <?php if ($esProveedores): ?>
+                    <th>Unidad / Present.</th>
+                    <th class="right">Precio Recomendado</th>
+                <?php elseif ($modo === 'volumen'): ?>
+                    <th class="right">Cant. Mínima</th>
+                    <th class="right">Precio Unitario</th>
+                <?php else: ?>
+                    <th class="right">Precio Pactado</th>
+                    <th>Estado</th>
                 <?php endif; ?>
             </tr>
         </thead>
@@ -53,6 +64,13 @@ $nombreAcuerdo = $esProveedores
                 <?php foreach ($matriz as $i => $row): ?>
                     <tr>
                         <td class="center"><?php echo (int)$i + 1; ?></td>
+                <tr>
+                    <td colspan="4">Sin registros para imprimir.</td>
+                </tr>
+            <?php else: ?>
+                <?php foreach ($matriz as $row): ?>
+                    <tr>
+                        <td><?php echo e((string)($row['codigo_presentacion'] ?? 'N/A')); ?></td>
                         <td><?php echo e((string)($row['producto_nombre'] ?? '')); ?></td>
                         <?php if ($esProveedores): ?>
                             <td><?php echo e((string)($row['unidad_compra'] ?? 'Unidad Base')); ?></td>
@@ -62,6 +80,10 @@ $nombreAcuerdo = $esProveedores
                             <td class="right">S/ <?php echo number_format((float)($row['precio_unitario'] ?? $row['precio_pactado'] ?? 0), 4); ?></td>
                         <?php else: ?>
                             <td class="right">S/ <?php echo number_format((float)($row['precio_pactado'] ?? 0), 4); ?></td>
+                            <td class="right">S/ <?php echo number_format((float)($row['precio_unitario'] ?? 0), 4); ?></td>
+                        <?php else: ?>
+                            <td class="right">S/ <?php echo number_format((float)($row['precio_pactado'] ?? 0), 4); ?></td>
+                            <td><?php echo ((int)($row['estado'] ?? 1) === 1) ? 'Activo' : 'Inactivo'; ?></td>
                         <?php endif; ?>
                     </tr>
                 <?php endforeach; ?>
