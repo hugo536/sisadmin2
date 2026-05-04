@@ -963,21 +963,33 @@ class VentasDespachoModel extends Modelo
 
     private function resolverPoliticaDevolucion(string $motivo, string $motivoCodigo, string $resolucion): array
     {
-    // Asegúrate de que 'descuento_cxc' esté en este array:
-    $resolucionesPermitidas = ['saldo_favor', 'descuento_cxc', 'reembolso_dinero', 'salida_dinero'];
-
-    $resolucionNormalizada = trim(strtolower($resolucion));
-
-    if (!in_array($resolucionNormalizada, $resolucionesPermitidas, true)) {
-        throw new RuntimeException('La resolución comercial seleccionada no es válida.');
-    }
+        $resolucionesPermitidas = ['saldo_favor', 'descuento_cxc', 'reembolso_dinero', 'salida_dinero'];
+        $resolucionNormalizada = trim(strtolower($resolucion));
+        if (!in_array($resolucionNormalizada, $resolucionesPermitidas, true)) {
+            throw new RuntimeException('La resolución comercial seleccionada no es válida.');
+        }
 
         $motivoTexto = trim($motivo);
-        
+        $motivoCodigoNormalizado = trim(strtolower($motivoCodigo));
+
+        // Por defecto, las devoluciones reingresan al stock vendible.
         $reingresaInventario = true;
 
-        if ($motivoTexto === 'Producto defectuoso') {
+        // El motivo "producto defectuoso, roto o dañado" NO debe reingresar a inventario vendible.
+        if ($motivoCodigoNormalizado === 'producto_defectuoso') {
             $reingresaInventario = false;
+        }
+
+        // Compatibilidad con datos antiguos o integraciones que no envíen motivo_codigo.
+        if ($motivoCodigoNormalizado === '' && $motivoTexto !== '') {
+            $motivoTextoNormalizado = mb_strtolower($motivoTexto, 'UTF-8');
+            if (
+                strpos($motivoTextoNormalizado, 'defectuoso') !== false
+                || strpos($motivoTextoNormalizado, 'roto') !== false
+                || strpos($motivoTextoNormalizado, 'dañado') !== false
+            ) {
+                $reingresaInventario = false;
+            }
         }
 
         return [
