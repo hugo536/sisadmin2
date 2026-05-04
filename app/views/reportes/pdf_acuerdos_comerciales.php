@@ -19,6 +19,7 @@ $nombreAcuerdo = $esProveedores
         table { width:100%; border-collapse: collapse; }
         th, td { border:1px solid #d1d5db; padding:6px 8px; }
         th { background:#111827; color:#fff; text-align:left; }
+        .center { text-align:center; }
         .right { text-align:right; }
     </style>
 </head>
@@ -32,6 +33,16 @@ $nombreAcuerdo = $esProveedores
     <table>
         <thead>
             <tr>
+                <th class="center" style="width:50px;">Nro</th>
+                <th>Producto</th>
+                <?php if ($esProveedores): ?>
+                    <th>Unidad / Present.</th>
+                    <th class="right" style="width:140px;">Precio Und</th>
+                <?php elseif ($modo === 'volumen'): ?>
+                    <th class="right" style="width:140px;">Cant. Mínima</th>
+                    <th class="right" style="width:140px;">Precio Und</th>
+                <?php else: ?>
+                    <th class="right" style="width:140px;">Precio Und</th>
                 <th>Código</th>
                 <th>Producto</th>
                 <?php if ($esProveedores): ?>
@@ -48,6 +59,11 @@ $nombreAcuerdo = $esProveedores
         </thead>
         <tbody>
             <?php if (empty($matriz)): ?>
+                <tr><td colspan="4">Sin registros para imprimir.</td></tr>
+            <?php else: ?>
+                <?php foreach ($matriz as $i => $row): ?>
+                    <tr>
+                        <td class="center"><?php echo (int)$i + 1; ?></td>
                 <tr>
                     <td colspan="4">Sin registros para imprimir.</td>
                 </tr>
@@ -61,6 +77,9 @@ $nombreAcuerdo = $esProveedores
                             <td class="right">S/ <?php echo number_format((float)($row['precio_recomendado'] ?? 0), 4); ?></td>
                         <?php elseif ($modo === 'volumen'): ?>
                             <td class="right"><?php echo number_format((float)($row['cantidad_minima'] ?? 0), 2); ?></td>
+                            <td class="right">S/ <?php echo number_format((float)($row['precio_unitario'] ?? $row['precio_pactado'] ?? 0), 4); ?></td>
+                        <?php else: ?>
+                            <td class="right">S/ <?php echo number_format((float)($row['precio_pactado'] ?? 0), 4); ?></td>
                             <td class="right">S/ <?php echo number_format((float)($row['precio_unitario'] ?? 0), 4); ?></td>
                         <?php else: ?>
                             <td class="right">S/ <?php echo number_format((float)($row['precio_pactado'] ?? 0), 4); ?></td>

@@ -70,6 +70,7 @@ $preciosMatriz = $precios_matriz ?? [];
                             <small class="text-muted" id="acuerdoProveedorResumen"><?php echo count($preciosMatriz); ?> productos configurados</small>
                         </div>
                         <div class="d-flex gap-2">
+                            <a class="btn btn-outline-danger btn-sm" target="_blank" id="btnImprimirAcuerdoProveedor"
                             <a class="btn btn-outline-danger btn-sm" target="_blank"
                                href="<?php echo e(route_url('comercial/imprimirAcuerdoPdf') . '&tipo=proveedores&id=' . (int)($acuerdoSeleccionado['id'] ?? 0)); ?>">
                                 <i class="bi bi-printer me-1"></i>Imprimir
