@@ -216,6 +216,7 @@
     };
 
     function actualizarHintDevolucionVenta() {
+        // 1. Actualizar textos de ayuda (hints)
         if (devolucionVentaMotivoHint) {
             const motivoSeleccionado = devolucionVentaMotivo?.value || '';
             const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoSeleccionado];
@@ -229,6 +230,24 @@
             const resolucionHint = DEVOLUCION_VENTA_RESOLUCIONES[resolucionSeleccionada];
             devolucionVentaResolucionHint.textContent = resolucionHint
                 || 'Selecciona una resolución comercial para registrar el impacto financiero.';
+        }
+
+        // 👇 2. NUEVA MAGIA UX: Ocultar/Mostrar el Switch de Reemplazo según el Motivo 👇
+        const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
+        // Buscamos el contenedor padre (la columna) para ocultarlo completo
+        const contenedorSwitch = checkReemplazo ? checkReemplazo.closest('.col-12') : null;
+
+        if (contenedorSwitch && checkReemplazo) {
+            const motivoActual = devolucionVentaMotivo?.value || '';
+
+            if (motivoActual === 'producto_defectuoso' || motivoActual === 'producto_incorrecto') {
+                // SÍ tiene sentido enviar reemplazo (Garantía / Cambio)
+                contenedorSwitch.style.display = 'block';
+            } else {
+                // NO tiene sentido enviar reemplazo (Excedente, Rechazo, o vacío)
+                contenedorSwitch.style.display = 'none';
+                checkReemplazo.checked = false; // Lo desmarcamos por seguridad
+            }
         }
     }
 
