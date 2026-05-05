@@ -1773,11 +1773,10 @@
                         pesoTotalResumenEl.textContent = `Peso total: ${pesoTotalResumen.toFixed(3)} kg`;
                     }
 
-                    // NUEVO: Cálculos finales de impuestos y asignación del Total
-                    let totalFinalReal = sumaTotalDespachada;
-                    if (venta.tipo_impuesto === 'mas_igv') {
-                        totalFinalReal = sumaTotalDespachada * 1.18;
-                    }
+                    // Total final del resumen: debe reflejar exactamente lo despachado vigente.
+                    // En escenarios con devolución parcial, el precio unitario de la línea ya representa
+                    // el cálculo base mostrado en el subtotal; por eso no se vuelve a recalcular IGV aquí.
+                    const totalFinalReal = Number.isFinite(sumaTotalDespachada) ? sumaTotalDespachada : 0;
                     document.getElementById('resumenVentaTotalFinal').textContent = `S/ ${totalFinalReal.toFixed(2)}`;
 
                     const modalResumen = bootstrap.Modal.getOrCreateInstance(modalResumenEl);
