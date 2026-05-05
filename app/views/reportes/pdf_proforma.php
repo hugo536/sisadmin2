@@ -15,7 +15,6 @@
 
         body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 12px; color: #000; margin: 0; padding: 0; }
         
-        /* Contenedores elásticos */
         .cabecera { width: 100%; border-bottom: 2px solid #0d6efd; padding-bottom: 15px; margin-bottom: 20px; box-sizing: border-box; }
         .logo-container { width: 45%; float: left; }
         .logo-img { max-height: 80px; max-width: 100%; object-fit: contain; } 
@@ -25,7 +24,6 @@
         
         .titulo-doc { clear: both; text-align: center; font-size: 18px; font-weight: bold; text-transform: uppercase; margin-top: 20px; margin-bottom: 20px; padding: 8px; background-color: #f8f9fa; border: 1px solid #dee2e6; letter-spacing: 1px; color: #212529; }
 
-        /* Tablas que ocupan el 100% del ancho disponible */
         .info-cliente { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
         .info-cliente td { padding: 6px 10px; border: 1px solid #dee2e6; }
         .info-cliente .label { font-weight: bold; background-color: #f8f9fa; width: 15%; }
@@ -37,7 +35,6 @@
         .text-center { text-align: center !important; }
         .text-right { text-align: right !important; }
         
-        /* Secciones finales: Totales y Términos */
         .footer-container { width: 100%; margin-top: 20px; display: block; overflow: hidden; }
         
         .terminos { width: 55%; float: left; font-size: 11px; color: #555; padding-right: 15px; box-sizing: border-box; }
@@ -59,7 +56,11 @@
         
         // Verificamos si el backend nos dijo que es una nota de venta
         $esNotaVenta = (isset($tipo_impresion) && $tipo_impresion === 'nota_venta');
-        $textoCabecera = $esNotaVenta ? 'NOTA DE VENTA' : 'PROFORMA / COTIZACIÓN';
+        $textoCabecera = $esNotaVenta ? 'NOTA DE VENTA / LIQUIDACIÓN' : 'PROFORMA / COTIZACIÓN';
+
+        // MAGIA DE ESTADOS: Si el pedido ya se entregó o devolvió (estado 3, 4 o 5), usamos la cantidad despachada
+        $estadoPedido = (int) ($venta['estado'] ?? 0);
+        $usarCantidadDespachada = ($estadoPedido >= 3);
 
         for ($i = 1; $i <= $totalPaginas; $i++): 
     ?>
@@ -114,22 +115,35 @@
         </table>
 
         <?php
-            $subtotalCalculado = 0.0;
+            // MATEMÁTICA INTELIGENTE BASADA EN EL ESTADO
+            $totalLineas = 0.0;
             foreach (($venta['detalle'] ?? []) as $itemTotal) {
-                $cantidadItem = (float) ($itemTotal['cantidad'] ?? 0);
-                if ($cantidadItem <= 0) {
-                    continue;
-                }
+                $cantidadItem = $usarCantidadDespachada ? (float) ($itemTotal['cantidad_despachada'] ?? 0) : (float) ($itemTotal['cantidad'] ?? 0);
+                
+                if ($cantidadItem <= 0) continue;
 
-                $subtotalLinea = isset($itemTotal['subtotal'])
-                    ? (float) $itemTotal['subtotal']
-                    : $cantidadItem * (float) ($itemTotal['precio_unitario'] ?? 0);
-
-                $subtotalCalculado += $subtotalLinea;
+                $totalLineas += $cantidadItem * (float) ($itemTotal['precio_unitario'] ?? 0);
             }
 
-            $igvCalculado = (float) ($venta['igv_monto'] ?? 0);
-            $totalCalculado = $subtotalCalculado + $igvCalculado;
+            // Recalculamos IGV y Subtotal de manera dinámica
+            $tipoImpuesto = trim((string) ($venta['tipo_impuesto'] ?? 'incluido'));
+            $subtotalBase = 0.0;
+            $igvCalculado = 0.0;
+            $totalFinalCalculado = 0.0;
+
+            if ($tipoImpuesto === 'incluido') {
+                $totalFinalCalculado = $totalLineas;
+                $subtotalBase = $totalFinalCalculado / 1.18;
+                $igvCalculado = $totalFinalCalculado - $subtotalBase;
+            } elseif ($tipoImpuesto === 'mas_igv') {
+                $subtotalBase = $totalLineas;
+                $igvCalculado = $subtotalBase * 0.18;
+                $totalFinalCalculado = $subtotalBase + $igvCalculado;
+            } else {
+                $subtotalBase = $totalLineas;
+                $igvCalculado = 0.0;
+                $totalFinalCalculado = $subtotalBase;
+            }
         ?>
 
         <table class="detalle-tabla">
@@ -146,20 +160,22 @@
                 <?php $contadorItems = 1; ?>
                 <?php foreach ($venta['detalle'] as $item): ?>
                     <?php 
-                        $cantidad = (float) ($item['cantidad'] ?? 0);
+                        $cantidad = $usarCantidadDespachada ? (float) ($item['cantidad_despachada'] ?? 0) : (float) ($item['cantidad'] ?? 0);
                         if ($cantidad <= 0) continue; 
+                        
+                        $subtotalFila = $cantidad * (float)($item['precio_unitario'] ?? 0);
                     ?>
                     <tr>
                         <td class="text-center"><?php echo $contadorItems++; ?></td>
                         <td><?php echo htmlspecialchars($item['item_nombre']); ?></td>
                         <td class="text-center"><strong><?php echo number_format($cantidad, 2); ?></strong></td>
                         <td class="text-right">S/ <?php echo number_format((float)($item['precio_unitario'] ?? 0), 2); ?></td>
-                        <td class="text-right">S/ <?php echo number_format((float)($item['subtotal'] ?? 0), 2); ?></td>
+                        <td class="text-right">S/ <?php echo number_format($subtotalFila, 2); ?></td>
                     </tr>
                 <?php endforeach; ?>
                 <tr>
-                    <td colspan="4" class="text-right" style="font-weight: bold; background-color: #f8f9fa;">TOTAL</td>
-                    <td class="text-right" style="font-weight: bold; background-color: #f8f9fa;">S/ <?php echo number_format($subtotalCalculado, 2); ?></td>
+                    <td colspan="4" class="text-right" style="font-weight: bold; background-color: #f8f9fa;">TOTAL PROD.</td>
+                    <td class="text-right" style="font-weight: bold; background-color: #f8f9fa;">S/ <?php echo number_format($totalLineas, 2); ?></td>
                 </tr>
             </tbody>
         </table>
@@ -185,16 +201,16 @@
             <div class="totales-container">
                 <table class="totales-tabla">
                     <tr>
-                        <td class="text-right"><strong>SUBTOTAL:</strong></td>
-                        <td class="text-right">S/ <?php echo number_format($subtotalCalculado, 2); ?></td>
+                        <td class="text-right"><strong>SUBTOTAL BASE:</strong></td>
+                        <td class="text-right">S/ <?php echo number_format($subtotalBase, 2); ?></td>
                     </tr>
                     <tr>
-                        <td class="text-right"><strong>IGV (18%):</strong></td>
-                        <td class="text-right">S/ <?php echo number_format((float)($venta['igv_monto'] ?? 0), 2); ?></td>
+                        <td class="text-right"><strong>IGV:</strong></td>
+                        <td class="text-right">S/ <?php echo number_format($igvCalculado, 2); ?></td>
                     </tr>
                     <tr>
                         <td class="text-right total-final">TOTAL FINAL:</td>
-                        <td class="text-right total-final">S/ <?php echo number_format($totalCalculado, 2); ?></td>
+                        <td class="text-right total-final">S/ <?php echo number_format($totalFinalCalculado, 2); ?></td>
                     </tr>
                 </table>
             </div>

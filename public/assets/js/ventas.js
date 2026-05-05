@@ -1727,12 +1727,15 @@
                     document.getElementById('resumenVentaFechaDespacho').textContent = venta.fecha_despacho ? formatearFechaVista(venta.fecha_despacho) : 'Pendiente';
                     
                     document.getElementById('resumenVentaObservaciones').textContent = venta.observaciones || 'Sin observaciones.';
-                    document.getElementById('resumenVentaTotalFinal').textContent = `S/ ${Number(venta.total || 0).toFixed(2)}`;
 
                     // LLENAR TABLA DE PRODUCTOS
                     const tbodyResumen = document.querySelector('#tablaResumenProductos tbody');
                     const pesoTotalResumenEl = document.getElementById('resumenVentaPesoTotal');
                     let pesoTotalResumen = 0;
+                    
+                    // NUEVO: Variable para sumar el total real despachado
+                    let sumaTotalDespachada = 0;
+
                     tbodyResumen.innerHTML = '';
 
                     if (venta.detalle && venta.detalle.length > 0) {
@@ -1741,9 +1744,12 @@
                             const cantDesp = Number(item.cantidad_despachada || 0);
                             const precio = Number(item.precio_unitario || 0);
                             const pesoUnitario = Number(item.peso_kg || 0);
+                            
                             const pesoSubtotal = cantDesp * pesoUnitario;
                             const subtotal = cantDesp * precio;
+                            
                             pesoTotalResumen += pesoSubtotal;
+                            sumaTotalDespachada += subtotal; // Sumamos la línea real
 
                             const subtituloPeso = pesoUnitario > 0
                                 ? `<small class="text-muted d-block mt-1">Peso total: ${pesoSubtotal.toFixed(3)} kg</small>`
@@ -1766,6 +1772,13 @@
                     if (pesoTotalResumenEl) {
                         pesoTotalResumenEl.textContent = `Peso total: ${pesoTotalResumen.toFixed(3)} kg`;
                     }
+
+                    // NUEVO: Cálculos finales de impuestos y asignación del Total
+                    let totalFinalReal = sumaTotalDespachada;
+                    if (venta.tipo_impuesto === 'mas_igv') {
+                        totalFinalReal = sumaTotalDespachada * 1.18;
+                    }
+                    document.getElementById('resumenVentaTotalFinal').textContent = `S/ ${totalFinalReal.toFixed(2)}`;
 
                     const modalResumen = bootstrap.Modal.getOrCreateInstance(modalResumenEl);
                     modalResumen.show();
