@@ -503,7 +503,7 @@ $formatearFechaDMY = static function ($fecha): string {
                     </div>
                 </div>
 
-                <div class="row mb-4">
+                <div class="row mb-4" id="filaSwitchReemplazo">
                     <div class="col-12">
                         <div class="form-check form-switch bg-white border rounded-3 p-3 d-flex align-items-center shadow-sm">
                             <input class="form-check-input ms-0 me-3" type="checkbox" id="devolucionEnviarReemplazo" checked style="cursor: pointer; transform: scale(1.3); margin-top: 0;">
