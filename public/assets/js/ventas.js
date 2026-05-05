@@ -236,6 +236,7 @@
         const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
         // Ocultamos/mostramos la fila completa para no dejar espacios ni bordes huérfanos.
         const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazo') || (checkReemplazo ? checkReemplazo.closest('.row.mb-4') : null);
+        const filaSwitchReemplazo = checkReemplazo ? checkReemplazo.closest('.row.mb-4') : null;
 
         if (filaSwitchReemplazo && checkReemplazo) {
             const motivoActual = devolucionVentaMotivo?.value || '';
