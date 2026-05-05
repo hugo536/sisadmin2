@@ -234,19 +234,19 @@
 
         // 👇 2. NUEVA MAGIA UX: Ocultar/Mostrar el Switch de Reemplazo según el Motivo 👇
         const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
-        // Buscamos el contenedor padre (la columna) para ocultarlo completo
-        const contenedorSwitch = checkReemplazo ? checkReemplazo.closest('.col-12') : null;
+        // Ocultamos/mostramos la fila completa para no dejar espacios ni bordes huérfanos.
+        const filaSwitchReemplazo = checkReemplazo ? checkReemplazo.closest('.row.mb-4') : null;
 
-        if (contenedorSwitch && checkReemplazo) {
+        if (filaSwitchReemplazo && checkReemplazo) {
             const motivoActual = devolucionVentaMotivo?.value || '';
+            const motivosConReemplazo = ['producto_incorrecto', 'producto_defectuoso'];
+            const debeMostrarReemplazo = motivosConReemplazo.includes(motivoActual);
 
-            if (motivoActual === 'producto_defectuoso' || motivoActual === 'producto_incorrecto') {
-                // SÍ tiene sentido enviar reemplazo (Garantía / Cambio)
-                contenedorSwitch.style.display = 'block';
-            } else {
-                // NO tiene sentido enviar reemplazo (Excedente, Rechazo, o vacío)
-                contenedorSwitch.style.display = 'none';
-                checkReemplazo.checked = false; // Lo desmarcamos por seguridad
+            filaSwitchReemplazo.classList.toggle('d-none', !debeMostrarReemplazo);
+
+            if (!debeMostrarReemplazo) {
+                // Si no aplica reemplazo, se fuerza apagado para evitar inconsistencias.
+                checkReemplazo.checked = false;
             }
         }
     }
