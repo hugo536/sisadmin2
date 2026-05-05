@@ -953,6 +953,8 @@ class VentasDespachoModel extends Modelo
                     'user' => $userId,
                 ]);
 
+            $this->recalcularTotalesDocumentoPorDespacho($db, $idDocumento, $userId);
+
             $this->aplicarAjusteCxcPorDevolucion($db, $idDocumento, $politica['resolucion'], $totalDevuelto, $userId);
             $db->commit();
         } catch (Throwable $e) {
@@ -1092,6 +1094,70 @@ class VentasDespachoModel extends Modelo
                 error_log('Error creando CXP por devolución: ' . $e->getMessage());
             }
         }
+    }
+
+    private function recalcularTotalesDocumentoPorDespacho(PDO $db, int $idDocumento, int $userId): void
+    {
+        $stmtCab = $db->prepare('SELECT tipo_impuesto, tipo_operacion
+                                 FROM ventas_documentos
+                                 WHERE id = :id
+                                   AND deleted_at IS NULL
+                                 LIMIT 1');
+        $stmtCab->execute(['id' => $idDocumento]);
+        $cabecera = $stmtCab->fetch(PDO::FETCH_ASSOC);
+        if (!$cabecera) {
+            return;
+        }
+
+        $stmtLineas = $db->prepare('SELECT COALESCE(SUM(cantidad_despachada * precio_unitario), 0)
+                                    FROM ventas_documentos_detalle
+                                    WHERE id_documento_venta = :id
+                                      AND deleted_at IS NULL');
+        $stmtLineas->execute(['id' => $idDocumento]);
+        $sumaLineasDespachadas = (float) $stmtLineas->fetchColumn();
+
+        $tipoImpuesto = trim((string) ($cabecera['tipo_impuesto'] ?? 'exonerado'));
+        $tipoOperacion = trim((string) ($cabecera['tipo_operacion'] ?? 'VENTA'));
+
+        $subtotal = 0.0;
+        $igvMonto = 0.0;
+        $totalFinal = 0.0;
+
+        if ($tipoOperacion === 'DONACION') {
+            $tipoImpuesto = 'exonerado';
+        } else {
+            if ($tipoImpuesto === 'incluido') {
+                $totalFinal = $sumaLineasDespachadas;
+                $subtotal = $totalFinal / 1.18;
+                $igvMonto = $totalFinal - $subtotal;
+            } elseif ($tipoImpuesto === 'mas_igv') {
+                $subtotal = $sumaLineasDespachadas;
+                $igvMonto = $subtotal * 0.18;
+                $totalFinal = $subtotal + $igvMonto;
+            } else {
+                $subtotal = $sumaLineasDespachadas;
+                $igvMonto = 0.0;
+                $totalFinal = $subtotal;
+                $tipoImpuesto = 'exonerado';
+            }
+        }
+
+        $db->prepare('UPDATE ventas_documentos
+                      SET tipo_impuesto = :tipo_impuesto,
+                          subtotal = :subtotal,
+                          igv_monto = :igv_monto,
+                          total = :total,
+                          updated_by = :user,
+                          updated_at = NOW()
+                      WHERE id = :id')
+            ->execute([
+                'tipo_impuesto' => $tipoImpuesto,
+                'subtotal' => round($subtotal, 4),
+                'igv_monto' => round($igvMonto, 4),
+                'total' => round($totalFinal, 2),
+                'user' => $userId,
+                'id' => $idDocumento,
+            ]);
     }
 
     private function asegurarTablasDevolucion(PDO $db): void
