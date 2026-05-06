@@ -953,10 +953,12 @@ class VentasDespachoModel extends Modelo
                     'user' => $userId,
                 ]);
 
-            // 👇 NUEVO: Llamamos a tu excelente función para actualizar el TOTAL en la BD 👇
-            $this->recalcularTotalesDocumentoPorDespacho($db, $idDocumento, $userId);
-
-            $this->aplicarAjusteCxcPorDevolucion($db, $idDocumento, $politica['resolucion'], $totalDevuelto, $userId);
+            // 👇 REGLA DE ORO: Solo recalculamos dinero si NO es un reemplazo 👇
+            if (!$enviarReemplazo) {
+                $this->recalcularTotalesDocumentoPorDespacho($db, $idDocumento, $userId);
+                $this->aplicarAjusteCxcPorDevolucion($db, $idDocumento, $politica['resolucion'], $totalDevuelto, $userId);
+            }
+            
             $db->commit();
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();

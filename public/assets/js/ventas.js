@@ -217,9 +217,10 @@
 
     function actualizarHintDevolucionVenta() {
         // 1. Actualizar textos de ayuda (hints)
+        const motivoActual = devolucionVentaMotivo?.value || '';
+        
         if (devolucionVentaMotivoHint) {
-            const motivoSeleccionado = devolucionVentaMotivo?.value || '';
-            const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoSeleccionado];
+            const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoActual];
             devolucionVentaMotivoHint.textContent = motivoCfg
                 ? motivoCfg.hint
                 : 'Selecciona un motivo para definir cómo tratar la mercadería devuelta.';
@@ -232,21 +233,19 @@
                 || 'Selecciona una resolución comercial para registrar el impacto financiero.';
         }
 
-        // 👇 2. NUEVA MAGIA UX: Ocultar/Mostrar el Switch de Reemplazo según el Motivo 👇
+        // 👇 2. LÓGICA DEL SWITCH CORREGIDA (SOLO PARA GARANTÍAS) 👇
         const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
-        // Ocultamos/mostramos la fila completa para no dejar espacios ni bordes huérfanos.
-        const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazo') || (checkReemplazo ? checkReemplazo.closest('.row.mb-4') : null);
-        const filaSwitchReemplazo = checkReemplazo ? checkReemplazo.closest('.row.mb-4') : null;
+        const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazo');
 
         if (filaSwitchReemplazo && checkReemplazo) {
-            const motivoActual = devolucionVentaMotivo?.value || '';
-            const motivosConReemplazo = ['producto_incorrecto', 'producto_defectuoso'];
-            const debeMostrarReemplazo = motivosConReemplazo.includes(motivoActual);
-
-            filaSwitchReemplazo.classList.toggle('d-none', !debeMostrarReemplazo);
-
-            if (!debeMostrarReemplazo) {
-                // Si no aplica reemplazo, se fuerza apagado para evitar inconsistencias.
+            // Evaluamos si el motivo amerita reemplazo (AHORA SÍ, SOLO DEFECTUOSO)
+            if (motivoActual === 'producto_defectuoso') {
+                // Le quitamos el d-none para que Bootstrap lo vuelva a mostrar
+                filaSwitchReemplazo.classList.remove('d-none');
+            } else {
+                // Le agregamos la clase d-none de Bootstrap para forzar que se oculte
+                filaSwitchReemplazo.classList.add('d-none');
+                // Lo desmarcamos por seguridad
                 checkReemplazo.checked = false;
             }
         }
@@ -1108,9 +1107,38 @@
 
         devolucionVentaDocumentoId.value = String(Number(venta.id || idDocumento));
         if (devolucionVentaMotivo) devolucionVentaMotivo.value = '';
-        if (devolucionVentaResolucion) devolucionVentaResolucion.value = 'descuento_cxc';
         tbodyDevolucionVenta.innerHTML = '';
         if (devolucionVentaTotal) devolucionVentaTotal.textContent = 'S/ 0.00';
+
+        // 👇 MAGIA FINANCIERA: Filtrar opciones de Resolución según el pago 👇
+        if (devolucionVentaResolucion) {
+            // Asumimos que tu backend nos dice cuánto pagó y cuánto era el total
+            const montoPagado = Number(venta.monto_pagado || 0);
+            const totalPedido = Number(venta.total || 0);
+            
+            devolucionVentaResolucion.innerHTML = ''; // Limpiamos el combo
+
+            // Si el cliente NO ha pagado todo (es un pedido a crédito / fiado)
+            if (montoPagado < totalPedido) {
+                devolucionVentaResolucion.innerHTML = `
+                    <optgroup label="🔄 Ajuste de Deuda (Sin pagos previos)">
+                        <option value="descuento_cxc" selected>Reducción / Anulación de Deuda</option>
+                    </optgroup>
+                `;
+            } 
+            // Si el cliente YA PAGÓ todo (es un pedido al contado)
+            else {
+                devolucionVentaResolucion.innerHTML = `
+                    <optgroup label="💳 Saldo a Favor (No sale dinero)">
+                        <option value="saldo_favor" selected>Nota de Crédito (Descontar de futuras compras / CxC)</option>
+                    </optgroup>
+                    <optgroup label="💵 Salida de Dinero (Tesorería)">
+                        <option value="reembolso_dinero">Reembolso al cliente (Efectivo / Transferencia)</option>
+                    </optgroup>
+                `;
+            }
+        }
+        // 👆 FIN DE LA MAGIA FINANCIERA 👆
 
         let lineasDisponibles = 0;
         detalle.forEach((linea) => {

@@ -51,6 +51,11 @@ class VentasController extends Controlador
             $id = (int) ($_GET['id'] ?? 0);
             $venta = $this->documentoModel->obtener($id);
 
+            // 👇 MAGIA PARA EL JS: Consultamos cuánto ha pagado el cliente 👇
+            $deuda = $this->tesoreriaCxcModel->obtenerPorVenta($id);
+            $venta['monto_pagado'] = $deuda ? (float) ($deuda['monto_pagado'] ?? 0) : 0.0;
+            // 👆 FIN DE LA MAGIA 👆
+
             if (!empty($venta['detalle']) && is_array($venta['detalle'])) {
                 foreach ($venta['detalle'] as &$linea) {
                     $rawId = (string) ($linea['id_item'] ?? '');
@@ -68,7 +73,7 @@ class VentasController extends Controlador
             }
 
             json_response(['ok' => true, 'data' => $venta]);
-            exit; // <-- CAMBIO VITAL
+            exit; 
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_clientes') {
@@ -481,7 +486,8 @@ class VentasController extends Controlador
             }
             // --------------------------------------------------------------
             
-            $this->documentoModel->guardarDespacho($idDocumento, $detalle, $observaciones, $cerrarForzado, $userId, $fechaDespacho, $envasesDevueltos);
+            // Usamos el modelo correcto y el nombre de la función correcta
+            $this->despachoModel->registrarDespacho($idDocumento, $detalle, $cerrarForzado, $observaciones, $userId, $fechaDespacho, $envasesDevueltos);
             
             json_response(['ok' => true, 'mensaje' => 'Despacho registrado correctamente']);
         } catch (Throwable $e) {

@@ -1,131 +1,144 @@
 <?php
 /**
- * 🔍 SUPER CHECKER - Diagnóstico Total del Buscador (BD + AJAX + FRONTEND)
+ * 🔍 SUPER CHECKER - Diagnóstico de Lógica de Devoluciones (Switch Reemplazo)
  */
 declare(strict_types=1);
 error_reporting(E_ALL); ini_set('display_errors', '1');
 
-// --- CREDENCIALES ---
-$host = '127.0.0.1';
-$db   = 'sisadmin2';
-$user = 'root';
-$pass = '';
+echo "<!DOCTYPE html><html><head><title>Debugger Devoluciones</title>";
+// Cargamos Bootstrap y Bootstrap Icons tal cual los usas en tu sistema
+echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">';
+echo '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">';
+echo "</head><body style='background: #f8f9fa; padding: 30px;'>";
 
-$termino_busqueda = $_GET['q'] ?? 'oficina';
-
-echo "<!DOCTYPE html><html><head><title>Debugger Buscador</title>";
-// Cargamos TomSelect para la prueba de "Cuarto Limpio"
-echo '<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">';
-echo '<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>';
-echo "</head><body style='font-family: system-ui, sans-serif; padding: 30px; background: #0d1117; color: #c9d1d9;'>";
-
-echo "<h1 style='color: #58a6ff;'>🕵️‍♂️ DIAGNÓSTICO TOTAL: Buscador de Clientes</h1>";
-echo "<p>Simulando búsqueda para el término: <strong style='color:#f0883e;'>'$termino_busqueda'</strong> <i>(Puedes probar otros añadiendo ?q=palabra a la URL)</i></p>";
-echo "<hr style='border-color: #30363d;'>";
+echo "<div class='container' style='max-width: 800px;'>";
+echo "<h1 class='text-primary mb-4'>🕵️‍♂️ DIAGNÓSTICO: Lógica del Switch de Reemplazo</h1>";
+echo "<p class='lead'>Este es un clon exacto de la parte del modal de devoluciones que nos está dando problemas.</p>";
 
 // ==========================================
-// 1. TEST DE BASE DE DATOS
+// SIMULACIÓN DEL HTML DE TU MODAL
 // ==========================================
-echo "<h3 style='color: #ff7b72;'>1️⃣ TEST DE BASE DE DATOS</h3>";
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8mb4", $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-    ]);
-    echo "✅ Conexión a BD exitosa.<br>";
-
-    $stmt = $pdo->prepare("SELECT id, nombre_completo, numero_documento, estado, deleted_at, es_cliente FROM terceros WHERE (nombre_completo LIKE :q1 OR numero_documento LIKE :q2)");
-    $stmt->execute(['q1' => "%$termino_busqueda%", 'q2' => "%$termino_busqueda%"]);
-    $clientes = $stmt->fetchAll();
-
-    if (empty($clientes)) {
-        echo "❌ <b style='color:#f85149'>No hay coincidencias en la BD</b> para '$termino_busqueda'.<br>";
-    } else {
-        echo "✅ Se encontraron " . count($clientes) . " registros brutos en la BD.<br>";
-        $validos = 0;
-        foreach($clientes as $c) {
-            if ($c['estado'] == 1 && $c['es_cliente'] == 1 && $c['deleted_at'] === null) $validos++;
-        }
-        if ($validos === 0) {
-            echo "❌ <b style='color:#f85149'>Niguno es válido</b> (Revisa que estado=1, es_cliente=1 y deleted_at=null).<br>";
-        } else {
-            echo "✅ $validos registros son clientes 100% válidos.<br>";
-        }
-    }
-} catch (Exception $e) {
-    echo "❌ Error BD: " . $e->getMessage() . "<br>";
-}
-
-// ==========================================
-// 2. TEST DEL ENDPOINT AJAX (CONTROLADOR PHP)
-// ==========================================
-echo "<h3 style='color: #ff7b72; margin-top:30px;'>2️⃣ TEST DEL CONTROLADOR AJAX</h3>";
-$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
-$base_url = $protocol . "://" . $_SERVER['HTTP_HOST'] . str_replace(basename($_SERVER['SCRIPT_NAME']), '', $_SERVER['REQUEST_URI']);
-$ajax_url = $base_url . "?ruta=ventas&accion=buscar_clientes&q=" . urlencode($termino_busqueda);
-
-echo "<p>Haciendo petición GET a: <code>$ajax_url</code></p>";
-
-$context = stream_context_create(["http" => ["header" => "X-Requested-With: XMLHttpRequest\r\n"]]);
-$response = @file_get_contents($ajax_url, false, $context);
-
-if ($response === false) {
-    echo "❌ <b style='color:#f85149'>El controlador devolvió un error 500 o la ruta no existe.</b><br>";
-} else {
-    $json = json_decode($response, true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        echo "❌ <b style='color:#f85149'>El controlador NO está devolviendo JSON válido.</b> Devuelve esto:<br>";
-        echo "<pre style='background:#161b22; padding:10px; border-radius:5px; color:#a5d6ff; max-height:200px; overflow:auto;'>" . htmlspecialchars($response) . "</pre>";
-    } else {
-        echo "✅ El controlador devuelve un JSON válido.<br>";
-        if (!isset($json['data'])) {
-            echo "❌ <b style='color:#f85149'>Falta la llave 'data' en el JSON.</b> TomSelect crasheará porque necesita `{ \"data\": [...] }`.<br>";
-        } else {
-            echo "✅ El JSON tiene la llave 'data' con " . count($json['data']) . " elementos.<br>";
-            if (count($json['data']) > 0) {
-                echo "<i>Así se ve el primer registro que le llega al Javascript:</i><br>";
-                echo "<pre style='background:#161b22; padding:10px; border-radius:5px; color:#a5d6ff;'>" . htmlspecialchars(json_encode($json['data'][0], JSON_PRETTY_PRINT)) . "</pre>";
-            }
-        }
-    }
-}
-
-// ==========================================
-// 3. FRONTEND 'CLEAN ROOM' TEST
-// ==========================================
-echo "<h3 style='color: #ff7b72; margin-top:30px;'>3️⃣ TEST FRONTEND 'CLEAN ROOM'</h3>";
-echo "<p>Esta es una prueba aislada de TomSelect SIN tu app.css y SIN los modales de Bootstrap.</p>";
-echo "<div style='background:#ffffff; padding: 20px; border-radius: 8px; color: #000; width: 400px;'>";
-echo "<label style='font-weight:bold; display:block; margin-bottom:10px;'>Buscador Aislado:</label>";
-echo "<select id='testSelect' placeholder='Escribe para buscar...'></select>";
-echo "</div>";
 ?>
+<div class="card shadow">
+    <div class="card-header bg-warning text-dark fw-bold">
+        Simulación: Registrar Devolución de Venta
+    </div>
+    <div class="card-body">
+        
+        <div class="row mb-4 g-3">
+            <div class="col-md-6">
+                <label class="form-label fw-bold small text-muted">Motivo de Devolución <span class="text-danger">*</span></label>
+                <select id="devolucionVentaMotivo" class="form-select border-warning-subtle" required>
+                    <option value="">Seleccione un motivo...</option>
+                    <optgroup label="📦 Restaura al Inventario Vendible">
+                        <option value="producto_incorrecto">Producto incorrecto entregado</option>
+                        <option value="error_despacho">Error de despacho / cantidad excedente</option>
+                        <option value="cliente_rechaza">Cliente rechaza pedido (Packs sellados e intactos)</option>
+                    </optgroup>
+                    <optgroup label="⚠️ Descuenta o Va a Cuarentena / Mermas">
+                        <option value="producto_defectuoso">Producto defectuoso, roto o dañado</option>
+                    </optgroup>
+                </select>
+                <small id="devolucionVentaMotivoHint" class="text-muted d-block mt-1">Selecciona un motivo...</small>
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label fw-bold small text-muted">Resolución Comercial</label>
+                <select id="devolucionVentaResolucion" class="form-select border-warning-subtle">
+                    <option value="descuento_cxc">Reducción / Anulación de Deuda</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="row mb-4" id="filaSwitchReemplazo">
+            <div class="col-12">
+                <div class="form-check form-switch bg-white border rounded-3 p-3 d-flex align-items-center shadow-sm">
+                    <input class="form-check-input ms-0 me-3" type="checkbox" id="devolucionEnviarReemplazo" checked style="cursor: pointer; transform: scale(1.3); margin-top: 0;">
+                    <div>
+                        <label class="form-check-label fw-bold text-dark d-block" for="devolucionEnviarReemplazo" style="cursor: pointer;">
+                            Enviar mercadería de reemplazo (Cambio / Garantía)
+                        </label>
+                        <small class="text-muted">
+                            El pedido volverá a estado "Pendiente" para despachar los productos de reemplazo.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-dark mt-4">
+            <h6 class="fw-bold"><i class="bi bi-terminal"></i> Consola de Diagnóstico JS</h6>
+            <pre id="consolaLog" class="mb-0 text-success" style="font-size: 12px;"></pre>
+        </div>
+
+    </div>
+</div>
+</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    const baseUrl = "<?php echo $base_url . '?ruta=ventas&accion=buscar_clientes&q='; ?>";
     
-    new TomSelect('#testSelect', {
-        valueField: 'id',
-        labelField: 'text',
-        searchField: ['text', 'value'],
-        score: function() { return function() { return 1; }; }, // Obliga a mostrar todo lo que traiga el servidor
-        load: function(query, callback) {
-            fetch(baseUrl + encodeURIComponent(query), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(r => r.json())
-            .then(json => {
-                const items = (json.data || []).map(item => ({
-                    id: item.id,
-                    text: `${item.nombre_completo} (${item.num_doc || 'S/D'})`
-                }));
-                console.log("✅ TomSelect recibió:", items);
-                callback(items);
-            }).catch(e => {
-                console.error("❌ Error en JS:", e);
-                callback();
-            });
+    // Diccionario de configuración
+    const DEVOLUCION_VENTA_MOTIVOS = {
+        producto_incorrecto: { hint: 'La mercadería regresa al stock vendible.' },
+        error_despacho: { hint: 'La devolución corrige la salida y repone stock vendible.' },
+        cliente_rechaza: { hint: 'La mercadería vuelve al stock vendible si está sellada e intacta.' },
+        producto_defectuoso: { hint: 'No reingresa a stock vendible (cuarentena/merma).' },
+    };
+
+    // Variables del DOM
+    const devolucionVentaMotivo = document.getElementById('devolucionVentaMotivo');
+    const devolucionVentaMotivoHint = document.getElementById('devolucionVentaMotivoHint');
+    const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
+    const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazo');
+    const consolaLog = document.getElementById('consolaLog');
+
+    function log(msg) {
+        consolaLog.textContent += msg + '\n';
+        console.log(msg);
+    }
+
+    log("Sistema iniciado. Esperando interacciones del usuario...");
+
+    // La función estrella
+    function actualizarHintDevolucionVenta() {
+        const motivoActual = devolucionVentaMotivo.value;
+        log(`\n▶️ Evento 'change' detectado. Motivo seleccionado: "${motivoActual}"`);
+        
+        // 1. Hint
+        const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoActual];
+        if (devolucionVentaMotivoHint) {
+            devolucionVentaMotivoHint.textContent = motivoCfg ? motivoCfg.hint : 'Selecciona un motivo...';
         }
-    });
+
+        // 2. Lógica del Switch
+        if (!filaSwitchReemplazo || !checkReemplazo) {
+            log("❌ ERROR: No se encontraron en el DOM los elementos del Switch.");
+            return;
+        }
+
+        if (motivoActual === 'producto_incorrecto' || motivoActual === 'producto_defectuoso') {
+            log("✅ Acción: Mostrando el switch de reemplazo (Aplica garantía/cambio)");
+            
+            // LA CORRECCIÓN SUPREMA DE BOOTSTRAP:
+            // Removemos 'd-none' para devolverle el control a Bootstrap
+            filaSwitchReemplazo.classList.remove('d-none');
+            
+        } else {
+            log("🚫 Acción: Ocultando el switch de reemplazo y desmarcándolo (No aplica reemplazo)");
+            
+            // LA CORRECCIÓN SUPREMA DE BOOTSTRAP:
+            // Añadimos 'd-none' (clase nativa de BS) que oculta el elemento con !important
+            filaSwitchReemplazo.classList.add('d-none');
+            checkReemplazo.checked = false;
+        }
+    }
+
+    // Escuchador de eventos
+    devolucionVentaMotivo.addEventListener('change', actualizarHintDevolucionVenta);
+    
+    // Llamada inicial para limpiar el estado al cargar
+    actualizarHintDevolucionVenta();
 });
 </script>
 </body></html>
