@@ -41,6 +41,24 @@
         devolucionResolucionHint.className = 'form-text text-secondary mt-1';
     }
 
+    // 👇 NUEVO: Lógica protectora del Switch de Reemplazo para Compras 👇
+    function actualizarLogicaDevolucionCompra() {
+        const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazoCompra');
+        const checkReemplazo = document.getElementById('devolucionEsperarReemplazo');
+        const motivoActual = devolucionMotivo?.value || '';
+
+        if (filaSwitchReemplazo && checkReemplazo) {
+            // SÍ esperamos reemplazo si vino roto (Garantía) o nos mandaron algo equivocado
+            if (motivoActual === 'Producto defectuoso / Garantía' || motivoActual === 'Producto incorrecto') {
+                filaSwitchReemplazo.classList.remove('d-none');
+            } else {
+                // Para errores de conteo o vencimiento, ocultamos y apagamos el switch
+                filaSwitchReemplazo.classList.add('d-none');
+                checkReemplazo.checked = false;
+            }
+        }
+    }
+
     async function esperarTomSelect(maxIntentos = 20, esperaMs = 150) {
         for (let i = 0; i < maxIntentos; i++) {
             if (typeof TomSelect !== 'undefined') return true;
@@ -1146,8 +1164,9 @@
         });
     }
 
-    devolucionResolucion?.addEventListener('change', actualizarHintResolucionDevolucion);
-    actualizarHintResolucionDevolucion();
+    // Activamos el escuchador para el motivo de devolución
+    devolucionMotivo?.addEventListener('change', actualizarLogicaDevolucionCompra);
+    actualizarLogicaDevolucionCompra();
 
     function ocultarTooltipBoton(boton) {
         if (!boton || typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;

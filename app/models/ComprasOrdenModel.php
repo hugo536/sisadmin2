@@ -711,14 +711,23 @@ SQL;
 
             $devolucionTotalCompletada = $lineasConRecepcionPendiente === 0;
 
-            // Si se devolvió toda la mercadería recepcionada, marcamos la orden como anulada.
-            // Si no, mantenemos la lógica existente.
-            $nuevoEstado = $devolucionTotalCompletada ? 9 : ($esperarReemplazo ? 2 : 4);
+            // 👇 1. REGLA DE ESTADO: Si esperamos reemplazo, SIEMPRE vuelve a estado 2 (Aprobada) 👇
+            if ($esperarReemplazo) {
+                $nuevoEstado = 2; // Queda lista para recibir la nueva mercadería
+            } else {
+                // Si no hay reemplazo y se devolvió todo, se Anula (9). Si es parcial, se Cierra/Termina (4).
+                $nuevoEstado = $devolucionTotalCompletada ? 9 : 4; 
+            }
+
             $db->prepare("UPDATE compras_ordenes SET estado = ?, updated_at = NOW() WHERE id = ?")->execute([$nuevoEstado, $idOrden]);
 
-            $this->aplicarAjusteCxpPorDevolucion($db, $idOrden, $resolucion, $totalDevuelto, $userId);
+            // 👇 2. REGLA FINANCIERA: Solo ajustamos la deuda (CxP) si NO esperamos reemplazo 👇
+            if (!$esperarReemplazo) {
+                $this->aplicarAjusteCxpPorDevolucion($db, $idOrden, $resolucion, $totalDevuelto, $userId);
+            }
 
             $db->commit();
+            
         } catch (Throwable $e) {
             $db->rollBack();
             throw $e;
