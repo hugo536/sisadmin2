@@ -209,7 +209,7 @@ class VentasDespachoModel extends Modelo
                                     'cantidad' => $salida['cantidad'],
                                     'referencia' => $this->construirReferenciaDespacho($codigoDespacho, $documento, true),
                                     'created_by' => $userId,
-                                    'fecha_documento' => $documento['fecha_emision'] ?? $fechaDespacho,
+                                    'fecha_documento' => $fechaDespachoHora,
                                     'fecha_despacho_hora' => $fechaDespachoHora
                                 ]);
                             }
@@ -227,7 +227,7 @@ class VentasDespachoModel extends Modelo
                             'cantidad' => $lineaValida['cantidad'],
                             'referencia' => $this->construirReferenciaDespacho($codigoDespacho, $documento, false),
                             'created_by' => $userId,
-                            'fecha_documento' => $documento['fecha_emision'] ?? $fechaDespacho,
+                            'fecha_documento' => $fechaDespachoHora,
                             'fecha_despacho_hora' => $fechaDespachoHora
                         ]);
                         

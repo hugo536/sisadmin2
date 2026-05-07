@@ -514,7 +514,7 @@ class InventarioModel extends Modelo
                 }
             }
 
-            $fechaDoc = !empty($datos['fecha_documento']) ? trim((string) $datos['fecha_documento']) : null;
+            $fechaDoc = $this->normalizarFechaDocumentoConHora($datos['fecha_documento'] ?? null);
 
             $sqlMovimiento = 'INSERT INTO inventario_movimientos 
                                 (id_item, id_item_unidad, id_almacen_origen, id_almacen_destino, id_centro_costo, tipo_movimiento, cantidad, costo_unitario, costo_total, referencia, created_by, costo_promedio_resultante, fecha_documento)
@@ -579,6 +579,24 @@ class InventarioModel extends Modelo
             }
             throw $e;
         }
+    }
+
+    private function normalizarFechaDocumentoConHora($fechaDocumento): ?string
+    {
+        $fecha = trim((string) ($fechaDocumento ?? ''));
+        if ($fecha === '') {
+            return null;
+        }
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) === 1) {
+            return $fecha . ' ' . date('H:i:s');
+        }
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$/', $fecha) === 1) {
+            return strlen($fecha) === 16 ? $fecha . ':00' : $fecha;
+        }
+
+        return $fecha;
     }
 
     public function registrarMovimientoLote(array $cabecera, array $lineas, bool $atomico = true): array
