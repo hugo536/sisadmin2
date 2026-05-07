@@ -23,6 +23,7 @@ class ComprasRecepcionModel extends Modelo
             }
 
             $fechaDocumento = $this->normalizarFechaRecepcion($fechaRecepcion);
+            $fechaDocumentoConHora = $fechaDocumento . ' ' . date('H:i:s');
             $observaciones = trim($observaciones);
 
             if (!$this->proveedorActivo($db, (int) $orden['id_proveedor'])) {
@@ -127,7 +128,7 @@ class ComprasRecepcionModel extends Modelo
                     'costo_total' => $costoTotal,
                     'referencia' => $referencia,
                     'created_by' => $userId,
-                    'fecha_documento' => $fechaDocumento, // <-- AQUÍ ENVIAMOS LA FECHA A LA BASE DE DATOS
+                    'fecha_documento' => $fechaDocumentoConHora,
                 ]);
 
                 $this->actualizarStock($db, $idItem, $idAlmacen, $cantidadBase);
