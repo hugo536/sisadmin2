@@ -57,11 +57,6 @@ class InventarioKardexModel extends InventarioModel
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
-        if (!empty($filtros['lote'])) {
-            $sql .= ' AND m.referencia LIKE :lote';
-            $params['lote'] = '%Lote: ' . (string) $filtros['lote'] . '%';
-        }
-
         // Ordenamos para que las fechas más recientes salgan primero
         $sql .= ' ORDER BY COALESCE(m.fecha_documento, m.created_at) DESC, m.created_at DESC LIMIT 1000';
 
