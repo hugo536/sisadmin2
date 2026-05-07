@@ -958,7 +958,7 @@ class VentasDespachoModel extends Modelo
                 $this->recalcularTotalesDocumentoPorDespacho($db, $idDocumento, $userId);
                 $this->aplicarAjusteCxcPorDevolucion($db, $idDocumento, $politica['resolucion'], $totalDevuelto, $userId);
             }
-            
+
             $db->commit();
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
@@ -1241,7 +1241,7 @@ class VentasDespachoModel extends Modelo
                 'user' => $userId,
                 'id' => $idDocumento
             ]);
-
+            
             // 4. Limpieza Financiera: Si se había creado una Cuenta por Cobrar (CxC) al aprobar,
             // la eliminamos lógicamente para no generar deudas falsas.
             $stmtCxc = $db->prepare('UPDATE tesoreria_cxc 
@@ -1250,10 +1250,10 @@ class VentasDespachoModel extends Modelo
                                          updated_at = NOW()
                                      WHERE id_documento_venta = :id 
                                        AND deleted_at IS NULL');
-            $stmtCxc->execute([
-                'user' => $userId,
-                'id' => $idDocumento
-            ]);
+                        $stmtCxc->execute([
+                            'user' => $userId,
+                            'id' => $idDocumento
+                        ]);
 
             $db->commit();
         } catch (Throwable $e) {
