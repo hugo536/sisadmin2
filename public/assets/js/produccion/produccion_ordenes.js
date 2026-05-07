@@ -93,7 +93,18 @@ function initTomSelects() {
     const tsConfig = { create: false, dropdownParent: 'body' };
     const initTS = (id) => {
         const el = document.getElementById(id);
-        if (el && !el.tomselect) new TomSelect(el, tsConfig);
+        if (!el || el.tomselect) return;
+
+        if (id === 'newRecetaOP') {
+            new TomSelect(el, {
+                ...tsConfig,
+                searchField: ['text', 'search_tokens'],
+                maxOptions: 200
+            });
+            return;
+        }
+
+        new TomSelect(el, tsConfig);
     };
     initTS('newRecetaOP');
     initTS('newAlmacenPlanta');
