@@ -300,7 +300,10 @@ class ProduccionOrdenesModel extends Modelo
                        r.id_almacen_planta
                 FROM produccion_recetas r
                 INNER JOIN items i ON i.id = r.id_producto
-                WHERE r.estado = 1 AND r.deleted_at IS NULL
+                WHERE r.estado = 1
+                  AND r.deleted_at IS NULL
+                  AND r.codigo IS NOT NULL
+                  AND r.codigo NOT LIKE "BORRADOR-%"
                 ORDER BY i.nombre ASC';
         
         $stmt = $this->db()->query($sql);
