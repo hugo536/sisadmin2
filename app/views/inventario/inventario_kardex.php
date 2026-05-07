@@ -6,6 +6,12 @@ $filtros = $filtros ?? [];
 $tiposEntrada = ['INI', 'AJ+', 'COM', 'PROD'];
 $tiposSalida = ['AJ-', 'CON', 'VEN'];
 ?>
+<style>
+    /* Ocultar las etiquetas de TomSelect dentro del input para usar "Filter Chips" externos */
+    .ts-control > .item {
+        display: none !important; 
+    }
+</style>
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-3 fade-in kardex-sticky-header">
         <h1 class="h4 fw-bold mb-0 text-dark d-flex align-items-center">
@@ -23,11 +29,19 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label small text-muted fw-bold mb-1">Ítem</label>
-                        <select class="form-select bg-light border-secondary-subtle shadow-sm" name="id_item" id="kardexItemSelect">
-                            <option value="0">Todos</option>
-                            <?php foreach ($items as $item): ?>
-                                <option value="<?php echo (int) ($item['id'] ?? 0); ?>" <?php echo ((int) ($filtros['id_item'] ?? 0) === (int) ($item['id'] ?? 0)) ? 'selected' : ''; ?>>
-                                    <?php echo e((string) ($item['nombre'] ?? $item['sku'] ?? '')); ?>
+                        <select class="form-select bg-light border-secondary-subtle shadow-sm" name="id_item[]" id="kardexItemSelect" multiple>
+                            <option value="">Todos</option>
+                            <?php 
+                                // Aseguramos que los filtros sean un array para poder buscar en ellos
+                                $itemsSeleccionados = (array) ($filtros['id_item'] ?? []);
+                                
+                                foreach ($items as $item): 
+                                    $itemId = (int) ($item['id'] ?? 0);
+                                    // Verificamos si el ID actual está dentro de la lista de seleccionados
+                                    $isSelected = in_array($itemId, $itemsSeleccionados, true) ? 'selected' : '';
+                            ?>
+                                <option value="<?php echo $itemId; ?>" <?php echo $isSelected; ?>>
+                                    <?php echo e((string) ($item['nombre'] ?? '')); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -41,11 +55,14 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                         <input class="form-control bg-light border-secondary-subtle shadow-sm kardex-auto-submit" type="date" name="fecha_hasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>">
                     </div>
                 </div>
+                
+                <div id="kardexChipsContainer" class="mt-3 d-flex flex-wrap gap-2"></div>
+                
             </form>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm" id="contenedorResultadosKardex">
         <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div class="d-flex align-items-center">
                 <h2 class="h6 fw-bold text-dark mb-0">Movimientos Registrados</h2>

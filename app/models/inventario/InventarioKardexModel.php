@@ -42,9 +42,22 @@ class InventarioKardexModel extends InventarioModel
 
         $params = [];
 
+        // --- NUEVA LÓGICA: Soportar múltiples ítems ---
         if (!empty($filtros['id_item'])) {
-            $sql .= ' AND m.id_item = :id_item';
-            $params['id_item'] = (int) $filtros['id_item'];
+            if (is_array($filtros['id_item'])) {
+                // Si es una lista de ítems, creamos placeholders dinámicos: :item_0, :item_1, etc.
+                $inPlaceholders = [];
+                foreach ($filtros['id_item'] as $index => $id) {
+                    $paramName = 'item_' . $index;
+                    $inPlaceholders[] = ':' . $paramName;
+                    $params[$paramName] = (int) $id;
+                }
+                $sql .= ' AND m.id_item IN (' . implode(', ', $inPlaceholders) . ')';
+            } else {
+                // Fallback por seguridad si llega como valor único
+                $sql .= ' AND m.id_item = :id_item';
+                $params['id_item'] = (int) $filtros['id_item'];
+            }
         }
 
         if (!empty($filtros['fecha_desde'])) {
