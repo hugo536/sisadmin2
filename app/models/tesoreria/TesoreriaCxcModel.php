@@ -63,7 +63,7 @@ class TesoreriaCxcModel extends Modelo
     {
         $db = $this->db();
 
-        $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cxc WHERE id_documento_venta = :id LIMIT 1');
+        $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cxc WHERE id_documento_venta = :id AND deleted_at IS NULL LIMIT 1');
         $stmtExiste->execute(['id' => $idDocumentoVenta]);
         $existe = (int) ($stmtExiste->fetchColumn() ?: 0);
         if ($existe > 0) {
