@@ -47,17 +47,6 @@ $tipoItemLabel = static function (string $tipo): string {
                 <i class="bi bi-journal-text me-2 text-info"></i>Kardex
             </a>
             
-            <div class="btn-group shadow-sm">
-                <button type="button" class="btn btn-light border text-secondary fw-semibold dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-file-earmark-arrow-down me-2 text-info"></i>Exportar
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
-                    <li><a class="dropdown-item fw-medium" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=csv&id_almacen=<?php echo (int) $idAlmacenFiltro; ?>"><i class="bi bi-filetype-csv me-2 text-muted"></i>CSV</a></li>
-                    <li><a class="dropdown-item fw-medium" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=excel&id_almacen=<?php echo (int) $idAlmacenFiltro; ?>"><i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel</a></li>
-                    <li><a class="dropdown-item fw-medium" href="<?php echo e(route_url('inventario/exportar')); ?>&formato=pdf&id_almacen=<?php echo (int) $idAlmacenFiltro; ?>"><i class="bi bi-file-pdf me-2 text-danger"></i>PDF</a></li>
-                </ul>
-            </div>
-
             <?php if (tiene_permiso('inventario.movimiento.crear')): ?>
                 <button type="button" class="btn btn-primary shadow-sm fw-semibold px-3" data-bs-toggle="modal" data-bs-target="#modalMovimientoInventario">
                     <i class="bi bi-plus-circle-fill me-2"></i>Nuevo Movimiento
@@ -141,9 +130,8 @@ $tipoItemLabel = static function (string $tipo): string {
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold col-mobile-hide">SKU</th>
                             <th class="text-secondary fw-semibold">Producto</th>
-                            <th class="text-secondary fw-semibold col-mobile-hide">Almacén</th>
-                            <th class="text-secondary fw-semibold col-mobile-hide">Lote</th>
-                            <th class="text-end text-secondary fw-semibold">Stock Actual</th>
+                            <th class="text-secondary fw-semibold col-mobile-hide" style="width: 16%;">Almacén</th>
+                            <th class="text-end text-secondary fw-semibold" style="width: 16%;">Stock Actual</th>
                             <th class="text-center text-secondary fw-semibold col-mobile-hide">Situación / Alertas</th>
                             <th class="text-end pe-4 text-secondary fw-semibold col-mobile-hide">Acciones</th>
                         </tr>
@@ -155,7 +143,6 @@ $tipoItemLabel = static function (string $tipo): string {
                                 $sku = (string) ($stock['sku'] ?? '');
                                 $itemNombreCompleto = (string) ($stock['item_nombre'] ?? '');
                                 $almacenNombre = (string) ($stock['almacen_nombre'] ?? '');
-                                $loteActual = trim((string) ($stock['lote_actual'] ?? ''));
                                 $idAlmacen = (int) ($stock['id_almacen'] ?? 0);
                                 $tipoRegistro = (string) ($stock['tipo_registro'] ?? 'item');
                                 $idCategoria = (int) ($stock['id_categoria'] ?? 0);
@@ -170,7 +157,7 @@ $tipoItemLabel = static function (string $tipo): string {
 
                                 $detalleAlerta = trim((string) ($stock['detalle_alerta'] ?? ''));
 
-                                $search = mb_strtolower($sku . ' ' . $itemNombreCompleto . ' ' . $almacenNombre . ' ' . $loteActual);
+                                $search = mb_strtolower($sku . ' ' . $itemNombreCompleto . ' ' . $almacenNombre);
                                 ?>
                                 <tr data-search="<?php echo e($search); ?>"
                                     data-item-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
@@ -202,7 +189,6 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </td>
                                     
                                     <td class="text-muted small col-mobile-hide"><?php echo e($almacenNombre); ?></td>
-                                    <td class="text-muted col-mobile-hide"><?php echo e($loteActual !== '' ? $loteActual : '-'); ?></td>
                                     
                                     <td class="text-end">
                                         <div class="d-flex flex-column align-items-end w-100">
@@ -252,7 +238,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr class="empty-msg-row"><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de stock disponibles.</td></tr>
+                            <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de stock disponibles.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
