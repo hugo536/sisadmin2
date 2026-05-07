@@ -79,18 +79,17 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Fecha</th>
                             <th class="text-secondary fw-semibold">Tipo</th>
-                            <th class="text-secondary fw-semibold">Ítem</th>
-                            <th class="text-secondary fw-semibold">Origen</th>
-                            <th class="text-secondary fw-semibold">Destino</th>
+                            <th class="text-secondary fw-semibold" style="min-width: 200px;">Ítem</th>
+                            <th class="text-secondary fw-semibold">Ubicación</th>
                             <th class="text-end text-secondary fw-semibold">Cantidad</th>
                             <th class="text-secondary fw-semibold ps-3">Usuario</th>
-                            <th class="pe-4 text-secondary fw-semibold">Referencia</th>
+                            <th class="pe-4 text-secondary fw-semibold" style="min-width: 250px;">Referencia</th>
                         </tr>
                     </thead>
                     <tbody id="kardexTableBody">
                     <?php if (empty($movimientos)): ?>
                         <tr class="empty-msg-row border-bottom-0">
-                            <td colspan="8" class="text-center text-muted py-5">
+                            <td colspan="7" class="text-center text-muted py-5">
                                 <i class="bi bi-journal-x fs-1 d-block mb-2 text-light"></i>
                                 Sin movimientos para los filtros seleccionados.
                             </td>
@@ -99,27 +98,51 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                         <?php 
                             $tipoMov = strtoupper(trim((string) ($mov['tipo_movimiento'] ?? ''))); 
                             
-                            // NUEVA LÓGICA DE FECHAS:
-                            // Obtenemos ambas fechas. Si tu base de datos lo llama diferente, cambia 'fecha_documento'
                             $fechaDocumento = trim((string) ($mov['fecha_documento'] ?? ''));
                             $fechaCreacion = trim((string) ($mov['created_at'] ?? ''));
-                            
-                            // Si hay fecha de documento, usamos esa. Si no, usamos la del sistema.
                             $fechaMostrar = !empty($fechaDocumento) ? $fechaDocumento : $fechaCreacion;
                             
-                            $referenciaMostrar = (string) ($mov['referencia'] ?? '-');
+                            $referenciaBruta = (string) ($mov['referencia'] ?? '-');
                             $terceroNombre = trim((string) ($mov['tercero_nombre'] ?? ''));
                             $terceroTipo = strtoupper(trim((string) ($mov['tercero_tipo'] ?? 'CLIENTE')));
+                            
                             if ($tipoMov === 'VEN' && $terceroNombre !== '') {
-                                $yaIncluyeDestino = stripos($referenciaMostrar, 'Cliente:') !== false || stripos($referenciaMostrar, 'Distribuidor:') !== false;
+                                $yaIncluyeDestino = stripos($referenciaBruta, 'Cliente:') !== false || stripos($referenciaBruta, 'Distribuidor:') !== false;
                                 if (!$yaIncluyeDestino) {
                                     $etiqueta = $terceroTipo === 'DISTRIBUIDOR' ? 'Distribuidor' : 'Cliente';
-                                    $referenciaMostrar .= ' | ' . $etiqueta . ': ' . $terceroNombre;
+                                    $referenciaBruta .= ' | ' . $etiqueta . ': ' . $terceroNombre;
                                 }
                             }
 
-                            // Creamos la cadena para que el buscador funcione usando la nueva fecha
-                            $searchStr = strtolower($fechaMostrar . ' ' . $tipoMov . ' ' . ($mov['item_nombre'] ?? '') . ' ' . ($mov['almacen_origen'] ?? '') . ' ' . ($mov['almacen_destino'] ?? '') . ' ' . ($mov['usuario'] ?? '') . ' ' . $referenciaMostrar . ' ' . $terceroNombre);
+                            // -- LÓGICA PARA LIMPIAR LA REFERENCIA --
+                            $refParts = array_map('trim', explode('|', $referenciaBruta));
+                            $mainRef = array_shift($refParts) ?: '-'; // El primer bloque es el documento principal
+                            
+                            // Filtramos textos redundantes (Ej: "Ingreso: 1008 UND" o "Egreso: 50 UND")
+                            $refParts = array_filter($refParts, function($part) {
+                                return !preg_match('/(?:Ingreso|Egreso):\s*[\d.]+\s*[A-Z]+/i', $part);
+                            });
+                            
+                            // Unimos los detalles restantes de forma más limpia
+                            $subRef = !empty($refParts) ? implode(' <span class="mx-1 text-light">|</span> ', $refParts) : '';
+
+                            // -- LÓGICA PARA UNIFICAR UBICACIÓN --
+                            $origen = trim((string) ($mov['almacen_origen'] ?? ''));
+                            $destino = trim((string) ($mov['almacen_destino'] ?? ''));
+                            $ubicacionHtml = '<span class="text-muted opacity-50">-</span>';
+                            
+                            if ($origen !== '' && $destino !== '') {
+                                // Es un traslado
+                                $ubicacionHtml = "<div class='text-nowrap'><i class='bi bi-shop small text-muted me-1'></i>{$origen}<br><i class='bi bi-arrow-return-right small text-primary me-1'></i>{$destino}</div>";
+                            } elseif ($origen !== '') {
+                                // Salida de almacén
+                                $ubicacionHtml = "<i class='bi bi-box-arrow-up text-danger me-1' title='Origen'></i>{$origen}";
+                            } elseif ($destino !== '') {
+                                // Entrada a almacén
+                                $ubicacionHtml = "<i class='bi bi-box-arrow-in-down text-success me-1' title='Destino'></i>{$destino}";
+                            }
+
+                            $searchStr = strtolower($fechaMostrar . ' ' . $tipoMov . ' ' . ($mov['item_nombre'] ?? '') . ' ' . $origen . ' ' . $destino . ' ' . ($mov['usuario'] ?? '') . ' ' . $referenciaBruta . ' ' . $terceroNombre);
                         ?>
                         <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
                             <td class="ps-4 text-muted align-top pt-3">
@@ -138,25 +161,13 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                                 <?php echo e((string) ($mov['item_nombre'] ?? '')); ?>
                             </td>
                             <td class="align-top pt-3">
-                                <?php if(!empty($mov['almacen_origen'])): ?>
-                                    <i class="bi bi-building small text-muted me-1"></i><?php echo e((string) ($mov['almacen_origen'] ?? '-')); ?>
-                                <?php else: ?>
-                                    <span class="text-muted opacity-50">-</span>
-                                <?php endif; ?>
-                            </td>
-                            <td class="align-top pt-3">
-                                <?php if(!empty($mov['almacen_destino'])): ?>
-                                    <i class="bi bi-building small text-muted me-1"></i><?php echo e((string) ($mov['almacen_destino'] ?? '-')); ?>
-                                <?php else: ?>
-                                    <span class="text-muted opacity-50">-</span>
-                                <?php endif; ?>
+                                <?php echo $ubicacionHtml; ?>
                             </td>
                             <?php
                                 $cantidadBase = (float) ($mov['cantidad'] ?? 0);
                                 $cantidadPrincipal = number_format($cantidadBase, 4, '.', '');
-                                $referencia = (string) ($mov['referencia'] ?? '');
                                 $detalleConversion = '';
-                                if (preg_match('/Conv:\s*([^|]+)/i', $referencia, $matchConv)) {
+                                if (preg_match('/Conv:\s*([^|]+)/i', $referenciaBruta, $matchConv)) {
                                     $detalleConversion = trim((string) ($matchConv[1] ?? ''));
                                 }
                             ?>
@@ -171,8 +182,11 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                             <td class="align-top pt-3 ps-3 text-secondary small">
                                 <i class="bi bi-person-circle me-1 opacity-50"></i><?php echo e((string) ($mov['usuario'] ?? '-')); ?>
                             </td>
-                            <td class="pe-4 align-top pt-3 small text-muted">
-                                <?php echo e($referenciaMostrar); ?>
+                            <td class="pe-4 align-top pt-3">
+                                <div class="fw-medium text-dark small"><?php echo e($mainRef); ?></div>
+                                <?php if ($subRef !== ''): ?>
+                                    <div class="small text-muted" style="font-size: 0.8em;"><?php echo $subRef; ?></div>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; endif; ?>
