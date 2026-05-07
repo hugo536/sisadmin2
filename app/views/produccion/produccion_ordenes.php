@@ -498,13 +498,11 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     <select name="id_receta" id="newRecetaOP" required class="form-select shadow-none border-secondary-subtle">
                                         <option value="">Seleccione fórmula...</option>
                                         <?php foreach ($recetasActivas as $r): ?>
-                                            <?php $codigoReceta = trim((string) ($r['codigo'] ?? '')); ?>
-                                            <?php $codigoRecetaVisible = preg_replace('/^BORRADOR-?/i', '', $codigoReceta) ?: $codigoReceta; ?>
                                             <option value="<?php echo (int) $r['id']; ?>"
                                                     data-rendimiento="<?php echo (float) ($r['rendimiento_base'] ?? 1); ?>" 
                                                     data-tiempo="<?php echo (float) ($r['tiempo_estimado_horas'] ?? 1); ?>"
                                                     data-id-almacen-planta="<?php echo (int) ($r['id_almacen_planta'] ?? 0); ?>">
-                                                <?php echo e($codigoRecetaVisible); ?> - <?php echo e((string) $r['producto_nombre']); ?> (v<?php echo (int) $r['version']; ?>)
+                                                <?php echo e((string) $r['codigo']); ?> - <?php echo e((string) $r['producto_nombre']); ?> (v<?php echo (int) $r['version']; ?>)
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
