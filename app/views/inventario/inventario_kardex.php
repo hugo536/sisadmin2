@@ -18,12 +18,12 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
 
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3 p-md-4">
-            <form method="get" action="">
+            <form method="get" action="" id="kardexFiltrosForm">
                 <input type="hidden" name="ruta" value="inventario/kardex">
                 <div class="row g-3">
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label class="form-label small text-muted fw-bold mb-1">Ítem</label>
-                        <select class="form-select bg-light border-secondary-subtle shadow-sm" name="id_item">
+                        <select class="form-select bg-light border-secondary-subtle shadow-sm" name="id_item" id="kardexItemSelect">
                             <option value="0">Todos</option>
                             <?php foreach ($items as $item): ?>
                                 <option value="<?php echo (int) ($item['id'] ?? 0); ?>" <?php echo ((int) ($filtros['id_item'] ?? 0) === (int) ($item['id'] ?? 0)) ? 'selected' : ''; ?>>
@@ -32,22 +32,13 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label small text-muted fw-bold mb-1">Lote</label>
-                        <input class="form-control bg-light border-secondary-subtle shadow-sm" type="text" name="lote" value="<?php echo e((string) ($filtros['lote'] ?? '')); ?>" placeholder="Ej: LOTE-001">
-                    </div>
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <label class="form-label small text-muted fw-bold mb-1">Desde</label>
-                        <input class="form-control bg-light border-secondary-subtle shadow-sm" type="date" name="fecha_desde" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>">
+                        <input class="form-control bg-light border-secondary-subtle shadow-sm kardex-auto-submit" type="date" name="fecha_desde" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>">
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
-                        <input class="form-control bg-light border-secondary-subtle shadow-sm" type="date" name="fecha_hasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>">
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end" style="height: 60px;">
-                        <button class="btn btn-primary w-100 shadow-sm fw-bold h-100" type="submit">
-                            <i class="bi bi-funnel me-2"></i>Filtrar
-                        </button>
+                        <input class="form-control bg-light border-secondary-subtle shadow-sm kardex-auto-submit" type="date" name="fecha_hasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>">
                     </div>
                 </div>
             </form>
