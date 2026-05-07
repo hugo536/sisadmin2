@@ -27,7 +27,7 @@ $tiposSalida = ['AJ-', 'CON', 'VEN'];
                             <option value="0">Todos</option>
                             <?php foreach ($items as $item): ?>
                                 <option value="<?php echo (int) ($item['id'] ?? 0); ?>" <?php echo ((int) ($filtros['id_item'] ?? 0) === (int) ($item['id'] ?? 0)) ? 'selected' : ''; ?>>
-                                    <?php echo e((string) ($item['sku'] ?? '') . ' - ' . (string) ($item['nombre'] ?? '')); ?>
+                                    <?php echo e((string) ($item['nombre'] ?? $item['sku'] ?? '')); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
