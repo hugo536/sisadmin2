@@ -1208,6 +1208,7 @@ class VentasDespachoModel extends Modelo
         $correlativo = (int) $db->query('SELECT COUNT(*) FROM ventas_despachos')->fetchColumn() + 1;
         return 'GUIA-' . date('Y') . '-' . str_pad((string) $correlativo, 6, '0', STR_PAD_LEFT);
     }
+    
     // =========================================================================
     // --- NUEVA FUNCIÓN: REVERTIR A BORRADOR ---
     // =========================================================================
@@ -1217,7 +1218,7 @@ class VentasDespachoModel extends Modelo
         $db->beginTransaction();
 
         try {
-            // 1. Verificamos el estado actual del documento
+            // 1. Verificamos el estado actual
             $stmt = $db->prepare('SELECT estado FROM ventas_documentos WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE');
             $stmt->execute(['id' => $idDocumento]);
             $estadoActual = $stmt->fetchColumn();
@@ -1226,34 +1227,37 @@ class VentasDespachoModel extends Modelo
                 throw new RuntimeException('El pedido no existe o ha sido eliminado.');
             }
 
-            // 2. Solo permitimos revertir si está en estado 2 (Aprobado)
+            // 2. Solo estado 2
             if ((int) $estadoActual !== 2) {
-                throw new RuntimeException('Solo se pueden revertir a borrador los pedidos que están en estado Aprobado. Si el pedido ya fue despachado, debe registrar una devolución.');
+                throw new RuntimeException('Solo se pueden revertir a borrador los pedidos que están en estado Aprobado.');
             }
 
-            // 3. Actualizamos el estado a 0 (Borrador)
+            // 2.1 Validación anti-descuadre físico (Inventario)
+            $stmtDespachos = $db->prepare('SELECT COALESCE(SUM(cantidad_despachada), 0) FROM ventas_documentos_detalle WHERE id_documento_venta = :id AND deleted_at IS NULL');
+            $stmtDespachos->execute(['id' => $idDocumento]);
+            if ((float) $stmtDespachos->fetchColumn() > 0) {
+                throw new RuntimeException('No se puede revertir a borrador porque ya existen productos despachados físicamente. Anule los despachos primero.');
+            }
+
+            // 2.2 Validación anti-descuadre financiero (Tesorería)
+            $stmtCheckPago = $db->prepare('SELECT COALESCE(monto_pagado, 0) FROM tesoreria_cxc WHERE id_documento_venta = :id');
+            $stmtCheckPago->execute(['id' => $idDocumento]);
+            if ((float) $stmtCheckPago->fetchColumn() > 0.001) {
+                throw new RuntimeException('No se puede revertir a borrador porque el pedido ya tiene pagos registrados. Anule los recibos de caja primero.');
+            }
+
+            // 3. Actualizamos el estado a 0 (Borrador) y limpiamos fecha_despacho
             $stmtUpdate = $db->prepare('UPDATE ventas_documentos 
                                         SET estado = 0, 
+                                            fecha_despacho = NULL,
                                             updated_by = :user, 
                                             updated_at = NOW() 
                                         WHERE id = :id');
-            $stmtUpdate->execute([
-                'user' => $userId,
-                'id' => $idDocumento
-            ]);
+            $stmtUpdate->execute(['user' => $userId, 'id' => $idDocumento]);
             
-            // 4. Limpieza Financiera: Si se había creado una Cuenta por Cobrar (CxC) al aprobar,
-            // la eliminamos lógicamente para no generar deudas falsas.
-            $stmtCxc = $db->prepare('UPDATE tesoreria_cxc 
-                                     SET deleted_at = NOW(),
-                                         updated_by = :user,
-                                         updated_at = NOW()
-                                     WHERE id_documento_venta = :id 
-                                       AND deleted_at IS NULL');
-                        $stmtCxc->execute([
-                            'user' => $userId,
-                            'id' => $idDocumento
-                        ]);
+            // 4. Limpieza Financiera: Eliminamos físicamente la CxC
+            $stmtCxc = $db->prepare('DELETE FROM tesoreria_cxc WHERE id_documento_venta = :id');
+            $stmtCxc->execute(['id' => $idDocumento]);
 
             $db->commit();
         } catch (Throwable $e) {
