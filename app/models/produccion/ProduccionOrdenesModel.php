@@ -303,7 +303,7 @@ class ProduccionOrdenesModel extends Modelo
                 WHERE r.estado = 1
                   AND r.deleted_at IS NULL
                   AND r.codigo IS NOT NULL
-                  AND r.codigo NOT LIKE "BORRADOR-%"
+                  -- Aquí eliminamos la regla que bloqueaba la palabra "BORRADOR"
                 ORDER BY i.nombre ASC';
         
         $stmt = $this->db()->query($sql);

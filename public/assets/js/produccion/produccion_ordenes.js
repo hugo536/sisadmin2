@@ -90,7 +90,10 @@ if (document.readyState === 'loading') {
 // =========================================================================
 function initTomSelects() {
     if (typeof TomSelect === 'undefined') return;
+    
+    // Configuración base
     const tsConfig = { create: false, dropdownParent: 'body' };
+    
     const initTS = (id) => {
         const el = document.getElementById(id);
         if (!el || el.tomselect) return;
@@ -98,7 +101,8 @@ function initTomSelects() {
         if (id === 'newRecetaOP') {
             new TomSelect(el, {
                 ...tsConfig,
-                searchField: ['text', 'search_tokens'],
+                // SOLUCIÓN: Cambiamos 'search_tokens' por 'searchTokens' (camelCase)
+                searchField: ['text', 'searchTokens'], 
                 maxOptions: 200
             });
             return;
@@ -106,6 +110,7 @@ function initTomSelects() {
 
         new TomSelect(el, tsConfig);
     };
+    
     initTS('newRecetaOP');
     initTS('newAlmacenPlanta');
     initTS('editAlmacenPlanta');
@@ -609,9 +614,74 @@ function initModalEjecucion() {
             const inputParada = document.getElementById('execHorasParada');
             const selectCentroCosto = document.getElementById('execCentroCosto');
 
-            if (inputInicio) inputInicio.value = fechaInicioDefault;
-            if (inputFin) inputFin.value = fechaFinDefault;
+            // Dejamos las fechas vacías por defecto a petición del usuario
+            if (inputInicio) inputInicio.value = '';
+            if (inputFin) inputFin.value = '';
             if (inputParada) inputParada.value = '';
+            
+            // Guardamos las horas planificadas "escondidas" en el modal para el Botón Mágico
+            modalEl.setAttribute('data-horas-estimadas', horasPlanificadas);
+            const btnMagico = e.target.closest('#btnMagicoEjecucion');
+        if (btnMagico) {
+            // 1. MAGIA DE TIEMPOS: Inicio = Ahora / Fin = Ahora + Horas de Receta
+            const modalEl = document.getElementById('modalEjecutarOP');
+            const horasEst = parseFloat(modalEl.getAttribute('data-horas-estimadas')) || 0;
+            const now = new Date();
+            
+            const start = new Date(now);
+            const end = new Date(now.getTime() + (horasEst * 60 * 60 * 1000));
+
+            const inputInicio = document.getElementById('execFechaInicio');
+            const inputFin = document.getElementById('execFechaFin');
+            
+            if (inputInicio) inputInicio.value = formatearDatetimeLocal(start);
+            if (inputFin) inputFin.value = formatearDatetimeLocal(end);
+
+            // 2. MAGIA DE ALMACENES: Busca el almacén con mayor stock y lo selecciona
+            const filas = document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada');
+            filas.forEach(tr => {
+                const selectEl = tr.querySelector('select[name="consumo_id_almacen[]"]');
+                if (!selectEl) return;
+
+                let bestOption = null;
+                let maxStock = -1;
+
+                Array.from(selectEl.options).forEach(opt => {
+                    if (opt.hasAttribute('data-stock')) {
+                        const stock = parseFloat(opt.getAttribute('data-stock'));
+                        if (stock > maxStock) {
+                            maxStock = stock;
+                            bestOption = opt;
+                        }
+                    }
+                });
+
+                // Si encontró un almacén con stock positivo, lo selecciona
+                if (bestOption && maxStock > 0) {
+                    if (selectEl.tomselect) {
+                        selectEl.tomselect.setValue(bestOption.value);
+                    } else {
+                        selectEl.value = bestOption.value;
+                    }
+                }
+            });
+
+            // 3. Actualizamos los cálculos visuales
+            recalcularSemaforos();
+            window.calcularTiempoNetoOP();
+            
+            // 4. Efecto visual satisfactorio para el usuario
+            const originalHtml = btnMagico.innerHTML;
+            btnMagico.innerHTML = '<i class="bi bi-check2-all me-1"></i>¡Completado!';
+            btnMagico.classList.replace('btn-outline-primary', 'btn-success');
+            
+            setTimeout(() => {
+                btnMagico.innerHTML = originalHtml;
+                btnMagico.classList.replace('btn-success', 'btn-outline-primary');
+            }, 1500);
+
+            return;
+        }
             if (selectCentroCosto) {
                 const idOrdenSafe = String(idOrden || '');
                 const centroGuardadoLocal = idOrdenSafe ? localStorage.getItem(`op_cc_${idOrdenSafe}`) : '';

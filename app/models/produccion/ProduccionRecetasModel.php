@@ -349,6 +349,15 @@ class ProduccionRecetasModel extends Modelo
             throw new RuntimeException('Debe completar producto, código, rendimiento base y al menos un detalle de insumos.');
         }
 
+        // --- SOLUCIÓN 1: Interceptar y generar el código oficial ---
+        // Si el código que llega es un BORRADOR, le asignamos su código definitivo REC-XXXX
+        if (str_starts_with($codigo, 'BORRADOR-')) {
+            $codigoOficial = $this->obtenerSiguienteCodigoReceta();
+            // Si es una nueva versión de un borrador, le pegamos la versión al código
+            $codigo = ($version > 1) ? $codigoOficial . '-V' . $version : $codigoOficial;
+        }
+        // -----------------------------------------------------------
+
         $insumosUtilizados = [];
         foreach ($detalles as $detalle) {
             $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
@@ -368,21 +377,28 @@ class ProduccionRecetasModel extends Modelo
         try {
             $costoUnitarioTeorico = 0.0;
 
+            // Busca si ya existe un borrador vacío
             $stmtPendiente = $db->prepare('SELECT r.id
                                            FROM produccion_recetas r
                                            LEFT JOIN produccion_recetas_detalle d ON d.id_receta = r.id AND d.deleted_at IS NULL
-                                           WHERE r.codigo = :codigo
+                                           WHERE r.codigo = :codigo_viejo /* Usamos el código que vino del formulario para buscar */
                                              AND r.id_producto = :id_producto
                                              AND r.deleted_at IS NULL
                                            GROUP BY r.id
                                            HAVING COUNT(d.id) = 0
                                            LIMIT 1');
-            $stmtPendiente->execute(['codigo' => $codigo, 'id_producto' => $idProducto]);
+            // Usamos el código original (antes de cambiarlo a REC-) para buscar el borrador
+            $stmtPendiente->execute([
+                'codigo_viejo' => trim((string) ($payload['codigo'] ?? '')), 
+                'id_producto' => $idProducto
+            ]);
             $idRecetaPendiente = (int) ($stmtPendiente->fetchColumn() ?: 0);
 
             if ($idRecetaPendiente > 0) {
+                // --- SOLUCIÓN 2: Agregar "codigo = :codigo," al UPDATE ---
                 $stmt = $db->prepare('UPDATE produccion_recetas
                                       SET version = :version,
+                                          codigo = :codigo, 
                                           id_centro_costo = :id_centro_costo,
                                           id_almacen_planta = :id_almacen_planta,
                                           descripcion = :descripcion,
@@ -395,6 +411,7 @@ class ProduccionRecetasModel extends Modelo
                                       WHERE id = :id_receta');
                 $stmt->execute([
                     'version' => $version,
+                    'codigo' => $codigo, // <-- Ahora sí se actualiza en la Base de Datos
                     'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null,
                     'id_almacen_planta' => $idAlmacenPlanta > 0 ? $idAlmacenPlanta : null,
                     'descripcion' => $descripcion !== '' ? $descripcion : null,

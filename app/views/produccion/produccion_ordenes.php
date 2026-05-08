@@ -505,8 +505,8 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                     data-rendimiento="<?php echo (float) ($r['rendimiento_base'] ?? 1); ?>" 
                                                     data-tiempo="<?php echo (float) ($r['tiempo_estimado_horas'] ?? 1); ?>"
                                                     data-id-almacen-planta="<?php echo (int) ($r['id_almacen_planta'] ?? 0); ?>"
-                                                    data-search-tokens="<?php echo e(strtolower(trim($codigoReceta . ' ' . $codigoSinBorrador . ' ' . $productoReceta))); ?>">
-                                                <?php echo e($codigoSinBorrador); ?> - <?php echo e($productoReceta); ?> (v<?php echo (int) $r['version']; ?>)
+                                                    data-search-tokens="<?php echo e(strtolower(trim($codigoReceta . ' ' . $productoReceta))); ?>">
+                                                <?php echo e($productoReceta); ?> (v<?php echo (int) $r['version']; ?>)
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
@@ -789,8 +789,11 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                 <div class="modal-body p-4 bg-light">
                     
                     <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+                        <div class="card-header bg-white border-bottom-0 pt-3 pb-0 d-flex justify-content-between align-items-center">
                             <h6 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history text-primary me-2"></i>Control de Tiempos de Máquina</h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary shadow-sm rounded-pill fw-bold px-3 transition-hover" id="btnMagicoEjecucion" title="Autocompletar Tiempos y Almacenes">
+                                <i class="bi bi-magic me-1"></i>Botón Mágico
+                            </button>
                         </div>
                         <div class="card-body">
                             <div class="row g-3">

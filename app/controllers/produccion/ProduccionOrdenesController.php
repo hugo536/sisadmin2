@@ -41,9 +41,7 @@ class ProduccionOrdenesController extends Controlador
                 'crear_orden_ajax',
                 'analizar_subordenes_ajax',
                 'generar_subordenes_ajax',
-                'guardar_tiempos_mod_ajax',
                 'reportar_avance_diario_ajax',
-                'sincronizar_mod_asistencia_ajax',
                 'obtener_detalle_costos_ajax'
             ], true);
             
@@ -200,25 +198,6 @@ class ProduccionOrdenesController extends Controlador
                     exit;
                 }
 
-                if ($accion === 'sincronizar_mod_asistencia_ajax') {
-                    if (ob_get_level() > 0) ob_clean();
-                    header('Content-Type: application/json; charset=utf-8');
-
-                    $idOrden = (int) ($_POST['id_orden'] ?? 0);
-                    if ($idOrden <= 0) {
-                        echo json_encode(['success' => false, 'message' => 'Orden inválida.']);
-                        exit;
-                    }
-
-                    $resultado = $this->produccionOrdenesModel->sincronizarModDesdeAsistencia($idOrden, $userId);
-                    echo json_encode([
-                        'success' => true,
-                        'message' => 'MOD sincronizada desde asistencia.',
-                        'data' => $resultado,
-                    ]);
-                    exit;
-                }
-
                 if ($accion === 'reportar_avance_diario_ajax') {
                     if (ob_get_level() > 0) ob_clean();
                     header('Content-Type: application/json; charset=utf-8');
@@ -244,41 +223,6 @@ class ProduccionOrdenesController extends Controlador
                     echo json_encode([
                         'success' => true,
                         'message' => 'Avance diario registrado con consumo teórico.',
-                        'data' => $resultado,
-                    ]);
-                    exit;
-                }
-
-                if ($accion === 'guardar_tiempos_mod_ajax') {
-                    if (ob_get_level() > 0) ob_clean();
-                    header('Content-Type: application/json; charset=utf-8');
-
-                    $idOrden = (int) ($_POST['id_orden'] ?? 0);
-                    if ($idOrden <= 0) {
-                        echo json_encode(['success' => false, 'message' => 'Orden inválida.']);
-                        exit;
-                    }
-
-                    $modEmpleados = $_POST['orden_mod_id_empleado'] ?? [];
-                    $modHoras = $_POST['orden_mod_horas_reales'] ?? [];
-                    $modCostoHora = $_POST['orden_mod_costo_hora_real'] ?? [];
-                    $tiempos = [];
-                    foreach ((array) $modEmpleados as $idx => $idEmpleado) {
-                        $idEmpleadoInt = (int) $idEmpleado;
-                        if ($idEmpleadoInt <= 0) {
-                            continue;
-                        }
-                        $tiempos[] = [
-                            'id_empleado' => $idEmpleadoInt,
-                            'horas_reales' => $this->parseDecimal($modHoras[$idx] ?? 0),
-                            'costo_hora_real' => $this->parseDecimal($modCostoHora[$idx] ?? 0),
-                        ];
-                    }
-
-                    $resultado = $this->produccionOrdenesModel->guardarTiemposModOrden($idOrden, $tiempos);
-                    echo json_encode([
-                        'success' => true,
-                        'message' => 'Tiempos MOD guardados correctamente.',
                         'data' => $resultado,
                     ]);
                     exit;
