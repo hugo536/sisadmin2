@@ -98,15 +98,17 @@
 
     // Filtros auto-enviables
     const formFiltrosCxc = document.getElementById('formFiltrosCxc');
-    if (formFiltrosCxc) {
+    const formFiltrosCxp = document.getElementById('formFiltrosCxp');
+    const formFiltrosTesoreria = formFiltrosCxc || formFiltrosCxp;
+    if (formFiltrosTesoreria) {
         let filtroTimer = null;
         const enviarFiltros = () => {
             if (filtroTimer) {
                 clearTimeout(filtroTimer);
             }
-            filtroTimer = setTimeout(() => formFiltrosCxc.submit(), 250);
+            filtroTimer = setTimeout(() => formFiltrosTesoreria.submit(), 250);
         };
-        const campos = formFiltrosCxc.querySelectorAll('select[name="estado"], select[name="tipo_tercero"], input[name="fecha_desde"], input[name="fecha_hasta"]');
+        const campos = formFiltrosTesoreria.querySelectorAll('select[name="estado"], select[name="tipo_tercero"], input[name="fecha_desde"], input[name="fecha_hasta"]');
         campos.forEach((campo) => {
             campo.addEventListener('change', enviarFiltros);
             if (campo.tagName === 'INPUT') {
@@ -116,8 +118,10 @@
     }
 
     // Función de recarga parcial de tablas
-    async function refrescarTablaCxcParcial() {
-        const tablaActual = document.getElementById('cxcTable');
+    async function refrescarTablaTesoreriaParcial() {
+        const esCxc = !!document.getElementById('cxcTable');
+        const prefijo = esCxc ? 'cxc' : 'cxp';
+        const tablaActual = document.getElementById(`${prefijo}Table`);
         if (!tablaActual) return;
 
         const response = await fetch(window.location.href, {
@@ -133,15 +137,15 @@
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
 
-        const nuevoBody = doc.querySelector('#cxcTableBody');
+        const nuevoBody = doc.querySelector(`#${prefijo}TableBody`);
         const nuevoBadge = doc.querySelector('#badgeRegistros');
-        const nuevoInfo = doc.querySelector('#cxcPaginationInfo');
-        const nuevoControls = doc.querySelector('#cxcPaginationControls');
+        const nuevoInfo = doc.querySelector(`#${prefijo}PaginationInfo`);
+        const nuevoControls = doc.querySelector(`#${prefijo}PaginationControls`);
         
-        const bodyActual = document.getElementById('cxcTableBody');
+        const bodyActual = document.getElementById(`${prefijo}TableBody`);
         const badgeActual = document.getElementById('badgeRegistros');
-        const infoActual = document.getElementById('cxcPaginationInfo');
-        const controlsActual = document.getElementById('cxcPaginationControls');
+        const infoActual = document.getElementById(`${prefijo}PaginationInfo`);
+        const controlsActual = document.getElementById(`${prefijo}PaginationControls`);
 
         if (!nuevoBody || !bodyActual) {
             throw new Error('No se encontró el cuerpo de la tabla a actualizar.');
@@ -252,11 +256,12 @@
 
                     const esFormularioCxc = tesoreriaApp && tesoreriaApp.id === 'tesoreriaCxcApp';
                     const accion = String(this.getAttribute('action') || '');
-                    const debeActualizarTablaCxc =
-                        esFormularioCxc &&
-                        (accion.includes('tesoreria/registrar_cobro') || accion.includes('tesoreria/registrar_cobro_manual'));
+                    const esFormularioCxp = tesoreriaApp && tesoreriaApp.id === 'tesoreriaCxpApp';
+                    const debeActualizarTablaTesoreria =
+                        (esFormularioCxc && (accion.includes('tesoreria/registrar_cobro') || accion.includes('tesoreria/registrar_cobro_manual'))) ||
+                        (esFormularioCxp && (accion.includes('tesoreria/registrar_pago') || accion.includes('tesoreria/registrar_pago_manual')));
 
-                    if (!debeActualizarTablaCxc) {
+                    if (!debeActualizarTablaTesoreria) {
                         this.submit();
                         return;
                     }
@@ -271,7 +276,7 @@
                             if (!response.ok) {
                                 throw new Error(`HTTP ${response.status}`);
                             }
-                            await refrescarTablaCxcParcial();
+                            await refrescarTablaTesoreriaParcial();
                             if (typeof bootstrap !== 'undefined') {
                                 const modal = this.closest('.modal');
                                 if (modal) {
