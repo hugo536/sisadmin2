@@ -7,6 +7,21 @@ $centros = $centros ?? []; // <-- Variable agregada para los centros de costo
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 ?>
 <style>
+
+    /* Animación de vibración para el Botón Mágico cuando falta stock */
+    @keyframes shakeFaltante {
+        0% { transform: translateX(0); }
+        25% { transform: translateX(-8px); }
+        50% { transform: translateX(8px); }
+        75% { transform: translateX(-8px); }
+        100% { transform: translateX(0); }
+    }
+    .shake-rojo {
+        animation: shakeFaltante 0.5s ease-in-out;
+        background-color: #ffe6e6 !important;
+        transition: background-color 0.3s;
+    }
+    
     /* Elimina el delay y la animación de deslizamiento en los detalles de la OP */
     tr.collapse-faltantes.collapsing {
         transition: none !important;

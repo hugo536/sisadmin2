@@ -569,62 +569,118 @@ function initModalEjecucion() {
     document.addEventListener('click', async function(e) {
         const btnMagico = e.target.closest('#btnMagicoEjecucion');
         if (btnMagico) {
-            // 1. MAGIA DE TIEMPOS: Inicio = Ahora / Fin = Ahora + Horas de Receta
             const modalEl = document.getElementById('modalEjecutarOP');
-            const horasEst = parseFloat(modalEl?.getAttribute('data-horas-estimadas')) || 0;
-            const now = new Date();
+            let faltantesGlobales = false;
 
+            // 1. MAGIA DE TIEMPOS: Inicio = Ahora / Fin = Ahora + Horas de Receta
+            const horasEst = parseFloat(modalEl.getAttribute('data-horas-estimadas')) || 0;
+            const now = new Date();
             const start = new Date(now);
             const end = new Date(now.getTime() + (horasEst * 60 * 60 * 1000));
 
             const inputInicio = document.getElementById('execFechaInicio');
             const inputFin = document.getElementById('execFechaFin');
-
+            
             if (inputInicio) inputInicio.value = formatearDatetimeLocal(start);
             if (inputFin) inputFin.value = formatearDatetimeLocal(end);
 
-            // 2. MAGIA DE ALMACENES: Busca el almacén con mayor stock y lo selecciona
-            const filas = document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada');
-            filas.forEach(tr => {
-                const selectEl = tr.querySelector('select[name="consumo_id_almacen[]"]');
+            // Limpiamos fracciones anteriores si el usuario presiona el botón varias veces
+            document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-fraccion-extra').forEach(tr => tr.remove());
+
+            // 2. MAGIA DE ALMACENES: Asignación inteligente con Auto-Fraccionamiento
+            document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada').forEach(trOriginal => {
+                const idInsumo = trOriginal.getAttribute('data-id-insumo');
+                const reqTotal = calcularCantidadRequeridaPorInsumo(idInsumo); // Total que necesitamos
+                let cantidadRestante = reqTotal;
+
+                const selectEl = trOriginal.querySelector('select[name="consumo_id_almacen[]"]');
                 if (!selectEl) return;
 
-                let bestOption = null;
-                let maxStock = -1;
-
+                // Extraemos todos los almacenes que tienen stock y los ordenamos de MAYOR a MENOR stock
+                let opcionesStock = [];
                 Array.from(selectEl.options).forEach(opt => {
                     if (opt.hasAttribute('data-stock')) {
-                        const stock = parseFloat(opt.getAttribute('data-stock'));
-                        if (stock > maxStock) {
-                            maxStock = stock;
-                            bestOption = opt;
-                        }
+                        opcionesStock.push({
+                            value: opt.value,
+                            stock: parseFloat(opt.getAttribute('data-stock'))
+                        });
                     }
                 });
+                opcionesStock.sort((a, b) => b.stock - a.stock);
 
-                // Si encontró un almacén con stock positivo, lo selecciona
-                if (bestOption && maxStock > 0) {
-                    if (selectEl.tomselect) {
-                        selectEl.tomselect.setValue(bestOption.value);
-                    } else {
-                        selectEl.value = bestOption.value;
+                // Si no hay nada de stock en toda la empresa
+                if (opcionesStock.length === 0 || opcionesStock[0].stock === 0) {
+                    faltantesGlobales = true;
+                    trOriginal.classList.add('shake-rojo');
+                    setTimeout(() => trOriginal.classList.remove('shake-rojo'), 1000);
+                    return;
+                }
+
+                // Asignamos el stock línea por línea, clonando si es necesario
+                let filaActual = trOriginal;
+                for (let i = 0; i < opcionesStock.length && cantidadRestante > 0; i++) {
+                    let almacen = opcionesStock[i];
+                    let cantidadAsignar = Math.min(almacen.stock, cantidadRestante);
+
+                    // Seleccionamos el almacén
+                    const currentSelect = filaActual.querySelector('select[name="consumo_id_almacen[]"]');
+                    if (currentSelect.tomselect) currentSelect.tomselect.setValue(almacen.value, true);
+                    else currentSelect.value = almacen.value;
+
+                    // Escribimos la cantidad
+                    const inputQty = filaActual.querySelector('input[name="consumo_cantidad[]"]');
+                    inputQty.value = cantidadAsignar.toFixed(4);
+                    inputQty.readOnly = false;
+                    inputQty.classList.remove('bg-light');
+
+                    cantidadRestante -= cantidadAsignar;
+
+                    // Si aún falta cantidad y hay más almacenes, auto-fraccionamos la fila
+                    if (cantidadRestante > 0 && i < opcionesStock.length - 1) {
+                        const trClon = trOriginal.cloneNode(true);
+                        trClon.classList.add('fila-fraccion-extra');
+                        trClon.querySelector('input[name="consumo_cantidad[]"]').value = '';
+                        trClon.querySelector('input[name="consumo_id_lote[]"]').value = '';
+                        
+                        const celdaAccion = trClon.querySelector('td:last-child');
+                        if (celdaAccion) celdaAccion.innerHTML = '<button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button>';
+                        
+                        filaActual.parentNode.insertBefore(trClon, filaActual.nextSibling);
+                        filaActual = trClon;
                     }
                 }
+
+                // Si después de vaciar todos los almacenes aún falta stock
+                if (cantidadRestante > 0) {
+                    faltantesGlobales = true;
+                    filaActual.classList.add('shake-rojo');
+                    setTimeout(() => filaActual.classList.remove('shake-rojo'), 1000);
+                }
+
+                distribuirConsumoPorInsumo(idInsumo); // Ajusta la UI final
             });
 
-            // 3. Actualizamos los cálculos visuales
-            recalcularSemaforos();
+            // 3. Actualizamos semáforos y cálculos generales
+            recalcularSemaforos(true); // <--- AGREGAR EL TRUE AQUÍ
             window.calcularTiempoNetoOP();
-
-            // 4. Efecto visual satisfactorio para el usuario
-            const originalHtml = btnMagico.innerHTML;
-            btnMagico.innerHTML = '<i class="bi bi-check2-all me-1"></i>¡Completado!';
-            btnMagico.classList.replace('btn-outline-primary', 'btn-success');
-
-            setTimeout(() => {
-                btnMagico.innerHTML = originalHtml;
-                btnMagico.classList.replace('btn-success', 'btn-outline-primary');
-            }, 1500);
+            
+            // 4. Feedback al Usuario (UX)
+            if (faltantesGlobales) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Tiempos asignados',
+                    text: 'Se han autocompletado los tiempos y almacenes, pero no hay stock suficiente para cubrir todo el pedido. Revisa las filas marcadas en rojo.',
+                    confirmButtonColor: '#ffc107'
+                });
+            } else {
+                const originalHtml = btnMagico.innerHTML;
+                btnMagico.innerHTML = '<i class="bi bi-check2-all me-1"></i>¡Todo Listo!';
+                btnMagico.classList.replace('btn-outline-primary', 'btn-success');
+                setTimeout(() => {
+                    btnMagico.innerHTML = originalHtml;
+                    btnMagico.classList.replace('btn-success', 'btn-outline-primary');
+                }, 1500);
+            }
 
             return;
         }
@@ -835,6 +891,9 @@ function initModalEjecucion() {
         if (e.target.id === 'modalEjecutarOP') {
             const form = e.target.querySelector('form');
             if (form) form.reset();
+            
+            // ---> AGREGA ESTA LÍNEA AQUÍ PARA QUITAR LA MAGIA <---
+            e.target.removeAttribute('data-magia-activa');
             const firstTab = e.target.querySelector('.nav-tabs .nav-link');
             if (firstTab && typeof bootstrap !== 'undefined') new bootstrap.Tab(firstTab).show();
             
@@ -999,10 +1058,20 @@ function addIngresoRow(cantidadDefecto = '') {
 }
 
 // =========================================================================
-// 5. LÓGICA DE SEMÁFOROS
+// 5. LÓGICA DE SEMÁFOROS (SOLO COLORES AL USAR BOTÓN MÁGICO)
 // =========================================================================
-function recalcularSemaforos() {
-    const filas = document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada');
+function recalcularSemaforos(desdeBotonMagico = false) {
+    const modalEl = document.getElementById('modalEjecutarOP');
+    
+    // Si presionamos el botón mágico, guardamos una "marca" en el modal
+    if (desdeBotonMagico && modalEl) {
+        modalEl.setAttribute('data-magia-activa', '1');
+    }
+
+    // Leemos si la magia está activada
+    const magiaActiva = modalEl ? modalEl.getAttribute('data-magia-activa') === '1' : false;
+
+    const filas = document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada, #tablaConsumosDynamic tbody tr.fila-fraccion-extra');
     let faltaStockFisico = false;
 
     filas.forEach(tr => {
@@ -1014,40 +1083,43 @@ function recalcularSemaforos() {
         const optionSel = selectEl.options[selectEl.selectedIndex];
         const stockDisp = (optionSel && optionSel.hasAttribute('data-stock')) ? parseFloat(optionSel.getAttribute('data-stock')) : null;
 
-        inputElement.classList.remove('border-danger', 'bg-danger-subtle', 'border-success', 'text-danger', 'text-success');
-        inputElement.classList.add('bg-light');
-
-        if (stockDisp !== null && cantRequerida > stockDisp) {
+        // 1. Siempre verificamos el stock (para proteger el botón de guardar)
+        if (stockDisp === null || cantRequerida > stockDisp || selectEl.value === "") {
             faltaStockFisico = true;
-            inputElement.classList.add('border-danger', 'bg-danger-subtle', 'text-danger');
+        }
+
+        // 2. Limpiamos cualquier estilo forzado anterior
+        inputElement.style.removeProperty('background-color');
+        inputElement.style.removeProperty('border-color');
+        inputElement.style.removeProperty('color');
+        inputElement.classList.remove('text-danger', 'text-success');
+
+        // 3. Pintamos de colores SOLO si se presionó el botón mágico
+        if (magiaActiva) {
             inputElement.classList.remove('bg-light');
-        } else if (stockDisp !== null) {
-            inputElement.classList.add('border-success', 'text-success');
+            inputElement.style.setProperty('background-color', '#ffffff', 'important'); // Fondo blanco limpio
+            
+            if (stockDisp === null || cantRequerida > stockDisp || selectEl.value === "") {
+                // Pinta de ROJO EXACTO
+                inputElement.style.setProperty('border-color', '#dc3545', 'important');
+                inputElement.style.setProperty('color', '#dc3545', 'important');
+            } else {
+                // Pinta de VERDE EXACTO (como en tu foto)
+                inputElement.style.setProperty('border-color', '#198754', 'important');
+                inputElement.style.setProperty('color', '#198754', 'important');
+            }
+        } else {
+            // ESTADO POR DEFECTO (Negro/Gris)
+            inputElement.classList.add('bg-light');
         }
     });
 
+    // 4. Bloqueamos botón y ocultamos el texto rojo para siempre
     const boxJustificacion = document.getElementById('boxJustificacionFaltante');
     const btnGuardar = document.querySelector('#formEjecutarOrden button[type="submit"]');
     
-    if (!boxJustificacion || !btnGuardar) return;
-
-    if (faltaStockFisico) {
-        btnGuardar.disabled = true;
-        boxJustificacion.className = 'alert alert-danger mt-3 mb-0';
-        boxJustificacion.innerHTML = `
-            <div class="d-flex align-items-start">
-                <i class="bi bi-x-circle-fill fs-4 me-3 mt-1"></i>
-                <div class="w-100">
-                    <h6 class="fw-bold mb-1">Producción Bloqueada: Stock Insuficiente</h6>
-                    <p class="small mb-0">La cantidad que deseas producir exige más insumos de los que existen actualmente en el almacén de planta seleccionado.</p>
-                </div>
-            </div>
-        `;
-        boxJustificacion.style.display = 'block';
-    } else {
-        btnGuardar.disabled = false;
-        boxJustificacion.style.display = 'none';
-    }
+    if (boxJustificacion) boxJustificacion.style.display = 'none'; 
+    if (btnGuardar) btnGuardar.disabled = faltaStockFisico; 
 }
 
 // =========================================================================
