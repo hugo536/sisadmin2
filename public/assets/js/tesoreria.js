@@ -269,9 +269,18 @@
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     })
                         .then(async (response) => {
-                            if (!response.ok) {
-                                throw new Error(`HTTP ${response.status}`);
+                            const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+                            let payload = null;
+
+                            if (contentType.includes('application/json')) {
+                                payload = await response.json();
                             }
+
+                            if (!response.ok || (payload && payload.ok === false)) {
+                                const mensaje = (payload && payload.mensaje) ? payload.mensaje : `HTTP ${response.status}`;
+                                throw new Error(mensaje);
+                            }
+
                             await refrescarTablaTesoreriaParcial();
                             if (typeof bootstrap !== 'undefined') {
                                 const modal = this.closest('.modal');
@@ -283,17 +292,17 @@
                                 Swal.fire({
                                     icon: 'success',
                                     title: 'Éxito',
-                                    text: 'Operación registrada correctamente.',
+                                    text: (payload && payload.mensaje) ? payload.mensaje : 'Operación registrada correctamente.',
                                     confirmButtonText: 'Aceptar'
                                 });
                             }
                         })
-                        .catch(() => {
+                        .catch((error) => {
                             if (typeof Swal !== 'undefined') {
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Error',
-                                    text: 'No se pudo actualizar la tabla automáticamente. Se recargará la página.',
+                                    text: error && error.message ? `No se pudo registrar el pago: ${error.message}` : 'No se pudo actualizar la tabla automáticamente. Se recargará la página.',
                                     confirmButtonText: 'Entendido'
                                 }).then(() => this.submit());
                             } else {
