@@ -1048,7 +1048,7 @@
     const modalPagoManualEl = document.getElementById('modalPagoManual');
     const selectCuentaManual = document.getElementById('selectCuentaOrigenManual');
     const textoSaldoManual = document.getElementById('textoSaldoDisponibleManual');
-    const inputMontoManual = document.getElementById('pagoMonto'); // Verifica el ID en el form manual
+    const inputMontoManual = document.getElementById('pagoManualMonto');
 
     if(selectCuentaManual && inputMontoManual && textoSaldoManual) {
         selectCuentaManual.addEventListener('change', function() {
