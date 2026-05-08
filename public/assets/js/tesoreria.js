@@ -110,6 +110,52 @@
         });
     }
 
+    async function refrescarTablaCxcParcial() {
+        const tablaActual = document.getElementById('cxcTable');
+        if (!tablaActual) return;
+
+        const response = await fetch(window.location.href, {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        if (!response.ok) {
+            throw new Error(`No se pudo refrescar la tabla (HTTP ${response.status})`);
+        }
+
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        const nuevoBody = doc.querySelector('#cxcTableBody');
+        const nuevoBadge = doc.querySelector('#badgeRegistros');
+        const nuevoInfo = doc.querySelector('#cxcPaginationInfo');
+        const nuevoControls = doc.querySelector('#cxcPaginationControls');
+        const bodyActual = document.getElementById('cxcTableBody');
+        const badgeActual = document.getElementById('badgeRegistros');
+        const infoActual = document.getElementById('cxcPaginationInfo');
+        const controlsActual = document.getElementById('cxcPaginationControls');
+
+        if (!nuevoBody || !bodyActual) {
+            throw new Error('No se encontró el cuerpo de la tabla a actualizar.');
+        }
+
+        bodyActual.innerHTML = nuevoBody.innerHTML;
+        if (nuevoBadge && badgeActual) badgeActual.innerHTML = nuevoBadge.innerHTML;
+        if (nuevoInfo && infoActual) infoActual.innerHTML = nuevoInfo.innerHTML;
+        if (nuevoControls && controlsActual) controlsActual.innerHTML = nuevoControls.innerHTML;
+
+        if (window.ERPTable && typeof window.ERPTable.initializeAll === 'function') {
+            window.ERPTable.initializeAll(document);
+        }
+
+        const tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltips.forEach((el) => {
+            if (typeof bootstrap !== 'undefined') {
+                bootstrap.Tooltip.getOrCreateInstance(el);
+            }
+        });
+    }
+
     // ========================================================================
     // 1. GESTIÓN DE FORMULARIO DE CUENTAS (UX)
     // ========================================================================
@@ -188,10 +234,68 @@
                 if (result.isConfirmed) {
                     const btn = this.querySelector('button[type="submit"]');
                     if (btn) {
+                        if (!btn.dataset.originalText) {
+                            btn.dataset.originalText = btn.innerHTML;
+                        }
                         btn.disabled = true;
                         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando...';
                     }
-                    this.submit();
+
+                    const esFormularioCxc = tesoreriaApp && tesoreriaApp.id === 'tesoreriaCxcApp';
+                    const accion = String(this.getAttribute('action') || '');
+                    const debeActualizarTablaCxc =
+                        esFormularioCxc &&
+                        (accion.includes('tesoreria/registrar_cobro') || accion.includes('tesoreria/registrar_cobro_manual'));
+
+                    if (!debeActualizarTablaCxc) {
+                        this.submit();
+                        return;
+                    }
+
+                    const formData = new FormData(this);
+                    fetch(this.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    })
+                        .then(async (response) => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}`);
+                            }
+                            await refrescarTablaCxcParcial();
+                            if (typeof bootstrap !== 'undefined') {
+                                const modal = this.closest('.modal');
+                                if (modal) {
+                                    bootstrap.Modal.getOrCreateInstance(modal).hide();
+                                }
+                            }
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Éxito',
+                                    text: 'Operación registrada correctamente.',
+                                    confirmButtonText: 'Aceptar'
+                                });
+                            }
+                        })
+                        .catch(() => {
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: 'No se pudo actualizar la tabla automáticamente. Se recargará la página.',
+                                    confirmButtonText: 'Entendido'
+                                }).then(() => this.submit());
+                            } else {
+                                this.submit();
+                            }
+                        })
+                        .finally(() => {
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.innerHTML = btn.dataset.originalText || btn.innerHTML;
+                            }
+                        });
                 }
             });
         });
