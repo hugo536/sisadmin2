@@ -765,6 +765,30 @@ class TesoreriaController extends Controlador
     // ========================================================================
     // FUNCIONES PRIVADAS DE APOYO
     // ========================================================================
+
+    private function esPeticionAjax(): bool
+    {
+        $requestedWith = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+        return $requestedWith === 'xmlhttprequest';
+    }
+
+    private function responderMovimientoAjax(bool $ok, string $mensaje, array $extra = []): void
+    {
+        if (!$this->esPeticionAjax()) {
+            return;
+        }
+
+        if (!headers_sent()) {
+            http_response_code($ok ? 200 : 422);
+            header('Content-Type: application/json; charset=utf-8');
+        }
+
+        echo json_encode(array_merge([
+            'ok' => $ok,
+            'mensaje' => $mensaje,
+        ], $extra), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     private function registrarMovimientoDesdePost(string $origen, string $tipo, string $redirectRuta): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -911,11 +935,13 @@ class TesoreriaController extends Controlador
             }
 
             $db->commit();
+            $this->responderMovimientoAjax(true, 'Operación registrada correctamente.');
             redirect($redirectRuta . '?ok=1');
         } catch (Throwable $e) {
             if (Conexion::get()->inTransaction()) {
                 Conexion::get()->rollBack();
             }
+            $this->responderMovimientoAjax(false, $e->getMessage());
             $this->mostrarErrorFatal($e, "Error guardando el movimiento");
         }
     }
