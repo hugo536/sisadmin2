@@ -810,8 +810,6 @@ function initModalEjecucion() {
             return;
         }
 
-        if (e.target.closest('#btnAgregarConsumo')) { addConsumoRow(null); return; }
-        if (e.target.closest('#btnAgregarIngreso')) { addIngresoRow(); return; }
 
         const btnRemove = e.target.closest('.js-remove-row');
         if (btnRemove) {
@@ -959,11 +957,11 @@ function distribuirConsumoPorInsumo(idInsumo) {
 }
 
 function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
+    if (!item) return;
     const tbody = document.querySelector('#tablaConsumosDynamic tbody');
     if (!tbody) return;
     const tr = document.createElement('tr');
 
-    if (item) {
         const requerimientoUnitario = (parseFloat(item.cantidad_calculada) / planificada) || 0;
         tr.setAttribute('data-id-insumo', item.id_insumo);
         tr.setAttribute('data-req-unitario', requerimientoUnitario); 
@@ -1006,16 +1004,6 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
                 </button>
             </td>
         `;
-    } else {
-        const templateAlmacenes = document.getElementById('tplSelectAlmacenes')?.innerHTML || '';
-        tr.innerHTML = `
-            <td class="align-middle"><input type="number" name="consumo_id_insumo[]" class="form-control form-control-sm" placeholder="ID insumo" required></td>
-            <td class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select></td>
-            <td class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold" required></td>
-            <td class="align-middle"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
-            <td class="text-center align-middle"><button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button></td>
-        `;
-    }
     tbody.appendChild(tr);
 }
 
