@@ -7,21 +7,6 @@ $centros = $centros ?? []; // <-- Variable agregada para los centros de costo
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 ?>
 <style>
-
-    /* Animación de vibración para el Botón Mágico cuando falta stock */
-    @keyframes shakeFaltante {
-        0% { transform: translateX(0); }
-        25% { transform: translateX(-8px); }
-        50% { transform: translateX(8px); }
-        75% { transform: translateX(-8px); }
-        100% { transform: translateX(0); }
-    }
-    .shake-rojo {
-        animation: shakeFaltante 0.5s ease-in-out;
-        background-color: #ffe6e6 !important;
-        transition: background-color 0.3s;
-    }
-    
     /* Elimina el delay y la animación de deslizamiento en los detalles de la OP */
     tr.collapse-faltantes.collapsing {
         transition: none !important;
@@ -193,6 +178,44 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
         #modalEjecutarOP .modal-footer .btn {
             flex: 1 1 100%;
+        }
+    }
+
+    /* ========================================================================= */
+    /* OPTIMIZACIÓN DE TABLAS A TARJETAS PARA CELULARES (MOBILE FIRST)           */
+    /* ========================================================================= */
+    @media (max-width: 767.98px) {
+        .mobile-card-table thead { display: none; }
+        .mobile-card-table tbody tr {
+            display: block;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            background-color: #fff;
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+        }
+        .mobile-card-table tbody td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.4rem 0;
+            border-bottom: 1px dashed #e9ecef;
+            text-align: right;
+            border-top: none !important;
+        }
+        .mobile-card-table tbody td:last-child { border-bottom: none; }
+        .mobile-card-table tbody td::before {
+            content: attr(data-label);
+            font-weight: 700;
+            font-size: 0.7rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            margin-right: 1rem;
+            text-align: left;
+        }
+        .mobile-card-table tbody td > * {
+            max-width: 65%; /* Evita que los inputs tapen el título en celular */
         }
     }
 </style>
@@ -803,36 +826,39 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
                 <div class="modal-body p-4 bg-light">
                     
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-header bg-white border-bottom-0 pt-3 pb-0 d-flex justify-content-between align-items-center">
-                            <h6 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history text-primary me-2"></i>Control de Tiempos de Máquina</h6>
-                            <button type="button" class="btn btn-sm btn-outline-primary shadow-sm rounded-pill fw-bold px-3 transition-hover" id="btnMagicoEjecucion" title="Autocompletar Tiempos y Almacenes">
-                                <i class="bi bi-magic me-1"></i>Botón Mágico
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-header bg-white border-bottom-0 pt-2 pb-0 d-flex justify-content-between align-items-center">
+                            <h6 class="fw-bold text-dark mb-0 fs-6"><i class="bi bi-clock-history text-primary me-1"></i>Tiempos</h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary shadow-sm rounded-pill fw-bold px-3 py-1 transition-hover" id="btnMagicoEjecucion" title="Autocompletar Tiempos y Almacenes">
+                                <i class="bi bi-magic me-1"></i><span class="d-none d-sm-inline">Botón Mágico</span><span class="d-inline d-sm-none">Magia</span>
                             </button>
                         </div>
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-bold text-secondary"><i class="bi bi-play-circle text-success me-1"></i>Inicio del Trabajo <span class="text-danger">*</span></label>
+                        <div class="card-body p-2 p-sm-3">
+                            <div class="row g-2">
+                                <div class="col-6 col-md-4">
+                                    <label class="form-label small fw-bold text-secondary mb-1"><i class="bi bi-play-circle text-success me-1"></i>Inicio <span class="text-danger">*</span></label>
                                     <input type="datetime-local" name="fecha_inicio" id="execFechaInicio" class="form-control form-control-sm border-secondary-subtle fw-medium" required>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-bold text-secondary"><i class="bi bi-stop-circle text-danger me-1"></i>Fin del Trabajo <span class="text-danger">*</span></label>
+                                <div class="col-6 col-md-4">
+                                    <label class="form-label small fw-bold text-secondary mb-1"><i class="bi bi-stop-circle text-danger me-1"></i>Fin <span class="text-danger">*</span></label>
                                     <input type="datetime-local" name="fecha_fin" id="execFechaFin" class="form-control form-control-sm border-secondary-subtle fw-medium" required>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-bold text-secondary"><i class="bi bi-pause-circle text-warning me-1"></i>Horas de Parada</label>
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label small fw-bold text-secondary mb-1">
+                                        <i class="bi bi-pause-circle text-warning me-1"></i>Parada 
+                                        <span class="d-inline d-md-none text-muted fw-normal ms-1" style="font-size: 0.65rem;">(Descansos/Fallas)</span>
+                                    </label>
                                     <div class="input-group input-group-sm">
                                         <input type="number" step="0.01" min="0" name="horas_parada" id="execHorasParada" class="form-control border-secondary-subtle" placeholder="Ej: 0.5">
-                                        <span class="input-group-text bg-light text-muted">Hrs</span>
+                                        <span class="input-group-text bg-light text-muted px-2">Hrs</span>
                                     </div>
-                                    <div class="form-text" style="font-size: 0.7rem;">Descansos, limpieza o fallas mecánicas.</div>
+                                    <div class="form-text d-none d-md-block" style="font-size: 0.7rem;">Descansos, limpieza o fallas.</div>
                                 </div>
                             </div>
                             
-                            <div class="mt-3 pt-3 border-top d-flex justify-content-between align-items-center bg-light rounded p-2 px-3">
-                                <span class="text-muted fw-bold small"><i class="bi bi-calculator me-1"></i>Tiempo Efectivo a Costear por Tarifa de Planta:</span>
-                                <span class="badge bg-dark fs-5 shadow-sm" id="lblTiempoNeto">0.00 <small class="fs-6 text-light fw-normal opacity-75">Horas</small></span>
+                            <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center bg-light rounded p-2">
+                                <span class="text-muted fw-bold" style="font-size: 0.8rem;"><i class="bi bi-calculator me-1"></i>Hrs a Costear:</span>
+                                <span class="badge bg-dark fs-6 shadow-sm px-3" id="lblTiempoNeto">0.00 <small class="text-light fw-normal opacity-75">Hrs</small></span>
                             </div>
                         </div>
                     </div>
