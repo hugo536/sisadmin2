@@ -823,7 +823,7 @@ class TesoreriaController extends Controlador
                 'id_centro_costo' => (int) ($_POST['id_centro_costo'] ?? 0),
             ];
 
-            $cuentaDestinoIds = $_POST['cuenta_destino_ids'] ?? [];
+            $cuentaDestinoIds = $_POST['cuenta_destino_ids'] ?? ($_POST['cuenta_origen_ids'] ?? []);
             $metodoIds = $_POST['metodo_pago_ids'] ?? [];
             $metodoMontos = $_POST['metodo_montos'] ?? [];
             $distribucion = [];
@@ -846,7 +846,7 @@ class TesoreriaController extends Controlador
                 }
 
                 if (!empty($distribucion) && abs(round($totalDistribuido, 4) - $montoTotal) > 0.0001) {
-                    throw new RuntimeException('La suma de la distribución por cuenta y método debe coincidir con el monto total del cobro.');
+                    throw new RuntimeException('La suma de la distribución por cuenta y método debe coincidir con el monto total del pago/cobro.');
                 }
             }
 
@@ -854,7 +854,7 @@ class TesoreriaController extends Controlador
                 $idCuentaUnica = (int) ($_POST['id_cuenta'] ?? 0);
                 $idMetodoUnico = (int) ($_POST['id_metodo_pago'] ?? 0);
                 if ($idCuentaUnica <= 0 || $idMetodoUnico <= 0) {
-                    throw new RuntimeException('Debe seleccionar al menos una cuenta destino y un método de cobro.');
+                    throw new RuntimeException('Debe seleccionar al menos una cuenta destino y un método de pago.');
                 }
                 $distribucion[] = [
                     'id_cuenta'      => $idCuentaUnica,
@@ -885,7 +885,7 @@ class TesoreriaController extends Controlador
                     : round((float) $item['monto'], 4);
 
                 if ($montoParcial <= 0) {
-                    throw new RuntimeException('El monto parcial del método de cobro no es válido.');
+                    throw new RuntimeException('El monto parcial del método de pago no es válido.');
                 }
 
                 $payload = $payloadBase;
@@ -895,7 +895,7 @@ class TesoreriaController extends Controlador
 
                 if ($naturalezaPago === 'MIXTO') {
                     if ($montoTotal <= 0) {
-                        throw new RuntimeException('Monto total inválido para cobro mixto.');
+                        throw new RuntimeException('Monto total inválido para pago mixto.');
                     }
                     if ($esUltimo) {
                         $montoCapitalParcial = round($montoCapitalTotal - ($payloadBase['_capital_asignado'] ?? 0), 4);
@@ -925,7 +925,7 @@ class TesoreriaController extends Controlador
             }
 
             if (abs(round($montoRegistrado, 4) - $montoTotal) > 0.0001) {
-                throw new RuntimeException('No se pudo distribuir correctamente el monto entre los métodos de cobro.');
+                throw new RuntimeException('No se pudo distribuir correctamente el monto entre los métodos de pago.');
             }
 
             if ($origen === 'CXC') {
