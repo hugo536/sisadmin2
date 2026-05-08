@@ -65,13 +65,13 @@ if (!empty($_GET['error'])) {
             <p class="text-muted small mb-0 ms-1">Control de saldos por cliente y registro de cobros.</p>
         </div>
         <div class="d-flex gap-2 justify-content-end align-items-center flex-nowrap">
-            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
+            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bank me-2 text-primary"></i>Ir a Cuentas
             </a>
-            <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
+            <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-clock-history me-2 text-info"></i>Historial Global
             </a>
-            <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
+            <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bar-chart-line me-2 text-primary"></i>Reportes de Tesorería
             </a>
             <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalCobroManual">
@@ -359,23 +359,25 @@ if (!empty($_GET['error'])) {
             <form method="post" action="<?php echo e(route_url('tesoreria/registrar_cobro')); ?>" class="js-form-confirm js-form-monto" id="formCobro">
                 <div class="modal-body p-4 bg-light">
                     <input type="hidden" name="id_origen" id="cobroIdOrigen">
-                    
+
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Moneda</label>
-                            <input name="moneda" id="cobroMoneda" class="form-control bg-white shadow-sm border-secondary-subtle fw-bold text-secondary">
+                        <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-end mb-1">
+                            <label class="form-label small text-muted fw-bold mb-0">Monto a Cobrar (Total) <span class="text-danger">*</span></label>
+                            <div class="small fw-medium text-primary d-flex align-items-center">
+                                <i class="bi bi-info-circle me-1"></i>Saldo: 
+                                <input type="text" name="moneda" id="cobroMoneda" class="form-control-plaintext text-primary p-0 ms-1 fw-bold" style="width: 30px; pointer-events: none;" readonly>
+                                <input type="text" id="cobroSaldo" class="form-control-plaintext text-primary p-0 fw-bold" data-saldo-target="1" style="width: 65px; pointer-events: none;" readonly>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Saldo Pendiente</label>
-                            <input id="cobroSaldo" class="form-control bg-white shadow-sm border-secondary-subtle fw-bold text-danger" data-saldo-target="1">
-                        </div>
+                        <input type="number" step="0.01" min="0.01" name="monto" id="cobroMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-success bg-light" readonly required>
+                    </div>
                         
-                        <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-2">Distribución del cobro <span class="text-danger">*</span></label>
-                            <div class="small text-muted mb-2">Puedes dividir el cobro en varias cuentas y métodos (ej: S/ 7 Yape + S/ 3 Efectivo).</div>
+                        <div class="col-12">
+                            <label class="form-label small text-muted fw-bold mb-2">Cuenta y Método <span class="text-danger">*</span></label>
                             <div id="cobroDistribucionRows" class="d-grid gap-2">
                                 <div class="row g-2 js-cobro-distribucion-row" data-row-index="0">
-                                    <div class="col-md-5">
+                                    <div class="col-12 col-md-5">
                                         <select name="cuenta_destino_ids[]" class="form-select shadow-sm border-secondary-subtle js-cobro-cuenta" required>
                                             <option value="" selected disabled>Cuenta destino...</option>
                                             <?php foreach($cuentas as $c): ?>
@@ -392,76 +394,86 @@ if (!empty($_GET['error'])) {
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-6 col-md-4">
                                         <select name="metodo_pago_ids[]" class="form-select shadow-sm border-secondary-subtle js-cobro-metodo" required>
-                                            <option value="" selected disabled>Método de cobro...</option>
+                                            <option value="" selected disabled>Método...</option>
                                             <?php foreach($metodos as $m): ?>
                                                 <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
-                                    <div class="col-md-3">
-                                        <div class="input-group">
-                                            <input type="number" step="0.01" min="0.01" name="metodo_montos[]" class="form-control shadow-sm border-secondary-subtle js-cobro-monto-distribucion" placeholder="Monto" required>
-                                            <button type="button" class="btn btn-outline-danger js-remove-cobro-row d-none" title="Quitar fila"><i class="bi bi-dash"></i></button>
+                                    <div class="col-6 col-md-3">
+                                        <div class="input-group shadow-sm">
+                                            <input type="number" step="0.01" min="0.01" name="metodo_montos[]" class="form-control border-secondary-subtle js-cobro-monto-distribucion" placeholder="Monto" required>
+                                            <button type="button" class="btn btn-outline-danger px-2 js-remove-cobro-row d-none" title="Quitar"><i class="bi bi-trash"></i></button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="d-flex justify-content-between align-items-center mt-2">
-                                <button type="button" id="btnAddCobroDistribucion" class="btn btn-sm btn-outline-success">
-                                    <i class="bi bi-plus-circle me-1"></i>Agregar fila
+                            
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <button type="button" id="btnAddCobroDistribucion" class="btn btn-sm btn-outline-secondary px-3">
+                                    <i class="bi bi-plus-circle me-1"></i>Dividir pago
                                 </button>
-                                <small id="cobroDistribucionHint" class="text-muted"></small>
+                                <small id="cobroDistribucionHint" class="text-muted fw-medium"></small>
                             </div>
                             <input type="hidden" name="id_cuenta" id="selectCuentaDestino" value="">
                             <input type="hidden" name="id_metodo_pago" id="selectMetodoCobroUnico" value="">
                         </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Fecha de Cobro <span class="text-danger">*</span></label>
-                            <input type="date" name="fecha" class="form-control shadow-sm border-secondary-subtle" value="<?php echo date('Y-m-d'); ?>" required>
-                        </div>
+                        <div class="col-12 mt-3 pt-3 border-top">
+                            <a class="text-decoration-none fw-bold text-primary d-flex align-items-center" data-bs-toggle="collapse" href="#cobroOpcionesAvanzadas" role="button" aria-expanded="false" aria-controls="cobroOpcionesAvanzadas">
+                                <i class="bi bi-gear-fill me-2"></i> Mostrar opciones adicionales 
+                                <i class="bi bi-chevron-down ms-auto small"></i>
+                            </a>
+                            
+                            <div class="collapse mt-3" id="cobroOpcionesAvanzadas">
+                                <div class="card card-body bg-white border-0 shadow-sm p-3">
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label small text-muted fw-bold mb-1">Fecha de Cobro <span class="text-danger">*</span></label>
+                                            <input type="date" name="fecha" class="form-control border-secondary-subtle" value="<?php echo date('Y-m-d'); ?>" required>
+                                        </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Naturaleza del Cobro <span class="text-danger">*</span></label>
-                            <select name="naturaleza_pago" id="cobroNaturaleza" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="DOCUMENTO" selected>Cobro de deuda (documento completo)</option>
-                                <option value="CAPITAL">Solo capital (reduce obligación)</option>
-                                <option value="INTERES">Solo interés (mora/ingreso extra)</option>
-                                <option value="MIXTO">Mixto (capital + mora)</option>
-                            </select>
-                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label small text-muted fw-bold mb-1">Naturaleza <span class="text-danger">*</span></label>
+                                            <select name="naturaleza_pago" id="cobroNaturaleza" class="form-select border-secondary-subtle" required>
+                                                <option value="DOCUMENTO" selected>Cobro de deuda normal</option>
+                                                <option value="CAPITAL">Solo capital</option>
+                                                <option value="INTERES">Solo mora/interés</option>
+                                                <option value="MIXTO">Mixto (capital + mora)</option>
+                                            </select>
+                                        </div>
 
-                        <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Monto a Cobrar (Total que entra al banco) <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="0.01" name="monto" id="cobroMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-success fs-5" required>
-                        </div>
+                                        <div class="col-6 d-none" id="grupoCobroCapital">
+                                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Capital</label>
+                                            <input type="number" step="0.01" min="0" name="monto_capital" id="cobroMontoCapital" class="form-control border-secondary-subtle" value="0">
+                                        </div>
 
-                        <div class="col-md-6 d-none" id="grupoCobroCapital">
-                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Capital</label>
-                            <input type="number" step="0.01" min="0" name="monto_capital" id="cobroMontoCapital" class="form-control shadow-sm border-secondary-subtle" value="0">
-                        </div>
-
-                        <div class="col-md-6 d-none" id="grupoCobroInteres">
-                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Interés/Mora</label>
-                            <input type="number" step="0.01" min="0" name="monto_interes" id="cobroMontoInteres" class="form-control shadow-sm border-secondary-subtle text-success" value="0">
+                                        <div class="col-6 d-none" id="grupoCobroInteres">
+                                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Mora</label>
+                                            <input type="number" step="0.01" min="0" name="monto_interes" id="cobroMontoInteres" class="form-control border-secondary-subtle text-success" value="0">
+                                        </div>
+                                        
+                                        <div class="col-12">
+                                            <label class="form-label small text-muted fw-bold mb-1">Referencia / N° Operación</label>
+                                            <input type="text" name="referencia" class="form-control border-secondary-subtle" placeholder="Ej. TRF-849392">
+                                        </div>
+                                        
+                                        <div class="col-12">
+                                            <label class="form-label small text-muted fw-bold mb-1">Observaciones</label>
+                                            <textarea name="observaciones" class="form-control border-secondary-subtle" rows="2" placeholder="Notas adicionales..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         
-                        <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1 mt-2">Referencia / N° Operación</label>
-                            <input type="text" name="referencia" class="form-control shadow-sm border-secondary-subtle" placeholder="Ej. TRF-849392">
-                        </div>
-                        
-                        <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Observaciones</label>
-                            <textarea name="observaciones" class="form-control shadow-sm border-secondary-subtle" rows="2" placeholder="Notas adicionales del cobro..."></textarea>
-                        </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-white">
-                    <button type="button" class="btn btn-light border shadow-sm text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success px-4 fw-bold shadow-sm"><i class="bi bi-check-circle me-2"></i>Confirmar Cobro</button>
+                <div class="modal-footer bg-light border-top-0 pt-0">
+                    <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold mb-2 mb-md-0 d-block d-md-inline-block w-100 w-md-auto" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success fw-bold shadow-sm d-block d-md-inline-block w-100 w-md-auto"><i class="bi bi-check-circle me-2"></i>Confirmar Cobro</button>
                 </div>
             </form>
         </div>

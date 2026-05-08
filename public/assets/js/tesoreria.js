@@ -23,10 +23,15 @@
     // --- A PARTIR DE AQUÍ ESTAMOS 100% SEGUROS DE QUE EL HTML YA EXISTE ---
     // ========================================================================
 
-    // INICIALIZACIÓN DE LA TABLA DE CUENTAS
+    // 0. INICIALIZACIÓN GLOBAL DE TABLAS (Soluciona el problema de "Calculando...")
+    if (window.ERPTable && typeof window.ERPTable.autoInitFromDataset === 'function') {
+        window.ERPTable.autoInitFromDataset(tesoreriaApp);
+    }
+
+    // INICIALIZACIÓN ESPECÍFICA DE LA TABLA DE CUENTAS (Si requiere config manual adicional)
     const tablaCuentas = document.getElementById('tablaCuentas');
     if (tablaCuentas && window.ERPTable && window.ERPTable.createTableManager) {
-        if (!tablaCuentas.dataset.iniciada) { // Evitar doble inicialización
+        if (!tablaCuentas.dataset.iniciada) { 
             window.ERPTable.createTableManager({
                 tableSelector: tablaCuentas,
                 rowsSelector: 'tbody tr', 
@@ -41,7 +46,7 @@
     }
 
     // ========================================================================
-    // 0. INICIALIZACIÓN GLOBAL
+    // 0.1 INICIALIZACIÓN DE TOOLTIPS Y MODALES GLOBALES
     // ========================================================================
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -55,15 +60,14 @@
     
     if (tesoreriaApp && tesoreriaApp.dataset.esEdicion === 'true' && modalCuentaEl) {
         if (typeof bootstrap !== 'undefined') {
-            // Le damos 150ms al DOM para que termine de procesarse antes de llamar a Bootstrap
             setTimeout(() => {
-                console.log("Abriendo modal de edición..."); // Para que lo veas en la consola
                 const modalInstance = bootstrap.Modal.getOrCreateInstance(modalCuentaEl);
                 modalInstance.show();
             }, 150);
         }
     }
 
+    // Alertas de redirección
     if (tesoreriaApp) {
         const params = new URLSearchParams(window.location.search);
         if (params.get('ok') === '1') {
@@ -92,6 +96,7 @@
         }
     }
 
+    // Filtros auto-enviables
     const formFiltrosCxc = document.getElementById('formFiltrosCxc');
     if (formFiltrosCxc) {
         let filtroTimer = null;
@@ -110,6 +115,7 @@
         });
     }
 
+    // Función de recarga parcial de tablas
     async function refrescarTablaCxcParcial() {
         const tablaActual = document.getElementById('cxcTable');
         if (!tablaActual) return;
@@ -118,6 +124,7 @@
             method: 'GET',
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
+        
         if (!response.ok) {
             throw new Error(`No se pudo refrescar la tabla (HTTP ${response.status})`);
         }
@@ -130,6 +137,7 @@
         const nuevoBadge = doc.querySelector('#badgeRegistros');
         const nuevoInfo = doc.querySelector('#cxcPaginationInfo');
         const nuevoControls = doc.querySelector('#cxcPaginationControls');
+        
         const bodyActual = document.getElementById('cxcTableBody');
         const badgeActual = document.getElementById('badgeRegistros');
         const infoActual = document.getElementById('cxcPaginationInfo');
@@ -144,8 +152,9 @@
         if (nuevoInfo && infoActual) infoActual.innerHTML = nuevoInfo.innerHTML;
         if (nuevoControls && controlsActual) controlsActual.innerHTML = nuevoControls.innerHTML;
 
-        if (window.ERPTable && typeof window.ERPTable.initializeAll === 'function') {
-            window.ERPTable.initializeAll(document);
+        // AQUÍ REEMPLAZAMOS EL MÉTODO INCORRECTO POR EL CORRECTO
+        if (window.ERPTable && typeof window.ERPTable.autoInitFromDataset === 'function') {
+            window.ERPTable.autoInitFromDataset(document);
         }
 
         const tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -422,21 +431,38 @@
 
     function recalcularDistribucionCobro() {
         if (!inputMontoTotalCobro || !cobroDistribucionHint) return;
-        const total = parseFloat(inputMontoTotalCobro.value || '0') || 0;
-        const suma = getCobroDistribucionRows().reduce((acum, row) => {
+
+        const rows = getCobroDistribucionRows();
+        
+        // 1. Sumamos SIEMPRE todo lo que haya en las cajitas de distribución
+        const suma = rows.reduce((acum, row) => {
             const inputMonto = row.querySelector('.js-cobro-monto-distribucion');
             return acum + (parseFloat(inputMonto?.value || '0') || 0);
         }, 0);
-        const diferencia = roundTo((total - suma), 2);
-        if (Math.abs(diferencia) < 0.01) {
-            cobroDistribucionHint.textContent = `Distribución cuadrada: ${suma.toFixed(2)}`;
-            cobroDistribucionHint.classList.remove('text-danger');
-            cobroDistribucionHint.classList.add('text-success');
+
+        // 2. El Total de arriba es un reflejo absoluto de la suma (incluso si borras filas)
+        inputMontoTotalCobro.value = suma > 0 ? suma.toFixed(2) : '';
+
+        // 3. Calculamos cuánto quedará debiendo
+        const saldoOriginal = parseFloat(document.getElementById('cobroSaldo').value || '0') || 0;
+        const nuevoSaldo = saldoOriginal - suma;
+
+        // 4. Mensajes dinámicos
+        if (suma === 0) {
+            cobroDistribucionHint.textContent = '';
+        } else if (Math.abs(nuevoSaldo) < 0.01) {
+            cobroDistribucionHint.innerHTML = `<i class="bi bi-check2-all"></i> Deuda saldada por completo`;
+            cobroDistribucionHint.className = 'text-success fw-bold mb-0 mt-2';
+        } else if (nuevoSaldo > 0) {
+            cobroDistribucionHint.textContent = `Quedará debiendo: ${nuevoSaldo.toFixed(2)}`;
+            cobroDistribucionHint.className = 'text-warning-emphasis fw-bold mb-0 mt-2';
         } else {
-            cobroDistribucionHint.textContent = `Falta distribuir ${diferencia.toFixed(2)} del total`;
-            cobroDistribucionHint.classList.remove('text-success');
-            cobroDistribucionHint.classList.add('text-danger');
+            cobroDistribucionHint.textContent = `⚠️ El cobro supera la deuda por: ${Math.abs(nuevoSaldo).toFixed(2)}`;
+            cobroDistribucionHint.className = 'text-danger fw-bold mb-0 mt-2';
         }
+        
+        // Esto sincroniza la naturaleza mixta si se está usando
+        validarMontosMixtosCobro();
     }
 
     function agregarFilaDistribucionCobro() {
@@ -449,9 +475,24 @@
         const selectCuenta = nuevaFila.querySelector('.js-cobro-cuenta');
         const selectMetodo = nuevaFila.querySelector('.js-cobro-metodo');
         const inputMonto = nuevaFila.querySelector('.js-cobro-monto-distribucion');
+        
         if (selectCuenta) selectCuenta.value = '';
         if (selectMetodo) selectMetodo.value = '';
-        if (inputMonto) inputMonto.value = '';
+        
+        // ---> MAGIA DE AUTO-CÁLCULO <---
+        if (inputMonto) {
+            const total = parseFloat(inputMontoTotalCobro?.value || '0') || 0;
+            const sumaActual = getCobroDistribucionRows().reduce((acum, row) => {
+                const val = parseFloat(row.querySelector('.js-cobro-monto-distribucion')?.value || '0') || 0;
+                return acum + val;
+            }, 0);
+            const diferencia = total - sumaActual;
+            
+            // Si falta dinero por distribuir, lo pre-llena. Si no, lo deja vacío.
+            inputMonto.value = diferencia > 0.009 ? diferencia.toFixed(2) : '';
+        }
+        // ------------------------------
+
         cobroDistribucionRows.appendChild(nuevaFila);
         actualizarBotonesEliminarDistribucion();
         filtrarCuentasDistribucionPorMoneda(document.getElementById('cobroMoneda')?.value || '');
@@ -474,8 +515,16 @@
             actualizarBotonesEliminarDistribucion();
             recalcularDistribucionCobro();
         });
+        
         cobroDistribucionRows.addEventListener('input', (e) => {
             if (e.target.matches('.js-cobro-monto-distribucion')) {
+                // ---> NUEVO: Si escriben en la caja de ABAJO, actualizamos el de ARRIBA automáticamente
+                const rows = getCobroDistribucionRows();
+                if (rows.length === 1 && inputMontoTotalCobro) {
+                    inputMontoTotalCobro.value = e.target.value;
+                }
+                // -------------------------------------------------------------------
+                
                 recalcularDistribucionCobro();
             }
         });
@@ -506,6 +555,14 @@
             inputMonto.value = saldo;
             inputMonto.setAttribute('max', saldo);
         }
+        
+        const rows = getCobroDistribucionRows();
+        if (rows.length === 1) {
+            const inputDist = rows[0].querySelector('.js-cobro-monto-distribucion');
+            if (inputDist) inputDist.value = saldo;
+        }
+        // -------------------------------------
+
         filtrarCuentasDistribucionPorMoneda(moneda);
         actualizarBotonesEliminarDistribucion();
         recalcularDistribucionCobro();
@@ -578,9 +635,6 @@
     [inputMontoTotalCobro, inputCapitalCobro, inputInteresCobro].forEach(input => {
         if (input) input.addEventListener('input', validarMontosMixtosCobro);
     });
-    if (inputMontoTotalCobro) {
-        inputMontoTotalCobro.addEventListener('input', recalcularDistribucionCobro);
-    }
 
     const formCobro = document.getElementById('formCobro');
     if (formCobro) {
@@ -705,7 +759,7 @@
                 inputMonto.setAttribute('max', saldoFormateado);
             }
             
-            // --- NUEVO CÓDIGO: Filtro de cuentas para CXP ---
+            // --- Filtro de cuentas para CXP ---
             const selectCuentaOrigen = document.getElementById('selectCuentaOrigen');
             if (selectCuentaOrigen && moneda) {
                 const opciones = selectCuentaOrigen.querySelectorAll('option');
@@ -859,7 +913,7 @@
 
             syncNaturalezaPago();
         });
-    } // FIN DE SECCION 5 RESTAURADO
+    }
 
     // ========================================================================
     // 6. LÓGICA DE SALDOS Y LÍMITES (PAGO ESPECÍFICO Y MANUAL)
@@ -1051,7 +1105,6 @@
 
     if (selectMonedaCobroManual && selectCuentaCobroManual) {
         selectMonedaCobroManual.addEventListener('change', filtrarCuentasCobroManualPorMoneda);
-        // Moneda PEN por defecto y filtro aplicado al abrir.
         filtrarCuentasCobroManualPorMoneda();
     }
 
