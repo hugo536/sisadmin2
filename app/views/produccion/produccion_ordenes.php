@@ -859,9 +859,6 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     <h6 class="fw-bold mb-0 text-dark">Insumos Utilizados</h6>
                                     <p class="small text-muted mb-0">Material que se descontará del almacén.</p>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-danger" id="btnAgregarConsumo">
-                                    <i class="bi bi-plus-lg me-1"></i> Añadir Fila
-                                </button>
                             </div>
                             <div class="table-responsive">
                                 <table class="table table-sm align-middle table-bordered mb-0" id="tablaConsumosDynamic">
@@ -886,9 +883,6 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     <h6 class="fw-bold mb-0 text-dark">Productos a Ingresar</h6>
                                     <p class="small text-muted mb-0">Unidades terminadas que entrarán al almacén.</p>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-success" id="btnAgregarIngreso">
-                                    <i class="bi bi-plus-lg me-1"></i> Añadir Fila
-                                </button>
                             </div>
                             <div class="table-responsive">
                                 <table class="table table-sm align-middle table-bordered mb-0" id="tablaIngresosDynamic">
