@@ -286,7 +286,7 @@ if (!empty($_GET['error'])) {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Monto a Pagar <span class="text-danger">*</span></label>
-                           <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis" required>
+                           <input type="number" step="0.01" min="0.01" name="monto" id="pagoManualMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis" required>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Cuenta Origen <span class="text-danger">*</span></label>
