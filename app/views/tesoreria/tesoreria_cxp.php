@@ -59,13 +59,13 @@ if (!empty($_GET['error'])) {
             <p class="text-muted small mb-0 ms-1">Control de saldos por proveedor y registro de pagos.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap justify-content-end">
-            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
+            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bank me-2 text-primary"></i>Ir a Cuentas
             </a>
-            <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
+            <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-clock-history me-2 text-info"></i>Historial Global
             </a>
-            <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
+            <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bar-chart-line me-2 text-primary"></i>Reportes de Tesorería
             </a>
             <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalPagoManual">
@@ -182,11 +182,9 @@ if (!empty($_GET['error'])) {
                                 <?php 
                                     $estadoStr = (string) ($r['estado'] ?? 'PENDIENTE');
                                     
-                                    // CAMBIO: Formateamos la fecha a DD-MM-YYYY
                                     $fechaVencimientoOriginal = (string) ($r['fecha_vencimiento'] ?? '');
                                     $fechaVencimientoFormateada = !empty($fechaVencimientoOriginal) ? date('d-m-Y', strtotime($fechaVencimientoOriginal)) : '';
 
-                                    // CAMBIO: Añadimos la fecha formateada al string de búsqueda
                                     $searchStr = strtolower(($r['proveedor'] ?? '') . ' ' . ($r['id_recepcion'] ?? '') . ' ' . ($r['documento_referencia'] ?? '') . ' ' . $estadoStr . ' ' . $fechaVencimientoFormateada);
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
@@ -256,6 +254,9 @@ if (!empty($_GET['error'])) {
     </div>
 </div>
 
+<!-- ============================================== -->
+<!-- MODAL DE PAGO MANUAL (ABONO A CUENTA)          -->
+<!-- ============================================== -->
 <div class="modal fade" id="modalPagoManual" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -285,7 +286,7 @@ if (!empty($_GET['error'])) {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Monto a Pagar <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="0.01" name="monto" id="montoPagarManual" class="form-control shadow-sm border-secondary-subtle fw-bold text-primary" required>
+                           <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis" required>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Cuenta Origen <span class="text-danger">*</span></label>
@@ -322,15 +323,18 @@ if (!empty($_GET['error'])) {
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-white">
-                    <button type="button" class="btn btn-light border shadow-sm text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-check-circle me-2"></i>Confirmar Pago Manual</button>
+                <div class="modal-footer bg-light border-top-0 pt-0">
+                    <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold mb-2 mb-md-0 d-block d-md-inline-block w-100 w-md-auto" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold shadow-sm d-block d-md-inline-block w-100 w-md-auto"><i class="bi bi-check-circle me-2"></i>Confirmar Pago Manual</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+<!-- ============================================== -->
+<!-- MODAL DE PAGO NORMAL (ESPECÍFICO A DOCUMENTO)  -->
+<!-- ============================================== -->
 <div class="modal fade" id="modalPago" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -343,92 +347,131 @@ if (!empty($_GET['error'])) {
                     <input type="hidden" name="id_origen" id="pagoIdOrigen">
                     
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Moneda</label>
-                            <input name="moneda" id="pagoMoneda" class="form-control bg-white shadow-sm border-secondary-subtle fw-bold text-secondary" readonly>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Saldo Pendiente</label>
-                            <input id="pagoSaldo" class="form-control bg-white shadow-sm border-secondary-subtle fw-bold text-danger" readonly data-saldo-target="1">
-                        </div>
-                        
-                        <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Cuenta Origen <span class="text-danger">*</span></label>
-                            <select name="id_cuenta" id="selectCuentaOrigen" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="" data-saldo="0" selected disabled>Seleccione una cuenta...</option>
-                                <?php foreach ($cuentas as $cta): ?>
-                                    <option value="<?php echo $cta['id']; ?>" data-saldo="<?php echo $cta['saldo'] ?? 0; ?>">
-                                        <?php echo htmlspecialchars(($cta['codigo'] ?? '') . ' - ' . $cta['nombre'] . ' (' . ($cta['moneda'] ?? '') . ')'); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <small id="textoSaldoDisponible" class="text-primary fw-bold mt-1 d-block"></small>
+                        <!-- CAMPO MONTO (TAMAÑO ESTÁNDAR) CON SALDO INTEGRADO -->
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-end mb-1">
+                                <label class="form-label small text-muted fw-bold mb-0">Monto a Pagar (Total) <span class="text-danger">*</span></label>
+                                <div class="small fw-medium text-warning-emphasis d-flex align-items-center">
+                                    <i class="bi bi-info-circle me-1"></i>Saldo: 
+                                    <input type="text" name="moneda" id="pagoMoneda" class="form-control-plaintext text-warning-emphasis p-0 ms-1 fw-bold" style="width: 30px; pointer-events: none;" readonly>
+                                    <input type="text" id="pagoSaldo" class="form-control-plaintext text-warning-emphasis p-0 fw-bold" data-saldo-target="1" style="width: 65px; pointer-events: none;" readonly>
+                                </div>
+                            </div>
+                            <!-- Agregamos bg-light y readonly asumiendo que se calcula igual que en CxC -->
+                            <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis bg-light" readonly required>
                         </div>
                         
-                        <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Método de Pago <span class="text-danger">*</span></label>
-                            <select name="id_metodo_pago" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="" selected disabled>Seleccione un método...</option>
-                                <?php foreach($metodos as $m): ?>
-                                    <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                        <!-- DISTRIBUCIÓN: CUENTA Y MÉTODO (Adaptado del modelo CxC) -->
+                        <div class="col-12">
+                            <label class="form-label small text-muted fw-bold mb-2">Cuenta Origen y Método <span class="text-danger">*</span></label>
+                            <div id="pagoDistribucionRows" class="d-grid gap-2">
+                                <!-- Fila dinámica inicial -->
+                                <div class="row g-2 js-pago-distribucion-row" data-row-index="0">
+                                    <div class="col-12 col-md-5">
+                                        <select name="cuenta_origen_ids[]" class="form-select shadow-sm border-secondary-subtle js-pago-cuenta" required>
+                                            <option value="" data-saldo="0" selected disabled>Cuenta origen...</option>
+                                            <?php foreach ($cuentas as $cta): ?>
+                                                <option value="<?php echo $cta['id']; ?>" data-saldo="<?php echo $cta['saldo'] ?? 0; ?>">
+                                                    <?php echo htmlspecialchars(($cta['codigo'] ?? '') . ' - ' . $cta['nombre'] . ' (' . ($cta['moneda'] ?? '') . ')'); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-6 col-md-4">
+                                        <select name="metodo_pago_ids[]" class="form-select shadow-sm border-secondary-subtle js-pago-metodo" required>
+                                            <option value="" selected disabled>Método...</option>
+                                            <?php foreach($metodos as $m): ?>
+                                                <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <div class="input-group shadow-sm">
+                                            <input type="number" step="0.01" min="0.01" name="metodo_montos[]" class="form-control border-secondary-subtle js-pago-monto-distribucion" placeholder="Monto" required>
+                                            <button type="button" class="btn btn-outline-danger px-2 js-remove-pago-row d-none" title="Quitar"><i class="bi bi-trash"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Controles para agregar filas de distribución -->
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <button type="button" id="btnAddPagoDistribucion" class="btn btn-sm btn-outline-secondary px-3">
+                                    <i class="bi bi-plus-circle me-1"></i>Dividir pago
+                                </button>
+                                <small id="pagoDistribucionHint" class="text-muted fw-medium"></small>
+                            </div>
+                            
+                            <!-- Inputs ocultos para mantener compatibilidad con el backend si espera variables únicas por defecto -->
+                            <input type="hidden" name="id_cuenta" id="selectCuentaOrigen" value="">
+                            <input type="hidden" name="id_metodo_pago" id="selectMetodoPagoUnico" value="">
                         </div>
                         
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Fecha de Pago <span class="text-danger">*</span></label>
-                            <input type="date" name="fecha" class="form-control shadow-sm border-secondary-subtle" value="<?php echo date('Y-m-d'); ?>" required>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Naturaleza del Pago <span class="text-danger">*</span></label>
-                            <select name="naturaleza_pago" id="pagoNaturaleza" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="DOCUMENTO" selected>Pago de deuda (documento completo)</option>
-                                <option value="CAPITAL">Solo capital (reduce obligación)</option>
-                                <option value="INTERES">Solo interés (gasto financiero)</option>
-                                <option value="MIXTO">Mixto (capital + interés)</option>
-                            </select>
-                        </div>
+                        <!-- ACORDEÓN DE OPCIONES AVANZADAS -->
+                        <div class="col-12 mt-3 pt-3 border-top">
+                            <a class="text-decoration-none fw-bold text-warning-emphasis d-flex align-items-center" data-bs-toggle="collapse" href="#pagoOpcionesAvanzadas" role="button" aria-expanded="false" aria-controls="pagoOpcionesAvanzadas">
+                                <i class="bi bi-gear-fill me-2"></i> Mostrar opciones adicionales 
+                                <i class="bi bi-chevron-down ms-auto small"></i>
+                            </a>
+                            
+                            <div class="collapse mt-3" id="pagoOpcionesAvanzadas">
+                                <div class="card card-body bg-white border-0 shadow-sm p-3">
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label small text-muted fw-bold mb-1">Fecha de Pago <span class="text-danger">*</span></label>
+                                            <input type="date" name="fecha" class="form-control border-secondary-subtle" value="<?php echo date('Y-m-d'); ?>" required>
+                                        </div>
 
-                        <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Monto a Pagar (Total que sale del banco) <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis fs-5" required>
-                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label small text-muted fw-bold mb-1">Naturaleza <span class="text-danger">*</span></label>
+                                            <select name="naturaleza_pago" id="pagoNaturaleza" class="form-select border-secondary-subtle" required>
+                                                <option value="DOCUMENTO" selected>Pago de deuda normal</option>
+                                                <option value="CAPITAL">Solo capital</option>
+                                                <option value="INTERES">Solo interés (gasto financiero)</option>
+                                                <option value="MIXTO">Mixto (capital + interés)</option>
+                                            </select>
+                                        </div>
 
-                        <div class="col-md-6 d-none" id="grupoPagoCapital">
-                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Capital</label>
-                            <input type="number" step="0.01" min="0" name="monto_capital" id="pagoMontoCapital" class="form-control shadow-sm border-secondary-subtle" value="0">
-                        </div>
+                                        <div class="col-6 d-none" id="grupoPagoCapital">
+                                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Capital</label>
+                                            <input type="number" step="0.01" min="0" name="monto_capital" id="pagoMontoCapital" class="form-control border-secondary-subtle" value="0">
+                                        </div>
 
-                        <div class="col-md-6 d-none" id="grupoPagoInteres">
-                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Interés</label>
-                            <input type="number" step="0.01" min="0" name="monto_interes" id="pagoMontoInteres" class="form-control shadow-sm border-secondary-subtle text-danger" value="0">
-                        </div>
+                                        <div class="col-6 d-none" id="grupoPagoInteres">
+                                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Interés</label>
+                                            <input type="number" step="0.01" min="0" name="monto_interes" id="pagoMontoInteres" class="form-control border-secondary-subtle text-danger" value="0">
+                                        </div>
 
-                        <div class="col-md-12 d-none" id="grupoCentroCostoInteres">
-                            <label class="form-label small text-muted fw-bold mb-1">Centro de Costo (Gasto Financiero) <span class="text-danger">*</span></label>
-                            <select name="id_centro_costo" id="pagoCentroCosto" class="form-select shadow-sm border-secondary-subtle bg-warning-subtle">
-                                <option value="" selected disabled>Seleccione...</option>
-                                <?php foreach ($centros_costo as $cc): ?>
-                                    <option value="<?php echo (int) $cc['id']; ?>"><?php echo e((string) ($cc['codigo'] ?? '') . ' - ' . (string) ($cc['nombre'] ?? '')); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                            <div class="form-text small text-muted"><i class="bi bi-info-circle me-1"></i>Se requiere asignar el pago del interés a un departamento (Ej. Finanzas).</div>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1 mt-2">Referencia / N° Operación</label>
-                            <input type="text" name="referencia" class="form-control shadow-sm border-secondary-subtle" placeholder="Ej. TRF-849392">
-                        </div>
-                        
-                        <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Observaciones</label>
-                            <textarea name="observaciones" class="form-control shadow-sm border-secondary-subtle" rows="2" placeholder="Notas adicionales del pago..."></textarea>
+                                        <!-- Propio de CxP: Centro de Costo -->
+                                        <div class="col-12 d-none" id="grupoCentroCostoInteres">
+                                            <label class="form-label small text-muted fw-bold mb-1">Centro de Costo (Gasto) <span class="text-danger">*</span></label>
+                                            <select name="id_centro_costo" id="pagoCentroCosto" class="form-select border-secondary-subtle bg-warning-subtle">
+                                                <option value="" selected disabled>Seleccione...</option>
+                                                <?php foreach ($centros_costo as $cc): ?>
+                                                    <option value="<?php echo (int) $cc['id']; ?>"><?php echo e((string) ($cc['codigo'] ?? '') . ' - ' . (string) ($cc['nombre'] ?? '')); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <div class="form-text small text-muted"><i class="bi bi-info-circle me-1"></i>Asignar el interés a un departamento.</div>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label class="form-label small text-muted fw-bold mb-1">Referencia / N° Operación</label>
+                                            <input type="text" name="referencia" class="form-control border-secondary-subtle" placeholder="Ej. TRF-849392">
+                                        </div>
+                                        
+                                        <div class="col-12">
+                                            <label class="form-label small text-muted fw-bold mb-1">Observaciones</label>
+                                            <textarea name="observaciones" class="form-control border-secondary-subtle" rows="2" placeholder="Notas adicionales del pago..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-white">
-                    <button type="button" class="btn btn-light border shadow-sm text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-warning px-4 fw-bold shadow-sm"><i class="bi bi-check-circle me-2"></i>Confirmar Pago</button>
+                <div class="modal-footer bg-light border-top-0 pt-0">
+                    <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold mb-2 mb-md-0 d-block d-md-inline-block w-100 w-md-auto" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning fw-bold shadow-sm d-block d-md-inline-block w-100 w-md-auto"><i class="bi bi-check-circle me-2"></i>Confirmar Pago</button>
                 </div>
             </form>
         </div>
