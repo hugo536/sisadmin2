@@ -116,132 +116,134 @@ $tipoItemLabel = static function (string $tipo): string {
         <div class="card-body p-0">
             <div class="table-responsive inventario-table-wrapper">
                <table class="table align-middle mb-0 table-pro table-hover" id="tablaInventarioStock"
-                       data-erp-table="true"
-                       data-search-input="#inventarioSearch"
-                       data-pagination-controls="#inventarioPaginationControls"
-                       data-pagination-info="#inventarioPaginationInfo"
-                       data-erp-filters='[
-                           {"el":"#inventarioFiltroAlmacen","attr":"data-almacen","match":"equals"},
-                           {"el":"#inventarioFiltroCategoria","attr":"data-categoria","match":"equals"},
-                           {"el":"#inventarioFiltroTipoItem","attr":"data-tipo-item","match":"equals"},
-                           {"el":"#inventarioFiltroEstado","attr":"data-estado","match":"equals"}
-                       ]'>
-                    <thead class="inventario-sticky-thead border-bottom">
-                        <tr>
-                            <th class="ps-4 text-secondary fw-semibold col-mobile-hide">SKU</th>
-                            <th class="text-secondary fw-semibold">Producto</th>
-                            <th class="text-secondary fw-semibold col-mobile-hide" style="width: 16%;">Almacén</th>
-                            <th class="text-end text-secondary fw-semibold" style="width: 16%;">Stock Actual</th>
-                            <th class="text-center text-secondary fw-semibold col-mobile-hide">Situación / Alertas</th>
-                            <th class="text-end pe-4 text-secondary fw-semibold col-mobile-hide">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (!empty($stockActual)): ?>
-                            <?php foreach ($stockActual as $stock): ?>
-                                <?php
-                                $sku = (string) ($stock['sku'] ?? '');
-                                $itemNombreCompleto = (string) ($stock['item_nombre'] ?? '');
-                                $almacenNombre = (string) ($stock['almacen_nombre'] ?? '');
-                                $idAlmacen = (int) ($stock['id_almacen'] ?? 0);
-                                $tipoRegistro = (string) ($stock['tipo_registro'] ?? 'item');
-                                $idCategoria = (int) ($stock['id_categoria'] ?? 0);
-                                $categoriaNombre = trim((string) ($stock['categoria_nombre'] ?? ''));
-                                $tipoItem = trim((string) ($stock['tipo_item'] ?? ''));
-                                $tipoItem = $tipoItem === 'producto' ? 'producto_terminado' : $tipoItem;
+                data-erp-table="true"
+                data-search-input="#inventarioSearch"
+                data-pagination-controls="#inventarioPaginationControls"
+                data-pagination-info="#inventarioPaginationInfo"
+                data-erp-filters='[
+                    {"el":"#inventarioFiltroAlmacen","attr":"data-almacen","match":"equals"},
+                    {"el":"#inventarioFiltroCategoria","attr":"data-categoria","match":"equals"},
+                    {"el":"#inventarioFiltroTipoItem","attr":"data-tipo-item","match":"equals"},
+                    {"el":"#inventarioFiltroEstado","attr":"data-estado","match":"equals"}
+                ]'>
+                <thead class="inventario-sticky-thead border-bottom">
+                    <tr>
+                        <!-- 1. Columna SKU eliminada, unificada con Producto -->
+                        <th class="ps-4 text-secondary fw-semibold">Producto</th>
+                        <th class="text-secondary fw-semibold col-mobile-hide" style="width: 20%;">Almacén</th>
+                        <th class="text-end text-secondary fw-semibold" style="width: 15%;">Stock Actual</th>
+                        <th class="text-center text-secondary fw-semibold col-mobile-hide">Situación / Alertas</th>
+                        <th class="text-end pe-4 text-secondary fw-semibold col-mobile-hide">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (!empty($stockActual)): ?>
+                        <?php foreach ($stockActual as $stock): ?>
+                            <?php
+                            $sku = (string) ($stock['sku'] ?? '');
+                            $itemNombreCompleto = (string) ($stock['item_nombre'] ?? '');
+                            $almacenNombre = (string) ($stock['almacen_nombre'] ?? '');
+                            $idAlmacen = (int) ($stock['id_almacen'] ?? 0);
+                            $tipoRegistro = (string) ($stock['tipo_registro'] ?? 'item');
+                            $idCategoria = (int) ($stock['id_categoria'] ?? 0);
+                            $categoriaNombre = trim((string) ($stock['categoria_nombre'] ?? ''));
+                            $tipoItem = trim((string) ($stock['tipo_item'] ?? ''));
+                            $tipoItem = $tipoItem === 'producto' ? 'producto_terminado' : $tipoItem;
+                            
+                            $stockFormateado = (string) ($stock['stock_formateado'] ?? '0');
+                            $badgeColor = (string) ($stock['badge_color'] ?? '');
+                            $badgeTexto = (string) ($stock['badge_estado'] ?? '');
+                            $requiereFactorConversion = (int) ($stock['requiere_factor_conversion'] ?? 0) === 1;
+                            $detalleAlerta = trim((string) ($stock['detalle_alerta'] ?? ''));
+
+                            $search = mb_strtolower($sku . ' ' . $itemNombreCompleto . ' ' . $almacenNombre);
+                            ?>
+                            <!-- Eliminamos la clase mobile-expandable-row para quitar el acordeón -->
+                            <tr data-search="<?php echo e($search); ?>"
+                                data-item-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
+                                data-tipo-registro="<?php echo e($tipoRegistro); ?>"
+                                data-categoria="<?php echo (int) $idCategoria; ?>"
+                                data-tipo-item="<?php echo e($tipoItem); ?>"
+                                data-estado="<?php echo strtolower(str_replace(' ', '_', $badgeTexto)); ?>"
+                                data-almacen="<?php echo (int) $idAlmacen; ?>" 
+                                class="border-bottom align-middle">
                                 
-                                $stockFormateado = (string) ($stock['stock_formateado'] ?? '0');
-                                $badgeColor = (string) ($stock['badge_color'] ?? '');
-                                $badgeTexto = (string) ($stock['badge_estado'] ?? '');
-                                $requiereFactorConversion = (int) ($stock['requiere_factor_conversion'] ?? 0) === 1;
-
-                                $detalleAlerta = trim((string) ($stock['detalle_alerta'] ?? ''));
-
-                                $search = mb_strtolower($sku . ' ' . $itemNombreCompleto . ' ' . $almacenNombre);
-                                ?>
-                                <tr data-search="<?php echo e($search); ?>"
-                                    data-item-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
-                                    data-tipo-registro="<?php echo e($tipoRegistro); ?>"
-                                    data-categoria="<?php echo (int) $idCategoria; ?>"
-                                    data-tipo-item="<?php echo e($tipoItem); ?>"
-                                    data-estado="<?php echo strtolower(str_replace(' ', '_', $badgeTexto)); ?>"
-                                    data-almacen="<?php echo (int) $idAlmacen; ?>" class="border-bottom mobile-expandable-row">
-                                    
-                                    <td class="ps-4 fw-bold text-primary col-mobile-hide"><?php echo e($sku); ?></td>
-                                    
-                                    <td class="text-dark">
-                                        <div class="d-flex flex-column align-items-end align-items-md-start w-100 text-end text-md-start">
-                                            <span class="fw-bold mb-2 text-wrap" style="word-break: break-word;">
-                                                <?php echo e($itemNombreCompleto); ?>
-                                            </span>
-                                            <div class="d-flex flex-wrap justify-content-end justify-content-md-start gap-1">
-                                                <?php if ($categoriaNombre !== ''): ?>
-                                                    <span class="badge bg-light text-secondary border fw-medium" style="font-size: 0.65rem;"><i class="bi bi-tag me-1"></i><?php echo e($categoriaNombre); ?></span>
-                                                <?php endif; ?>
-                                                <?php if ($tipoItem !== ''): ?>
-                                                    <span class="badge bg-light text-secondary border fw-medium" style="font-size: 0.65rem;"><i class="bi bi-layers me-1"></i><?php echo e($tipoItemLabel($tipoItem)); ?></span>
-                                                <?php endif; ?>
-                                                <?php if($tipoRegistro === 'pack'): ?>
-                                                    <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold" style="font-size: 0.65rem;"><i class="bi bi-box-seam me-1"></i>PACK</span>
-                                                <?php endif; ?>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    
-                                    <td class="text-muted small col-mobile-hide"><?php echo e($almacenNombre); ?></td>
-                                    
-                                    <td class="text-end">
-                                        <div class="d-flex flex-column align-items-end w-100">
-                                            <span class="fw-bold fs-6 text-dark mb-1"><?php echo $stockFormateado; ?></span>
-                                            
-                                            <?php if ($requiereFactorConversion && !empty($stock['desglose']) && is_array($stock['desglose'])): ?>
-                                                <div class="d-flex flex-wrap justify-content-end mt-1" style="gap: 4px;">
-                                                    <?php foreach ($stock['desglose'] as $d): ?>
-                                                        <span class="badge bg-light text-secondary border border-secondary-subtle px-2 py-1 fw-medium text-wrap text-center" style="font-size: 0.7rem;">
-                                                            <?php echo e($d['texto']); ?>
-                                                        </span>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                    
-                                    <td class="text-center col-mobile-hide">
-                                        <span class="badge px-3 py-2 rounded-pill <?php echo $badgeColor; ?>">
-                                            <?php echo e($badgeTexto); ?>
+                                <!-- 1. PRODUCTO E ICONO DE DETALLE -->
+                                <td class="ps-4 text-dark">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="fw-bold text-wrap" style="font-size: 0.95rem;">
+                                            <?php echo e($itemNombreCompleto); ?>
                                         </span>
-                                        <?php if ($detalleAlerta !== ''): ?>
-                                            <div class="small text-muted mt-1" style="font-size: 0.75rem;"><?php echo e($detalleAlerta); ?></div>
+                                        
+                                        <!-- MAGIA UX: Icono con la info técnica oculta -->
+                                        <i class="bi bi-info-circle-fill text-primary" 
+                                        style="cursor: help; font-size: 1.1rem; opacity: 0.8;"
+                                        data-bs-toggle="tooltip" 
+                                        data-bs-placement="top" 
+                                        title="SKU: <?php echo e($sku); ?> | Cat: <?php echo e($categoriaNombre !== '' ? $categoriaNombre : 'N/A'); ?> | Tipo: <?php echo e($tipoItemLabel($tipoItem)); ?>">
+                                        </i>
+                                        
+                                        <?php if($tipoRegistro === 'pack'): ?>
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold ms-1" style="font-size: 0.65rem;">PACK</span>
                                         <?php endif; ?>
-                                    </td>
-                                    
-                                    <td class="text-end pe-4 col-mobile-hide">
-                                        <div class="d-inline-flex align-items-center gap-1">
-                                            <?php $itemActivo = (int) ($stock['item_estado'] ?? 0) === 1; ?>
-                                            <span class="badge rounded-pill me-2 <?php echo $itemActivo ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle'; ?>"
-                                                  data-bs-toggle="tooltip" data-bs-placement="top"
-                                                  title="Estado referencial del ítem (solo lectura en inventario)">
-                                                <?php echo $itemActivo ? 'Activo' : 'Inactivo'; ?>
-                                            </span>
-                                            
-                                            <?php if (in_array($tipoRegistro, ['item', 'pack'], true)): ?>
-                                                <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
-                                                   class="btn btn-sm btn-light text-info border-0 rounded-circle btn-kardex"
-                                                   data-bs-toggle="tooltip" title="Ver Kardex">
-                                                    <i class="bi bi-eye fs-5"></i>
-                                                </a>
-                                            <?php else: ?>
-                                                <span class="text-muted small px-2" data-bs-toggle="tooltip" title="Kardex disponible para ítems base">-</span>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de stock disponibles.</td></tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                                    </div>
+                                </td>
+                                
+                                <!-- 2. ALMACÉN -->
+                                <td class="text-muted small col-mobile-hide"><?php echo e($almacenNombre); ?></td>
+                                
+                                <!-- 3. STOCK ACTUAL -->
+                                <td class="text-end">
+                                    <div class="d-flex flex-column align-items-end w-100">
+                                        <span class="fw-bold fs-5 text-dark mb-1"><?php echo $stockFormateado; ?></span>
+                                        <?php if ($requiereFactorConversion && !empty($stock['desglose']) && is_array($stock['desglose'])): ?>
+                                            <div class="text-muted text-end" style="font-size: 0.7rem;">
+                                                <?php 
+                                                    $desgloseTextos = array_map(function($d) { return $d['texto']; }, $stock['desglose']);
+                                                    echo e(implode(' + ', $desgloseTextos));
+                                                ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                                
+                                <!-- 4. SITUACIÓN / ALERTAS -->
+                                <td class="text-center col-mobile-hide">
+                                    <span class="badge px-3 py-2 rounded-pill <?php echo $badgeColor; ?>">
+                                        <?php echo e($badgeTexto); ?>
+                                    </span>
+                                    <?php if ($detalleAlerta !== ''): ?>
+                                        <div class="small text-muted mt-1" style="font-size: 0.75rem;"><?php echo e($detalleAlerta); ?></div>
+                                    <?php endif; ?>
+                                </td>
+                                
+                                <!-- 5. ACCIONES -->
+                                <td class="text-end pe-4 col-mobile-hide">
+                                    <div class="d-inline-flex align-items-center gap-2">
+                                        <?php $itemActivo = (int) ($stock['item_estado'] ?? 0) === 1; ?>
+                                        <span class="badge rounded-pill <?php echo $itemActivo ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle'; ?>"
+                                            data-bs-toggle="tooltip" title="Estado referencial del ítem">
+                                            <?php echo $itemActivo ? 'Activo' : 'Inactivo'; ?>
+                                        </span>
+                                        
+                                        <?php if (in_array($tipoRegistro, ['item', 'pack'], true)): ?>
+                                            <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
+                                            class="btn btn-sm btn-light text-info border-0 rounded-circle btn-kardex shadow-sm"
+                                            data-bs-toggle="tooltip" title="Ver Kardex">
+                                                <i class="bi bi-eye fs-5"></i>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="text-muted small px-2">-</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr class="empty-msg-row"><td colspan="5" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de stock disponibles.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
             </div>
             <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center px-4">
                 <small class="text-muted fw-semibold" id="inventarioPaginationInfo">Cargando...</small>
