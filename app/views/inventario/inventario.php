@@ -227,10 +227,26 @@ $tipoItemLabel = static function (string $tipo): string {
                                         </span>
                                         
                                         <?php if (in_array($tipoRegistro, ['item', 'pack'], true)): ?>
+                                            <button type="button"
+                                                class="btn btn-sm btn-light text-info border-0 rounded-circle shadow-sm js-ver-detalles-item"
+                                                data-bs-toggle="tooltip"
+                                                title="Ver detalles"
+                                                data-item-nombre="<?php echo e($itemNombreCompleto); ?>"
+                                                data-sku="<?php echo e($sku); ?>"
+                                                data-categoria="<?php echo e($categoriaNombre !== '' ? $categoriaNombre : 'N/A'); ?>"
+                                                data-tipo-item="<?php echo e($tipoItemLabel($tipoItem)); ?>"
+                                                data-almacen="<?php echo e($almacenNombre); ?>"
+                                                data-stock="<?php echo e($stockFormateado); ?>"
+                                                data-alerta="<?php echo e($badgeTexto); ?>"
+                                                data-detalle-alerta="<?php echo e($detalleAlerta !== '' ? $detalleAlerta : 'Sin alertas adicionales'); ?>"
+                                                data-estado-item="<?php echo $itemActivo ? 'Activo' : 'Inactivo'; ?>"
+                                                data-tipo-registro-label="<?php echo e($tipoRegistro === 'pack' ? 'Pack' : 'Ítem'); ?>">
+                                                <i class="bi bi-eye fs-5"></i>
+                                            </button>
                                             <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
                                             class="btn btn-sm btn-light text-info border-0 rounded-circle btn-kardex shadow-sm"
                                             data-bs-toggle="tooltip" title="Ver Kardex">
-                                                <i class="bi bi-eye fs-5"></i>
+                                                <i class="bi bi-journal-richtext fs-5"></i>
                                             </a>
                                         <?php else: ?>
                                             <span class="text-muted small px-2">-</span>
@@ -250,6 +266,31 @@ $tipoItemLabel = static function (string $tipo): string {
                 <nav aria-label="Paginación de inventario">
                     <ul class="pagination mb-0 justify-content-end" id="inventarioPaginationControls"></ul>
                 </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDetalleInventarioItem" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-eye me-2"></i>Detalles del producto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6"><small class="text-muted">Producto</small><div class="fw-semibold" id="detalleInvNombre">-</div></div>
+                    <div class="col-md-3"><small class="text-muted">SKU</small><div class="fw-semibold" id="detalleInvSku">-</div></div>
+                    <div class="col-md-3"><small class="text-muted">Tipo registro</small><div class="fw-semibold" id="detalleInvTipoRegistro">-</div></div>
+                    <div class="col-md-4"><small class="text-muted">Categoría</small><div class="fw-semibold" id="detalleInvCategoria">-</div></div>
+                    <div class="col-md-4"><small class="text-muted">Tipo ítem</small><div class="fw-semibold" id="detalleInvTipoItem">-</div></div>
+                    <div class="col-md-4"><small class="text-muted">Estado ítem</small><div class="fw-semibold" id="detalleInvEstadoItem">-</div></div>
+                    <div class="col-md-6"><small class="text-muted">Almacén</small><div class="fw-semibold" id="detalleInvAlmacen">-</div></div>
+                    <div class="col-md-3"><small class="text-muted">Stock actual</small><div class="fw-semibold" id="detalleInvStock">-</div></div>
+                    <div class="col-md-3"><small class="text-muted">Alerta</small><div class="fw-semibold" id="detalleInvAlerta">-</div></div>
+                    <div class="col-12"><small class="text-muted">Detalle de alerta</small><div class="fw-semibold" id="detalleInvDetalleAlerta">-</div></div>
+                </div>
             </div>
         </div>
     </div>

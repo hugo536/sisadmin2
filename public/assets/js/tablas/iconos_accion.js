@@ -62,6 +62,7 @@
         'editar':    { claseColor: 'btn-icon-primary',   icono: 'bi bi-pencil-square', tooltip: 'Editar' },
         'eliminar':  { claseColor: 'btn-icon-danger',    icono: 'bi bi-trash3',        tooltip: 'Eliminar' },
         'ver':       { claseColor: 'btn-icon-info',      icono: 'bi bi-eye',           tooltip: 'Ver detalle' },
+        'kardex':    { claseColor: 'btn-icon-info',      icono: 'bi bi-journal-richtext', tooltip: 'Ver Kardex' },
         'gestionar': { claseColor: 'btn-icon-primary',   icono: 'bi bi-gear-fill',     tooltip: 'Gestionar' },
         'aprobar':   { claseColor: 'btn-icon-success',   icono: 'bi bi-check-circle',  tooltip: 'Aprobar' },
         'anular':    { claseColor: 'btn-icon-warning',   icono: 'bi bi-x-circle',      tooltip: 'Anular' },
