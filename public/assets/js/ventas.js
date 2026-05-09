@@ -276,15 +276,26 @@
 
         const saldo = Number(saldoFavor || 0);
         if (saldo > 0) {
+            // Diseño ultra compacto: Flexbox alineado al centro, textos pequeños, padding mínimo
             contenedorSaldo.innerHTML = `
-                <div class="alert alert-success d-flex align-items-center p-2 mb-0 shadow-sm border-success" role="alert">
-                    <i class="bi bi-wallet2 me-3 fs-3 text-success"></i>
-                    <div>
-                        <h6 class="alert-heading mb-0 fw-bold text-success">¡Saldo a favor disponible!</h6>
-                        <small class="mb-0 text-success-emphasis">Este cliente tiene un crédito de <strong>S/ ${saldo.toFixed(2)}</strong> que puedes usar para cobrar este pedido.</small>
+                <div class="alert alert-success d-flex align-items-center justify-content-between p-2 mb-2 shadow-sm border-success rounded" role="alert">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-wallet2 fs-5 text-success"></i>
+                        <div class="lh-sm">
+                            <span class="text-success small fw-semibold">Saldo disponible:</span>
+                            <span class="text-success-emphasis fw-bold small">S/ ${saldo.toFixed(2)}</span>
+                        </div>
                     </div>
+                    <button type="button" class="btn btn-sm btn-success fw-bold py-1 px-3 shadow-sm" id="btnAplicarSaldoFavor" data-saldo="${saldo}">
+                        Usar
+                    </button>
                 </div>
             `;
+
+            // Evento para aplicar el saldo
+            document.getElementById('btnAplicarSaldoFavor').addEventListener('click', (e) => {
+                aplicarSaldoFavorAutomatizado(Number(e.target.dataset.saldo));
+            });
             return;
         }
 
@@ -400,6 +411,88 @@
             if (filasRestantes.length === 1) filasRestantes[0].querySelector('.btn-quitar-pago').classList.add('d-none');
             calcularTotalCobroInmediato();
         });
+        calcularTotalCobroInmediato();
+
+        return div;
+    }
+
+    function aplicarSaldoFavorAutomatizado(saldoDisponible) {
+        const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
+        const totalPedido = parseFloat(totalTexto) || 0;
+
+        if (totalPedido <= 0) return;
+
+        if (switchCobroInmediato && !switchCobroInmediato.checked) {
+            switchCobroInmediato.checked = true;
+            seccionCobroInmediato.classList.remove('d-none');
+        }
+        
+        contenedorMetodosPago.innerHTML = '';
+
+        const montoAAplicar = Math.min(saldoDisponible, totalPedido);
+        const saldoRestante = totalPedido - montoAAplicar;
+
+        // Fila 1: Saldo a Favor
+        if (montoAAplicar > 0) {
+            const filaSaldo = agregarFilaPagoInmediato(montoAAplicar.toFixed(2));
+            if (filaSaldo) {
+                const cuentaSelect = filaSaldo.querySelector('.select-cuenta-inmediato');
+                const metodoSelect = filaSaldo.querySelector('.select-metodo-inmediato');
+                const inputMonto = filaSaldo.querySelector('.input-monto-inmediato');
+                const btnQuitar = filaSaldo.querySelector('.btn-quitar-pago');
+
+                const metodoSaldo = window.TESORERIA_METODOS.find(m => m.nombre.toLowerCase().includes('saldo') || m.nombre.toLowerCase().includes('favor'));
+                if (metodoSaldo) metodoSelect.value = metodoSaldo.id;
+
+                const cuentaVirtual = window.TESORERIA_CUENTAS.find(c => c.nombre.toLowerCase().includes('saldo') || c.nombre.toLowerCase().includes('caja'));
+                if (cuentaVirtual) cuentaSelect.value = cuentaVirtual.id;
+
+                // Bloqueamos cuentas para proteger contabilidad, PERO dejamos el monto editable
+                cuentaSelect.disabled = true;
+                metodoSelect.disabled = true;
+                
+                // Configurar el input para que sea flexible pero no exceda el saldo
+                inputMonto.readOnly = false; 
+                inputMonto.max = montoAAplicar.toFixed(2);
+                
+                // Validación para evitar que ingresen más del saldo que poseen
+                inputMonto.addEventListener('input', function() {
+                    const maxPermitido = Math.min(saldoDisponible, parseFloat(ventaTotal.textContent.replace(/[^\d.-]/g, '')) || 0);
+                    if (parseFloat(this.value) > maxPermitido) {
+                        this.value = maxPermitido.toFixed(2); // Auto-corrige si se pasa
+                    }
+                });
+
+                // Habilitamos el tacho de basura para REVERTIR
+                if (btnQuitar) {
+                    btnQuitar.classList.remove('d-none');
+                    // Agregamos un evento extra al tacho para reactivar el botón verde de la alerta
+                    btnQuitar.addEventListener('click', () => {
+                        const btnUsar = document.getElementById('btnAplicarSaldoFavor');
+                        if (btnUsar) {
+                            btnUsar.disabled = false;
+                            btnUsar.innerHTML = 'Usar';
+                            btnUsar.classList.replace('btn-secondary', 'btn-success');
+                        }
+                    });
+                }
+            }
+        }
+
+        // Fila 2: Diferencia (si la hay)
+        if (saldoRestante > 0.001) {
+            agregarFilaPagoInmediato(saldoRestante.toFixed(2));
+            contenedorMetodosPago.querySelectorAll('.btn-quitar-pago').forEach(btn => btn.classList.remove('d-none'));
+        }
+
+        // Cambiar estado del botón
+        const btnUsar = document.getElementById('btnAplicarSaldoFavor');
+        if (btnUsar) {
+            btnUsar.disabled = true;
+            btnUsar.innerHTML = '<i class="bi bi-check2"></i> Aplicado';
+            btnUsar.classList.replace('btn-success', 'btn-secondary');
+        }
+
         calcularTotalCobroInmediato();
     }
 
@@ -601,11 +694,17 @@
 
         // --- NUEVO: ACTUALIZAR AUTOMÁTICAMENTE EL MONTO DE COBRO INMEDIATO ---
         if (switchCobroInmediato && switchCobroInmediato.checked && !esDonacion) {
+            // Solo auto-completamos si hay exactamente UNA fila y NO es saldo a favor
             const filasPago = contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato');
-            if (filasPago.length === 1) { 
+            const btnUsarSaldo = document.getElementById('btnAplicarSaldoFavor');
+            
+            // Si hay 1 sola fila y el saldo a favor NO está aplicado
+            if (filasPago.length === 1 && (!btnUsarSaldo || !btnUsarSaldo.disabled)) { 
                 filasPago[0].querySelector('.input-monto-inmediato').value = total.toFixed(2);
-                calcularTotalCobroInmediato();
             }
+            
+            // Siempre llamamos al cálculo para que los colores de UX indiquen si falta dinero
+            calcularTotalCobroInmediato();
         }
     }
 
@@ -1006,7 +1105,7 @@
                 }
             }
 
-            // --- NUEVO: Validar que el pago coincida EXACTAMENTE con el total del pedido ---
+            // --- NUEVO: Validar Pagos y Advertir sobre Saldos Pendientes ---
             if (esCobroInmediato) {
                 let sumaPagos = 0;
                 metodosPagoFinales.forEach(p => sumaPagos += p.monto);
@@ -1014,9 +1113,30 @@
                 const totalPedTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
                 const totalPedNumerico = parseFloat(totalPedTexto) || 0;
 
-                // Tolerancia de 1 céntimo por temas de redondeo en JS
-                if (Math.abs(sumaPagos - totalPedNumerico) > 0.01) {
-                    throw new Error(`El total de los métodos de pago (S/ ${sumaPagos.toFixed(2)}) no coincide con el total del pedido (S/ ${totalPedNumerico.toFixed(2)}). Ajuste los montos.`);
+                // Tolerancia matemática de 1 céntimo por temas de redondeo en JavaScript
+                const diferencia = totalPedNumerico - sumaPagos;
+
+                // 1. Si el pago es menor al total (Pago incompleto)
+                if (diferencia > 0.01) {
+                    const confirmacionPago = await Swal.fire({
+                        icon: 'warning',
+                        title: 'Pago Incompleto',
+                        text: `El total del pedido es S/ ${totalPedNumerico.toFixed(2)}, pero solo se ha registrado S/ ${sumaPagos.toFixed(2)}. ¿Deseas guardar el pedido y dejar el resto (S/ ${diferencia.toFixed(2)}) como cuenta por cobrar?`,
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, guardar con deuda',
+                        cancelButtonText: 'No, corregir pago',
+                        confirmButtonColor: '#ffc107', // Color amarillo de advertencia
+                        cancelButtonColor: '#6c757d'   // Color gris para cancelar
+                    });
+
+                    // Si el usuario cancela, detenemos el proceso de guardado
+                    if (!confirmacionPago.isConfirmed) {
+                        return; 
+                    }
+                } 
+                // 2. Si el pago es mayor al total (Exceso de pago)
+                else if (diferencia < -0.01) {
+                    throw new Error(`El total ingresado (S/ ${sumaPagos.toFixed(2)}) supera el total del pedido (S/ ${totalPedNumerico.toFixed(2)}). Por favor, ajuste los montos.`);
                 }
             }
             // ---------------------------------------------------------------------------------
