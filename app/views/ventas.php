@@ -43,7 +43,6 @@ $formatearFechaDMY = static function ($fecha): string {
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-cart4 me-2 text-primary"></i> Ventas y Despacho
             </h1>
-            <p class="text-muted small mb-0 ms-1">Gestión de pedidos, facturación y salidas de almacén.</p>
         </div>
         <div class="d-flex align-items-center gap-2">
             <a href="<?php echo e(route_url('reportes/ventas')); ?>" class="btn btn-light shadow-sm text-secondary fw-semibold border">
