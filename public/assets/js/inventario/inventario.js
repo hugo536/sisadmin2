@@ -398,12 +398,8 @@
       detalleAlerta: document.getElementById('detalleInvDetalleAlerta')
     };
 
-    modalDetalleEl.addEventListener('show.bs.modal', (event) => {
-      const btn = event.relatedTarget && event.relatedTarget.closest
-        ? event.relatedTarget.closest('.js-ver-detalles-item')
-        : null;
+    const pintarDetalle = (btn) => {
       if (!btn) return;
-
       if (campos.nombre) campos.nombre.textContent = btn.dataset.itemNombre || '-';
       if (campos.sku) campos.sku.textContent = btn.dataset.sku || '-';
       if (campos.tipoRegistro) campos.tipoRegistro.textContent = btn.dataset.tipoRegistroLabel || '-';
@@ -414,6 +410,23 @@
       if (campos.stock) campos.stock.textContent = btn.dataset.stock || '-';
       if (campos.alerta) campos.alerta.textContent = btn.dataset.alerta || '-';
       if (campos.detalleAlerta) campos.detalleAlerta.textContent = btn.dataset.detalleAlerta || '-';
+    };
+
+    let ultimoTrigger = null;
+    document.addEventListener('click', (event) => {
+      const btn = event.target && event.target.closest
+        ? event.target.closest('.js-ver-detalles-item')
+        : null;
+      if (!btn) return;
+      ultimoTrigger = btn;
+      pintarDetalle(btn);
+    });
+
+    modalDetalleEl.addEventListener('show.bs.modal', (event) => {
+      const btn = event.relatedTarget && event.relatedTarget.closest
+        ? event.relatedTarget.closest('.js-ver-detalles-item')
+        : ultimoTrigger;
+      pintarDetalle(btn);
     });
   }
 
