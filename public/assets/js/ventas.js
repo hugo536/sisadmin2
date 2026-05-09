@@ -111,7 +111,8 @@
                 .then(json => {
                     const items = (json.data || []).map(item => ({
                         id: item.id,
-                        text: `${item.nombre_completo} (${item.num_doc || 'S/D'})`
+                        text: `${item.nombre_completo} (${item.num_doc || 'S/D'})`,
+                        saldo_favor: Number(item.saldo_favor || 0)
                     }));
                     callback(items);
                 }).catch((error) => {
@@ -125,6 +126,11 @@
             }
         });
     }
+
+    tomSelectCliente?.on('change', (value) => {
+        const opt = tomSelectCliente?.options?.[value];
+        renderAlertaSaldoFavor(opt?.saldo_favor || 0);
+    });
 
     // --- REFERENCIAS DOM ---
     const modalVentaEl = document.getElementById('modalVenta');
@@ -262,6 +268,27 @@
 
     function clienteSeleccionado() {
         return Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0) > 0;
+    }
+
+    function renderAlertaSaldoFavor(saldoFavor) {
+        const contenedorSaldo = document.getElementById('alertaSaldoFavorContenedor');
+        if (!contenedorSaldo) return;
+
+        const saldo = Number(saldoFavor || 0);
+        if (saldo > 0) {
+            contenedorSaldo.innerHTML = `
+                <div class="alert alert-success d-flex align-items-center p-2 mb-0 shadow-sm border-success" role="alert">
+                    <i class="bi bi-wallet2 me-3 fs-3 text-success"></i>
+                    <div>
+                        <h6 class="alert-heading mb-0 fw-bold text-success">¡Saldo a favor disponible!</h6>
+                        <small class="mb-0 text-success-emphasis">Este cliente tiene un crédito de <strong>S/ ${saldo.toFixed(2)}</strong> que puedes usar para cobrar este pedido.</small>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        contenedorSaldo.innerHTML = '';
     }
 
     function actualizarBloqueoFormularioPorCliente() {
@@ -839,6 +866,7 @@
     function limpiarModalVenta() {
         bloqueoEdicionVenta = false;
         ventaId.value = 0;
+        renderAlertaSaldoFavor(0);
         if (tomSelectCliente) {
             tomSelectCliente.clear();
             tomSelectCliente.clearOptions();
@@ -1167,29 +1195,7 @@
     async function abrirModalDespacho(idDocumento) {
         const payload = await getJson(`${urls.index}&accion=ver&id=${idDocumento}`);
         const venta = payload.data;
-
-        // --- NUEVO: MOSTRAR ALERTA DE SALDO A FAVOR ---
-                const contenedorSaldo = document.getElementById('alertaSaldoFavorContenedor');
-                if (contenedorSaldo) {
-                    // Convertimos el valor a número para poder evaluarlo de forma segura
-                    const saldoFavor = Number(venta.saldo_favor_cliente || 0);
-                    
-                    if (saldoFavor > 0) {
-                        // Si tiene dinero, dibujamos una alerta de color verde (alert-success)
-                        contenedorSaldo.innerHTML = `
-                            <div class="alert alert-success d-flex align-items-center p-2 mb-0 shadow-sm border-success" role="alert">
-                                <i class="bi bi-wallet2 me-3 fs-3 text-success"></i>
-                                <div>
-                                    <h6 class="alert-heading mb-0 fw-bold text-success">¡Saldo a favor disponible!</h6>
-                                    <small class="mb-0 text-success-emphasis">Este cliente tiene un crédito de <strong>S/ ${saldoFavor.toFixed(2)}</strong> que puedes usar para cobrar este pedido.</small>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        // Si no tiene dinero, nos aseguramos de que el contenedor esté limpio
-                        contenedorSaldo.innerHTML = '';
-                    }
-                }
+        renderAlertaSaldoFavor(venta.saldo_favor_cliente || 0);
 
         despachoDocumentoId.value = venta.id;
         despachoObservaciones.value = '';
@@ -1784,26 +1790,7 @@
                 const payload = await getJson(`${urls.index}&accion=ver&id=${id}`);
                 const venta = payload.data;
                 if (!venta || !venta.id) throw new Error('No se encontró información del pedido seleccionado.');
-                
-                // --- NUEVO: MOSTRAR ALERTA DE SALDO A FAVOR ---
-                const contenedorSaldo = document.getElementById('alertaSaldoFavorContenedor');
-                if (contenedorSaldo) {
-                    const saldoFavor = Number(venta.saldo_favor_cliente || 0);
-                    if (saldoFavor > 0) {
-                        contenedorSaldo.innerHTML = `
-                            <div class="alert alert-success d-flex align-items-center p-2 mb-0 shadow-sm border-success" role="alert">
-                                <i class="bi bi-wallet2 me-3 fs-3 text-success"></i>
-                                <div>
-                                    <h6 class="alert-heading mb-0 fw-bold text-success">¡Saldo a favor disponible!</h6>
-                                    <small class="mb-0 text-success-emphasis">Este cliente tiene un crédito de <strong>S/ ${saldoFavor.toFixed(2)}</strong> que puedes usar para cobrar este pedido.</small>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        contenedorSaldo.innerHTML = '';
-                    }
-                }
-                // ----------------------------------------------
+                renderAlertaSaldoFavor(venta.saldo_favor_cliente || 0);
 
                 const estadoDoc = Number(venta.estado || 0);
 
@@ -1892,7 +1879,7 @@
                 
                 const nombreCliente = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente';
                 if (tomSelectCliente) {
-                    tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente });
+                    tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente, saldo_favor: Number(venta.saldo_favor_cliente || 0) });
                     tomSelectCliente.setValue(venta.id_cliente);
                     if (!esBorrador) tomSelectCliente.disable();
                     else tomSelectCliente.enable();
