@@ -322,9 +322,6 @@ $formatearFechaDMY = static function ($fecha): string {
                     </div>
                 </form>
 
-                <!-- CONTENEDOR PARA LA ALERTA DE SALDO A FAVOR -->
-                <div id="alertaSaldoFavorContenedor" class="mt-4"></div>
-
                 <div class="card border-success-subtle shadow-sm mt-4 d-none fade-in" id="seccionCobroInmediato">
                     <div class="card-body p-3 bg-success-subtle rounded">
                         <div class="d-flex align-items-center mb-3">
@@ -336,6 +333,8 @@ $formatearFechaDMY = static function ($fecha): string {
                                 <small class="text-success-emphasis opacity-75">Selecciona cómo está pagando el cliente en este momento.</small>
                             </div>
                         </div>
+
+                                                <div id="alertaSaldoFavorContenedor" class="mb-3"></div>
 
                         <div id="contenedorMetodosPago" class="d-flex flex-column gap-2 mb-2">
                         </div>
