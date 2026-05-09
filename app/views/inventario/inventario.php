@@ -174,15 +174,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <span class="fw-bold text-wrap" style="font-size: 0.95rem;">
                                             <?php echo e($itemNombreCompleto); ?>
                                         </span>
-                                        
-                                        <!-- MAGIA UX: Icono con la info técnica oculta -->
-                                        <i class="bi bi-info-circle-fill text-primary" 
-                                        style="cursor: help; font-size: 1.1rem; opacity: 0.8;"
-                                        data-bs-toggle="tooltip" 
-                                        data-bs-placement="top" 
-                                        title="SKU: <?php echo e($sku); ?> | Cat: <?php echo e($categoriaNombre !== '' ? $categoriaNombre : 'N/A'); ?> | Tipo: <?php echo e($tipoItemLabel($tipoItem)); ?>">
-                                        </i>
-                                        
+
+
                                         <?php if($tipoRegistro === 'pack'): ?>
                                             <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold ms-1" style="font-size: 0.65rem;">PACK</span>
                                         <?php endif; ?>
@@ -229,7 +222,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <?php if (in_array($tipoRegistro, ['item', 'pack'], true)): ?>
                                             <button type="button"
                                                 class="btn btn-sm btn-light text-info border-0 rounded-circle shadow-sm js-ver-detalles-item"
-                                                data-bs-toggle="tooltip"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalDetalleInventarioItem"
                                                 title="Ver detalles"
                                                 data-item-nombre="<?php echo e($itemNombreCompleto); ?>"
                                                 data-sku="<?php echo e($sku); ?>"

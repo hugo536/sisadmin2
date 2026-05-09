@@ -384,7 +384,7 @@
     const modalDetalleEl = document.getElementById('modalDetalleInventarioItem');
     if (!modalDetalleEl || !window.bootstrap) return;
 
-    const modalDetalle = new bootstrap.Modal(modalDetalleEl);
+    bootstrap.Modal.getOrCreateInstance(modalDetalleEl);
     const campos = {
       nombre: document.getElementById('detalleInvNombre'),
       sku: document.getElementById('detalleInvSku'),
@@ -398,8 +398,10 @@
       detalleAlerta: document.getElementById('detalleInvDetalleAlerta')
     };
 
-    document.addEventListener('click', (event) => {
-      const btn = event.target.closest('.js-ver-detalles-item');
+    modalDetalleEl.addEventListener('show.bs.modal', (event) => {
+      const btn = event.relatedTarget && event.relatedTarget.closest
+        ? event.relatedTarget.closest('.js-ver-detalles-item')
+        : null;
       if (!btn) return;
 
       if (campos.nombre) campos.nombre.textContent = btn.dataset.itemNombre || '-';
@@ -412,8 +414,6 @@
       if (campos.stock) campos.stock.textContent = btn.dataset.stock || '-';
       if (campos.alerta) campos.alerta.textContent = btn.dataset.alerta || '-';
       if (campos.detalleAlerta) campos.detalleAlerta.textContent = btn.dataset.detalleAlerta || '-';
-
-      modalDetalle.show();
     });
   }
 
