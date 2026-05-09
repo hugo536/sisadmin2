@@ -444,11 +444,14 @@ class VentasDocumentoModel extends Modelo
 
     public function buscarClientes(string $q = '', int $limit = 20, string $tipoTercero = ''): array
     {
-        $sql = 'SELECT DISTINCT t.id, t.nombre_completo, t.numero_documento AS num_doc
+        $sql = 'SELECT DISTINCT t.id, t.nombre_completo, t.numero_documento AS num_doc,
+                       COALESCE(tc.saldo_favor, 0) AS saldo_favor
                 FROM terceros t
                 LEFT JOIN distribuidores d
                     ON d.id_tercero = t.id
                    AND d.deleted_at IS NULL
+                LEFT JOIN terceros_clientes tc
+                    ON tc.id_tercero = t.id
                 WHERE (t.es_cliente = 1 OR d.id_tercero IS NOT NULL)
                   AND t.estado = 1
                   AND t.deleted_at IS NULL';
