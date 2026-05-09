@@ -333,6 +333,7 @@
 
   // Llamamos a la inicialización Inmediatamente (Compatible con SPA fetch)
   initInventarioApp();
+  initModalDetalleInventario();
 
   // --- FUNCIONES DE UTILIDAD PARA LA TABLA PRINCIPAL ---
   function normalizarTexto(valor) {
@@ -378,7 +379,45 @@
     window.location.href = url.toString();
   }
 
-  // --- LÓGICA DEL FORMULARIO DE MOVIMIENTOS ---
+  
+  function initModalDetalleInventario() {
+    const modalDetalleEl = document.getElementById('modalDetalleInventarioItem');
+    if (!modalDetalleEl || !window.bootstrap) return;
+
+    const modalDetalle = new bootstrap.Modal(modalDetalleEl);
+    const campos = {
+      nombre: document.getElementById('detalleInvNombre'),
+      sku: document.getElementById('detalleInvSku'),
+      tipoRegistro: document.getElementById('detalleInvTipoRegistro'),
+      categoria: document.getElementById('detalleInvCategoria'),
+      tipoItem: document.getElementById('detalleInvTipoItem'),
+      estadoItem: document.getElementById('detalleInvEstadoItem'),
+      almacen: document.getElementById('detalleInvAlmacen'),
+      stock: document.getElementById('detalleInvStock'),
+      alerta: document.getElementById('detalleInvAlerta'),
+      detalleAlerta: document.getElementById('detalleInvDetalleAlerta')
+    };
+
+    document.addEventListener('click', (event) => {
+      const btn = event.target.closest('.js-ver-detalles-item');
+      if (!btn) return;
+
+      if (campos.nombre) campos.nombre.textContent = btn.dataset.itemNombre || '-';
+      if (campos.sku) campos.sku.textContent = btn.dataset.sku || '-';
+      if (campos.tipoRegistro) campos.tipoRegistro.textContent = btn.dataset.tipoRegistroLabel || '-';
+      if (campos.categoria) campos.categoria.textContent = btn.dataset.categoria || '-';
+      if (campos.tipoItem) campos.tipoItem.textContent = btn.dataset.tipoItem || '-';
+      if (campos.estadoItem) campos.estadoItem.textContent = btn.dataset.estadoItem || '-';
+      if (campos.almacen) campos.almacen.textContent = btn.dataset.almacen || '-';
+      if (campos.stock) campos.stock.textContent = btn.dataset.stock || '-';
+      if (campos.alerta) campos.alerta.textContent = btn.dataset.alerta || '-';
+      if (campos.detalleAlerta) campos.detalleAlerta.textContent = btn.dataset.detalleAlerta || '-';
+
+      modalDetalle.show();
+    });
+  }
+
+// --- LÓGICA DEL FORMULARIO DE MOVIMIENTOS ---
   function obtenerDataDelItem() {
     if (!tomSelectItem) return null;
     const val = tomSelectItem.getValue();
