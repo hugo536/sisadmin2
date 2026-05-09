@@ -26,13 +26,12 @@
     ?>
         <link rel="stylesheet" href="<?php echo e(asset_url('css/ventas.css')); ?>?v=<?php echo time(); ?>"> 
     <?php endif; ?>
-    
-    // Estilos del módulo de Compras
+
     <?php if (str_starts_with($ruta_css, 'compras')): ?>
         <link rel="stylesheet" href="<?php echo e(asset_url('css/compras.css')); ?>?v=<?php echo time(); ?>"> 
     <?php endif; ?>
 
-    // Estilos del módulo de Inventario
+
     <?php if (str_starts_with($ruta_css, 'inventario')): ?>
         <link rel="stylesheet" href="<?php echo e(asset_url('css/inventario.css')); ?>?v=<?php echo time(); ?>"> 
     <?php endif; ?>
