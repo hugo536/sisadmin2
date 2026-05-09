@@ -17,6 +17,11 @@
     <link rel="stylesheet" href="<?php echo e(asset_url('css/sidebar.css')); ?>">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/modales.css')); ?>">
     
+
+    <?php if (str_starts_with(($ruta_actual ?? ''), 'ventas')): ?>
+        <link rel="stylesheet" href="<?php echo e(base_url('assets/css/ventas.css')); ?>?v=<?php echo time(); ?>"> 
+    <?php endif; ?>
+
     <?php if (($ruta_actual ?? '') === 'terceros/perfil'): ?>
         <link rel="stylesheet" href="<?php echo e(asset_url('css/terceros_perfil.css')); ?>">
     <?php endif; ?>
