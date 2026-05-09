@@ -1239,12 +1239,8 @@ class VentasDespachoModel extends Modelo
                 throw new RuntimeException('No se puede revertir a borrador porque ya existen productos despachados físicamente. Anule los despachos primero.');
             }
 
-            // 2.2 Validación anti-descuadre financiero (Tesorería)
-            $stmtCheckPago = $db->prepare('SELECT COALESCE(monto_pagado, 0) FROM tesoreria_cxc WHERE id_documento_venta = :id');
-            $stmtCheckPago->execute(['id' => $idDocumento]);
-            if ((float) $stmtCheckPago->fetchColumn() > 0.001) {
-                throw new RuntimeException('No se puede revertir a borrador porque el pedido ya tiene pagos registrados. Anule los recibos de caja primero.');
-            }
+            // NOTA: Se eliminó la validación 2.2 (anti-descuadre financiero) 
+            // porque el VentasController ahora gestiona los pagos convirtiéndolos en Saldo a Favor.
 
             // 3. Actualizamos el estado a 0 (Borrador) y limpiamos fecha_despacho
             $stmtUpdate = $db->prepare('UPDATE ventas_documentos 
@@ -1255,8 +1251,9 @@ class VentasDespachoModel extends Modelo
                                         WHERE id = :id');
             $stmtUpdate->execute(['user' => $userId, 'id' => $idDocumento]);
             
-            // 4. Limpieza Financiera: Eliminamos físicamente la CxC
-            $stmtCxc = $db->prepare('DELETE FROM tesoreria_cxc WHERE id_documento_venta = :id');
+            // 4. Limpieza Financiera: Borrado lógico (Soft Delete) de la CxC
+            // Se ejecuta por si el pedido no tenía pagos y el controlador no lo procesó
+            $stmtCxc = $db->prepare('UPDATE tesoreria_cxc SET deleted_at = NOW() WHERE id_documento_venta = :id AND deleted_at IS NULL');
             $stmtCxc->execute(['id' => $idDocumento]);
 
             $db->commit();

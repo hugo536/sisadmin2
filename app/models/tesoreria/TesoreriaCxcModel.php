@@ -63,6 +63,7 @@ class TesoreriaCxcModel extends Modelo
     {
         $db = $this->db();
 
+        // 1. Verificamos si ya existe una deuda ACTIVA (sin borrar)
         $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cxc WHERE id_documento_venta = :id AND deleted_at IS NULL LIMIT 1');
         $stmtExiste->execute(['id' => $idDocumentoVenta]);
         $existe = (int) ($stmtExiste->fetchColumn() ?: 0);
@@ -70,6 +71,7 @@ class TesoreriaCxcModel extends Modelo
             return $existe;
         }
 
+        // 2. Traemos los datos actuales de la venta
         $stmtVenta = $db->prepare('SELECT v.id, v.id_cliente, v.fecha_emision, v.total, v.estado,
                                           COALESCE(tc.dias_credito, 0) AS dias_credito,
                                           UPPER(COALESCE(tc.condicion_pago, "CREDITO")) AS condicion_pago
@@ -109,10 +111,21 @@ class TesoreriaCxcModel extends Modelo
             ? date('Y-m-d', strtotime($fechaEmision . ' +' . $diasCredito . ' days'))
             : $fechaEmision;
 
+        // 3. AQUÍ ESTÁ LA MAGIA: INSERT ... ON DUPLICATE KEY UPDATE
+        // Insertará el registro, pero si choca con uno oculto, lo revivirá y actualizará.
         $stmtInsert = $db->prepare('INSERT INTO tesoreria_cxc
             (id_cliente, id_documento_venta, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, created_by, updated_by, created_at, updated_at)
             VALUES
-            (:id_cliente, :id_documento_venta, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :created_by, :updated_by, NOW(), NOW())');
+            (:id_cliente, :id_documento_venta, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :created_by, :updated_by, NOW(), NOW())
+            ON DUPLICATE KEY UPDATE
+            deleted_at = NULL,
+            monto_pagado = 0,
+            monto_total = VALUES(monto_total),
+            saldo = VALUES(saldo),
+            estado = VALUES(estado),
+            fecha_vencimiento = VALUES(fecha_vencimiento),
+            updated_by = VALUES(updated_by),
+            updated_at = NOW()');
 
         $stmtInsert->execute([
             'id_cliente' => $idCliente,
@@ -122,13 +135,15 @@ class TesoreriaCxcModel extends Modelo
             'moneda' => 'PEN', 
             'monto_total' => $total,
             'saldo' => $total,
-            // CAMBIO: Ahora el estado inicial es PENDIENTE si el total es mayor a 0
             'estado' => $total > 0 ? 'PENDIENTE' : 'PAGADA', 
             'created_by' => $userId,
             'updated_by' => $userId,
         ]);
 
-        return (int) $db->lastInsertId();
+        // 4. Recuperamos el ID de forma segura para retornarlo al controlador
+        $stmtRecuperarId = $db->prepare("SELECT id FROM tesoreria_cxc WHERE id_documento_venta = :id LIMIT 1");
+        $stmtRecuperarId->execute(['id' => $idDocumentoVenta]);
+        return (int) $stmtRecuperarId->fetchColumn();
     }
 
     public function recalcularEstado(int $id, int $userId): void
@@ -226,5 +241,41 @@ class TesoreriaCxcModel extends Modelo
     {
         $stmt = $this->db()->query('SELECT id, nombre FROM tesoreria_metodos_pago WHERE estado = 1 AND deleted_at IS NULL');
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * Desvincula los movimientos (pagos) de una venta revertida y anula la cuenta por cobrar.
+     * Deja constancia en los movimientos para auditoría.
+     */
+    public function convertirPagosASaldoFavor(int $idDocumentoVenta, int $userId): bool
+    {
+        // 1. Obtenemos la cuenta por cobrar (CxC) vinculada a este pedido
+        $cxc = $this->obtenerPorVenta($idDocumentoVenta);
+        
+        if (!$cxc) {
+            return false; // No hay deuda que procesar
+        }
+
+        $idCxc = (int) $cxc['id'];
+
+        // 2. Actualizamos los movimientos de tesorería vinculados a esta CxC
+        // Añadimos una nota aclaratoria para no perder el rastro del dinero
+        $sqlMovs = "UPDATE tesoreria_movimientos 
+                    SET observaciones = CONCAT(COALESCE(observaciones, ''), ' [Convertido a Saldo a Favor por reversión de pedido]'),
+                        updated_by = :user,
+                        updated_at = NOW()
+                    WHERE origen = 'CXC' AND id_origen = :id_cxc AND deleted_at IS NULL";
+        
+        $stmtMovs = $this->db()->prepare($sqlMovs);
+        $stmtMovs->execute(['user' => $userId, 'id_cxc' => $idCxc]);
+
+        // 3. Eliminamos la cuenta por cobrar (Soft Delete)
+        // Ya que el pedido vuelve a borrador, no debe existir una deuda activa
+        $sqlCxc = "UPDATE tesoreria_cxc 
+                   SET deleted_at = NOW() 
+                   WHERE id = :id_cxc";
+                   
+        $stmtCxc = $this->db()->prepare($sqlCxc);
+        return $stmtCxc->execute(['id_cxc' => $idCxc]);
     }
 }

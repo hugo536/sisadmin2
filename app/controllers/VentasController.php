@@ -8,6 +8,7 @@ require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
 require_once BASE_PATH . '/app/models/inventario/InventarioModel.php'; 
 require_once BASE_PATH . '/app/controllers/PermisosController.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
+require_once BASE_PATH . '/app/models/terceros/TercerosClientesModel.php';
 
 class VentasController extends Controlador
 {
@@ -55,6 +56,12 @@ class VentasController extends Controlador
             $deuda = $this->tesoreriaCxcModel->obtenerPorVenta($id);
             $venta['monto_pagado'] = $deuda ? (float) ($deuda['monto_pagado'] ?? 0) : 0.0;
             // 👆 FIN DE LA MAGIA 👆
+
+            // 👇 NUEVA MAGIA: Consultar el saldo a favor del cliente 👇
+            $idCliente = (int) ($venta['id_cliente'] ?? 0);
+            $clienteModel = new TercerosClientesModel();
+            $venta['saldo_favor_cliente'] = $clienteModel->obtenerSaldoFavor($idCliente);
+            // 👆 FIN DE LA NUEVA MAGIA 👆
 
             if (!empty($venta['detalle']) && is_array($venta['detalle'])) {
                 foreach ($venta['detalle'] as &$linea) {
@@ -140,16 +147,40 @@ class VentasController extends Controlador
                     throw new RuntimeException('ID de pedido inválido para revertir.');
                 }
 
+                // 1. Obtener la información de la venta y deuda actual
+                $venta = $this->documentoModel->obtener($idDocumento);
+                $idCliente = (int) ($venta['id_cliente'] ?? 0);
+                
+                $deuda = $this->tesoreriaCxcModel->obtenerPorVenta($idDocumento);
+                $montoPagado = $deuda ? (float) ($deuda['monto_pagado'] ?? 0) : 0.0;
+
+                // 2. Gestionar el Saldo a Favor si existen pagos
+                if ($montoPagado > 0 && $idCliente > 0) {
+                    $clienteModel = new TercerosClientesModel(); // <-- NOMBRE CORREGIDO
+                    
+                    // A) Sumar al perfil del cliente
+                    $clienteModel->sumarSaldoFavor($idCliente, $montoPagado);
+                    
+                    // B) Desvincular pagos en tesorería y eliminar cuenta por cobrar
+                    $this->tesoreriaCxcModel->convertirPagosASaldoFavor($idDocumento, $userId);
+                }
+
+                // 3. Revertir el pedido a estado Borrador (y devolver stock si aplica)
                 $this->despachoModel->revertirABorrador($idDocumento, $userId);
+
+                // 4. Preparar mensaje dinámico de respuesta
+                $mensaje = $montoPagado > 0 
+                    ? "Pedido revertido. Se generó un saldo a favor de S/ " . number_format($montoPagado, 2) . " para el cliente." 
+                    : "El pedido ha regresado a Borrador exitosamente.";
 
                 json_response([
                     'ok' => true,
-                    'mensaje' => 'El pedido ha regresado a Borrador exitosamente.'
+                    'mensaje' => $mensaje
                 ]);
             } catch (Throwable $e) {
                 json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
             }
-            return; // ¡Este return es el que evita que se cargue la vista HTML completa!
+            return;
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'precio_item') {

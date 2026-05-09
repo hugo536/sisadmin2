@@ -322,6 +322,9 @@ $formatearFechaDMY = static function ($fecha): string {
                     </div>
                 </form>
 
+                <!-- CONTENEDOR PARA LA ALERTA DE SALDO A FAVOR -->
+                <div id="alertaSaldoFavorContenedor" class="mt-4"></div>
+
                 <div class="card border-success-subtle shadow-sm mt-4 d-none fade-in" id="seccionCobroInmediato">
                     <div class="card-body p-3 bg-success-subtle rounded">
                         <div class="d-flex align-items-center mb-3">
@@ -335,7 +338,7 @@ $formatearFechaDMY = static function ($fecha): string {
                         </div>
 
                         <div id="contenedorMetodosPago" class="d-flex flex-column gap-2 mb-2">
-                            </div>
+                        </div>
 
                         <div class="d-flex justify-content-between align-items-center">
                             <button type="button" class="btn btn-sm btn-light text-success fw-bold shadow-sm" id="btnAgregarPagoInmediato">
@@ -348,7 +351,7 @@ $formatearFechaDMY = static function ($fecha): string {
                         </div>
                     </div>
                 </div>
-                </div>
+            </div>
             
             <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="form-check form-switch m-0 ps-5" id="switchCobroContainer">
@@ -413,13 +416,9 @@ $formatearFechaDMY = static function ($fecha): string {
                                 <thead>
                                     <tr>
                                         <th class="ps-3 text-secondary col-min-w-200 py-2">Producto / Pendiente</th>
-                                        
                                         <th class="text-center text-secondary col-w-180 py-2">Almacén Origen</th>
-                                        
                                         <th class="text-center text-secondary col-w-80 py-2">Stock</th>
-                                        
                                         <th class="text-center text-secondary col-w-120 py-2">A Despachar</th>
-                                        
                                         <th class="text-center text-secondary col-w-100 py-2">Acciones</th>
                                     </tr>
                                 </thead>
@@ -435,7 +434,7 @@ $formatearFechaDMY = static function ($fecha): string {
                     </h6>
                     <div id="contenedorRetornoEnvases" class="d-flex flex-column gap-2"></div>
                 </div>
-                </div>
+            </div>
             
             <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center">
                 <div class="form-check form-switch m-0 ps-5">

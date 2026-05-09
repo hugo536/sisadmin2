@@ -894,6 +894,13 @@
         if (totalPagadoInmediato) totalPagadoInmediato.textContent = 'S/ 0.00';
 
         actualizarBloqueoFormularioPorCliente();
+
+        // Limpiar la alerta de saldo a favor al abrir un nuevo formulario
+        const contenedorSaldo = document.getElementById('alertaSaldoFavorContenedor');
+        if (contenedorSaldo) {
+            contenedorSaldo.innerHTML = '';
+        }
+        
     }
 
     document.getElementById('btnAgregarFilaVenta')?.addEventListener('click', async () => {
@@ -1160,6 +1167,29 @@
     async function abrirModalDespacho(idDocumento) {
         const payload = await getJson(`${urls.index}&accion=ver&id=${idDocumento}`);
         const venta = payload.data;
+
+        // --- NUEVO: MOSTRAR ALERTA DE SALDO A FAVOR ---
+                const contenedorSaldo = document.getElementById('alertaSaldoFavorContenedor');
+                if (contenedorSaldo) {
+                    // Convertimos el valor a número para poder evaluarlo de forma segura
+                    const saldoFavor = Number(venta.saldo_favor_cliente || 0);
+                    
+                    if (saldoFavor > 0) {
+                        // Si tiene dinero, dibujamos una alerta de color verde (alert-success)
+                        contenedorSaldo.innerHTML = `
+                            <div class="alert alert-success d-flex align-items-center p-2 mb-0 shadow-sm border-success" role="alert">
+                                <i class="bi bi-wallet2 me-3 fs-3 text-success"></i>
+                                <div>
+                                    <h6 class="alert-heading mb-0 fw-bold text-success">¡Saldo a favor disponible!</h6>
+                                    <small class="mb-0 text-success-emphasis">Este cliente tiene un crédito de <strong>S/ ${saldoFavor.toFixed(2)}</strong> que puedes usar para cobrar este pedido.</small>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // Si no tiene dinero, nos aseguramos de que el contenedor esté limpio
+                        contenedorSaldo.innerHTML = '';
+                    }
+                }
 
         despachoDocumentoId.value = venta.id;
         despachoObservaciones.value = '';
@@ -1755,6 +1785,26 @@
                 const venta = payload.data;
                 if (!venta || !venta.id) throw new Error('No se encontró información del pedido seleccionado.');
                 
+                // --- NUEVO: MOSTRAR ALERTA DE SALDO A FAVOR ---
+                const contenedorSaldo = document.getElementById('alertaSaldoFavorContenedor');
+                if (contenedorSaldo) {
+                    const saldoFavor = Number(venta.saldo_favor_cliente || 0);
+                    if (saldoFavor > 0) {
+                        contenedorSaldo.innerHTML = `
+                            <div class="alert alert-success d-flex align-items-center p-2 mb-0 shadow-sm border-success" role="alert">
+                                <i class="bi bi-wallet2 me-3 fs-3 text-success"></i>
+                                <div>
+                                    <h6 class="alert-heading mb-0 fw-bold text-success">¡Saldo a favor disponible!</h6>
+                                    <small class="mb-0 text-success-emphasis">Este cliente tiene un crédito de <strong>S/ ${saldoFavor.toFixed(2)}</strong> que puedes usar para cobrar este pedido.</small>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        contenedorSaldo.innerHTML = '';
+                    }
+                }
+                // ----------------------------------------------
+
                 const estadoDoc = Number(venta.estado || 0);
 
                 // --- MODAL DE RESUMEN (Estado 3 o superior) ---
