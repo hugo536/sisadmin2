@@ -16,6 +16,26 @@
     <link rel="stylesheet" href="<?php echo e(asset_url('css/tablas-custom.css')); ?>">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/sidebar.css')); ?>">
     <link rel="stylesheet" href="<?php echo e(asset_url('css/modales.css')); ?>">
+
+    <?php 
+    // Detección de ruta temprana para cargar estilos modulares de forma dinámica
+    $ruta_css = $ruta_actual ?? $_GET['ruta'] ?? ''; 
+    
+    // Estilos del módulo de Ventas
+    if (str_starts_with($ruta_css, 'ventas')): 
+    ?>
+        <link rel="stylesheet" href="<?php echo e(asset_url('css/ventas.css')); ?>?v=<?php echo time(); ?>"> 
+    <?php endif; ?>
+    
+    // Estilos del módulo de Compras
+    <?php if (str_starts_with($ruta_css, 'compras')): ?>
+        <link rel="stylesheet" href="<?php echo e(asset_url('css/compras.css')); ?>?v=<?php echo time(); ?>"> 
+    <?php endif; ?>
+
+    // Estilos del módulo de Inventario
+    <?php if (str_starts_with($ruta_css, 'inventario')): ?>
+        <link rel="stylesheet" href="<?php echo e(asset_url('css/inventario.css')); ?>?v=<?php echo time(); ?>"> 
+    <?php endif; ?>
     
     <?php if (($ruta_actual ?? '') === 'terceros/perfil'): ?>
         <link rel="stylesheet" href="<?php echo e(asset_url('css/terceros_perfil.css')); ?>">

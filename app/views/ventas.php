@@ -27,9 +27,6 @@ $formatearFechaDMY = static function ($fecha): string {
 };
 ?>
 
-<!-- Cargar estilos específicos para el módulo de ventas (Tarjetas Móviles) -->
-<link rel="stylesheet" href="<?php echo e(base_url('assets/css/ventas.css')); ?>?v=1.0">
-
 <div class="container-fluid p-4" id="ventasApp"
      data-url-index="<?php echo e(route_url('ventas/index')); ?>"
      data-url-guardar="<?php echo e(route_url('ventas/guardar')); ?>"
