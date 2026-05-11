@@ -848,10 +848,21 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         <i class="bi bi-pause-circle text-warning me-1"></i>Parada 
                                         <span class="d-inline d-md-none text-muted fw-normal ms-1" style="font-size: 0.65rem;">(Descansos/Fallas)</span>
                                     </label>
-                                    <div class="input-group input-group-sm">
-                                        <input type="number" step="0.01" min="0" name="horas_parada" id="execHorasParada" class="form-control border-secondary-subtle" placeholder="Ej: 0.5">
-                                        <span class="input-group-text bg-light text-muted px-2">Hrs</span>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" step="1" min="0" name="parada_horas" id="execParadaHoras" class="form-control border-secondary-subtle" placeholder="Horas">
+                                                <span class="input-group-text bg-light text-muted px-2">h</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" step="1" min="0" max="59" name="parada_minutos" id="execParadaMinutos" class="form-control border-secondary-subtle" placeholder="Minutos">
+                                                <span class="input-group-text bg-light text-muted px-2">min</span>
+                                            </div>
+                                        </div>
                                     </div>
+                                    <input type="hidden" name="horas_parada" id="execHorasParada" value="0">
                                     <div class="form-text d-none d-md-block" style="font-size: 0.7rem;">Descansos, limpieza o fallas.</div>
                                 </div>
                             </div>
