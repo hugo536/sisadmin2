@@ -506,6 +506,8 @@ function initModalEjecucion() {
     window.calcularTiempoNetoOP = function() {
         const inputInicio = document.getElementById('execFechaInicio');
         const inputFin = document.getElementById('execFechaFin');
+        const inputParadaHoras = document.getElementById('execParadaHoras');
+        const inputParadaMinutos = document.getElementById('execParadaMinutos');
         const inputParada = document.getElementById('execHorasParada');
         const lblTiempoNeto = document.getElementById('lblTiempoNeto');
         
@@ -521,7 +523,12 @@ function initModalEjecucion() {
         
         if (f2 > f1) {
             let horas = (f2 - f1) / (1000 * 60 * 60);
-            let paradas = parseFloat(inputParada ? inputParada.value : 0) || 0;
+            const paradaHoras = parseInt(inputParadaHoras ? inputParadaHoras.value : 0, 10) || 0;
+            let paradaMinutos = parseInt(inputParadaMinutos ? inputParadaMinutos.value : 0, 10) || 0;
+            paradaMinutos = Math.min(59, Math.max(0, paradaMinutos));
+            if (inputParadaMinutos) inputParadaMinutos.value = paradaMinutos;
+            let paradas = paradaHoras + (paradaMinutos / 60);
+            if (inputParada) inputParada.value = paradas.toFixed(2);
             let neto = Math.max(0, horas - paradas);
             lblTiempoNeto.innerHTML = `${neto.toFixed(2)} <small class="fs-6 text-muted fw-normal">Horas</small>`;
         } else {
@@ -534,7 +541,7 @@ function initModalEjecucion() {
     });
 
     document.addEventListener('input', function(e) {
-        if (e.target.id === 'execHorasParada') window.calcularTiempoNetoOP();
+        if (e.target.id === 'execParadaHoras' || e.target.id === 'execParadaMinutos') window.calcularTiempoNetoOP();
     });
 
     document.addEventListener('click', async function(e) {
@@ -663,12 +670,16 @@ function initModalEjecucion() {
             const inputInicio = document.getElementById('execFechaInicio');
             const inputFin = document.getElementById('execFechaFin');
             const inputParada = document.getElementById('execHorasParada');
+            const inputParadaHoras = document.getElementById('execParadaHoras');
+            const inputParadaMinutos = document.getElementById('execParadaMinutos');
             const selectCentroCosto = document.getElementById('execCentroCosto');
 
             // Dejamos las fechas vacías por defecto a petición del usuario
             if (inputInicio) inputInicio.value = '';
             if (inputFin) inputFin.value = '';
-            if (inputParada) inputParada.value = '';
+            if (inputParada) inputParada.value = '0';
+            if (inputParadaHoras) inputParadaHoras.value = '';
+            if (inputParadaMinutos) inputParadaMinutos.value = '';
             
             // Guardamos las horas planificadas "escondidas" en el modal para el Botón Mágico
             modalEl.setAttribute('data-horas-estimadas', horasPlanificadas);
