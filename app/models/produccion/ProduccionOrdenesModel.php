@@ -462,6 +462,7 @@ class ProduccionOrdenesModel extends Modelo
             if (!$orden) throw new RuntimeException('La orden no existe.');
             if ((int) $orden['estado'] === 2) throw new RuntimeException('La orden ya fue ejecutada.');
             if ((int) $orden['estado'] === 9) throw new RuntimeException('No se puede ejecutar una orden anulada.');
+            $this->validarConsumoContraReceta($orden, $consumos);
 
             $inventarioModel = new InventarioModel(); 
             $costoTotalConsumo = 0.0;
@@ -810,6 +811,79 @@ class ProduccionOrdenesModel extends Modelo
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_receta' => $idReceta]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    private function validarConsumoContraReceta(array $orden, array $consumos): void
+    {
+        $idReceta = (int) ($orden['id_receta'] ?? 0);
+        if ($idReceta <= 0) {
+            throw new RuntimeException('La orden no tiene receta asociada para validar consumos.');
+        }
+
+        $detalles = $this->obtenerDetalleReceta($idReceta);
+        if ($detalles === []) {
+            throw new RuntimeException('La receta asociada no tiene insumos configurados.');
+        }
+
+        $cantidadPlanificada = max(0.0, (float) ($orden['cantidad_planificada'] ?? 0));
+        $factorProduccion = $this->calcularFactorReceta($detalles, $cantidadPlanificada);
+        $insumosReceta = [];
+        foreach ($detalles as $detalle) {
+            $idInsumo = (int) ($detalle['id_insumo'] ?? 0);
+            if ($idInsumo <= 0) {
+                continue;
+            }
+            $cantidadBase = (float) ($detalle['cantidad_por_unidad'] ?? 0);
+            $merma = max(0.0, (float) ($detalle['merma_porcentaje'] ?? 0));
+            $insumosReceta[$idInsumo] = ($insumosReceta[$idInsumo] ?? 0.0) + ($cantidadBase * $factorProduccion * (1 + ($merma / 100)));
+        }
+
+        $consumoRegistrado = [];
+        foreach ($consumos as $consumo) {
+            $idInsumo = (int) ($consumo['id_insumo'] ?? 0);
+            $cantidad = (float) ($consumo['cantidad'] ?? 0);
+            if ($idInsumo <= 0 || $cantidad <= 0) {
+                continue;
+            }
+            if (!array_key_exists($idInsumo, $insumosReceta)) {
+                throw new RuntimeException("El insumo ID {$idInsumo} no pertenece a la receta de la orden.");
+            }
+            $consumoRegistrado[$idInsumo] = ($consumoRegistrado[$idInsumo] ?? 0.0) + $cantidad;
+        }
+
+        $faltantes = [];
+        foreach ($insumosReceta as $idInsumo => $cantidadRequerida) {
+            $cantidadConsumida = (float) ($consumoRegistrado[$idInsumo] ?? 0.0);
+            if ($cantidadConsumida <= 0) {
+                $faltantes[] = (string) $idInsumo;
+                continue;
+            }
+            $tolerancia = max(0.0001, $cantidadRequerida * 0.01);
+            if ($cantidadConsumida + $tolerancia < $cantidadRequerida) {
+                $faltantes[] = (string) $idInsumo;
+            }
+        }
+
+        if ($faltantes !== []) {
+            throw new RuntimeException('Faltan consumos de receta por descontar. Insumos pendientes: ' . implode(', ', $faltantes));
+        }
+    }
+
+    private function calcularFactorReceta(array $detalles, float $cantidadObjetivo): float
+    {
+        $rendimientoBase = 0.0;
+        foreach ($detalles as $detalle) {
+            $rendimientoBase = (float) ($detalle['rendimiento_base'] ?? 0);
+            if ($rendimientoBase > 0) {
+                break;
+            }
+        }
+
+        if ($rendimientoBase <= 0) {
+            return 0.0;
+        }
+
+        return max(0.0, $cantidadObjetivo) / $rendimientoBase;
     }
 
     public function obtenerDesgloseCostosOrden(int $idOrden): array
