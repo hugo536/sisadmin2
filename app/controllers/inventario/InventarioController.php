@@ -130,9 +130,17 @@ class InventarioController extends Controlador
             } elseif ($stock <= 0.0) {
                 $fila['badge_estado'] = 'Agotado';
                 $fila['badge_color'] = 'bg-danger bg-opacity-10 text-danger border border-danger';
+                // Agregamos el detalle si está vacío
+                if ($fila['detalle_alerta'] === '') {
+                    $fila['detalle_alerta'] = 'Stock físico en 0. No hay unidades disponibles.';
+                }
             } elseif ($stock <= $stockMin) {
                 $fila['badge_estado'] = 'Bajo Mínimo';
                 $fila['badge_color'] = 'bg-warning bg-opacity-10 text-warning border border-warning';
+                // Agregamos el detalle explicando por qué está bajo mínimo
+                if ($fila['detalle_alerta'] === '') {
+                    $fila['detalle_alerta'] = 'El stock actual (' . $fila['stock_formateado'] . ') está por debajo del mínimo requerido (' . $fila['stock_minimo_formateado'] . ').';
+                }
             } elseif ($fila['estado_vencimiento'] === 'proximo_a_vencer') {
                 $fila['badge_estado'] = 'Próximo a Vencer';
                 $fila['badge_color'] = 'bg-warning bg-opacity-10 text-warning border border-warning';

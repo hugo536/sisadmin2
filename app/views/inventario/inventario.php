@@ -128,7 +128,6 @@ $tipoItemLabel = static function (string $tipo): string {
                 ]'>
                 <thead class="inventario-sticky-thead border-bottom">
                     <tr>
-                        <!-- 1. Columna SKU eliminada, unificada con Producto -->
                         <th class="ps-4 text-secondary fw-semibold">Producto</th>
                         <th class="text-secondary fw-semibold col-mobile-hide" style="width: 20%;">Almacén</th>
                         <th class="text-end text-secondary fw-semibold" style="width: 15%;">Stock Actual</th>
@@ -158,7 +157,6 @@ $tipoItemLabel = static function (string $tipo): string {
 
                             $search = mb_strtolower($sku . ' ' . $itemNombreCompleto . ' ' . $almacenNombre);
                             ?>
-                            <!-- Eliminamos la clase mobile-expandable-row para quitar el acordeón -->
                             <tr data-search="<?php echo e($search); ?>"
                                 data-item-id="<?php echo (int) ($stock['id_item'] ?? 0); ?>"
                                 data-tipo-registro="<?php echo e($tipoRegistro); ?>"
@@ -168,7 +166,6 @@ $tipoItemLabel = static function (string $tipo): string {
                                 data-almacen="<?php echo (int) $idAlmacen; ?>" 
                                 class="border-bottom align-middle">
                                 
-                                <!-- 1. PRODUCTO E ICONO DE DETALLE -->
                                 <td class="ps-4 text-dark">
                                     <div class="d-flex align-items-center gap-2">
                                         <span class="fw-bold text-wrap" style="font-size: 0.95rem;">
@@ -182,10 +179,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                 </td>
                                 
-                                <!-- 2. ALMACÉN -->
                                 <td class="text-muted small col-mobile-hide"><?php echo e($almacenNombre); ?></td>
                                 
-                                <!-- 3. STOCK ACTUAL -->
                                 <td class="text-end">
                                     <div class="d-flex flex-column align-items-end w-100">
                                         <span class="fw-bold fs-5 text-dark mb-1"><?php echo $stockFormateado; ?></span>
@@ -200,17 +195,12 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                 </td>
                                 
-                                <!-- 4. SITUACIÓN / ALERTAS -->
                                 <td class="text-center col-mobile-hide">
                                     <span class="badge px-3 py-2 rounded-pill <?php echo $badgeColor; ?>">
                                         <?php echo e($badgeTexto); ?>
                                     </span>
-                                    <?php if ($detalleAlerta !== ''): ?>
-                                        <div class="small text-muted mt-1" style="font-size: 0.75rem;"><?php echo e($detalleAlerta); ?></div>
-                                    <?php endif; ?>
                                 </td>
                                 
-                                <!-- 5. ACCIONES -->
                                 <td class="text-end pe-4 col-mobile-hide">
                                     <div class="d-inline-flex align-items-center gap-2">
                                         <?php $itemActivo = (int) ($stock['item_estado'] ?? 0) === 1; ?>
@@ -272,18 +262,68 @@ $tipoItemLabel = static function (string $tipo): string {
                 <h5 class="modal-title"><i class="bi bi-eye me-2"></i>Detalles del producto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-md-6"><small class="text-muted">Producto</small><div class="fw-semibold" id="detalleInvNombre">-</div></div>
-                    <div class="col-md-3"><small class="text-muted">SKU</small><div class="fw-semibold" id="detalleInvSku">-</div></div>
-                    <div class="col-md-3"><small class="text-muted">Tipo registro</small><div class="fw-semibold" id="detalleInvTipoRegistro">-</div></div>
-                    <div class="col-md-4"><small class="text-muted">Categoría</small><div class="fw-semibold" id="detalleInvCategoria">-</div></div>
-                    <div class="col-md-4"><small class="text-muted">Tipo ítem</small><div class="fw-semibold" id="detalleInvTipoItem">-</div></div>
-                    <div class="col-md-4"><small class="text-muted">Estado ítem</small><div class="fw-semibold" id="detalleInvEstadoItem">-</div></div>
-                    <div class="col-md-6"><small class="text-muted">Almacén</small><div class="fw-semibold" id="detalleInvAlmacen">-</div></div>
-                    <div class="col-md-3"><small class="text-muted">Stock actual</small><div class="fw-semibold" id="detalleInvStock">-</div></div>
-                    <div class="col-md-3"><small class="text-muted">Alerta</small><div class="fw-semibold" id="detalleInvAlerta">-</div></div>
-                    <div class="col-12"><small class="text-muted">Detalle de alerta</small><div class="fw-semibold" id="detalleInvDetalleAlerta">-</div></div>
+            <div class="modal-body p-4 bg-light">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+                        <h6 class="fw-bold text-secondary mb-0"><i class="bi bi-box-seam me-2"></i>Información del Producto</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <div class="p-3 bg-primary-subtle rounded border border-primary-subtle">
+                                    <small class="text-primary fw-bold d-block mb-1"><i class="bi bi-tag me-1"></i>Producto</small>
+                                    <div class="fw-bold text-dark fs-5" id="detalleInvNombre">-</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-lg-3">
+                                <small class="text-muted d-block mb-1"><i class="bi bi-upc-scan me-1"></i>SKU</small>
+                                <div class="fw-semibold text-dark" id="detalleInvSku">-</div>
+                            </div>
+                            <div class="col-md-6 col-lg-3">
+                                <small class="text-muted d-block mb-1"><i class="bi bi-bookmark me-1"></i>Categoría</small>
+                                <div class="fw-semibold text-dark" id="detalleInvCategoria">-</div>
+                            </div>
+                            <div class="col-md-6 col-lg-3">
+                                <small class="text-muted d-block mb-1"><i class="bi bi-gear me-1"></i>Tipo Registro</small>
+                                <div class="fw-semibold text-dark" id="detalleInvTipoRegistro">-</div>
+                            </div>
+                            <div class="col-md-6 col-lg-3">
+                                <small class="text-muted d-block mb-1"><i class="bi bi-boxes me-1"></i>Tipo Ítem</small>
+                                <div class="fw-semibold text-dark" id="detalleInvTipoItem">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom-0 pt-3 pb-0 d-flex justify-content-between align-items-center">
+                        <h6 class="fw-bold text-secondary mb-0"><i class="bi bi-house-door me-2"></i>Estado en Almacén</h6>
+                        <span class="badge bg-light text-dark border" id="detalleInvEstadoItem">-</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-7">
+                                <div class="p-3 bg-light rounded border border-secondary-subtle h-100">
+                                    <small class="text-muted d-block mb-1"><i class="bi bi-building me-1"></i>Ubicación</small>
+                                    <div class="fw-bold text-dark fs-6" id="detalleInvAlmacen">-</div>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="p-3 bg-success-subtle rounded border border-success-subtle h-100 text-center">
+                                    <small class="text-success fw-bold d-block mb-1"><i class="bi bi-layers me-1"></i>Stock Actual</small>
+                                    <div class="fw-bold text-success fs-4" id="detalleInvStock">-</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mt-4">
+                                <small class="text-muted d-block mb-1"><i class="bi bi-bell me-1"></i>Situación / Alerta</small>
+                                <div class="fw-semibold text-dark" id="detalleInvAlerta">-</div>
+                            </div>
+                            <div class="col-md-8 mt-4">
+                                <small class="text-muted d-block mb-1"><i class="bi bi-info-circle me-1"></i>Detalle de la alerta</small>
+                                <div class="fw-semibold text-danger" id="detalleInvDetalleAlerta">-</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

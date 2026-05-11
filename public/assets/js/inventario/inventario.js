@@ -382,9 +382,11 @@
   
   function initModalDetalleInventario() {
     const modalDetalleEl = document.getElementById('modalDetalleInventarioItem');
-    if (!modalDetalleEl || !window.bootstrap) return;
+    
+    // Eliminamos la validación de !window.bootstrap para evitar que la 
+    // función se cancele si Bootstrap tarda unos milisegundos más en cargar.
+    if (!modalDetalleEl) return;
 
-    bootstrap.Modal.getOrCreateInstance(modalDetalleEl);
     const campos = {
       nombre: document.getElementById('detalleInvNombre'),
       sku: document.getElementById('detalleInvSku'),
@@ -413,6 +415,9 @@
     };
 
     let ultimoTrigger = null;
+    
+    // Al usar la delegación de eventos al document, no importa cuándo se agreguen
+    // los elementos al DOM o si cargó Bootstrap, el evento click siempre se capturará.
     document.addEventListener('click', (event) => {
       const btn = event.target && event.target.closest
         ? event.target.closest('.js-ver-detalles-item')
@@ -422,7 +427,9 @@
       pintarDetalle(btn);
     });
 
+    // Capturamos el evento nativo de Bootstrap una vez que abre el modal
     modalDetalleEl.addEventListener('show.bs.modal', (event) => {
+      // Bootstrap pasa el botón que gatilló el modal en "event.relatedTarget"
       const btn = event.relatedTarget && event.relatedTarget.closest
         ? event.relatedTarget.closest('.js-ver-detalles-item')
         : ultimoTrigger;
