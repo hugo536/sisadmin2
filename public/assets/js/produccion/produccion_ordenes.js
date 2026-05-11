@@ -674,9 +674,18 @@ function initModalEjecucion() {
             const inputParadaMinutos = document.getElementById('execParadaMinutos');
             const selectCentroCosto = document.getElementById('execCentroCosto');
 
-            // Dejamos las fechas vacías por defecto a petición del usuario
-            if (inputInicio) inputInicio.value = '';
-            if (inputFin) inputFin.value = '';
+            // Por defecto usamos la fecha/hora actual para que el usuario solo ajuste la hora si lo necesita.
+            const ahora = new Date();
+            const formatoDateTimeLocal = (fecha) => {
+                const anio = fecha.getFullYear();
+                const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+                const dia = String(fecha.getDate()).padStart(2, '0');
+                const horas = String(fecha.getHours()).padStart(2, '0');
+                const minutos = String(fecha.getMinutes()).padStart(2, '0');
+                return `${anio}-${mes}-${dia}T${horas}:${minutos}`;
+            };
+            if (inputInicio) inputInicio.value = formatoDateTimeLocal(ahora);
+            if (inputFin) inputFin.value = formatoDateTimeLocal(ahora);
             if (inputParada) inputParada.value = '0';
             if (inputParadaHoras) inputParadaHoras.value = '';
             if (inputParadaMinutos) inputParadaMinutos.value = '';
