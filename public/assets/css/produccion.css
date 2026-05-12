@@ -239,6 +239,7 @@ tr.collapse-faltantes.collapsing {
         margin-bottom: 12px !important;
         background-color: #f8f9fa !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        overflow: hidden !important; /* Evita que elementos flotantes salgan de la tarjeta */
     }
 
     .mobile-card-dynamic tbody td {
@@ -261,17 +262,19 @@ tr.collapse-faltantes.collapsing {
     /* Botón Quitar -> Esquina superior derecha */
     .mobile-card-dynamic tbody td:nth-child(5) {
         position: absolute !important;
-        top: 12px !important;
+        top: 15px !important; /* Ajustado para alinear con el padding del contenedor */
         right: 12px !important;
         width: auto !important;
         padding: 0 !important;
         order: 0 !important;
+        z-index: 10 !important; /* Asegura que el botón no sea tapado por textos largos */
     }
     .mobile-card-dynamic tbody td:nth-child(5)::before { display: none !important; }
 
     /* Insumo / Producto -> Arriba destacado */
     .mobile-card-dynamic tbody td:nth-child(1) {
-        width: 85% !important; 
+        width: 100% !important; /* Expandimos al 100% para ocupar la fila superior */
+        padding-right: 40px !important; /* Margen de seguridad para no chocar con el botón Quitar */
         order: 1 !important;
         font-size: 1.05rem !important;
         font-weight: bold !important;
@@ -279,8 +282,22 @@ tr.collapse-faltantes.collapsing {
         border-bottom: 1px dashed #dee2e6 !important;
         padding-bottom: 10px !important;
         margin-bottom: 10px !important;
+        
+        /* Convertimos en flex column para organizar el ::before y el texto/ícono inyectado */
+        display: flex !important; 
+        flex-direction: column !important;
+        align-items: flex-start !important;
     }
     .mobile-card-dynamic tbody td:nth-child(1)::before { content: "Ítem:" !important; }
+
+    /* Asegura que el contenido inyectado por JS (ícono + texto) se vea en una sola línea ordenada */
+    .mobile-card-dynamic tbody td:nth-child(1) > div,
+    .mobile-card-dynamic tbody td:nth-child(1) > span {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 8px !important; /* Espacio ideal entre el ícono y el nombre del producto */
+        width: 100%;
+    }
 
     /* Almacén -> Fila completa debajo */
     .mobile-card-dynamic tbody td:nth-child(2) {
