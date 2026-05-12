@@ -232,6 +232,8 @@ tr.collapse-faltantes.collapsing {
     /* --- EL BOTÓN DE ACCIÓN (Alineado perfecto arriba a la derecha, sin bordes) --- */
     .mobile-card-dynamic tbody td:nth-child(5) {
         position: absolute !important;
+        top: 8px !important;
+        right: 10px !important;
         top: 34px !important;
         right: 12px !important;
         width: auto !important;
@@ -247,6 +249,7 @@ tr.collapse-faltantes.collapsing {
     /* --- FILA 1: ÍTEM / ALMACÉN DESTINO --- */
     .mobile-card-dynamic tbody td:nth-child(1) {
         width: 100% !important;
+        padding-right: 88px !important; /* Reserva el extremo derecho para el botón en esquina móvil */
         padding-right: 68px !important; /* Reserva espacio para el botón móvil sin superponer el nombre */
         order: 1 !important;
         border-bottom: 1px dashed #dee2e6 !important;
