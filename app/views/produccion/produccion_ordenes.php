@@ -591,7 +591,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 </div>
 
 <div class="modal fade" id="modalEjecutarOP" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             
             <div class="modal-header bg-success text-white border-bottom-0">
