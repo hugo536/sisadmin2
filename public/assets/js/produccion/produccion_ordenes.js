@@ -1032,7 +1032,6 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
             <td data-label="Insumo" class="align-middle bg-light">
                 <input type="hidden" name="consumo_id_insumo[]" value="${item.id_insumo}">
                 <div class="fw-bold text-dark mb-1 text-wrap text-start">${item.insumo_nombre}</div>
-                <div class="small text-muted text-start"><i class="bi bi-lock-fill"></i> Bloqueado</div>
             </td>
             <td data-label="Almacén" class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${optionsHtml}</select></td>
             <td data-label="Cantidad" class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-end text-md-center bg-light" value="${item.cantidad_calculada}" readonly tabindex="-1"></td>
