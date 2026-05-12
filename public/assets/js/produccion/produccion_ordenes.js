@@ -1085,7 +1085,7 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
             <td data-label="Cantidad" class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-end text-md-center bg-light" value="${item.cantidad_calculada}" readonly tabindex="-1"></td>
             <td data-label="Lote" class="align-middle d-none"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
             
-            <td data-label="Acción" class="text-end text-md-center align-middle">
+            <td data-label="Acción" class="text-end text-md-center align-middle td-action-mobile">
                 ${puedeFraccionar ? `
                 <button type="button" class="btn btn-sm btn-outline-primary js-split-row" title="Añadir desde otro almacén">
                     <i class="bi bi-plus-circle fs-5"></i>
@@ -1100,7 +1100,7 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
             <td data-label="Almacén" class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select></td>
             <td data-label="Cantidad" class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-end text-md-center" required></td>
             <td data-label="Lote" class="align-middle d-none"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
-            <td data-label="Acción" class="text-end text-md-center align-middle">
+            <td data-label="Acción" class="text-end text-md-center align-middle td-action-mobile">
                 <div class="pc-trash-wrapper">
                     <button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra">
                         <i class="bi bi-trash-fill fs-5"></i>
@@ -1151,7 +1151,7 @@ function addIngresoRow(cantidadDefecto = '') {
         </td>
         <td data-label="Lote" class="align-middle d-none">${inputLote}</td>
         <td data-label="Vence" class="align-middle d-none">${inputVenc}</td>
-        <td data-label="Acción" class="text-end text-md-center align-middle">
+        <td data-label="Acción" class="text-end text-md-center align-middle td-action-mobile">
             ${puedeFraccionarIngreso ? `
             <button type="button" class="btn btn-sm btn-outline-primary js-split-ingreso-row" title="Guardar en otro almacén">
                 <i class="bi bi-plus-circle fs-5"></i>

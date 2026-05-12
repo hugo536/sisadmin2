@@ -197,7 +197,6 @@ tr.collapse-faltantes.collapsing {
     #tablaOrdenes tbody tr.op-main-row td:nth-child(4) { width: 40% !important; order: 5 !important; display: flex !important; justify-content: flex-end !important; align-items: flex-start !important; }
     #tablaOrdenes tbody tr.op-main-row td:nth-child(6) { width: 100% !important; order: 6 !important; display: flex !important; justify-content: flex-end !important; border-top: 1px dashed #e9ecef !important; margin-top: 10px !important; padding-top: 12px !important; }
 
-
     /* ---------------------------------------------------------
        2. TARJETAS DINÁMICAS (Consumos e Ingresos) - DISEÑO LIMPIO
        --------------------------------------------------------- */
@@ -229,32 +228,33 @@ tr.collapse-faltantes.collapsing {
         margin-bottom: 4px !important;
     }
 
-    /* --- EL BOTÓN DE ACCIÓN (Alineado perfecto arriba a la derecha, sin bordes) --- */
-    .mobile-card-dynamic tbody td:nth-child(5) {
-        position: absolute !important;
-        top: 8px !important;
-        right: 10px !important;
-        top: 34px !important;
-        right: 12px !important;
-        width: auto !important;
-        height: auto !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        border: none !important;
+    /* --- EL BOTÓN DE ACCIÓN (+ o Basura) AL PIE DE LA TARJETA --- */
+    .mobile-card-dynamic tbody td.td-action-mobile {
+        position: relative !important;
+        width: 100% !important; /* Ocupa toda la fila inferior */
+        order: 99 !important; /* Lo enviamos mágicamente al final de la tarjeta */
+        display: flex !important;
+        justify-content: flex-end !important; /* Alineamos el botón a la derecha */
+        align-items: center !important;
+        margin-top: 10px !important;
+        padding-top: 12px !important;
+        padding-bottom: 0 !important;
+        border-top: 1px dashed #dee2e6 !important; /* Línea separadora sutil */
         background: transparent !important;
-        z-index: 10 !important;
     }
-    .mobile-card-dynamic tbody td:nth-child(5)::before { display: none !important; }
+    .mobile-card-dynamic tbody td.td-action-mobile::before { display: none !important; }
 
     /* --- FILA 1: ÍTEM / ALMACÉN DESTINO --- */
     .mobile-card-dynamic tbody td:nth-child(1) {
         width: 100% !important;
-        padding-right: 88px !important; /* Reserva el extremo derecho para el botón en esquina móvil */
-        padding-right: 68px !important; /* Reserva espacio para el botón móvil sin superponer el nombre */
+        padding-right: 0 !important; /* El texto ahora usa todo el ancho sin chocar */
         order: 1 !important;
         border-bottom: 1px dashed #dee2e6 !important;
         padding-bottom: 12px !important;
         margin-bottom: 8px !important;
+        font-weight: bold;
+        font-size: 1rem;
+        color: #212529 !important;
     }
     #tablaConsumosDynamic tbody td:nth-child(1)::before { content: "Ítem / Insumo:" !important; }
     #tablaIngresosDynamic tbody td:nth-child(1)::before { content: "Almacén Destino:" !important; }
@@ -278,7 +278,7 @@ tr.collapse-faltantes.collapsing {
 
     /* Como Lote se ocultó, Cantidad en ambas tablas ahora ocupa el 100% de la fila */
     #tablaConsumosDynamic tbody td:nth-child(3),
-    #tablaIngresosDynamic tbody td:nth-child(2) /* Ojo: en Ingresos, la cantidad es el child(2) porque child(1) es destino */ { 
+    #tablaIngresosDynamic tbody td:nth-child(2) { 
         width: 100% !important; 
         order: 3 !important; 
         padding-right: 0 !important; 
@@ -289,57 +289,22 @@ tr.collapse-faltantes.collapsing {
 }
 
 /* ============================================================ */
-/* 1. DISTRIBUCIÓN DE COLUMNAS EN PC (Mejorada para imagen 9)    */
+/* DISTRIBUCIÓN DE COLUMNAS EN PC                               */
 /* ============================================================ */
-@media (min-width: 992px) { /* Afecta solo a pantallas de PC */
-    /* Tabla 1: Consumos (Salidas) */
-    #tablaConsumosDynamic th:nth-child(1) { width: 35% !important; } /* Insumo (Más ancho) */
-    #tablaConsumosDynamic th:nth-child(2) { width: 25% !important; } /* Almacén Origen */
-    #tablaConsumosDynamic th:nth-child(3) { width: 15% !important; } /* Cantidad */
-    #tablaConsumosDynamic th:nth-child(4) { width: 20% !important; } /* Lote (Opc) */
-    #tablaConsumosDynamic th:nth-child(5) { width: 5% !important; }  /* Acción/Quitar (Más estrecho) */
+@media (min-width: 992px) { 
+    #tablaConsumosDynamic th:nth-child(1) { width: 35% !important; } 
+    #tablaConsumosDynamic th:nth-child(2) { width: 25% !important; } 
+    #tablaConsumosDynamic th:nth-child(3) { width: 15% !important; } 
+    #tablaConsumosDynamic th:nth-child(4) { width: 20% !important; } 
+    #tablaConsumosDynamic th:nth-child(5) { width: 5% !important; }  
 
-    /* Estilo para el tacho de basura dentro de un recuadro estilizado (image_9.png style) */
     .pc-trash-wrapper {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         padding: 5px;
-        border: 1px solid #dc3545; /* Color rojo de Bootstrap para error/borrar */
+        border: 1px solid #dc3545; 
         border-radius: 4px;
         background-color: #fff;
-    }
-}
-
-/* ============================================================ */
-/* 2. RE-POSICIONAMIENTO DE ÍCONOS EN MÓVIL (Siguiendo imagen 8/9 sugerida) */
-/* ============================================================ */
-/* Clases de Bootstrap para mostrar/ocultar por pantalla */
-.d-md-none {
-    /* Oculto en PC, visible en móvil por defecto. Bootstrap se encarga de esto. */
-}
-.d-md-table-cell {
-    /* Visible en PC (celda de tabla), oculto en móvil. Bootstrap se encarga de esto. */
-}
-
-/* Estilo para el área de íconos móviles posicionada absolutamente */
-@media (max-width: 991px) { /* Afecta solo a pantallas móviles */
-    .item-nombre-wrapper {
-        position: relative; /* Necesario para que el top/end funcione dentro de esto */
-    }
-
-    .icon-actions-mobile {
-        position: absolute;
-        top: -15px; /* Mueve hacia arriba fuera del recuadro principal */
-        right: -10px; /* Mueve a la esquina derecha */
-        display: flex;
-        gap: 5px; /* Espacio entre íconos */
-        z-index: 10; /* Asegura que esté encima de otros elementos */
-    }
-
-    /* Oculta la columna de acción de PC en móvil */
-    #tablaConsumosDynamic th:last-child,
-    #tablaConsumosDynamic td:last-child {
-        display: none !important;
     }
 }
