@@ -35,6 +35,10 @@
     <?php if (str_starts_with($ruta_css, 'inventario')): ?>
         <link rel="stylesheet" href="<?php echo e(asset_url('css/inventario.css')); ?>?v=<?php echo time(); ?>"> 
     <?php endif; ?>
+
+    <?php if (str_starts_with($ruta_css, 'produccion')): ?>
+        <link rel="stylesheet" href="<?php echo e(asset_url('css/produccion.css')); ?>?v=<?php echo time(); ?>"> 
+    <?php endif; ?>
     
     <?php if (($ruta_actual ?? '') === 'terceros/perfil'): ?>
         <link rel="stylesheet" href="<?php echo e(asset_url('css/terceros_perfil.css')); ?>">
