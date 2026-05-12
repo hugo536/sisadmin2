@@ -115,7 +115,8 @@ $tipoItemLabel = static function (string $tipo): string {
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive inventario-table-wrapper">
-               <table class="table align-middle mb-0 table-pro table-hover" id="tablaInventarioStock"
+                <!-- SE AGREGÓ LA CLASE erp-mobile-cards AQUÍ -->
+               <table class="table align-middle mb-0 table-pro table-hover erp-mobile-cards" id="tablaInventarioStock"
                 data-erp-table="true"
                 data-search-input="#inventarioSearch"
                 data-pagination-controls="#inventarioPaginationControls"
@@ -129,10 +130,13 @@ $tipoItemLabel = static function (string $tipo): string {
                 <thead class="inventario-sticky-thead border-bottom">
                     <tr>
                         <th class="ps-4 text-secondary fw-semibold">Producto</th>
-                        <th class="text-secondary fw-semibold col-mobile-hide" style="width: 20%;">Almacén</th>
+                        <!-- SE QUITÓ col-mobile-hide -->
+                        <th class="text-secondary fw-semibold" style="width: 20%;">Almacén</th>
                         <th class="text-end text-secondary fw-semibold" style="width: 15%;">Stock Actual</th>
-                        <th class="text-center text-secondary fw-semibold col-mobile-hide">Situación / Alertas</th>
-                        <th class="text-end pe-4 text-secondary fw-semibold col-mobile-hide">Acciones</th>
+                        <!-- SE QUITÓ col-mobile-hide -->
+                        <th class="text-center text-secondary fw-semibold">Situación / Alertas</th>
+                        <!-- SE QUITÓ col-mobile-hide -->
+                        <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -179,7 +183,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                 </td>
                                 
-                                <td class="text-muted small col-mobile-hide"><?php echo e($almacenNombre); ?></td>
+                                <!-- SE QUITÓ col-mobile-hide -->
+                                <td class="text-muted small"><?php echo e($almacenNombre); ?></td>
                                 
                                 <td class="text-end">
                                     <div class="d-flex flex-column align-items-end w-100">
@@ -195,13 +200,15 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                 </td>
                                 
-                                <td class="text-center col-mobile-hide">
+                                <!-- SE QUITÓ col-mobile-hide -->
+                                <td class="text-center">
                                     <span class="badge px-3 py-2 rounded-pill <?php echo $badgeColor; ?>">
                                         <?php echo e($badgeTexto); ?>
                                     </span>
                                 </td>
                                 
-                                <td class="text-end pe-4 col-mobile-hide">
+                                <!-- SE QUITÓ col-mobile-hide -->
+                                <td class="text-end pe-4">
                                     <div class="d-inline-flex align-items-center gap-2">
                                         <?php $itemActivo = (int) ($stock['item_estado'] ?? 0) === 1; ?>
                                         <span class="badge rounded-pill <?php echo $itemActivo ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle'; ?>"
@@ -494,7 +501,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                 </div>
                                 <div class="col-12">
                                     <div class="table-responsive border rounded-3 bg-white">
-                                        <table class="table table-sm align-middle mb-0 table-pro" id="tablaLineasMovimiento">
+                                        <!-- SE AGREGÓ LA CLASE erp-mobile-cards AQUÍ -->
+                                        <table class="table table-sm align-middle mb-0 table-pro erp-mobile-cards" id="tablaLineasMovimiento">
                                             <thead class="table-light">
                                                 <tr>
                                                     <th class="ps-3 text-secondary fw-semibold">Ítem</th>

@@ -498,50 +498,125 @@ function initAccionesTabla() {
 // =========================================================================
 function initModalEjecucion() {
     let modalEjecutar;
-    const formatearDatetimeLocal = (fecha) => {
-        const local = new Date(fecha.getTime() - (fecha.getTimezoneOffset() * 60000));
-        return local.toISOString().slice(0, 16);
-    };
 
     window.calcularTiempoNetoOP = function() {
-        const inputInicio = document.getElementById('execFechaInicio');
-        const inputFin = document.getElementById('execFechaFin');
+        const dateInicio = document.getElementById('execFechaInicioDate');
+        const timeInicio = document.getElementById('execFechaInicioTime');
+        const dateFin = document.getElementById('execFechaFinDate');
+        const timeFin = document.getElementById('execFechaFinTime');
+        
         const inputParadaHoras = document.getElementById('execParadaHoras');
         const inputParadaMinutos = document.getElementById('execParadaMinutos');
-        const inputParada = document.getElementById('execHorasParada');
+        
+        const hiddenInicio = document.getElementById('execFechaInicio');
+        const hiddenFin = document.getElementById('execFechaFin');
+        const hiddenParada = document.getElementById('execHorasParada');
+        
         const lblTiempoNeto = document.getElementById('lblTiempoNeto');
+        const btnGuardar = document.querySelector('#formEjecutarOrden button[type="submit"]');
+
+        if (!dateInicio || !lblTiempoNeto) return;
         
-        if (!inputInicio || !inputFin || !lblTiempoNeto) return;
-        
-        if (!inputInicio.value || !inputFin.value) {
-            lblTiempoNeto.innerHTML = `0.00 <small class="fs-6 text-muted fw-normal">Horas</small>`;
+        // FUNCIÓN DE AYUDA: Bloquear y limpiar campos de parada
+        const bloquearParadas = () => {
+            if (inputParadaHoras) { inputParadaHoras.disabled = true; inputParadaHoras.classList.add('bg-light'); inputParadaHoras.value = ''; }
+            if (inputParadaMinutos) { inputParadaMinutos.disabled = true; inputParadaMinutos.classList.add('bg-light'); inputParadaMinutos.value = ''; }
+            if (hiddenParada) hiddenParada.value = '0';
+        };
+
+        // Si falta algún dato de fecha/hora, bloqueamos las paradas y mostramos 0
+        if (!dateInicio.value || !timeInicio.value || !dateFin.value || !timeFin.value) {
+            lblTiempoNeto.innerHTML = `0h 0m <small class="text-muted fw-normal ms-2 opacity-75">(0.00 Hrs)</small>`;
+            if (hiddenInicio) hiddenInicio.value = '';
+            if (hiddenFin) hiddenFin.value = '';
+            if (btnGuardar) btnGuardar.removeAttribute('data-error-tiempo');
+            bloquearParadas();
             return;
         }
 
-        const f1 = new Date(inputInicio.value);
-        const f2 = new Date(inputFin.value);
+        const strInicio = `${dateInicio.value}T${timeInicio.value}`;
+        const strFin = `${dateFin.value}T${timeFin.value}`;
+        if (hiddenInicio) hiddenInicio.value = strInicio;
+        if (hiddenFin) hiddenFin.value = strFin;
+
+        const f1 = new Date(strInicio);
+        const f2 = new Date(strFin);
         
+        // Si la hora final es mayor a la inicial (Todo correcto)
         if (f2 > f1) {
-            let horas = (f2 - f1) / (1000 * 60 * 60);
+            // DESBLOQUEAMOS LOS CAMPOS DE PARADA
+            if (inputParadaHoras) { inputParadaHoras.disabled = false; inputParadaHoras.classList.remove('bg-light'); }
+            if (inputParadaMinutos) { inputParadaMinutos.disabled = false; inputParadaMinutos.classList.remove('bg-light'); }
+
+            let horasBrutas = (f2 - f1) / (1000 * 60 * 60);
+            
             const paradaHoras = parseInt(inputParadaHoras ? inputParadaHoras.value : 0, 10) || 0;
             let paradaMinutos = parseInt(inputParadaMinutos ? inputParadaMinutos.value : 0, 10) || 0;
             paradaMinutos = Math.min(59, Math.max(0, paradaMinutos));
-            if (inputParadaMinutos) inputParadaMinutos.value = paradaMinutos;
-            let paradas = paradaHoras + (paradaMinutos / 60);
-            if (inputParada) inputParada.value = paradas.toFixed(2);
-            let neto = Math.max(0, horas - paradas);
-            lblTiempoNeto.innerHTML = `${neto.toFixed(2)} <small class="fs-6 text-muted fw-normal">Horas</small>`;
+            if (inputParadaMinutos && inputParadaMinutos.value !== '') inputParadaMinutos.value = paradaMinutos;
+            
+            let paradasDecimal = paradaHoras + (paradaMinutos / 60);
+            
+            // VALIDACIÓN: ¿La parada es mayor a las horas trabajadas?
+            if (paradasDecimal >= horasBrutas) {
+                lblTiempoNeto.innerHTML = `<span class="text-danger fw-bold" style="font-size: 0.8rem;"><i class="bi bi-exclamation-triangle-fill me-1"></i>Parada mayor a duración</span>`;
+                if (btnGuardar) {
+                    btnGuardar.setAttribute('data-error-tiempo', '1');
+                    btnGuardar.disabled = true; // Bloquea el guardado
+                }
+                return;
+            } else {
+                if (btnGuardar) btnGuardar.removeAttribute('data-error-tiempo');
+                if (typeof recalcularSemaforos === 'function') recalcularSemaforos(); 
+            }
+
+            if (hiddenParada) hiddenParada.value = paradasDecimal.toFixed(4);
+            let netoDecimal = Math.max(0, horasBrutas - paradasDecimal);
+            
+            let totalMinutosNetos = Math.round(netoDecimal * 60);
+            let hHuman = Math.floor(totalMinutosNetos / 60);
+            let mHuman = totalMinutosNetos % 60;
+
+            lblTiempoNeto.innerHTML = `${hHuman}h ${mHuman}m <small class="text-light fw-normal opacity-75 ms-2" style="font-size: 0.7rem;">(${netoDecimal.toFixed(2)} Hrs)</small>`;
         } else {
-            lblTiempoNeto.innerHTML = `0.00 <small class="fs-6 text-muted fw-normal">Horas</small>`;
+            // Si la hora de inicio es mayor al fin (Error)
+            lblTiempoNeto.innerHTML = `<span class="text-danger fw-bold" style="font-size: 0.8rem;"><i class="bi bi-clock-history me-1"></i>Inicio mayor al fin</span>`;
+            if (btnGuardar) {
+                btnGuardar.setAttribute('data-error-tiempo', '1');
+                btnGuardar.disabled = true;
+            }
+            bloquearParadas();
         }
     };
 
     document.addEventListener('change', function(e) {
-        if (e.target.id === 'execFechaInicio' || e.target.id === 'execFechaFin') window.calcularTiempoNetoOP();
+        if (['execFechaInicioDate', 'execFechaInicioTime', 'execFechaFinDate', 'execFechaFinTime'].includes(e.target.id)) {
+            window.calcularTiempoNetoOP();
+        }
     });
 
     document.addEventListener('input', function(e) {
         if (e.target.id === 'execParadaHoras' || e.target.id === 'execParadaMinutos') window.calcularTiempoNetoOP();
+    });
+
+    // Lógica para botones táctiles de sumar/restar cantidades
+    document.addEventListener('click', function(e) {
+        const btnMinus = e.target.closest('.js-btn-minus');
+        const btnPlus = e.target.closest('.js-btn-plus');
+        
+        if (btnMinus || btnPlus) {
+            const input = (btnMinus || btnPlus).closest('.input-group').querySelector('input[type="number"]');
+            if (!input || input.readOnly) return;
+            
+            let val = parseFloat(input.value) || 0;
+            let step = parseFloat(input.getAttribute('step')) || 1; 
+            
+            if (btnMinus) val = Math.max(0, val - step);
+            if (btnPlus) val += step;
+            
+            input.value = val.toFixed(step < 1 ? 4 : 0);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
     });
 
     document.addEventListener('click', async function(e) {
@@ -552,8 +627,9 @@ function initModalEjecucion() {
 
             if (magiaAplicada) {
                 // ================== DESHACER MAGIA ==================
-                document.getElementById('execFechaInicio').value = '';
-                document.getElementById('execFechaFin').value = '';
+                // Borramos solo la hora para obligar al usuario a ingresarla
+                document.getElementById('execFechaInicioTime').value = '';
+                document.getElementById('execFechaFinTime').value = '';
                 
                 document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-fraccion-extra').forEach(tr => tr.remove());
                 
@@ -570,19 +646,26 @@ function initModalEjecucion() {
                 window.calcularTiempoNetoOP();
 
                 btnMagico.setAttribute('data-magia-aplicada', '0');
-                btnMagico.innerHTML = '<i class="bi bi-magic me-1"></i><span class="d-none d-sm-inline">Botón Mágico</span>';
-                btnMagico.classList.replace('btn-warning', 'btn-outline-primary');
+                btnMagico.innerHTML = '<i class="bi bi-calculator me-1"></i><span class="d-none d-sm-inline">Proponer Consumos</span>';
+                btnMagico.classList.replace('btn-warning', 'btn-outline-secondary');
             } else {
                 // ================== APLICAR MAGIA ==================
                 let faltantesGlobales = false;
                 const horasEst = parseFloat(modalEl.getAttribute('data-horas-estimadas')) || 0;
-                const now = new Date();
-                const start = new Date(now);
-                const end = new Date(now.getTime() + (horasEst * 60 * 60 * 1000));
+                
+                // LÓGICA DE TIEMPOS CORREGIDA
+                const end = new Date();
+                const start = new Date(end.getTime() - (horasEst * 60 * 60 * 1000));
 
-                document.getElementById('execFechaInicio').value = formatearDatetimeLocal(start);
-                document.getElementById('execFechaFin').value = formatearDatetimeLocal(end);
+                const formatDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                const formatTime = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 
+                document.getElementById('execFechaInicioDate').value = formatDate(start);
+                document.getElementById('execFechaInicioTime').value = formatTime(start);
+                document.getElementById('execFechaFinDate').value = formatDate(end);
+                document.getElementById('execFechaFinTime').value = formatTime(end);
+
+                // LÓGICA DE INSUMOS
                 document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada').forEach(trOriginal => {
                     const idInsumo = trOriginal.getAttribute('data-id-insumo');
                     let cantidadRestante = calcularCantidadRequeridaPorInsumo(idInsumo);
@@ -627,7 +710,7 @@ function initModalEjecucion() {
 
                 btnMagico.setAttribute('data-magia-aplicada', '1');
                 btnMagico.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i><span class="d-none d-sm-inline">Restaurar</span>';
-                btnMagico.classList.replace('btn-outline-primary', 'btn-warning');
+                btnMagico.classList.replace('btn-outline-secondary', 'btn-warning');
             }
             return;
         }
@@ -667,30 +750,31 @@ function initModalEjecucion() {
                 ? ((planificada * recetaTiempoHoras) / recetaRendimiento)
                 : 0;
             
-            const inputInicio = document.getElementById('execFechaInicio');
-            const inputFin = document.getElementById('execFechaFin');
+            const dateInicio = document.getElementById('execFechaInicioDate');
+            const timeInicio = document.getElementById('execFechaInicioTime');
+            const dateFin = document.getElementById('execFechaFinDate');
+            const timeFin = document.getElementById('execFechaFinTime');
             const inputParada = document.getElementById('execHorasParada');
             const inputParadaHoras = document.getElementById('execParadaHoras');
             const inputParadaMinutos = document.getElementById('execParadaMinutos');
             const selectCentroCosto = document.getElementById('execCentroCosto');
 
-            // Por defecto usamos la fecha/hora actual para que el usuario solo ajuste la hora si lo necesita.
+            // FECHA POR DEFECTO: Hoy. HORA POR DEFECTO: Vacía.
             const ahora = new Date();
-            const formatoDateTimeLocal = (fecha) => {
-                const anio = fecha.getFullYear();
-                const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-                const dia = String(fecha.getDate()).padStart(2, '0');
-                const horas = String(fecha.getHours()).padStart(2, '0');
-                const minutos = String(fecha.getMinutes()).padStart(2, '0');
-                return `${anio}-${mes}-${dia}T${horas}:${minutos}`;
-            };
-            if (inputInicio) inputInicio.value = formatoDateTimeLocal(ahora);
-            if (inputFin) inputFin.value = formatoDateTimeLocal(ahora);
+            const yyyy = ahora.getFullYear();
+            const mm = String(ahora.getMonth() + 1).padStart(2, '0');
+            const dd = String(ahora.getDate()).padStart(2, '0');
+            const fechaStr = `${yyyy}-${mm}-${dd}`;
+
+            if (dateInicio) dateInicio.value = fechaStr;
+            if (dateFin) dateFin.value = fechaStr;
+            if (timeInicio) timeInicio.value = '';
+            if (timeFin) timeFin.value = '';
+            
             if (inputParada) inputParada.value = '0';
             if (inputParadaHoras) inputParadaHoras.value = '';
             if (inputParadaMinutos) inputParadaMinutos.value = '';
             
-            // Guardamos las horas planificadas "escondidas" en el modal para el Botón Mágico
             modalEl.setAttribute('data-horas-estimadas', horasPlanificadas);
             if (selectCentroCosto) {
                 const idOrdenSafe = String(idOrden || '');
@@ -741,7 +825,6 @@ function initModalEjecucion() {
                 formData.append('id_receta', idReceta);
                 formData.append('cantidad', planificada);
                 formData.append('id_orden', String(idOrden));
-
                 formData.append('id_almacen_planta', String(idAlmacenPlanta));
 
                 const response = await fetch(window.location.href, { method: 'POST', body: formData });
@@ -763,6 +846,7 @@ function initModalEjecucion() {
             return;
         }
 
+        /* ... El resto de tus event listeners se mantienen ... */
         const btnRemove = e.target.closest('.js-remove-row');
         if (btnRemove) {
             const tr = btnRemove.closest('tr');
@@ -842,15 +926,13 @@ function initModalEjecucion() {
             const form = e.target.querySelector('form');
             if (form) form.reset();
             
-            // ---> QUITAR LA MAGIA <---
             e.target.removeAttribute('data-magia-activa');
             
-            // Restaurar Botón Mágico visualmente
             const btnMag = document.getElementById('btnMagicoEjecucion');
             if (btnMag) {
                 btnMag.setAttribute('data-magia-aplicada', '0');
-                btnMag.innerHTML = '<i class="bi bi-magic me-1"></i><span class="d-none d-sm-inline">Botón Mágico</span>';
-                btnMag.className = 'btn btn-sm btn-outline-primary shadow-sm rounded-pill fw-bold px-3 py-1 transition-hover';
+                btnMag.innerHTML = '<i class="bi bi-calculator me-1"></i><span class="d-none d-sm-inline">Proponer Consumos</span>';
+                btnMag.className = 'btn btn-sm btn-outline-secondary shadow-sm rounded-pill fw-bold px-3 py-1 transition-hover';
             }
 
             const firstTab = e.target.querySelector('.nav-tabs .nav-link');
@@ -860,7 +942,7 @@ function initModalEjecucion() {
             if (boxJustificacion) boxJustificacion.style.display = 'none';
             
             const lblTiempoNeto = document.getElementById('lblTiempoNeto');
-            if (lblTiempoNeto) lblTiempoNeto.innerHTML = `0.00 <small class="fs-6 text-muted fw-normal">Horas</small>`;
+            if (lblTiempoNeto) lblTiempoNeto.innerHTML = `0h 0m <small class="text-muted fw-normal ms-2 opacity-75">(0.00 Hrs)</small>`;
             const lblExecRecetaInfo = document.getElementById('lblExecRecetaInfo');
             if (lblExecRecetaInfo) lblExecRecetaInfo.textContent = '';
         }
@@ -1074,7 +1156,12 @@ function recalcularSemaforos(desdeBotonMagico = false) {
     const btnGuardar = document.querySelector('#formEjecutarOrden button[type="submit"]');
     
     if (boxJustificacion) boxJustificacion.style.display = 'none'; 
-    if (btnGuardar) btnGuardar.disabled = faltaStockFisico; 
+    if (btnGuardar) {
+        // Leemos si la función de tiempos nos dejó una marca de error
+        const errorTiempo = btnGuardar.getAttribute('data-error-tiempo') === '1';
+        // Si falta stock físico O si hay error en el tiempo, se deshabilita
+        btnGuardar.disabled = faltaStockFisico || errorTiempo; 
+    }
 }
 
 // =========================================================================

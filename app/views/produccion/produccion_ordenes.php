@@ -829,19 +829,28 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-header bg-white border-bottom-0 pt-2 pb-0 d-flex justify-content-between align-items-center">
                             <h6 class="fw-bold text-dark mb-0 fs-6"><i class="bi bi-clock-history text-primary me-1"></i>Tiempos</h6>
-                            <button type="button" class="btn btn-sm btn-outline-primary shadow-sm rounded-pill fw-bold px-3 py-1 transition-hover" id="btnMagicoEjecucion" title="Autocompletar Tiempos y Almacenes">
-                                <i class="bi bi-magic me-1"></i><span class="d-none d-sm-inline">Botón Mágico</span><span class="d-inline d-sm-none">Magia</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary shadow-sm rounded-pill fw-bold px-3 py-1 transition-hover" id="btnMagicoEjecucion" title="Cargar cantidades teóricas de la receta">
+                                <i class="bi bi-calculator me-1"></i><span class="d-none d-sm-inline">Proponer Consumos</span><span class="d-inline d-sm-none">Proponer</span>
                             </button>
                         </div>
                         <div class="card-body p-2 p-sm-3">
                             <div class="row g-2">
-                                <div class="col-6 col-md-4">
+                                <div class="col-12 col-md-4">
                                     <label class="form-label small fw-bold text-secondary mb-1"><i class="bi bi-play-circle text-success me-1"></i>Inicio <span class="text-danger">*</span></label>
-                                    <input type="datetime-local" name="fecha_inicio" id="execFechaInicio" class="form-control form-control-sm border-secondary-subtle fw-medium" required>
+                                    <div class="input-group input-group-sm">
+                                        <input type="date" id="execFechaInicioDate" class="form-control border-secondary-subtle fw-medium" required>
+                                        <input type="time" id="execFechaInicioTime" class="form-control border-secondary-subtle fw-medium text-center" required>
+                                    </div>
+                                    <input type="hidden" name="fecha_inicio" id="execFechaInicio"> 
                                 </div>
-                                <div class="col-6 col-md-4">
+
+                                <div class="col-12 col-md-4">
                                     <label class="form-label small fw-bold text-secondary mb-1"><i class="bi bi-stop-circle text-danger me-1"></i>Fin <span class="text-danger">*</span></label>
-                                    <input type="datetime-local" name="fecha_fin" id="execFechaFin" class="form-control form-control-sm border-secondary-subtle fw-medium" required>
+                                    <div class="input-group input-group-sm">
+                                        <input type="date" id="execFechaFinDate" class="form-control border-secondary-subtle fw-medium" required>
+                                        <input type="time" id="execFechaFinTime" class="form-control border-secondary-subtle fw-medium text-center" required>
+                                    </div>
+                                    <input type="hidden" name="fecha_fin" id="execFechaFin">
                                 </div>
                                 <div class="col-12 col-md-4">
                                     <label class="form-label small fw-bold text-secondary mb-1">
@@ -851,13 +860,13 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     <div class="row g-2">
                                         <div class="col-6">
                                             <div class="input-group input-group-sm">
-                                                <input type="number" step="1" min="0" name="parada_horas" id="execParadaHoras" class="form-control border-secondary-subtle" placeholder="Horas">
+                                                <input type="number" step="1" min="0" name="parada_horas" id="execParadaHoras" class="form-control border-secondary-subtle bg-light" placeholder="Horas" disabled>
                                                 <span class="input-group-text bg-light text-muted px-2">h</span>
                                             </div>
                                         </div>
                                         <div class="col-6">
                                             <div class="input-group input-group-sm">
-                                                <input type="number" step="1" min="0" max="59" name="parada_minutos" id="execParadaMinutos" class="form-control border-secondary-subtle" placeholder="Minutos">
+                                                <input type="number" step="1" min="0" max="59" name="parada_minutos" id="execParadaMinutos" class="form-control border-secondary-subtle bg-light" placeholder="Minutos" disabled>
                                                 <span class="input-group-text bg-light text-muted px-2">min</span>
                                             </div>
                                         </div>
@@ -898,7 +907,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 </div>
                             </div>
                             <div class="table-responsive">
-                                <table class="table table-sm align-middle table-bordered mb-0" id="tablaConsumosDynamic">
+                                <table class="table table-sm align-middle table-bordered mb-0 mobile-card-table" id="tablaConsumosDynamic">
                                     <thead class="table-light text-muted small text-uppercase">
                                         <tr>
                                             <th>Insumo (ID / Nombre)</th>
@@ -922,7 +931,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 </div>
                             </div>
                             <div class="table-responsive">
-                                <table class="table table-sm align-middle table-bordered mb-0" id="tablaIngresosDynamic">
+                                <table class="table table-sm align-middle table-bordered mb-0 mobile-card-table" id="tablaIngresosDynamic">
                                     <thead class="table-light text-muted small text-uppercase">
                                         <tr>
                                             <th style="width: 25%;">Almacén Destino</th>
