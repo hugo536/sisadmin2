@@ -457,27 +457,36 @@
         padding: 5px 0 10px 0 !important;
     }
 
-    /* 5. Inyectamos los títulos según el número de columna (nth-child) */
-    #tablaConsumosDynamic tbody td::before, 
+    /* 5. Títulos dinámicos: usar data-label evita desorden al ocultar/insertar columnas */
+    #tablaConsumosDynamic tbody td::before,
     #tablaIngresosDynamic tbody td::before {
+        content: attr(data-label) ":";
         display: block !important;
-        font-weight: bold;
+        font-weight: 700;
         color: var(--erp-primary);
-        margin-bottom: 5px;
+        margin-bottom: 6px;
         font-size: 0.85rem;
+        line-height: 1.25;
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: anywhere;
     }
 
-    /* Textos para Consumos */
-    #tablaConsumosDynamic tbody td:nth-child(1)::before { content: "Insumo (ID / Nombre):"; }
-    #tablaConsumosDynamic tbody td:nth-child(2)::before { content: "Almacén Origen:"; }
-    #tablaConsumosDynamic tbody td:nth-child(3)::before { content: "Cantidad:"; }
-    #tablaConsumosDynamic tbody td:nth-child(4)::before { content: "Lote (Opcional):"; }
+    /* Etiquetas más descriptivas para columnas críticas */
+    #tablaConsumosDynamic tbody td[data-label="Insumo"]::before { content: "Insumo (ID / Nombre):"; }
+    #tablaConsumosDynamic tbody td[data-label="Almacén"]::before { content: "Almacén Origen:"; }
+    #tablaIngresosDynamic tbody td[data-label="Destino"]::before { content: "Almacén Destino:"; }
+    #tablaIngresosDynamic tbody td[data-label="Producido"]::before { content: "Cantidad Producida:"; }
 
-    /* Textos para Ingresos */
-    #tablaIngresosDynamic tbody td:nth-child(1)::before { content: "Almacén Destino:"; }
-    #tablaIngresosDynamic tbody td:nth-child(2)::before { content: "Cantidad Producida:"; }
-    #tablaIngresosDynamic tbody td:nth-child(3)::before { content: "Lote Asignado:"; }
-    #tablaIngresosDynamic tbody td:nth-child(4)::before { content: "F. Vencimiento:"; }
+    /* Permitir que el contenido largo del nombre se vea completo en móviles */
+    #tablaConsumosDynamic tbody td,
+    #tablaIngresosDynamic tbody td,
+    #tablaConsumosDynamic tbody td > div,
+    #tablaIngresosDynamic tbody td > div {
+        white-space: normal !important;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+    }
 
     /* 6. Hacemos que los inputs no se aplasten */
     #tablaConsumosDynamic tbody td input, #tablaConsumosDynamic tbody td select,
