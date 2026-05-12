@@ -94,9 +94,6 @@ tr.collapse-faltantes.collapsing {
     flex-direction: column;
 }
 
-#modalEjecutarOP .modal-content {
-    height: calc(100dvh - 2rem);
-}
 
 #modalEjecutarOP #formEjecutarOrden {
     display: flex;
@@ -146,9 +143,6 @@ tr.collapse-faltantes.collapsing {
         border-radius: 0.9rem;
     }
 
-    #modalEjecutarOP .modal-content {
-        height: calc(100dvh - 1rem);
-    }
 }
 
 /* ========================================================================= */
