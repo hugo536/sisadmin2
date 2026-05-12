@@ -6,219 +6,6 @@ $almacenesPlanta = $almacenes_planta ?? [];
 $centros = $centros ?? []; // <-- Variable agregada para los centros de costo
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 ?>
-<style>
-    /* Elimina el delay y la animación de deslizamiento en los detalles de la OP */
-    tr.collapse-faltantes.collapsing {
-        transition: none !important;
-        animation: none !important;
-    }
-
-    /* ========================================================================= */
-    /* ESTILOS DEL PLANIFICADOR (RESPONSIVO Y TARJETAS OPTIMIZADAS)              */
-    /* ========================================================================= */
-    
-    .planificador-scroll-area {
-        overflow: auto;
-        -webkit-overflow-scrolling: touch;
-        max-height: min(62vh, 640px);
-        padding-bottom: 15px;
-    }
-
-    /* Ajuste del Grid para PC: Scroll dinámico (Solo en semana) */
-    @media (min-width: 768px) {
-        #planificadorGrid.vista-semana {
-            min-width: 1100px; /* Obliga al scroll en semana para mantener columnas anchas */
-        }
-        #planificadorGrid.vista-mes {
-            min-width: 100%; /* Ajusta el mes exacto a la pantalla (Sin scroll) */
-        }
-    }
-
-    /* DISEÑO PARA MÓVILES: El calendario se vuelve una lista (Agenda) */
-    @media (max-width: 767px) {
-        #modalPlanificadorProduccion .modal-body .d-grid.mb-2 { display: none !important; }
-        
-        #planificadorGrid {
-            display: block !important; 
-            min-width: 100% !important;
-        }
-
-        .plan-dia-card {
-            margin-bottom: 15px !important;
-            min-height: auto !important;
-            border-style: solid !important; 
-        }
-
-        .plan-dia-card .fs-6 {
-            background: #f8f9fa;
-            display: block;
-            margin: -8px -8px 8px -8px;
-            padding: 5px 10px;
-            border-bottom: 1px solid #ddd;
-            font-size: 0.9rem !important;
-        }
-    }
-
-    /* ESTILO DE LAS TARJETAS DE PRODUCTO (3 FILAS EN SEMANA) */
-    .mini-card-op {
-        transition: transform 0.2s;
-        border-left-width: 4px !important;
-    }
-    .mini-card-op:hover {
-        transform: scale(1.02);
-    }
-    .op-product-name {
-        display: -webkit-box;
-        -webkit-line-clamp: 3; /* <--- AHORA PERMITE 3 LÍNEAS EN SEMANA */
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        line-height: 1.2;
-        font-weight: 700;
-        color: #2d3436;
-    }
-
-    /* ESTILO DE LAS TARJETAS MINIATURA (3 FILAS EN MES) */
-    .op-product-name-mes {
-        display: -webkit-box;
-        -webkit-line-clamp: 3; /* <--- PERMITE 3 LÍNEAS EN EL MES */
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        white-space: normal; /* Permite que el texto baje de línea */
-        line-height: 1.2;
-    }
-
-    /* ========================================================================= */
-    /* MODALES DE ÓRDENES: COMPORTAMIENTO CONSISTENTE EN MOBILE / TABLET / PC    */
-    /* ========================================================================= */
-    #modalPlanificarOP .modal-content,
-    #modalEditarOP .modal-content,
-    #modalDetalleOP .modal-content,
-    #modalPlanificadorProduccion .modal-content,
-    #modalEjecutarOP .modal-content {
-        max-height: calc(100dvh - 2rem);
-        display: flex;
-        flex-direction: column;
-    }
-
-
-    #modalEjecutarOP .modal-content {
-        height: calc(100dvh - 2rem);
-    }
-
-    #modalEjecutarOP #formEjecutarOrden {
-        display: flex;
-        flex-direction: column;
-        flex: 1 1 auto;
-        min-height: 0;
-    }
-
-    #modalPlanificarOP .modal-body,
-    #modalEditarOP .modal-body,
-    #modalDetalleOP .modal-body,
-    #modalPlanificadorProduccion .modal-body,
-    #modalEjecutarOP .modal-body {
-        flex: 1 1 auto;
-        min-height: 0;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-    }
-
-    #modalEjecutarOP .modal-body {
-        flex: 1 1 auto;
-        min-height: 0;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        padding-bottom: 1rem;
-    }
-
-    #modalEjecutarOP .modal-footer {
-        position: sticky;
-        bottom: 0;
-        z-index: 2;
-    }
-
-    @media (max-width: 991.98px) {
-        #modalPlanificarOP .modal-dialog,
-        #modalEditarOP .modal-dialog,
-        #modalDetalleOP .modal-dialog,
-        #modalPlanificadorProduccion .modal-dialog,
-        #modalEjecutarOP .modal-dialog {
-            margin: 0.5rem auto;
-            width: calc(100% - 1rem);
-            max-width: none;
-        }
-
-        #modalPlanificarOP .modal-content,
-        #modalEditarOP .modal-content,
-        #modalDetalleOP .modal-content,
-        #modalPlanificadorProduccion .modal-content,
-        #modalEjecutarOP .modal-content {
-            max-height: calc(100dvh - 1rem);
-            border-radius: 0.9rem;
-        }
-
-        #modalEjecutarOP .modal-content {
-            height: calc(100dvh - 1rem);
-        }
-
-    }
-
-    @media (max-width: 767.98px) {
-        #modalEjecutarOP .nav-link {
-            font-size: 0.95rem;
-            padding-left: 0.6rem;
-            padding-right: 0.6rem;
-        }
-
-        #modalEjecutarOP .modal-footer {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        #modalEjecutarOP .modal-footer .btn {
-            flex: 1 1 100%;
-        }
-    }
-
-    /* ========================================================================= */
-    /* OPTIMIZACIÓN DE TABLAS A TARJETAS PARA CELULARES (MOBILE FIRST)           */
-    /* ========================================================================= */
-    @media (max-width: 767.98px) {
-        .mobile-card-table thead { display: none; }
-        .mobile-card-table tbody tr {
-            display: block;
-            border: 1px solid #dee2e6;
-            border-radius: 0.5rem;
-            margin-bottom: 1rem;
-            padding: 0.5rem;
-            background-color: #fff;
-            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
-        }
-        .mobile-card-table tbody td {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.4rem 0;
-            border-bottom: 1px dashed #e9ecef;
-            text-align: right;
-            border-top: none !important;
-        }
-        .mobile-card-table tbody td:last-child { border-bottom: none; }
-        .mobile-card-table tbody td::before {
-            content: attr(data-label);
-            font-weight: 700;
-            font-size: 0.7rem;
-            color: #6c757d;
-            text-transform: uppercase;
-            margin-right: 1rem;
-            text-align: left;
-        }
-        .mobile-card-table tbody td > * {
-            max-width: 65%; /* Evita que los inputs tapen el título en celular */
-        }
-    }
-</style>
 
 <div class="container-fluid p-4" id="ordenesProduccionApp">
 
@@ -264,8 +51,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                
-                <table id="tablaOrdenes" class="table align-middle mb-0 table-pro table-hover"
+                <table id="tablaOrdenes" class="table align-middle mb-0 table-pro table-hover op-mobile-cards"
                        data-erp-table="true"
                        data-rows-selector="#opTableBody tr.op-main-row"
                        data-search-input="#opSearch"
@@ -907,7 +693,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 </div>
                             </div>
                             <div class="table-responsive">
-                                <table class="table table-sm align-middle table-bordered mb-0 mobile-card-table" id="tablaConsumosDynamic">
+                                <table class="table table-sm align-middle table-bordered mb-0 mobile-card-dynamic" id="tablaConsumosDynamic">
                                     <thead class="table-light text-muted small text-uppercase">
                                         <tr>
                                             <th>Insumo (ID / Nombre)</th>
@@ -931,7 +717,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 </div>
                             </div>
                             <div class="table-responsive">
-                                <table class="table table-sm align-middle table-bordered mb-0 mobile-card-table" id="tablaIngresosDynamic">
+                                <table class="table table-sm align-middle table-bordered mb-0 mobile-card-dynamic" id="tablaIngresosDynamic">
                                     <thead class="table-light text-muted small text-uppercase">
                                         <tr>
                                             <th style="width: 25%;">Almacén Destino</th>
