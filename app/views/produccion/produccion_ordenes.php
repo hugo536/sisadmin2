@@ -700,7 +700,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                             <th style="width: 25%;">Almacén Origen</th>
                                             <th style="width: 15%; text-align: center;">Cantidad</th>
                                             <th style="width: 20%;" class="d-none">Lote (Opcional)</th>
-                                            <th style="width: 5%; text-align: center;">Quitar</th>
+                                            <th style="width: 5%; text-align: center;">Acción</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -720,11 +720,11 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 <table class="table table-sm align-middle table-bordered mb-0 mobile-card-dynamic" id="tablaIngresosDynamic">
                                     <thead class="table-light text-muted small text-uppercase">
                                         <tr>
-                                            <th style="width: 25%;">Almacén Destino</th>
-                                            <th style="width: 20%; text-align: center;">Cantidad Producida</th>
+                                            <th style="width: 55%;">Almacén Destino</th>
+                                            <th style="width: 35%; text-align: center;">Cantidad Producida</th>
                                             <th class="d-none">Lote Asignado</th>
                                             <th class="d-none">F. Vencimiento</th>
-                                            <th style="width: 5%; text-align: center;">Dividir</th>
+                                            <th style="width: 10%; text-align: center;">Acción</th>
                                         </tr>
                                     </thead>
                                     <tbody>

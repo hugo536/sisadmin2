@@ -864,28 +864,43 @@ function initModalEjecucion() {
             const trClon = trOriginal.cloneNode(true);
             const idInsumo = trOriginal.getAttribute('data-id-insumo') || '';
             
-            trClon.querySelector('input[name="consumo_cantidad[]"]').value = '';
-            trClon.querySelector('select[name="consumo_id_almacen[]"]').selectedIndex = 0;
-            trClon.querySelector('input[name="consumo_id_lote[]"]').value = '';
+            // FLECHA VISUAL: Agregamos una flechita al nombre para que parezca un sub-registro
+            const nombreItem = trClon.querySelector('.fw-bold');
+            if (nombreItem && !nombreItem.innerHTML.includes('bi-arrow-return-right')) {
+                nombreItem.innerHTML = '<i class="bi bi-arrow-return-right text-muted me-2"></i>' + nombreItem.innerHTML;
+            }
+
+            const inputCantClon = trClon.querySelector('input[name="consumo_cantidad[]"]');
+            if (inputCantClon) inputCantClon.value = '';
+            
+            const selectAlmClon = trClon.querySelector('select[name="consumo_id_almacen[]"]');
+            if (selectAlmClon) selectAlmClon.selectedIndex = 0;
+            
+            const inputLoteClon = trClon.querySelector('input[name="consumo_id_lote[]"]');
+            if (inputLoteClon) inputLoteClon.value = '';
+            
             trClon.classList.add('fila-fraccion-extra');
             
-            const badgeReq = trClon.querySelector('.badge-req');
-            if (badgeReq) badgeReq.style.display = 'none';
             const celdaAccion = trClon.querySelector('td:last-child');
             if (celdaAccion) {
-                celdaAccion.innerHTML = '<button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila fraccionada"><i class="bi bi-trash fs-5"></i></button>';
+                celdaAccion.innerHTML = `
+                    <div class="pc-trash-wrapper">
+                        <button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra">
+                            <i class="bi bi-trash-fill fs-5"></i>
+                        </button>
+                    </div>
+                `;
             }
 
             const inputOriginal = trOriginal.querySelector('input[name="consumo_cantidad[]"]');
-            const inputClon = trClon.querySelector('input[name="consumo_cantidad[]"]');
             if (inputOriginal) {
                 inputOriginal.readOnly = true;
                 inputOriginal.classList.add('bg-light');
             }
-            if (inputClon) {
-                inputClon.readOnly = false;
-                inputClon.removeAttribute('tabindex');
-                inputClon.classList.remove('bg-light');
+            if (inputCantClon) {
+                inputCantClon.readOnly = false;
+                inputCantClon.removeAttribute('tabindex');
+                inputCantClon.classList.remove('bg-light');
             }
 
             trOriginal.parentNode.insertBefore(trClon, trOriginal.nextSibling);
@@ -893,7 +908,35 @@ function initModalEjecucion() {
             recalcularSemaforos(true);
             return;
         }
-    });
+
+        // LÓGICA: Fraccionar Ingresos
+        const btnSplitIngreso = e.target.closest('.js-split-ingreso-row');
+        if (btnSplitIngreso) {
+            const trOriginal = btnSplitIngreso.closest('tr');
+            if (!trOriginal) return;
+            const trClon = trOriginal.cloneNode(true);
+            
+            const inputCant = trClon.querySelector('input[name="ingreso_cantidad[]"]');
+            if (inputCant) inputCant.value = '';
+            
+            const selectAlm = trClon.querySelector('select[name="ingreso_id_almacen[]"]');
+            if (selectAlm) selectAlm.selectedIndex = 0;
+
+            const celdaAccion = trClon.querySelector('td:last-child');
+            if (celdaAccion) {
+                celdaAccion.innerHTML = `
+                    <div class="pc-trash-wrapper">
+                        <button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra">
+                            <i class="bi bi-trash-fill fs-5"></i>
+                        </button>
+                    </div>
+                `;
+            }
+
+            trOriginal.parentNode.insertBefore(trClon, trOriginal.nextSibling);
+            return;
+        }
+    }); // <-- Aquí cierra el bloque del document.addEventListener('click')
 
     function dispararRecalculoTotal() {
         const insumos = new Set();
@@ -995,6 +1038,9 @@ function distribuirConsumoPorInsumo(idInsumo) {
     inputPrincipal.value = restante.toFixed(4);
 }
 
+/* ========================================================================= */
+/* 4. GENERADORES DE INTERFAZ Actualizado con iconos móviles e imagen 9 style */
+/* ========================================================================= */
 function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
     const tbody = document.querySelector('#tablaConsumosDynamic tbody');
     if (!tbody) return;
@@ -1026,6 +1072,8 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
         } else if (!almacenPlanta) {
             optionsHtml += `<option value="" disabled>Sin stock registrado para este insumo</option>`;
         }
+        
+        // CONDICIONAL: Solo aparece si hay más de 1 almacén disponible
         const puedeFraccionar = almacenesConStock.length > 1;
 
         tr.innerHTML = `
@@ -1036,10 +1084,13 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
             <td data-label="Almacén" class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${optionsHtml}</select></td>
             <td data-label="Cantidad" class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-end text-md-center bg-light" value="${item.cantidad_calculada}" readonly tabindex="-1"></td>
             <td data-label="Lote" class="align-middle d-none"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
+            
             <td data-label="Acción" class="text-end text-md-center align-middle">
-                <button type="button" class="btn btn-sm btn-outline-secondary js-split-row" title="Fraccionar consumo en otro almacén" ${puedeFraccionar ? '' : 'disabled'}>
-                    <i class="bi bi-diagram-2"></i>
+                ${puedeFraccionar ? `
+                <button type="button" class="btn btn-sm btn-outline-primary js-split-row" title="Añadir desde otro almacén">
+                    <i class="bi bi-plus-circle fs-5"></i>
                 </button>
+                ` : ''}
             </td>
         `;
     } else {
@@ -1049,7 +1100,13 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
             <td data-label="Almacén" class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select></td>
             <td data-label="Cantidad" class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-end text-md-center" required></td>
             <td data-label="Lote" class="align-middle d-none"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
-            <td data-label="Acción" class="text-end text-md-center align-middle"><button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button></td>
+            <td data-label="Acción" class="text-end text-md-center align-middle">
+                <div class="pc-trash-wrapper">
+                    <button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra">
+                        <i class="bi bi-trash-fill fs-5"></i>
+                    </button>
+                </div>
+            </td>
         `;
     }
     tbody.appendChild(tr);
@@ -1078,8 +1135,14 @@ function addIngresoRow(cantidadDefecto = '') {
         ? `<input type="date" name="ingresos_fecha_vencimiento[]" class="form-control form-control-sm border-warning" required>`
         : `<input type="date" name="ingresos_fecha_vencimiento[]" class="form-control form-control-sm bg-light text-muted" readonly tabindex="-1">`;
 
+    // CONDICIONAL: Solo aparece si hay más de 1 almacén en el sistema
+    const optionCount = (templateAlmacenes.match(/<option/g) || []).length;
+    const puedeFraccionarIngreso = optionCount > 1;
+
     tr.innerHTML = `
-        <td data-label="Destino" class="align-middle"><select name="ingreso_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select></td>
+        <td data-label="Destino" class="align-middle bg-light">
+            <select name="ingreso_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select>
+        </td>
         <td data-label="Producido" class="align-middle" style="width: 160px;">
             <div class="input-group input-group-sm justify-content-end">
                 <input type="number" step="0.0001" name="ingreso_cantidad[]" class="form-control fw-bold border-success text-end" required value="${cantidadDefecto}" style="max-width: 120px;">
@@ -1089,9 +1152,11 @@ function addIngresoRow(cantidadDefecto = '') {
         <td data-label="Lote" class="align-middle d-none">${inputLote}</td>
         <td data-label="Vence" class="align-middle d-none">${inputVenc}</td>
         <td data-label="Acción" class="text-end text-md-center align-middle">
-            <button type="button" class="btn btn-sm btn-outline-secondary js-split-ingreso-row" title="Fraccionar en otro almacén">
-                <i class="bi bi-diagram-2"></i>
+            ${puedeFraccionarIngreso ? `
+            <button type="button" class="btn btn-sm btn-outline-primary js-split-ingreso-row" title="Guardar en otro almacén">
+                <i class="bi bi-plus-circle fs-5"></i>
             </button>
+            ` : ''}
         </td>
     `;
     tbody.appendChild(tr);
@@ -1099,29 +1164,44 @@ function addIngresoRow(cantidadDefecto = '') {
 
 // INYECTAMOS EL LISTENER PARA EL BOTÓN DIVIDIR INGRESOS DENTRO DEL EVENTO CLICK GLOBAL QUE YA EXISTE EN INITMODULOEJECUCION
 document.addEventListener('click', function(e) {
-    const btnSplitIngreso = e.target.closest('.js-split-ingreso-row');
-    if (btnSplitIngreso) {
-        const trOriginal = btnSplitIngreso.closest('tr');
-        if (!trOriginal) return;
-        const trClon = trOriginal.cloneNode(true);
-        
-        // Limpiamos la cantidad en el clon
-        const inputCant = trClon.querySelector('input[name="ingreso_cantidad[]"]');
-        if (inputCant) inputCant.value = '';
-        
-        // Reseteamos el select de almacén al primero
-        const selectAlm = trClon.querySelector('select[name="ingreso_id_almacen[]"]');
-        if (selectAlm) selectAlm.selectedIndex = 0;
+    // LÓGICA: Fraccionar Ingresos
+        const btnSplitIngreso = e.target.closest('.js-split-ingreso-row');
+        if (btnSplitIngreso) {
+            const trOriginal = btnSplitIngreso.closest('tr');
+            if (!trOriginal) return;
+            const trClon = trOriginal.cloneNode(true);
+            
+            const inputCant = trClon.querySelector('input[name="ingreso_cantidad[]"]');
+            if (inputCant) inputCant.value = '';
+            
+            const selectAlm = trClon.querySelector('select[name="ingreso_id_almacen[]"]');
+            if (selectAlm) selectAlm.selectedIndex = 0;
 
-        // Al clon sí le ponemos botón de eliminar (porque la fila original no se puede borrar)
-        const celdaAccion = trClon.querySelector('td:last-child');
-        if (celdaAccion) {
-            celdaAccion.innerHTML = '<button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra"><i class="bi bi-trash fs-5"></i></button>';
+            // Acción para PC: Tacho de basura estilizado
+            const celdaAccion = trClon.querySelector('td:last-child');
+            if (celdaAccion) {
+                celdaAccion.innerHTML = `
+                    <div class="pc-trash-wrapper d-none d-md-inline-flex">
+                        <button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra">
+                            <i class="bi bi-trash-fill fs-5"></i>
+                        </button>
+                    </div>
+                `;
+            }
+
+            // Acción para móvil: Tacho de basura
+            const mobileArea = trClon.querySelector('.icon-actions-mobile');
+            if (mobileArea) {
+                mobileArea.innerHTML = `
+                    <button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra">
+                        <i class="bi bi-trash-fill fs-5"></i>
+                    </button>
+                `;
+            }
+
+            trOriginal.parentNode.insertBefore(trClon, trOriginal.nextSibling);
+            return;
         }
-
-        trOriginal.parentNode.insertBefore(trClon, trOriginal.nextSibling);
-        return;
-    }
 });
 
 // =========================================================================

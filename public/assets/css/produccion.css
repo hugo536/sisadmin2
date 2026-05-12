@@ -284,3 +284,59 @@ tr.collapse-faltantes.collapsing {
     #tablaConsumosDynamic tbody td:nth-child(3)::before { content: "Cantidad:" !important; }
     #tablaIngresosDynamic tbody td:nth-child(2)::before { content: "Cantidad Producida:" !important; }
 }
+
+/* ============================================================ */
+/* 1. DISTRIBUCIÓN DE COLUMNAS EN PC (Mejorada para imagen 9)    */
+/* ============================================================ */
+@media (min-width: 992px) { /* Afecta solo a pantallas de PC */
+    /* Tabla 1: Consumos (Salidas) */
+    #tablaConsumosDynamic th:nth-child(1) { width: 35% !important; } /* Insumo (Más ancho) */
+    #tablaConsumosDynamic th:nth-child(2) { width: 25% !important; } /* Almacén Origen */
+    #tablaConsumosDynamic th:nth-child(3) { width: 15% !important; } /* Cantidad */
+    #tablaConsumosDynamic th:nth-child(4) { width: 20% !important; } /* Lote (Opc) */
+    #tablaConsumosDynamic th:nth-child(5) { width: 5% !important; }  /* Acción/Quitar (Más estrecho) */
+
+    /* Estilo para el tacho de basura dentro de un recuadro estilizado (image_9.png style) */
+    .pc-trash-wrapper {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 5px;
+        border: 1px solid #dc3545; /* Color rojo de Bootstrap para error/borrar */
+        border-radius: 4px;
+        background-color: #fff;
+    }
+}
+
+/* ============================================================ */
+/* 2. RE-POSICIONAMIENTO DE ÍCONOS EN MÓVIL (Siguiendo imagen 8/9 sugerida) */
+/* ============================================================ */
+/* Clases de Bootstrap para mostrar/ocultar por pantalla */
+.d-md-none {
+    /* Oculto en PC, visible en móvil por defecto. Bootstrap se encarga de esto. */
+}
+.d-md-table-cell {
+    /* Visible en PC (celda de tabla), oculto en móvil. Bootstrap se encarga de esto. */
+}
+
+/* Estilo para el área de íconos móviles posicionada absolutamente */
+@media (max-width: 991px) { /* Afecta solo a pantallas móviles */
+    .item-nombre-wrapper {
+        position: relative; /* Necesario para que el top/end funcione dentro de esto */
+    }
+
+    .icon-actions-mobile {
+        position: absolute;
+        top: -15px; /* Mueve hacia arriba fuera del recuadro principal */
+        right: -10px; /* Mueve a la esquina derecha */
+        display: flex;
+        gap: 5px; /* Espacio entre íconos */
+        z-index: 10; /* Asegura que esté encima de otros elementos */
+    }
+
+    /* Oculta la columna de acción de PC en móvil */
+    #tablaConsumosDynamic th:last-child,
+    #tablaConsumosDynamic td:last-child {
+        display: none !important;
+    }
+}
