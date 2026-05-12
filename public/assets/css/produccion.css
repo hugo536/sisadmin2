@@ -288,15 +288,28 @@ tr.collapse-faltantes.collapsing {
         flex-direction: column !important;
         align-items: flex-start !important;
     }
-    .mobile-card-dynamic tbody td:nth-child(1)::before { content: "Ítem:" !important; }
+    .mobile-card-dynamic tbody td:nth-child(1)::before { content: "Insumo (ID / Nombre):" !important; }
 
     /* Asegura que el contenido inyectado por JS (ícono + texto) se vea en una sola línea ordenada */
     .mobile-card-dynamic tbody td:nth-child(1) > div,
     .mobile-card-dynamic tbody td:nth-child(1) > span {
-        display: inline-flex !important;
-        align-items: center !important;
-        gap: 8px !important; /* Espacio ideal entre el ícono y el nombre del producto */
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 6px !important; /* Espacio entre icono y texto */
         width: 100%;
+        flex-wrap: wrap !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: anywhere !important;
+    }
+
+
+    .mobile-card-dynamic tbody td:nth-child(1) .fw-bold,
+    .mobile-card-dynamic tbody td:nth-child(1) .text-wrap,
+    .mobile-card-dynamic tbody td:nth-child(1) .small {
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: anywhere !important;
     }
 
     /* Almacén -> Fila completa debajo */
