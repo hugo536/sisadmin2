@@ -1036,7 +1036,7 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
             </td>
             <td data-label="Almacén" class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${optionsHtml}</select></td>
             <td data-label="Cantidad" class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-end text-md-center bg-light" value="${item.cantidad_calculada}" readonly tabindex="-1"></td>
-            <td data-label="Lote" class="align-middle"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
+            <td data-label="Lote" class="align-middle d-none"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
             <td data-label="Acción" class="text-end text-md-center align-middle">
                 <button type="button" class="btn btn-sm btn-outline-secondary js-split-row" title="Fraccionar consumo en otro almacén" ${puedeFraccionar ? '' : 'disabled'}>
                     <i class="bi bi-diagram-2"></i>
@@ -1049,7 +1049,7 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
             <td data-label="Insumo" class="align-middle"><input type="number" name="consumo_id_insumo[]" class="form-control form-control-sm" placeholder="ID insumo" required></td>
             <td data-label="Almacén" class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select></td>
             <td data-label="Cantidad" class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-end text-md-center" required></td>
-            <td data-label="Lote" class="align-middle"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
+            <td data-label="Lote" class="align-middle d-none"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
             <td data-label="Acción" class="text-end text-md-center align-middle"><button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button></td>
         `;
     }
@@ -1087,12 +1087,43 @@ function addIngresoRow(cantidadDefecto = '') {
                 <span class="input-group-text bg-light text-muted fw-bold">${unidad}</span>
             </div>
         </td>
-        <td data-label="Lote" class="align-middle">${inputLote}</td>
-        <td data-label="Vence" class="align-middle">${inputVenc}</td>
-        <td data-label="Acción" class="text-end text-md-center align-middle"><button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button></td>
+        <td data-label="Lote" class="align-middle d-none">${inputLote}</td>
+        <td data-label="Vence" class="align-middle d-none">${inputVenc}</td>
+        <td data-label="Acción" class="text-end text-md-center align-middle">
+            <button type="button" class="btn btn-sm btn-outline-secondary js-split-ingreso-row" title="Fraccionar en otro almacén">
+                <i class="bi bi-diagram-2"></i>
+            </button>
+        </td>
     `;
     tbody.appendChild(tr);
 }
+
+// INYECTAMOS EL LISTENER PARA EL BOTÓN DIVIDIR INGRESOS DENTRO DEL EVENTO CLICK GLOBAL QUE YA EXISTE EN INITMODULOEJECUCION
+document.addEventListener('click', function(e) {
+    const btnSplitIngreso = e.target.closest('.js-split-ingreso-row');
+    if (btnSplitIngreso) {
+        const trOriginal = btnSplitIngreso.closest('tr');
+        if (!trOriginal) return;
+        const trClon = trOriginal.cloneNode(true);
+        
+        // Limpiamos la cantidad en el clon
+        const inputCant = trClon.querySelector('input[name="ingreso_cantidad[]"]');
+        if (inputCant) inputCant.value = '';
+        
+        // Reseteamos el select de almacén al primero
+        const selectAlm = trClon.querySelector('select[name="ingreso_id_almacen[]"]');
+        if (selectAlm) selectAlm.selectedIndex = 0;
+
+        // Al clon sí le ponemos botón de eliminar (porque la fila original no se puede borrar)
+        const celdaAccion = trClon.querySelector('td:last-child');
+        if (celdaAccion) {
+            celdaAccion.innerHTML = '<button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra"><i class="bi bi-trash fs-5"></i></button>';
+        }
+
+        trOriginal.parentNode.insertBefore(trClon, trOriginal.nextSibling);
+        return;
+    }
+});
 
 // =========================================================================
 // 5. LÓGICA DE SEMÁFOROS (SOLO COLORES AL USAR BOTÓN MÁGICO)

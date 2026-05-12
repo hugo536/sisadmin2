@@ -94,7 +94,6 @@ tr.collapse-faltantes.collapsing {
     flex-direction: column;
 }
 
-
 #modalEjecutarOP #formEjecutarOrden {
     display: flex;
     flex-direction: column;
@@ -142,7 +141,6 @@ tr.collapse-faltantes.collapsing {
         max-height: calc(100dvh - 1rem);
         border-radius: 0.9rem;
     }
-
 }
 
 /* ========================================================================= */
@@ -190,56 +188,29 @@ tr.collapse-faltantes.collapsing {
         padding: 4px 0 !important;
     }
 
-    #tablaOrdenes.op-mobile-cards tbody td::before {
-        display: none !important;
-    }
+    #tablaOrdenes.op-mobile-cards tbody td::before { display: none !important; }
 
-    /* Columna 1: Código (Izquierda arriba) */
-    #tablaOrdenes tbody tr.op-main-row td:nth-child(1) { 
-        width: 50% !important; order: 1 !important; font-size: 1rem !important; 
-    }
-    
-    /* Columna 5: Estado (Derecha arriba) */
-    #tablaOrdenes tbody tr.op-main-row td:nth-child(5) { 
-        width: 50% !important; order: 2 !important; display: flex !important; justify-content: flex-end !important; 
-    }
-    
-    /* Columna 2: Producto / Receta (Centro ancho completo) */
-    #tablaOrdenes tbody tr.op-main-row td:nth-child(2) { 
-        width: 100% !important; order: 3 !important; padding: 10px 0 !important; font-size: 1.05rem !important; 
-        border-bottom: 1px dashed #dee2e6 !important; margin-bottom: 8px !important;
-    }
-    
-    /* Columna 3: Planificado / Real (Izquierda medio) */
-    #tablaOrdenes tbody tr.op-main-row td:nth-child(3) { 
-        width: 60% !important; order: 4 !important; 
-    }
-    
-    /* Columna 4: Stock / Faltantes (Derecha medio) */
-    #tablaOrdenes tbody tr.op-main-row td:nth-child(4) { 
-        width: 40% !important; order: 5 !important; display: flex !important; justify-content: flex-end !important; align-items: flex-start !important; 
-    }
-    
-    /* Columna 6: Acciones (Abajo ancho completo) */
-    #tablaOrdenes tbody tr.op-main-row td:nth-child(6) { 
-        width: 100% !important; order: 6 !important; display: flex !important; justify-content: flex-end !important;
-        border-top: 1px dashed #e9ecef !important; margin-top: 10px !important; padding-top: 12px !important; 
-    }
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(1) { width: 50% !important; order: 1 !important; font-size: 1rem !important; }
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(5) { width: 50% !important; order: 2 !important; display: flex !important; justify-content: flex-end !important; }
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(2) { width: 100% !important; order: 3 !important; padding: 10px 0 !important; font-size: 1.05rem !important; border-bottom: 1px dashed #dee2e6 !important; margin-bottom: 8px !important; }
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(3) { width: 60% !important; order: 4 !important; }
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(4) { width: 40% !important; order: 5 !important; display: flex !important; justify-content: flex-end !important; align-items: flex-start !important; }
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(6) { width: 100% !important; order: 6 !important; display: flex !important; justify-content: flex-end !important; border-top: 1px dashed #e9ecef !important; margin-top: 10px !important; padding-top: 12px !important; }
+
 
     /* ---------------------------------------------------------
-       2. TARJETAS DINÁMICAS (Consumos e Ingresos - Diseño Compacto)
+       2. TARJETAS DINÁMICAS (Consumos e Ingresos) - DISEÑO LIMPIO
        --------------------------------------------------------- */
     .mobile-card-dynamic tbody tr {
         display: flex !important;
         flex-wrap: wrap !important;
-        position: relative !important;
+        position: relative !important; /* CRÍTICO: Permite anclar el botón de acción */
         padding: 15px 12px !important;
         border: 1px solid var(--erp-table-border-color, #dee2e6) !important;
         border-radius: 8px !important;
         margin-bottom: 12px !important;
         background-color: #f8f9fa !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
-        overflow: hidden !important; /* Evita que elementos flotantes salgan de la tarjeta */
     }
 
     .mobile-card-dynamic tbody td {
@@ -249,7 +220,6 @@ tr.collapse-faltantes.collapsing {
         text-align: left !important;
     }
 
-    /* Etiquetas compactas y grises */
     .mobile-card-dynamic tbody td::before {
         display: block !important;
         color: #6c757d !important;
@@ -259,82 +229,58 @@ tr.collapse-faltantes.collapsing {
         margin-bottom: 4px !important;
     }
 
-    /* Botón Quitar -> Esquina superior derecha */
+    /* --- EL BOTÓN DE ACCIÓN (Alineado perfecto arriba a la derecha, sin bordes) --- */
     .mobile-card-dynamic tbody td:nth-child(5) {
         position: absolute !important;
-        top: 15px !important; /* Ajustado para alinear con el padding del contenedor */
+        top: 12px !important;
         right: 12px !important;
         width: auto !important;
+        height: auto !important;
         padding: 0 !important;
-        order: 0 !important;
-        z-index: 10 !important; /* Asegura que el botón no sea tapado por textos largos */
+        margin: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        z-index: 10 !important;
     }
     .mobile-card-dynamic tbody td:nth-child(5)::before { display: none !important; }
 
-    /* Insumo / Producto -> Arriba destacado */
+    /* --- FILA 1: ÍTEM / ALMACÉN DESTINO --- */
     .mobile-card-dynamic tbody td:nth-child(1) {
-        width: 100% !important; /* Expandimos al 100% para ocupar la fila superior */
-        padding-right: 40px !important; /* Margen de seguridad para no chocar con el botón Quitar */
-        order: 1 !important;
-        font-size: 1.05rem !important;
-        font-weight: bold !important;
-        color: #212529 !important;
-        border-bottom: 1px dashed #dee2e6 !important;
-        padding-bottom: 10px !important;
-        margin-bottom: 10px !important;
-        
-        /* Convertimos en flex column para organizar el ::before y el texto/ícono inyectado */
-        display: flex !important; 
-        flex-direction: column !important;
-        align-items: flex-start !important;
-    }
-    .mobile-card-dynamic tbody td:nth-child(1)::before { content: "Insumo (ID / Nombre):" !important; }
-
-    /* Asegura que el contenido inyectado por JS (ícono + texto) se vea en una sola línea ordenada */
-    .mobile-card-dynamic tbody td:nth-child(1) > div,
-    .mobile-card-dynamic tbody td:nth-child(1) > span {
-        display: flex !important;
-        align-items: flex-start !important;
-        gap: 6px !important; /* Espacio entre icono y texto */
-        width: 100%;
-        flex-wrap: wrap !important;
-        white-space: normal !important;
-        word-break: break-word !important;
-        overflow-wrap: anywhere !important;
-    }
-
-
-    .mobile-card-dynamic tbody td:nth-child(1) .fw-bold,
-    .mobile-card-dynamic tbody td:nth-child(1) .text-wrap,
-    .mobile-card-dynamic tbody td:nth-child(1) .small {
-        white-space: normal !important;
-        word-break: break-word !important;
-        overflow-wrap: anywhere !important;
-    }
-
-    /* Almacén -> Fila completa debajo */
-    .mobile-card-dynamic tbody td:nth-child(2) {
-        width: 100% !important; order: 2 !important; padding-bottom: 8px !important;
-    }
-    .mobile-card-dynamic tbody td:nth-child(2)::before { content: "Almacén:" !important; }
-
-    /* Cantidad -> Mitad izquierda */
-    .mobile-card-dynamic tbody td:nth-child(3) {
-        width: 50% !important; order: 3 !important; padding-right: 6px !important;
-    }
-    .mobile-card-dynamic tbody td:nth-child(3)::before { content: "Cantidad:" !important; }
-
-    /* Lote / Vencimiento -> Mitad derecha */
-    .mobile-card-dynamic tbody td:nth-child(4) {
-        width: 50% !important; order: 4 !important; padding-left: 6px !important;
-    }
-    .mobile-card-dynamic tbody td:nth-child(4)::before { content: "Lote / Detalles:" !important; }
-
-    /* Seguridad de Inputs */
-    .mobile-card-dynamic tbody td input,
-    .mobile-card-dynamic tbody td select {
         width: 100% !important;
-        max-width: none !important;
-        box-sizing: border-box !important;
+        padding-right: 45px !important; /* Deja espacio para no tapar el botón */
+        order: 1 !important;
+        border-bottom: 1px dashed #dee2e6 !important;
+        padding-bottom: 12px !important;
+        margin-bottom: 8px !important;
     }
+    #tablaConsumosDynamic tbody td:nth-child(1)::before { content: "Ítem / Insumo:" !important; }
+    #tablaIngresosDynamic tbody td:nth-child(1)::before { content: "Almacén Destino:" !important; }
+
+    /* --- FILA 2: ALMACÉN ORIGEN / CANTIDAD PRODUCIDA --- */
+    .mobile-card-dynamic tbody td:nth-child(2) {
+        width: 100% !important; 
+        order: 2 !important; 
+        padding-bottom: 8px !important;
+    }
+    #tablaConsumosDynamic tbody td:nth-child(2)::before { content: "Almacén de Origen:" !important; }
+    #tablaIngresosDynamic tbody td:nth-child(2)::before { content: "Cantidad Producida:" !important; }
+
+    /* --- FILA 3: CANTIDAD (100%) --- */
+    /* Ocultar celdas de lote y fecha completamente en móvil */
+    #tablaConsumosDynamic tbody td:nth-child(4),
+    #tablaIngresosDynamic tbody td:nth-child(3),
+    #tablaIngresosDynamic tbody td:nth-child(4) {
+        display: none !important;
+    }
+
+    /* Como Lote se ocultó, Cantidad en ambas tablas ahora ocupa el 100% de la fila */
+    #tablaConsumosDynamic tbody td:nth-child(3),
+    #tablaIngresosDynamic tbody td:nth-child(2) /* Ojo: en Ingresos, la cantidad es el child(2) porque child(1) es destino */ { 
+        width: 100% !important; 
+        order: 3 !important; 
+        padding-right: 0 !important; 
+    }
+    
+    #tablaConsumosDynamic tbody td:nth-child(3)::before { content: "Cantidad:" !important; }
+    #tablaIngresosDynamic tbody td:nth-child(2)::before { content: "Cantidad Producida:" !important; }
 }

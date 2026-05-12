@@ -699,7 +699,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                             <th>Insumo (ID / Nombre)</th>
                                             <th style="width: 25%;">Almacén Origen</th>
                                             <th style="width: 15%; text-align: center;">Cantidad</th>
-                                            <th style="width: 20%;">Lote (Opcional)</th>
+                                            <th style="width: 20%;" class="d-none">Lote (Opcional)</th>
                                             <th style="width: 5%; text-align: center;">Quitar</th>
                                         </tr>
                                     </thead>
@@ -722,9 +722,9 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         <tr>
                                             <th style="width: 25%;">Almacén Destino</th>
                                             <th style="width: 20%; text-align: center;">Cantidad Producida</th>
-                                            <th>Lote Asignado</th>
-                                            <th>F. Vencimiento</th>
-                                            <th style="width: 5%; text-align: center;">Quitar</th>
+                                            <th class="d-none">Lote Asignado</th>
+                                            <th class="d-none">F. Vencimiento</th>
+                                            <th style="width: 5%; text-align: center;">Dividir</th>
                                         </tr>
                                     </thead>
                                     <tbody>
