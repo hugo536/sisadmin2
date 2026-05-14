@@ -696,8 +696,7 @@ function initModalEjecucion() {
                             const trClon = trOriginal.cloneNode(true);
                             trClon.classList.add('fila-fraccion-extra');
                             trClon.querySelector('input[name="consumo_cantidad[]"]').value = '';
-                            trClon.querySelector('td:last-child').innerHTML = '<button type="button" class="btn btn-sm text-danger border-0 js-remove-row"><i class="bi bi-trash fs-5"></i></button>';
-                            filaActual.parentNode.insertBefore(trClon, filaActual.nextSibling);
+                            trClon.querySelector('td:last-child').innerHTML = '<button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Quitar fila extra"><i class="bi bi-trash-fill fs-5"></i></button>';
                             filaActual = trClon;
                         }
                     }
