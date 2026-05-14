@@ -590,13 +590,20 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     </div>
 </div>
 
+<style>
+#modalEjecutarOP .op-modal-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+</style>
+
 <div class="modal fade" id="modalEjecutarOP" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             
             <div class="modal-header bg-success text-white border-bottom-0">
                 <h5 class="modal-title fw-bold">
-                    <i class="bi bi-play-fill me-2"></i>Ejecutar Producción 
+                    <i class="bi bi-play-fill me-2 op-modal-icon"></i>Ejecutar Producción 
                     <span class="badge bg-white text-success ms-2" id="lblExecCodigo">OP-000000</span>
                     <span class="small fw-semibold ms-2 opacity-90" id="lblExecRecetaInfo"></span>
                 </h5>
@@ -614,15 +621,15 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-header bg-white border-bottom-0 pt-2 pb-0 d-flex justify-content-between align-items-center">
-                            <h6 class="fw-bold text-dark mb-0 fs-6"><i class="bi bi-clock-history text-primary me-1"></i>Tiempos</h6>
+                            <h6 class="fw-bold text-dark mb-0 fs-6"><i class="bi bi-clock-history text-primary me-1 op-modal-icon"></i>Tiempos</h6>
                             <button type="button" class="btn btn-sm btn-outline-secondary shadow-sm rounded-pill fw-bold px-3 py-1 transition-hover" id="btnMagicoEjecucion" title="Cargar cantidades teóricas de la receta">
-                                <i class="bi bi-calculator me-1"></i><span class="d-none d-sm-inline">Proponer Consumos</span><span class="d-inline d-sm-none">Proponer</span>
+                                <i class="bi bi-calculator me-1 op-modal-icon"></i><span class="d-none d-sm-inline">Proponer Consumos</span><span class="d-inline d-sm-none">Proponer</span>
                             </button>
                         </div>
                         <div class="card-body p-2 p-sm-3">
                             <div class="row g-2">
                                 <div class="col-12 col-md-4">
-                                    <label class="form-label small fw-bold text-secondary mb-1"><i class="bi bi-play-circle text-success me-1"></i>Inicio <span class="text-danger">*</span></label>
+                                    <label class="form-label small fw-bold text-secondary mb-1"><i class="bi bi-play-circle text-success me-1 op-modal-icon"></i>Inicio <span class="text-danger">*</span></label>
                                     <div class="input-group input-group-sm">
                                         <input type="date" id="execFechaInicioDate" class="form-control border-secondary-subtle fw-medium" required>
                                         <input type="time" id="execFechaInicioTime" class="form-control border-secondary-subtle fw-medium text-center" required>
@@ -631,7 +638,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 </div>
 
                                 <div class="col-12 col-md-4">
-                                    <label class="form-label small fw-bold text-secondary mb-1"><i class="bi bi-stop-circle text-danger me-1"></i>Fin <span class="text-danger">*</span></label>
+                                    <label class="form-label small fw-bold text-secondary mb-1"><i class="bi bi-stop-circle text-danger me-1 op-modal-icon"></i>Fin <span class="text-danger">*</span></label>
                                     <div class="input-group input-group-sm">
                                         <input type="date" id="execFechaFinDate" class="form-control border-secondary-subtle fw-medium" required>
                                         <input type="time" id="execFechaFinTime" class="form-control border-secondary-subtle fw-medium text-center" required>
@@ -640,7 +647,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                 </div>
                                 <div class="col-12 col-md-4">
                                     <label class="form-label small fw-bold text-secondary mb-1">
-                                        <i class="bi bi-pause-circle text-warning me-1"></i>Parada 
+                                        <i class="bi bi-pause-circle text-warning me-1 op-modal-icon"></i>Parada 
                                         <span class="d-inline d-md-none text-muted fw-normal ms-1" style="font-size: 0.65rem;">(Descansos/Fallas)</span>
                                     </label>
                                     <div class="row g-2">
@@ -663,7 +670,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                             </div>
                             
                             <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center bg-light rounded p-2">
-                                <span class="text-muted fw-bold" style="font-size: 0.8rem;"><i class="bi bi-calculator me-1"></i>Hrs a Costear:</span>
+                                <span class="text-muted fw-bold" style="font-size: 0.8rem;"><i class="bi bi-calculator me-1 op-modal-icon"></i>Hrs a Costear:</span>
                                 <span class="badge bg-dark fs-6 shadow-sm px-3" id="lblTiempoNeto">0.00 <small class="text-light fw-normal opacity-75">Hrs</small></span>
                             </div>
                         </div>
@@ -674,12 +681,12 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     <ul class="nav nav-tabs nav-tabs-custom mb-3" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active text-danger fw-bold" data-bs-toggle="tab" data-bs-target="#tabConsumos" type="button" role="tab">
-                                <i class="bi bi-box-arrow-up-right me-2"></i>1. Consumos (Salidas)
+                                <i class="bi bi-box-arrow-up-right me-2 op-modal-icon"></i>1. Consumos (Salidas)
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link text-success fw-bold" data-bs-toggle="tab" data-bs-target="#tabIngresos" type="button" role="tab">
-                                <i class="bi bi-box-arrow-in-down-left me-2"></i>2. Ingresos (Producto Final)
+                                <i class="bi bi-box-arrow-in-down-left me-2 op-modal-icon"></i>2. Ingresos (Producto Final)
                             </button>
                         </li>
                     </ul>
@@ -763,7 +770,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
                 <div class="modal-footer bg-white border-top shadow-sm">
                     <button type="button" class="btn btn-light border fw-semibold px-4" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success fw-bold px-5"><i class="bi bi-check-circle-fill me-2"></i>Guardar y Ejecutar</button>
+                    <button type="submit" class="btn btn-success fw-bold px-5"><i class="bi bi-check-circle-fill me-2 op-modal-icon"></i>Guardar y Ejecutar</button>
                 </div>
             </form>
         </div>
