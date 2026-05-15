@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 class VentasDespachoModel extends Modelo
 {
-    // --- MODIFICADO: Agregada $fechaDespacho y $envasesDevueltos en los parámetros ---
     public function registrarDespacho(int $idDocumento, array $lineas, bool $cerrarForzado, string $observaciones, int $userId, string $fechaDespacho, array $envasesDevueltos = []): void
     {
         if ($idDocumento <= 0) {
@@ -585,40 +584,31 @@ class VentasDespachoModel extends Modelo
 
         $ajustesPorEnvase = [];
 
+        // --- REFACTORIZACIÓN ÉPICA ---
+        // Reutilizamos la lógica del modelo de documentos, que ya sabe calcular
+        // recetas, históricos, combos y ahora respeta la regla de "incluye_envase".
+        require_once BASE_PATH . '/app/models/VentasDocumentoModel.php';
+        $docModel = new VentasDocumentoModel();
+
         foreach ($lineasDespachadas as $linea) {
             $idProducto = (int) ($linea['id_item'] ?? 0);
             $cantidadDespachada = (float) ($linea['cantidad'] ?? 0);
             $idPresentacionOrigen = isset($linea['id_presentacion']) ? (int) $linea['id_presentacion'] : 0;
 
-            if ($idProducto <= 0 || $cantidadDespachada <= 0) {
+            if ($cantidadDespachada <= 0) {
                 continue;
             }
 
-            if ($idPresentacionOrigen > 0) {
-                continue;
-            }
+            $envasesExigidos = $docModel->obtenerInfoEnvasesRetornables($idProducto, $idPresentacionOrigen);
 
-            $envasesReceta = $this->obtenerEnvasesRetornablesDeReceta($db, $idProducto);
-
-            if ($envasesReceta === []) {
-                $envasesReceta = $this->obtenerEnvasesRetornablesDesdeHistoricoProduccion($db, $idProducto);
-            }
-
-            if ($envasesReceta === []) {
-                $envasesReceta = $this->obtenerEnvaseDirectoDelItem($db, $idProducto);
-            }
-
-            foreach ($envasesReceta as $envase) {
-                $idItemEnvase = (int) ($envase['id_item_envase'] ?? 0);
-                $factor = (float) ($envase['factor_envase'] ?? 0);
-                if ($idItemEnvase <= 0 || $factor <= 0) {
-                    continue;
-                }
+            foreach ($envasesExigidos as $envase) {
+                $idItemEnvase = (int) ($envase['id_envase'] ?? 0);
+                $factor = (float) ($envase['factor'] ?? 0);
+                
+                if ($idItemEnvase <= 0 || $factor <= 0) continue;
 
                 $cantidadAjuste = (int) round($cantidadDespachada * $factor, 0);
-                if ($cantidadAjuste <= 0) {
-                    continue;
-                }
+                if ($cantidadAjuste <= 0) continue;
 
                 $ajustesPorEnvase[$idItemEnvase] = ($ajustesPorEnvase[$idItemEnvase] ?? 0) + $cantidadAjuste;
             }
@@ -659,99 +649,6 @@ class VentasDespachoModel extends Modelo
             
             $stmtCtaCte->execute($params);
         }
-    }
-
-    private function obtenerEnvasesRetornablesDeReceta(PDO $db, int $idProducto): array
-    {
-        if ($idProducto <= 0) {
-            return [];
-        }
-
-        $stmt = $db->prepare('SELECT d.id_insumo AS id_item_envase,
-                                     (d.cantidad_por_unidad / NULLIF(r.rendimiento_base, 0)) AS factor_envase
-                              FROM produccion_recetas_detalle d
-                              INNER JOIN items i ON i.id = d.id_insumo
-                              INNER JOIN produccion_recetas r ON r.id = d.id_receta
-                              WHERE d.deleted_at IS NULL
-                                AND i.deleted_at IS NULL
-                                AND i.es_envase_retornable = 1
-                                AND r.deleted_at IS NULL
-                                AND r.estado = 1
-                                AND d.id_receta = (
-                                    SELECT r2.id
-                                    FROM produccion_recetas r2
-                                    WHERE r2.id_producto = :id_producto
-                                      AND r2.estado = 1
-                                      AND r2.deleted_at IS NULL
-                                    ORDER BY r2.version DESC, r2.id DESC
-                                    LIMIT 1
-                                )');
-        $stmt->execute(['id_producto' => $idProducto]);
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    }
-
-    private function obtenerEnvasesRetornablesDesdeHistoricoProduccion(PDO $db, int $idProducto): array
-    {
-        if ($idProducto <= 0) {
-            return [];
-        }
-
-        $stmt = $db->prepare('SELECT c.id_item AS id_item_envase,
-                                     (SUM(c.cantidad) / NULLIF(SUM(o.cantidad_producida), 0)) AS factor_envase
-                              FROM produccion_ordenes o
-                              INNER JOIN produccion_consumos c ON c.id_orden_produccion = o.id AND c.deleted_at IS NULL
-                              INNER JOIN items i ON i.id = c.id_item
-                              WHERE o.deleted_at IS NULL
-                                AND o.estado = 2
-                                AND o.cantidad_producida > 0
-                                AND o.id_producto_snapshot = :id_producto
-                                AND i.deleted_at IS NULL
-                                AND i.es_envase_retornable = 1
-                              GROUP BY c.id_item
-                              HAVING factor_envase > 0');
-        $stmt->execute(['id_producto' => $idProducto]);
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    }
-
-    private function obtenerEnvaseDirectoDelItem(PDO $db, int $idProducto): array
-    {
-        if ($idProducto <= 0) {
-            return [];
-        }
-
-        $stmt = $db->prepare('SELECT id AS id_item_envase,
-                                     1.0 AS factor_envase
-                              FROM items
-                              WHERE id = :id_producto
-                                AND deleted_at IS NULL
-                                AND es_envase_retornable = 1
-                              LIMIT 1');
-        $stmt->execute(['id_producto' => $idProducto]);
-
-        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $fila ? [$fila] : [];
-    }
-
-    private function ctaCteEnvasesTieneColumna(PDO $db, string $columna): bool
-    {
-        if ($columna === '') {
-            return false;
-        }
-
-        $stmt = $db->prepare('SELECT 1
-                              FROM information_schema.COLUMNS
-                              WHERE TABLE_SCHEMA = DATABASE()
-                                AND TABLE_NAME = :tabla
-                                AND COLUMN_NAME = :columna
-                              LIMIT 1');
-        $stmt->execute([
-            'tabla' => 'cta_cte_envases',
-            'columna' => $columna,
-        ]);
-
-        return (bool) $stmt->fetchColumn();
     }
 
     public function registrarDevolucion(int $idDocumento, string $motivo, string $resolucion, array $detalle, int $userId, string $motivoCodigo = '', bool $enviarReemplazo = false): void
@@ -1263,5 +1160,25 @@ class VentasDespachoModel extends Modelo
             }
             throw $e;
         }
+    }
+
+    private function ctaCteEnvasesTieneColumna(PDO $db, string $columna): bool
+    {
+        if ($columna === '') {
+            return false;
+        }
+
+        $stmt = $db->prepare('SELECT 1
+                              FROM information_schema.COLUMNS
+                              WHERE TABLE_SCHEMA = DATABASE()
+                                AND TABLE_NAME = :tabla
+                                AND COLUMN_NAME = :columna
+                              LIMIT 1');
+        $stmt->execute([
+            'tabla' => 'cta_cte_envases',
+            'columna' => $columna,
+        ]);
+
+        return (bool) $stmt->fetchColumn();
     }
 }

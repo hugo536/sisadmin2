@@ -379,7 +379,6 @@ class VentasDocumentoModel extends Modelo
 
         // B. Verificar si hay dinero en caja (Cuentas por Cobrar)
         try {
-            // Buscamos usando la columna correcta: id_documento_venta
             $stmtCxc = $db->prepare('SELECT monto_pagado FROM tesoreria_cxc WHERE id_documento_venta = :id_documento AND deleted_at IS NULL LIMIT 1');
             $stmtCxc->execute(['id_documento' => $idDocumento]);
             $cxc = $stmtCxc->fetch(PDO::FETCH_ASSOC);
@@ -423,7 +422,6 @@ class VentasDocumentoModel extends Modelo
 
             // --- 3. LIMPIEZA: Anular también la deuda pendiente en Tesorería ---
             try {
-                // Actualizamos usando la columna correcta: id_documento_venta
                 $db->prepare('UPDATE tesoreria_cxc 
                               SET estado = "ANULADA", deleted_at = NOW(), updated_by = :user, updated_at = NOW() 
                               WHERE id_documento_venta = :id_documento AND deleted_at IS NULL')
@@ -520,7 +518,9 @@ class VentasDocumentoModel extends Modelo
             $sqlItems = "SELECT CONCAT('ITEM-', i.id) AS id, i.sku, i.nombre, cap.precio_pactado AS precio_venta, i.tipo_item,
                                 COALESCE(i.permite_decimales, 0) AS permite_decimales,
                                 COALESCE(i.peso_kg, 0) AS peso_kg,
-                                COALESCE($stockSqlItems, 0) AS stock_actual
+                                COALESCE($stockSqlItems, 0) AS stock_actual,
+                                COALESCE(i.incluye_envase, 0) AS incluye_envase,
+                                CASE WHEN COALESCE(i.incluye_envase, 0) = 1 THEN 0 ELSE 1 END AS requiere_envase
                          FROM comercial_acuerdos_precios cap
                          INNER JOIN items i ON i.id = cap.id_presentacion
                          WHERE cap.id_acuerdo = ? AND cap.estado = 1 AND i.estado = 1 AND i.deleted_at IS NULL
@@ -542,7 +542,9 @@ class VentasDocumentoModel extends Modelo
                                 i.tipo_item,
                                 COALESCE(i.permite_decimales, 0) AS permite_decimales,
                                 COALESCE(i.peso_kg, 0) AS peso_kg,
-                                COALESCE($stockSqlItems, 0) AS stock_actual
+                                COALESCE($stockSqlItems, 0) AS stock_actual,
+                                COALESCE(i.incluye_envase, 0) AS incluye_envase,
+                                CASE WHEN COALESCE(i.incluye_envase, 0) = 1 THEN 0 ELSE 1 END AS requiere_envase
                          FROM items i
                          WHERE i.estado = 1 AND i.deleted_at IS NULL
                            AND " . $this->condicionTipoItemVenta('i') . "";
@@ -557,7 +559,9 @@ class VentasDocumentoModel extends Modelo
         if ($this->tablaExiste('precios_presentaciones') && $this->tablaExiste('precios_presentaciones_detalle')) {
             $stockSqlPacks = $this->resolverSubqueryStockCombo('pp.id', $idAlmacen);
             $sqlPacks = "SELECT CONCAT('PACK-', pp.id) AS id, 'SIN-SKU' AS sku, pp.nombre, pp.precio_venta,
-                                'combo' AS tipo_item, 0 AS permite_decimales, 0 AS peso_kg, {$stockSqlPacks} AS stock_actual
+                                'combo' AS tipo_item, 0 AS permite_decimales, 0 AS peso_kg, {$stockSqlPacks} AS stock_actual,
+                                COALESCE(pp.incluye_envase, 0) AS incluye_envase,
+                                CASE WHEN COALESCE(pp.incluye_envase, 0) = 1 THEN 0 ELSE 1 END AS requiere_envase
                          FROM precios_presentaciones pp
                          WHERE pp.estado = 1 AND pp.deleted_at IS NULL";
             $consultas[] = "($sqlPacks)";
@@ -723,13 +727,11 @@ class VentasDocumentoModel extends Modelo
         return (float) $stmt->fetchColumn();
     }
 
-    // --- MODIFICADO: Agregamos array $envasesDevueltos ---
     public function guardarDespacho(int $idDoc, array $detalle, string $obs, bool $cerrarForzado, int $userId, string $fechaDespacho, array $envasesDevueltos = []): void
     {
         require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
         $despachoModel = new VentasDespachoModel();
         
-        // --- MODIFICADO: Le pasamos $envasesDevueltos a registrarDespacho ---
         $despachoModel->registrarDespacho($idDoc, $detalle, $cerrarForzado, $obs, $userId, $fechaDespacho, $envasesDevueltos);
     }
 
@@ -854,9 +856,22 @@ class VentasDocumentoModel extends Modelo
     // --- NUEVAS FUNCIONES PARA RETORNO INMEDIATO DE ENVASES ---
     // =========================================================================
     
-    private function obtenerInfoEnvasesRetornables(int $idItem, int $idPresentacion): array 
+    public function obtenerInfoEnvasesRetornables(int $idItem, int $idPresentacion): array 
     {
         $db = $this->db();
+
+        // --- NUEVO: Si el producto o pack INCLUYE el envase, no exigimos nada ---
+        if ($idPresentacion > 0) {
+            $stmt = $db->prepare('SELECT incluye_envase FROM precios_presentaciones WHERE id = ?');
+            $stmt->execute([$idPresentacion]);
+            if ($stmt->fetchColumn()) return []; // Retorna vacío, no hay deuda
+        } elseif ($idItem > 0) {
+            $stmt = $db->prepare('SELECT incluye_envase FROM items WHERE id = ?');
+            $stmt->execute([$idItem]);
+            if ($stmt->fetchColumn()) return []; // Retorna vacío, no hay deuda
+        }
+        // -------------------------------------------------------------------------
+
         $envases = [];
 
         // Si es un Combo/Pack, buscamos los envases de cada componente

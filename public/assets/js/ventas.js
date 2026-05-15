@@ -845,7 +845,10 @@
                             stock: parseFloat(prod.stock_actual || 0),
                             precio: parseFloat(prod.precio_venta || 0),
                             permiteDecimales: Number(prod.permite_decimales || 0),
-                            pesoKg: Number(prod.peso_kg || 0)
+                            pesoKg: Number(prod.peso_kg || 0),
+                            // --- NUEVO: Leer configuración de envases del backend ---
+                            requiereEnvase: !!prod.requiere_envase, // Si es recarga normal
+                            incluyeEnvase: !!prod.incluye_envase    // Si es pack (recarga + bidón)
                         }));
                         callback(items);
                     }).catch(() => callback());
@@ -867,6 +870,25 @@
                     // Permitimos que la cajita reciba hasta 4 decimales
                     inputPrecio.value = selectedOption.precio.toFixed(4);
                     filaReal.dataset.pesoKg = String(Number(selectedOption.pesoKg || 0));
+
+                    // --- NUEVO: Mostrar insignias de envase ---
+                    const badgeRequiere = filaReal.querySelector('.detalle-envase-retornable');
+                    const badgeIncluye = filaReal.querySelector('.detalle-envase-incluido');
+
+                    if (badgeRequiere && badgeIncluye) {
+                        if (selectedOption.requiereEnvase) {
+                            badgeRequiere.classList.remove('d-none');
+                            badgeIncluye.classList.add('d-none');
+                        } else if (selectedOption.incluyeEnvase) {
+                            badgeRequiere.classList.add('d-none');
+                            badgeIncluye.classList.remove('d-none');
+                        } else {
+                            // Productos normales (ej: vasos de plástico, dispensadores)
+                            badgeRequiere.classList.add('d-none');
+                            badgeIncluye.classList.add('d-none');
+                        }
+                    }
+                    // ------------------------------------------
                     
                     // MEJORA UX: Evitar el 0 molesto
                     let valorActual = inputCantidad.value;
@@ -922,7 +944,14 @@
             });
             tom.setValue(item.id_item);
             filaReal.dataset.pesoKg = String(Number(item.peso_kg || 0));
-            
+
+            const badgeReq = filaReal.querySelector('.detalle-envase-retornable');
+            const badgeInc = filaReal.querySelector('.detalle-envase-incluido');
+            if (badgeReq && badgeInc) {
+                if (item.requiere_envase) badgeReq.classList.remove('d-none');
+                else if (item.incluye_envase) badgeInc.classList.remove('d-none');
+            }
+                    
             if (!esBorrador) tom.disable(); 
 
             configurarInputCantidad(inputCantidad, item.permite_decimales, item.cantidad || 0);

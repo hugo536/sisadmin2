@@ -17,8 +17,8 @@ class PacksModel
      */
     public function obtenerTodosLosPacks(): array
     {
-        // ¡Ahora sí traemos el precio_venta real de la base de datos!
-        $sql = "SELECT id, 'SIN-SKU' as sku, nombre, precio_venta 
+        // 👇 MODIFICADO: Agregamos COALESCE(incluye_envase, 0)
+        $sql = "SELECT id, 'SIN-SKU' as sku, nombre, precio_venta, COALESCE(incluye_envase, 0) AS incluye_envase 
                 FROM precios_presentaciones 
                 WHERE estado = 1 
                   AND deleted_at IS NULL 
@@ -38,8 +38,8 @@ class PacksModel
 
         $id = (int) ($payload['id'] ?? 0);
         $nombre = trim((string) ($payload['nombre'] ?? ''));
-        // ¡Ya activamos la variable del precio!
         $precioVenta = (float) ($payload['precio_venta'] ?? 0); 
+        $incluyeEnvase = (int) ($payload['incluye_envase'] ?? 0); // <-- NUEVA VARIABLE
         $usuarioId = (int) ($_SESSION['id'] ?? $_SESSION['usuario_id'] ?? 1);
 
         if ($nombre === '') {
@@ -48,26 +48,28 @@ class PacksModel
 
         try {
             if ($id > 0) {
-                // Actualizar pack existente incluyendo el precio
+                // 👇 MODIFICADO: Actualizar pack existente incluyendo incluye_envase
                 $sql = "UPDATE precios_presentaciones 
-                        SET nombre = :nombre, precio_venta = :precio_venta, updated_by = :updated_by 
+                        SET nombre = :nombre, precio_venta = :precio_venta, incluye_envase = :incluye_envase, updated_by = :updated_by 
                         WHERE id = :id";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([
                     'nombre' => $nombre,
                     'precio_venta' => $precioVenta,
+                    'incluye_envase' => $incluyeEnvase, // <-- NUEVO
                     'updated_by' => $usuarioId,
                     'id' => $id
                 ]);
                 return $id;
             } else {
-                // Insertar nuevo pack incluyendo el precio
-                $sql = "INSERT INTO precios_presentaciones (nombre, precio_venta, estado, created_by, updated_by) 
-                        VALUES (:nombre, :precio_venta, 1, :created_by, :updated_by)";
+                // 👇 MODIFICADO: Insertar nuevo pack incluyendo incluye_envase
+                $sql = "INSERT INTO precios_presentaciones (nombre, precio_venta, incluye_envase, estado, created_by, updated_by) 
+                        VALUES (:nombre, :precio_venta, :incluye_envase, 1, :created_by, :updated_by)";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([
                     'nombre' => $nombre,
                     'precio_venta' => $precioVenta,
+                    'incluye_envase' => $incluyeEnvase, // <-- NUEVO
                     'created_by' => $usuarioId,
                     'updated_by' => $usuarioId
                 ]);
@@ -84,7 +86,7 @@ class PacksModel
     public function buscarComponentes(string $termino): array
     {
         // Traemos TODO menos los que sean tipo 'pack'
-        $sql = "SELECT id, nombre, sku, unidad_base, tipo_item
+        $sql = "SELECT id, nombre, sku, unidad_base, tipo_item, COALESCE(es_envase_retornable, 0) AS requiere_envase
                 FROM items
                 WHERE estado = 1 
                   AND deleted_at IS NULL
@@ -113,7 +115,8 @@ class PacksModel
                        i.nombre AS nombre_item,
                        d.cantidad,
                        COALESCE(d.es_bonificacion, 0) AS es_bonificacion,
-                       i.unidad_base
+                       i.unidad_base,
+                       COALESCE(i.es_envase_retornable, 0) AS requiere_envase
                 FROM precios_presentaciones_detalle d
                 INNER JOIN items i ON i.id = d.id_item
                 WHERE d.id_presentacion = :id_pack
@@ -176,7 +179,6 @@ class PacksModel
 
     /**
      * 7. Eliminado lógico de pack/combo.
-     *    No borra físicamente, solo lo oculta del catálogo y búsquedas.
      */
     public function eliminarPack(int $idPack): bool
     {

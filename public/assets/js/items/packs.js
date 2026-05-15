@@ -17,6 +17,8 @@
     const inputPrecioPack = document.getElementById('inputPrecioPack');
     const lblEstadoPack = document.getElementById('lblEstadoPack');
     const btnEliminarPack = document.getElementById('btnEliminarPack');
+    const checkIncluyeEnvase = document.getElementById('combo_incluye_envase');
+    const contenedorSwitchEnvase = document.getElementById('contenedorSwitchEnvase'); // <-- NUEVO
     
     const seccionComponentes = document.getElementById('seccionComponentes');
     const formAgregar = document.getElementById('formAgregarComponente');
@@ -119,6 +121,21 @@
         }
     }
 
+    function evaluarVisibilidadSwitchEnvase() {
+        if (!contenedorSwitchEnvase) return;
+        
+        // Busca si hay al menos un componente en memoria o en la tabla que requiera envase
+        const algunRetornableLocales = componentesLocales.some(c => Number(c.requiere_envase) === 1);
+        const algunRetornableTabla = Array.from(tbodyComponentes.querySelectorAll('tr')).some(tr => tr.dataset.requiereEnvase === '1');
+
+        if (algunRetornableLocales || algunRetornableTabla) {
+            contenedorSwitchEnvase.classList.remove('d-none'); // ¡Magia! Aparece
+        } else {
+            contenedorSwitchEnvase.classList.add('d-none'); // Se oculta
+            if (checkIncluyeEnvase) checkIncluyeEnvase.checked = false; // Se apaga por si acaso
+        }
+    }
+
     // --- FUNCIONES DE DIBUJADO DE TABLA ---
     
     function renderTablaLocales() {
@@ -164,6 +181,7 @@
 
                 componentesLocales.splice(index, 1);
                 renderTablaLocales();
+                evaluarVisibilidadSwitchEnvase();
             });
 
             tbodyComponentes.appendChild(clon);
@@ -246,6 +264,10 @@
         });
 
         tbodyComponentes.appendChild(clon);
+        // Guardamos el dato en el HTML de la fila
+        tr.dataset.requiereEnvase = String(data.requiere_envase || 0); 
+        tbodyComponentes.appendChild(clon);
+        // NOTA: evaluarVisibilidadSwitchEnvase() se llama después de cargar toda la tabla
     }
 
     async function cargarComponentesDelPack(idPack) {
@@ -280,6 +302,7 @@
                 window.ERPTable.hideLoading(tablaComponentes);
             }
         }
+        evaluarVisibilidadSwitchEnvase();
     }
 
     // --- LÓGICA DE INTERFAZ GENERAL ---
@@ -299,6 +322,7 @@
             idPackSeleccionadoInput.value = '0';
             inputNombrePack.value = '';
             inputPrecioPack.value = '';
+            if (checkIncluyeEnvase) checkIncluyeEnvase.checked = false;
             lblEstadoPack.textContent = 'Nuevo Combo';
             lblEstadoPack.className = 'badge bg-success-subtle text-success border border-success-subtle mb-2';
             setEstadoBotonEliminar(0);
@@ -323,6 +347,8 @@
             idPackSeleccionadoInput.value = btn.dataset.id || '0';
             inputNombrePack.value = btn.dataset.nombre || '';
             inputPrecioPack.value = Number(btn.dataset.precio || 0).toFixed(2);
+
+            if (checkIncluyeEnvase) checkIncluyeEnvase.checked = (btn.dataset.incluyeEnvase === '1');
             
             lblEstadoPack.textContent = 'Editando Combo';
             lblEstadoPack.className = 'badge bg-primary-subtle text-primary border border-primary-subtle mb-2';
@@ -374,10 +400,12 @@
                 id_item: idItem,
                 nombre_item: nombreTomSelect,
                 cantidad: cantidad,
-                es_bonificacion: checkBonificacion.checked ? 1 : 0
+                es_bonificacion: checkBonificacion.checked ? 1 : 0,
+                requiere_envase: optionSelect ? Number(optionSelect.requiere_envase || 0) : 0 // <-- NUEVO
             });
             limpiarFormulario();
             renderTablaLocales();
+            evaluarVisibilidadSwitchEnvase(); // <-- NUEVO: Revisar si debe mostrarse
             return; 
         }
 
@@ -411,6 +439,7 @@
         e.preventDefault();
         
         const isNewPack = idPackSeleccionadoInput.value === '0';
+        const checkIncluyeEnvase = document.getElementById('combo_incluye_envase'); // Aseguramos la referencia
 
         if (isNewPack && componentesLocales.length === 0) {
             toastError('Debes añadir al menos un componente al combo antes de guardar.');
@@ -418,10 +447,14 @@
         }
 
         try {
+            // Capturamos si el switch está encendido (1) o apagado (0)
+            const incluyeEnvaseValor = (checkIncluyeEnvase && checkIncluyeEnvase.checked) ? '1' : '0';
+
             const body = new URLSearchParams({
                 id: idPackSeleccionadoInput.value,
                 nombre: inputNombrePack.value.trim(),
                 precio_venta: inputPrecioPack.value,
+                incluye_envase: incluyeEnvaseValor, // <-- DATO NUEVO ENVIADO AL BACKEND
                 csrf_token: csrfToken
             });
 
@@ -458,11 +491,13 @@
 
             const nombreGuardado = inputNombrePack.value.trim();
             const precioGuardado = Number(inputPrecioPack.value).toFixed(2);
+            
             let btnLista = listaPacks.find(btn => btn.dataset.id === idGuardado);
 
             if (btnLista) {
                 btnLista.dataset.nombre = nombreGuardado;
                 btnLista.dataset.precio = precioGuardado;
+                btnLista.dataset.incluyeEnvase = incluyeEnvaseValor; // <-- GUARDAMOS EL ESTADO EN EL DATASET
                 btnLista.querySelector('.fw-bold.text-dark').textContent = nombreGuardado;
                 btnLista.querySelector('.badge.bg-primary').textContent = `S/ ${precioGuardado}`;
             } else {
@@ -476,6 +511,7 @@
                 btnLista.dataset.id = idGuardado;
                 btnLista.dataset.nombre = nombreGuardado;
                 btnLista.dataset.precio = precioGuardado;
+                btnLista.dataset.incluyeEnvase = incluyeEnvaseValor; // <-- GUARDAMOS EL ESTADO EN EL DATASET
                 btnLista.innerHTML = `
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="fw-bold text-dark">${nombreGuardado}</div>
@@ -487,9 +523,17 @@
                 btnLista.addEventListener('click', () => {
                     listaPacks.forEach((b) => b.classList.remove('active', 'bg-primary-subtle', 'border-primary'));
                     btnLista.classList.add('active', 'bg-primary-subtle', 'border-primary');
+                    
                     idPackSeleccionadoInput.value = btnLista.dataset.id || '0';
                     inputNombrePack.value = btnLista.dataset.nombre || '';
                     inputPrecioPack.value = Number(btnLista.dataset.precio || 0).toFixed(2);
+                    
+                    // 👇 AL HACER CLICK, RESTAURAMOS EL ESTADO DEL SWITCH
+                    const checkEnvase = document.getElementById('combo_incluye_envase');
+                    if (checkEnvase) {
+                        checkEnvase.checked = (btnLista.dataset.incluyeEnvase === '1');
+                    }
+                    
                     lblEstadoPack.textContent = 'Editando Combo';
                     lblEstadoPack.className = 'badge bg-primary-subtle text-primary border border-primary-subtle mb-2';
                     setEstadoBotonEliminar(idPackSeleccionadoInput.value);
@@ -575,7 +619,8 @@
 
             return items.map(item => ({
                 value: String(item.id),
-                text: `${item.nombre} - [${(item.tipo_item || 'Ítem').toUpperCase()}]`
+                text: `${item.nombre} - [${(item.tipo_item || 'Ítem').toUpperCase()}]`,
+                requiere_envase: item.requiere_envase // <-- NUEVO
             }));
         } catch (error) {
             console.error('Error al poblar Tom Select:', error.message);

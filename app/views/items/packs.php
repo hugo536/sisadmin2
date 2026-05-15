@@ -44,9 +44,10 @@ $titulo = $titulo ?? 'Packs y Combos Comerciales';
                         <?php if(!empty($packs)): ?>
                             <?php foreach($packs as $pack): ?>
                                 <button type="button" class="list-group-item list-group-item-action p-3 pack-item-btn" 
-                                        data-id="<?= (int)$pack['id'] ?>" 
-                                        data-nombre="<?= htmlspecialchars($pack['nombre']) ?>"
-                                        data-precio="<?= (float)$pack['precio_venta'] ?>">
+                                    data-id="<?= (int)$pack['id'] ?>" 
+                                    data-nombre="<?= htmlspecialchars($pack['nombre']) ?>"
+                                    data-precio="<?= (float)$pack['precio_venta'] ?>"
+                                    data-incluye-envase="<?= (int)($pack['incluye_envase'] ?? 0) ?>">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="fw-bold text-dark"><?= htmlspecialchars($pack['nombre']) ?></div>
                                         <span class="badge bg-primary rounded-pill">S/ <?= number_format((float)$pack['precio_venta'], 2) ?></span>
@@ -102,7 +103,21 @@ $titulo = $titulo ?? 'Packs y Combos Comerciales';
                                     <i class="bi bi-save me-1"></i>Guardar
                                 </button>
                             </div>
-                        </div>
+                            
+                            <div class="col-md-12 mt-3 d-none" id="contenedorSwitchEnvase">
+                                    <div class="form-check form-switch bg-success-subtle border border-success-subtle rounded-3 p-3 d-flex align-items-center shadow-sm">
+                                        <input class="form-check-input ms-0 me-3" type="checkbox" id="combo_incluye_envase" style="cursor: pointer; transform: scale(1.3); margin-top: 0;">
+                                        <div>
+                                            <label class="form-check-label fw-bold text-success-emphasis d-block" for="combo_incluye_envase" style="cursor: pointer;">
+                                                <i class="bi bi-check2-circle me-1"></i> Este pack/combo YA incluye el envase físico
+                                            </label>
+                                            <small class="text-success-emphasis opacity-75">
+                                                Al marcar esto, vender este pack NO le exigirá un envase vacío al cliente ni le sumará deuda.
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                     </form>
 
                     <div class="card-body p-4 bg-light" id="seccionComponentes" style="opacity: 0.5; pointer-events: none;">

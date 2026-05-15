@@ -722,9 +722,19 @@ $formatearFechaDMY = static function ($fecha): string {
         <td class="text-center fw-bold text-muted align-top py-3 fila-numero bg-light-subtle" style="font-size: 0.85rem;">1</td>
         <td class="ps-3 py-3 align-top" data-label="Producto">
             <select class="form-select form-select-sm detalle-item shadow-none border-secondary-subtle" required></select>
-            <small class="text-muted d-block mt-1 detalle-peso-info d-none" style="font-size: 0.75rem;">
-                <i class="bi bi-box-seam me-1"></i><span class="peso-unitario">0.00</span> kg c/u (Total: <span class="peso-subtotal">0.00</span> kg)
-            </small>
+            
+            <div class="mt-1 d-flex flex-column gap-1">
+                <small class="text-muted d-none detalle-peso-info" style="font-size: 0.75rem;">
+                    <i class="bi bi-box-seam me-1"></i><span class="peso-unitario">0.00</span> kg c/u (Total: <span class="peso-subtotal">0.00</span> kg)
+                </small>
+                
+                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle d-none detalle-envase-retornable" style="width: fit-content; font-size: 0.7rem;">
+                    <i class="bi bi-arrow-repeat me-1"></i>Exige envase vacío
+                </span>
+                <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle d-none detalle-envase-incluido" style="width: fit-content; font-size: 0.7rem;">
+                    <i class="bi bi-check2-circle me-1"></i>Envase comprado (No genera deuda)
+                </span>
+            </div>
         </td>
         <td class="text-end text-muted small fw-bold py-3 px-2 align-top detalle-stock" data-label="Stock Disponible">0.00</td>
         <td class="align-top py-3 px-2" data-label="Cantidad">
