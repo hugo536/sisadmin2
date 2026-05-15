@@ -113,20 +113,17 @@ $movimientos = array_reverse($movsReversos);
                        data-pagination-info="#kardexPaginationInfo">
                     <thead class="border-bottom">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold" style="width: 12%;">Fecha</th>
-                            <th class="text-secondary fw-semibold" style="width: 8%;">Tipo</th>
-                            <th class="text-secondary fw-semibold">Ítem</th>
-                            <th class="text-secondary fw-semibold" style="width: 15%;">Ubicación</th>
-                            <th class="text-end text-secondary fw-semibold" style="width: 11%;">Cantidad</th>
-                            <th class="text-end text-secondary fw-semibold" style="width: 11%;">Saldo</th>
-                            <th class="text-secondary fw-semibold ps-3" style="width: 12%;">Usuario</th>
-                            <th class="pe-4 text-secondary fw-semibold" style="width: 15%;">Referencia</th>
+                            <th class="ps-4 text-secondary fw-semibold" style="width: 16%;">Fecha / Usuario</th>
+                            <th class="text-secondary fw-semibold" style="width: 25%;">Ítem</th>
+                            <th class="text-end text-secondary fw-semibold" style="width: 14%;">Movimiento</th>
+                            <th class="text-end text-secondary fw-semibold" style="width: 12%;">Saldo</th>
+                            <th class="ps-4 pe-4 text-secondary fw-semibold" style="width: 33%;">Detalle y Ubicación</th>
                         </tr>
                     </thead>
                     <tbody id="kardexTableBody">
                     <?php if (empty($movimientos)): ?>
                         <tr class="empty-msg-row border-bottom-0">
-                            <td colspan="8" class="text-center text-muted py-5">
+                            <td colspan="5" class="text-center text-muted py-5">
                                 <i class="bi bi-journal-x fs-1 d-block mb-2 text-light"></i>
                                 Sin movimientos para los filtros seleccionados.
                             </td>
@@ -137,7 +134,13 @@ $movimientos = array_reverse($movsReversos);
                             
                             $fechaDocumento = trim((string) ($mov['fecha_documento'] ?? ''));
                             $fechaCreacion = trim((string) ($mov['created_at'] ?? ''));
-                            $fechaMostrar = !empty($fechaDocumento) ? $fechaDocumento : $fechaCreacion;
+                            $fechaBruta = !empty($fechaDocumento) ? $fechaDocumento : $fechaCreacion;
+                            
+                            // 1. FECHA: Formato Día/Mes/Año (DD/MM/YYYY)
+                            $fechaObj = strtotime($fechaBruta);
+                            $fechaMostrar = date('H:i:s', $fechaObj) === '00:00:00' 
+                                            ? date('d/m/Y', $fechaObj) 
+                                            : date('d/m/Y H:i', $fechaObj);
                             
                             $referenciaBruta = (string) ($mov['referencia'] ?? '-');
                             $terceroNombre = trim((string) ($mov['tercero_nombre'] ?? ''));
@@ -151,11 +154,37 @@ $movimientos = array_reverse($movsReversos);
                                 }
                             }
 
-                            $refParts = array_map('trim', explode('|', $referenciaBruta));
-                            $mainRef = array_shift($refParts) ?: '-'; 
+                            // 2. REFERENCIA: Extracción de datos útiles y limpieza de "basura"
+                            $detalleConversion = '';
+                            if (preg_match('/Conv:\s*([^|]+)/i', $referenciaBruta, $matchConv)) {
+                                $detalleConversion = trim((string) ($matchConv[1] ?? ''));
+                            }
+
+                            // Ocultamos los códigos OP largos y feos
+                            $referenciaBruta = preg_replace('/OP:[a-zA-Z0-9]{15,40}\s*\|?\s*/i', '', $referenciaBruta);
                             
+                            // Si al limpiar quedó vacío, le damos un nombre humano y amigable
+                           $nombresBonitos = [
+                                'INI' => 'Registro Inicial', 'AJ+' => 'Ajuste Positivo', 'AJ-' => 'Ajuste Negativo',
+                                'COM' => 'Recepción de Compra', 'VEN' => 'Despacho de Venta', 'PRO' => 'Producción', 
+                                'CON' => 'Consumo de Insumos', 'TRF' => 'Transferencia'
+                            ];
+                            
+                            // El Título Principal SIEMPRE será el Nombre Bonito
+                            $mainRef = $nombresBonitos[$tipoMov] ?? 'Movimiento de Inventario';
+                            
+                            $refParts = array_map('trim', explode('|', $referenciaBruta));
+                            
+                            // Todo lo que quede de la referencia (comentarios, facturas) será el Subtítulo
                             $refParts = array_filter($refParts, function($part) {
-                                return !preg_match('/(?:Ingreso|Egreso):\s*[\d.]+\s*[A-Z]+/i', $part);
+                                return !empty($part) && !preg_match('/(?:Ingreso|Egreso|C\.Unit|C\.Total|Conv):\s*[\d.]+/i', $part);
+                            });
+                            
+                            $subRef = !empty($refParts) ? implode(' <span class="mx-1 text-light">|</span> ', $refParts) : '';
+                            
+                            // Filtramos datos numéricos que ensucian la vista (Costos y Conv)
+                            $refParts = array_filter($refParts, function($part) {
+                                return !preg_match('/(?:Ingreso|Egreso|C\.Unit|C\.Total|Conv):\s*[\d.]+/i', $part);
                             });
                             
                             $subRef = !empty($refParts) ? implode(' <span class="mx-1 text-light">|</span> ', $refParts) : '';
@@ -173,83 +202,71 @@ $movimientos = array_reverse($movsReversos);
                             }
 
                             $searchStr = strtolower($fechaMostrar . ' ' . $tipoMov . ' ' . ($mov['item_nombre'] ?? '') . ' ' . $origen . ' ' . $destino . ' ' . ($mov['usuario'] ?? '') . ' ' . $referenciaBruta . ' ' . $terceroNombre);
+
+                            // 3. CANTIDADES: Redondeo visual a números enteros limpios (Sin decimales)
+                            $cantidadBase = (float) ($mov['cantidad'] ?? 0);
+                            $saldoBase = (float) ($mov['saldo_calculado'] ?? 0); 
+
+                            $cantidadPrincipal = number_format($cantidadBase, 0, '', ',');
+                            $saldoPrincipal = number_format($saldoBase, 0, '', ',');
+
+                            $colorCantidad = 'text-dark';
+                            $signoCantidad = '';
+                            if (in_array($tipoMov, $tiposEntrada, true)) {
+                                $colorCantidad = 'text-success';
+                                $signoCantidad = '+ ';
+                            } elseif (in_array($tipoMov, $tiposSalida, true)) {
+                                $colorCantidad = 'text-danger';
+                                $signoCantidad = '- ';
+                            }
                         ?>
                         <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
-                            <td data-label="Fecha" class="ps-4 text-muted align-top pt-3">
-                                <i class="bi bi-clock small me-1 opacity-50"></i><?php echo e($fechaMostrar); ?>
+                            
+                            <td data-label="Fecha / Usuario" class="ps-4 align-top pt-3">
+                                <div class="text-dark fw-medium"><i class="bi bi-calendar-event small me-1 text-muted"></i><?php echo e($fechaMostrar); ?></div>
+                                <div class="small text-muted mt-1"><i class="bi bi-person-circle me-1 opacity-50"></i><?php echo e((string) ($mov['usuario'] ?? '-')); ?></div>
                             </td>
-                            <td data-label="Tipo" class="align-top pt-3 text-center">
-                                <?php if (in_array($tipoMov, $tiposEntrada, true)): ?>
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">ENT - <?php echo e($tipoMov); ?></span>
-                                <?php elseif (in_array($tipoMov, $tiposSalida, true)): ?>
-                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill">SAL - <?php echo e($tipoMov); ?></span>
-                                <?php else: ?>
-                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill"><?php echo e($tipoMov); ?></span>
-                                <?php endif; ?>
-                            </td>
+
                             <td data-label="Ítem" class="fw-bold text-dark align-top pt-3">
                                 <?php echo e((string) ($mov['item_nombre'] ?? '')); ?>
                             </td>
-                            <td data-label="Ubicación" class="align-top pt-3">
-                                <?php echo $ubicacionHtml; ?>
-                            </td>
                             
-                            <?php
-                                // --- LÓGICA DE LIMPIEZA DE DECIMALES Y COLORES ---
-                                $cantidadBase = (float) ($mov['cantidad'] ?? 0);
-                                $saldoBase = (float) ($mov['saldo_calculado'] ?? 0); // <-- Llamamos al saldo dinámico de PHP
-
-                                // Función anónima para formatear: Quita ".0000" pero mantiene decimales reales si existen.
-                                $formatQty = function($val) {
-                                    return (floor($val) == $val) ? number_format($val, 0, '.', ',') : rtrim(rtrim(number_format($val, 4, '.', ','), '0'), '.');
-                                };
-
-                                $cantidadPrincipal = $formatQty($cantidadBase);
-                                $saldoPrincipal = $formatQty($saldoBase);
-
-                                // Asignar color y signo a la cantidad
-                                $colorCantidad = 'text-dark';
-                                $signoCantidad = '';
-                                if (in_array($tipoMov, $tiposEntrada, true)) {
-                                    $colorCantidad = 'text-success';
-                                    $signoCantidad = '+ ';
-                                } elseif (in_array($tipoMov, $tiposSalida, true)) {
-                                    $colorCantidad = 'text-danger';
-                                    $signoCantidad = '- ';
-                                }
-
-                                $detalleConversion = '';
-                                if (preg_match('/Conv:\s*([^|]+)/i', $referenciaBruta, $matchConv)) {
-                                    $detalleConversion = trim((string) ($matchConv[1] ?? ''));
-                                }
-                            ?>
-                            
-                            <td data-label="Cantidad" class="text-end fw-bold align-top pt-3 <?php echo $colorCantidad; ?>" style="font-size: 1.05rem;">
-                                <?php if ($detalleConversion !== ''): ?>
-                                    <div class="text-dark fw-medium" style="font-size: 0.8rem;"><?php echo e($detalleConversion); ?></div>
-                                    <div><?php echo $signoCantidad . e($cantidadPrincipal); ?></div>
-                                <?php else: ?>
+                            <td data-label="Movimiento" class="text-end align-top pt-3">
+                                <div class="fw-bold <?php echo $colorCantidad; ?>" style="font-size: 1.15rem;">
                                     <?php echo $signoCantidad . e($cantidadPrincipal); ?>
+                                </div>
+                                <div class="mt-1">
+                                    <?php if (in_array($tipoMov, $tiposEntrada, true)): ?>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill" style="font-size: 0.7rem;">ENT - <?php echo e($tipoMov); ?></span>
+                                    <?php elseif (in_array($tipoMov, $tiposSalida, true)): ?>
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill" style="font-size: 0.7rem;">SAL - <?php echo e($tipoMov); ?></span>
+                                    <?php else: ?>
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill" style="font-size: 0.7rem;"><?php echo e($tipoMov); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                                <?php if ($detalleConversion !== ''): ?>
+                                    <div class="text-muted fw-medium mt-1" style="font-size: 0.75rem;"><?php echo e($detalleConversion); ?></div>
                                 <?php endif; ?>
                             </td>
                             
-                            <td data-label="Saldo" class="text-end fw-bold text-dark align-top pt-3 bg-light bg-opacity-50" style="font-size: 1.05rem;">
+                            <td data-label="Saldo" class="text-end fw-bold text-dark align-top pt-3 bg-light bg-opacity-50" style="font-size: 1.15rem;">
                                 <?php echo e($saldoPrincipal); ?>
                             </td>
 
-                            <td data-label="Usuario" class="align-top pt-3 ps-3 text-secondary small">
-                                <i class="bi bi-person-circle me-1 opacity-50"></i><?php echo e((string) ($mov['usuario'] ?? '-')); ?>
-                            </td>
-                            <td data-label="Referencia" class="pe-4 align-top pt-3">
-                                <div class="fw-medium text-dark small"><?php echo e($mainRef); ?></div>
+                            <td data-label="Detalle" class="ps-4 pe-4 align-top pt-3">
+                                <div class="fw-bold text-dark small mb-1"><?php echo e($mainRef); ?></div>
                                 <?php if ($subRef !== ''): ?>
-                                    <div class="small text-muted" style="font-size: 0.8em;"><?php echo $subRef; ?></div>
+                                    <div class="small text-muted mb-2" style="font-size: 0.85em;"><?php echo $subRef; ?></div>
                                 <?php endif; ?>
+                                <div class="mt-2 pt-2 border-top border-light">
+                                    <?php echo $ubicacionHtml; ?>
+                                </div>
                             </td>
+
                         </tr>
                     <?php endforeach; endif; ?>
                     </tbody>
-                </table>
+                </table>    
             </div>
 
             <?php if (!empty($movimientos)): ?>

@@ -54,6 +54,11 @@
   const cacheUnidadesItem = new Map();
   let stockActualBase = null;
 
+  // --- FUNCIÓN DE FORMATEO SIN DECIMALES ---
+  function formatEntero(num) {
+      return Number(num || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+
   function obtenerUnidadBaseItemActual() {
     if (!tomSelectItem) return 'Unidad base';
     const val = tomSelectItem.getValue();
@@ -69,7 +74,7 @@
       unidadMovimiento.innerHTML = `<option value="">${etiquetaUnidadBase}</option>`;
       unidadMovimiento.value = '';
       unidadMovimiento.disabled = true;
-      unidadMovimiento.classList.add('bg-light'); // Mantiene fondo gris
+      unidadMovimiento.classList.add('bg-light');
     }
     if (unidadMovimientoInfo) unidadMovimientoInfo.textContent = '';
   }
@@ -94,15 +99,13 @@
     if (typeof stockActualBase !== 'number' || !Number.isFinite(stockActualBase)) return;
     const factor = obtenerFactorUnidadSeleccionada();
     const stockConvertido = factor > 0 ? (stockActualBase / factor) : stockActualBase;
-    const unidadLabel = obtenerEtiquetaUnidadTransaccional();
 
     if (stockActualItemLabel) {
-      stockActualItemLabel.value = stockConvertido.toFixed(4);
+      stockActualItemLabel.value = formatEntero(stockConvertido);
     }
 
-    if (stockHint && esTipoSalida((tipo && tipo.value) || '')) {
-      stockHint.textContent = `Stock total en almacén: ${stockConvertido.toFixed(4)} ${unidadLabel}`;
-      stockHint.className = stockActualBase <= 0 ? 'form-text text-danger fw-bold' : 'form-text text-success';
+    if (stockHint) {
+      stockHint.textContent = ''; // Limpiado por minimalismo
     }
   }
 
@@ -151,7 +154,6 @@
         unidadMovimiento.appendChild(option);
       });
       
-      // Si tiene más unidades, habilitar y quitar fondo gris
       if (unidades.length > 0) {
           unidadMovimiento.disabled = false;
           unidadMovimiento.classList.remove('bg-light');
@@ -162,8 +164,8 @@
 
       if (unidadMovimientoInfo) {
         unidadMovimientoInfo.textContent = unidades.length > 0
-          ? `Si elige una unidad, la cantidad se convertirá automáticamente a ${unidadBase}.`
-          : `Este ítem no tiene unidades adicionales; se usará ${unidadBase}.`;
+          ? `Se convertirá automáticamente a ${unidadBase}.`
+          : ``; // Limpiado por minimalismo
       }
     } catch (error) {
       limpiarUnidadesTransferencia();
@@ -321,7 +323,6 @@
             }
         });
 
-        // REGLA: Bloquear buscador de ítems si no hay almacén inicial seleccionado
         if (!almacen || !almacen.value) {
             tomSelectItem.disable();
         }
@@ -331,11 +332,9 @@
     tooltipTriggerList.map(function (tooltipTriggerEl) { return new bootstrap.Tooltip(tooltipTriggerEl); });
   }
 
-  // Llamamos a la inicialización Inmediatamente (Compatible con SPA fetch)
   initInventarioApp();
   initModalDetalleInventario();
 
-  // --- FUNCIONES DE UTILIDAD PARA LA TABLA PRINCIPAL ---
   function normalizarTexto(valor) {
     return (valor || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
   }
@@ -358,21 +357,17 @@
       normalizeSearchText: normalizarTexto,
       infoText: ({ start, end, total }) => `Mostrando ${start}-${end} de ${total} resultados`,
       emptyText: 'Mostrando 0-0 de 0 resultados',
-      // Agregar callback después de que la tabla se actualiza:
       onUpdate: function() {
          aplicarEstilosResponsivosTabla();
       }
     }).init();
 
-    // Lo ejecutamos la primera vez que inicia la tabla
     aplicarEstilosResponsivosTabla();
   }
 
-  // --- NUEVA FUNCIÓN PARA REPARAR LA TABLA ---
   function aplicarEstilosResponsivosTabla() {
     if (!tablaStock) return;
     
-    // Lista de los nombres de tus columnas en el orden exacto que aparecen
     const etiquetasColumnas = [
         "Producto", 
         "Almacén", 
@@ -384,13 +379,9 @@
     const trs = tablaStock.querySelectorAll('tbody tr:not(.empty-msg-row)');
     
     trs.forEach(tr => {
-        // PARCHE: Re-inyectar la clase para que se expanda en móvil
         tr.classList.add('mobile-expandable-row');
-        
-        // Iterar sobre cada celda (td) de la fila actual
         const celdas = tr.querySelectorAll('td');
         celdas.forEach((td, index) => {
-            // Asignarle el data-label basado en su posición
             if (etiquetasColumnas[index]) {
                  td.setAttribute('data-label', etiquetasColumnas[index]);
             }
@@ -407,12 +398,8 @@
     window.location.href = url.toString();
   }
 
-  
   function initModalDetalleInventario() {
     const modalDetalleEl = document.getElementById('modalDetalleInventarioItem');
-    
-    // Eliminamos la validación de !window.bootstrap para evitar que la 
-    // función se cancele si Bootstrap tarda unos milisegundos más en cargar.
     if (!modalDetalleEl) return;
 
     const campos = {
@@ -444,8 +431,6 @@
 
     let ultimoTrigger = null;
     
-    // Al usar la delegación de eventos al document, no importa cuándo se agreguen
-    // los elementos al DOM o si cargó Bootstrap, el evento click siempre se capturará.
     document.addEventListener('click', (event) => {
       const btn = event.target && event.target.closest
         ? event.target.closest('.js-ver-detalles-item')
@@ -455,9 +440,7 @@
       pintarDetalle(btn);
     });
 
-    // Capturamos el evento nativo de Bootstrap una vez que abre el modal
     modalDetalleEl.addEventListener('show.bs.modal', (event) => {
-      // Bootstrap pasa el botón que gatilló el modal en "event.relatedTarget"
       const btn = event.relatedTarget && event.relatedTarget.closest
         ? event.relatedTarget.closest('.js-ver-detalles-item')
         : ultimoTrigger;
@@ -465,7 +448,6 @@
     });
   }
 
-// --- LÓGICA DEL FORMULARIO DE MOVIMIENTOS ---
   function obtenerDataDelItem() {
     if (!tomSelectItem) return null;
     const val = tomSelectItem.getValue();
@@ -685,7 +667,7 @@
 
     if (idConsulta <= 0 || idAlmacen <= 0) {
       stockActualBase = 0;
-      stockActualItemLabel.value = '0.0000';
+      stockActualItemLabel.value = '0';
       return;
     }
 
@@ -697,7 +679,7 @@
       actualizarStockMostradoSegunUnidad();
     } catch (error) {
       stockActualBase = 0;
-      stockActualItemLabel.value = '0.0000';
+      stockActualItemLabel.value = '0';
     }
   }
 
@@ -722,7 +704,7 @@
             data.lotes.forEach(l => {
                 const stock = parseFloat(l.stock_lote);
                 const venc = l.fecha_vencimiento ? l.fecha_vencimiento : 'N/A';
-                const texto = `${l.lote} | Vence: ${venc} | Disp: ${stock}`;
+                const texto = `${l.lote} | Vence: ${venc} | Disp: ${formatEntero(stock)}`;
                 const option = document.createElement('option');
                 option.value = l.lote;
                 option.textContent = texto;
@@ -818,13 +800,6 @@
 
     if (unidadMovimiento) {
       unidadMovimiento.addEventListener('change', () => {
-        const factor = obtenerFactorUnidadSeleccionada();
-        const unidadBase = obtenerUnidadBaseItemActual();
-        if (unidadMovimientoInfo) {
-          unidadMovimientoInfo.textContent = factor > 1
-            ? `La cantidad se convertirá a ${unidadBase} con factor x${factor}.`
-            : `Se registrará en ${unidadBase}.`;
-        }
         actualizarStockMostradoSegunUnidad();
       });
     }
@@ -847,7 +822,7 @@
       if (costoUnitarioInput) costoUnitarioInput.value = '0';
       if (stockHint) stockHint.textContent = '';
       stockActualBase = null;
-      if (stockActualItemLabel) stockActualItemLabel.value = '0.0000';
+      if (stockActualItemLabel) stockActualItemLabel.value = '0';
       limpiarUnidadesTransferencia();
       actualizarUIModal();
     }
@@ -856,7 +831,7 @@
       if (!movimientosDetalleBody) return;
 
       if (lineasMovimiento.length === 0) {
-        movimientosDetalleBody.innerHTML = '<tr data-empty="1"><td colspan="7" class="text-center text-muted py-3">Aún no hay ítems agregados.</td></tr>';
+        movimientosDetalleBody.innerHTML = '<tr data-empty="1"><td colspan="6" class="text-center text-muted py-4">Aún no hay ítems agregados.</td></tr>';
         if (window.ERPTable && typeof window.ERPTable.applyResponsiveCards === 'function') {
           window.ERPTable.applyResponsiveCards(document);
         }
@@ -871,13 +846,13 @@
             window.IconosAccion.crear('eliminar', idx, '', `data-remove-index="${idx}"`) : 
             `<button type="button" class="btn btn-sm btn-outline-danger" data-remove-index="${idx}"><i class="bi bi-trash"></i></button>`;
 
+        // Renderizamos las 6 columnas en JS
         tr.innerHTML = `
           <td>${linea.etiqueta}</td>
-          <td class="text-end">${Number(linea.cantidad_mostrada || linea.cantidad || 0).toFixed(4)}</td>
+          <td class="text-end fw-bold text-dark">${formatEntero(linea.cantidad_mostrada || linea.cantidad)}</td>
           <td>${linea.unidad_nombre || 'Base'}</td>
           <td>${linea.lote || '-'}</td>
           <td>${linea.fecha_vencimiento || '-'}</td>
-          <td class="text-end">${Number(linea.costo_unitario || 0).toFixed(4)}</td>
           <td class="text-center">
             ${botonEliminarHTML}
           </td>
@@ -987,7 +962,7 @@
           window.Swal.fire({
             icon: 'error',
             title: 'Stock insuficiente',
-            text: `No puedes mover ${cantidadSolicitada.toFixed(4)}. Stock disponible: ${stockDisponible.toFixed(4)}.`
+            text: `No puedes mover ${formatEntero(cantidadSolicitada)}. Stock disponible: ${formatEntero(stockDisponible)}.`
           });
           return;
         }
@@ -995,7 +970,9 @@
 
       const selectedValue = tomSelectItem ? tomSelectItem.getValue() : '';
       const selectedData = (tomSelectItem && selectedValue) ? tomSelectItem.options[selectedValue] : {};
-      const etiqueta = `${selectedData.sku || ''} - ${selectedData.nombre_full || selectedData.nombre || 'Ítem'}`;
+      
+      // Eliminado el SKU de la etiqueta visual
+      const etiqueta = `${selectedData.nombre_full || selectedData.nombre || 'Ítem'}`;
 
       lineasMovimiento.push({
         tipo_registro: tipoRegistroVal,
@@ -1059,7 +1036,7 @@
             if (packIdInput) packIdInput.value = '0';
             if (tipoRegistroInput) tipoRegistroInput.value = 'item';
             if (stockHint) stockHint.textContent = '';
-            if (stockActualItemLabel) stockActualItemLabel.value = '0.0000';
+            if (stockActualItemLabel) stockActualItemLabel.value = '0';
             limpiarUnidadesTransferencia();
             actualizarBloqueoCabecera();
             
@@ -1131,7 +1108,7 @@
       const confirmacion = await window.Swal.fire({
         icon: 'question',
         title: '¿Confirmar operación masiva?',
-        text: `Se registrarán ${lineasMovimiento.length} línea(s) de inventario en modo atómico.`,
+        text: `Se registraron ${lineasMovimiento.length} línea(s) de inventario.`,
         showCancelButton: true,
         confirmButtonText: 'Sí, guardar',
         cancelButtonText: 'Cancelar'
@@ -1185,7 +1162,6 @@
         const modalInstance = window.bootstrap.Modal.getInstance(modalEl);
         if (modalInstance) modalInstance.hide();
         
-        // Dado que usas SPA, mejor recargar suave
         if (typeof window.navigateWithoutReload === 'function') {
           window.navigateWithoutReload(new URL(window.location.href), false);
         } else {
@@ -1209,7 +1185,7 @@
         const devuelto = Number((inputDevuelto && inputDevuelto.value) || 0);
         const merma = Math.max(0, teorico - devuelto);
         if (!badgeMerma) return;
-        badgeMerma.textContent = `Merma calculada automáticamente: ${merma.toFixed(4)}`;
+        badgeMerma.textContent = `Merma calculada automáticamente: ${formatEntero(merma)}`;
         badgeMerma.className = `alert py-2 mb-0 small ${merma > 0 ? 'alert-danger' : 'alert-success'}`;
       };
 
@@ -1234,7 +1210,7 @@
           await window.Swal.fire({
             icon: 'success',
             title: 'Retorno registrado',
-            text: `Devolución: ${Number(json?.data?.cantidad_devolucion || 0).toFixed(4)} | Merma: ${Number(json?.data?.cantidad_merma || 0).toFixed(4)}`
+            text: `Devolución: ${formatEntero(json?.data?.cantidad_devolucion || 0)} | Merma: ${formatEntero(json?.data?.cantidad_merma || 0)}`
           });
 
           const inst = modalRetornoEl && window.bootstrap.Modal.getInstance(modalRetornoEl);

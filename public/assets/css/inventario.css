@@ -232,86 +232,210 @@
 }
 
 /* =========================================================
-   3. TABLA DE KARDEX DE INVENTARIO (#tablaKardex)
+   3. TABLA DE KARDEX DE INVENTARIO (#tablaKardex) - CELULAR COMPACTO
    ========================================================= */
 
 @media (max-width: 767.98px) {
     #tablaKardex, #tablaKardex tbody { display: block !important; width: 100% !important; }
     #tablaKardex thead { display: none !important; }
     
+    /* Tarjeta Flotante más ajustada */
     #tablaKardex tr {
-        display: flex !important; flex-wrap: wrap !important; align-items: flex-start !important;
-        margin-bottom: 1rem !important; border: 1px solid #e0e0e0 !important;
-        border-radius: 10px !important; padding: 15px 12px !important;
-        background-color: #ffffff !important; box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+        display: flex !important; 
+        flex-wrap: wrap !important; 
+        margin-bottom: 0.85rem !important; /* Más pegadas entre sí */
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 10px !important; 
+        padding: 12px 14px !important; /* Menos relleno interno */
+        background-color: #ffffff !important; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03) !important;
     }
     
     #tablaKardex td {
-        display: block !important; border: none !important;
-        padding: 6px 0 !important; text-align: left !important;
+        display: flex !important; 
+        flex-direction: column !important; 
+        align-items: flex-start !important;
+        border: none !important;
+        padding: 0 !important; 
+        margin-bottom: 8px !important; /* Menos salto entre filas de la tarjeta */
+        text-align: left !important;
     }
 
-    #tablaKardex td > div, #tablaKardex td > span, #tablaKardex td > i {
-        visibility: visible !important; opacity: 1 !important;
+    #tablaKardex td > div, #tablaKardex td > span {
+        width: 100% !important;
     }
-    
+
+    /* ESCUDO contra JS global */
+    #tablaKardex td span[class*="label"],
+    #tablaKardex td div[class*="label"] {
+        display: none !important;
+    }
+
+    /* Labels más pegados al dato */
     #tablaKardex td::before {
-        content: attr(data-label) !important; display: block !important;
-        font-size: 0.7rem !important; text-transform: uppercase !important;
-        color: #adb5bd !important; font-weight: 700 !important; margin-bottom: 4px !important;
+        content: attr(data-label) !important;
+        display: block !important;
+        font-size: 0.65rem !important; 
+        text-transform: uppercase !important;
+        color: #94a3b8 !important; /* Gris más suave y elegante */
+        font-weight: 700 !important; 
+        margin-bottom: 2px !important; /* Casi pegado al dato */
+        width: 100% !important;
+        text-align: left !important;
     }
 
-    /* 1. ÍTEM (100% Ancho) */
-    #tablaKardex td:nth-child(3) {
-        width: 100% !important; order: 1 !important;
-        border-bottom: 2px solid #f1f3f5 !important;
-        padding-bottom: 10px !important; margin-bottom: 8px !important;
-        font-size: 1.1rem !important; color: #1a1d20 !important;
-    }
-    #tablaKardex td:nth-child(3)::before { display: none !important; }
-
-    /* 2. FECHA (50% L) */
-    #tablaKardex td:nth-child(1) { width: 50% !important; order: 2 !important; }
-
-    /* 3. TIPO (50% R) */
+    /* 1. ÍTEM (Título Principal) */
     #tablaKardex td:nth-child(2) {
-        width: 50% !important; order: 3 !important;
-        display: flex !important; flex-direction: column !important; align-items: flex-end !important;
+        width: 100% !important; 
+        order: 1 !important;
+        border-bottom: 1px solid #f1f5f9 !important; /* Línea separadora más fina */
+        padding-bottom: 8px !important; 
+        font-size: 1.05rem !important; 
+        color: #0f172a !important;
+        margin-bottom: 8px !important;
     }
-    #tablaKardex td:nth-child(2)::before { text-align: right !important; }
+    #tablaKardex td:nth-child(2)::before { display: none !important; }
 
-    /* 4. UBICACIÓN (100% Ancho, línea separadora abajo) */
+    /* 2. FECHA / USUARIO (50% Izquierda) */
+    #tablaKardex td:nth-child(1) { 
+        width: 50% !important; 
+        order: 2 !important; 
+        padding-right: 8px !important; 
+    }
+    #tablaKardex td:nth-child(1) div { font-size: 0.85rem !important; } /* Letra un poco más chica */
+    
+    /* 3. MOVIMIENTO (50% Derecha) */
+    #tablaKardex td:nth-child(3) {
+        width: 50% !important; 
+        order: 3 !important;
+        align-items: flex-end !important;
+    }
+    #tablaKardex td:nth-child(3)::before { text-align: right !important; }
+    #tablaKardex td:nth-child(3) > div { 
+        text-align: right !important; 
+        justify-content: flex-end !important; 
+    }
+
+    /* 4. SALDO (Caja súper estilizada) */
     #tablaKardex td:nth-child(4) {
-        width: 100% !important; order: 4 !important;
-        border-bottom: 1px dashed #e9ecef !important;
-        padding-bottom: 8px !important; margin-bottom: 8px !important;
+        width: 100% !important; 
+        order: 4 !important;
+        flex-direction: row !important; 
+        justify-content: space-between !important;
+        align-items: center !important;
+        background-color: #f8fafc !important; 
+        border-radius: 6px !important;
+        padding: 6px 12px !important; /* Caja mucho más delgada */
+        margin-top: 2px !important; 
+        margin-bottom: 8px !important;
+    }
+    #tablaKardex td:nth-child(4)::before { 
+        width: auto !important;
+        margin-bottom: 0 !important; 
+        font-size: 0.75rem !important;
+        color: #475569 !important;
     }
 
-    /* 5. CANTIDAD (50% L) */
+    /* 5. DETALLE Y UBICACIÓN */
     #tablaKardex td:nth-child(5) {
+        width: 100% !important; 
+        order: 5 !important;
+        border-top: 1px dashed #cbd5e1 !important;
+        padding-top: 10px !important; 
+        margin-bottom: 0 !important;
+    }
+    /* El truco de magia: Ocultamos el título "Detalle y Ubicación" para ahorrar espacio vertical */
+    #tablaKardex td:nth-child(5)::before { display: none !important; }
+}
+
+/* =========================================================
+   4. TABLA DE LÍNEAS DE MOVIMIENTO (MODAL - CELULAR)
+   ========================================================= */
+
+@media (max-width: 767.98px) {
+    #tablaLineasMovimiento, 
+    #tablaLineasMovimiento tbody { display: block !important; width: 100% !important; }
+    #tablaLineasMovimiento thead { display: none !important; }
+
+    #tablaLineasMovimiento tr {
+        display: flex !important; 
+        flex-wrap: wrap !important;
+        position: relative !important; /* Permite posicionar el botón de borrar */
+        margin-bottom: 1rem !important; 
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 8px !important; 
+        padding: 15px 12px !important;
+        background-color: #ffffff !important; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04) !important;
+    }
+
+    #tablaLineasMovimiento td {
+        display: flex !important; 
+        flex-direction: column !important;
+        border: none !important;
+        padding: 6px 0 !important; 
+        text-align: left !important;
+    }
+
+    /* Estilo de los mini-títulos autogenerados */
+    #tablaLineasMovimiento td::before {
+        content: attr(data-label) !important;
+        display: block !important;
+        font-size: 0.65rem !important; 
+        text-transform: uppercase !important;
+        color: #adb5bd !important; 
+        font-weight: 700 !important; 
+        margin-bottom: 2px !important;
+    }
+
+    /* 1. ÍTEM (Título Principal de la tarjeta) */
+    #tablaLineasMovimiento td:nth-child(1) {
+        width: 85% !important; /* Deja 15% libre para el botón de borrar */
+        order: 1 !important;
+        font-size: 0.95rem !important; 
+        font-weight: 700 !important;
+        color: #212529 !important;
+        border-bottom: 1px solid #f1f3f5 !important;
+        padding-bottom: 8px !important;
+        margin-bottom: 8px !important;
+    }
+    #tablaLineasMovimiento td:nth-child(1)::before { display: none !important; } /* Oculta "ÍTEM:" */
+
+    /* 2. CANTIDAD (50% Izquierda) */
+    #tablaLineasMovimiento td:nth-child(2) {
+        width: 50% !important; order: 2 !important;
+        align-items: flex-start !important; /* Alineamos a la izquierda en móvil */
+    }
+    #tablaLineasMovimiento td:nth-child(2)::before { text-align: left !important; }
+
+    /* 3. UNIDAD (50% Derecha) */
+    #tablaLineasMovimiento td:nth-child(3) {
+        width: 50% !important; order: 3 !important;
+    }
+
+    /* 4. LOTE (50% Izquierda) */
+    #tablaLineasMovimiento td:nth-child(4) {
+        width: 50% !important; order: 4 !important;
+    }
+
+    /* 5. VENCIMIENTO (50% Derecha) */
+    #tablaLineasMovimiento td:nth-child(5) {
         width: 50% !important; order: 5 !important;
-        display: flex !important; flex-direction: column !important; align-items: flex-start !important;
-    }
-    #tablaKardex td:nth-child(5)::before { text-align: left !important; }
-    #tablaKardex td:nth-child(5) > div { text-align: left !important; }
-
-    /* 6. SALDO (50% R) */
-    #tablaKardex td:nth-child(6) {
-        width: 50% !important; order: 6 !important;
-        display: flex !important; flex-direction: column !important; align-items: flex-end !important;
-    }
-    #tablaKardex td:nth-child(6)::before { text-align: right !important; }
-    #tablaKardex td:nth-child(6) > div { text-align: right !important; }
-
-    /* 7. USUARIO (100% Ancho) */
-    #tablaKardex td:nth-child(7) {
-        width: 100% !important; order: 7 !important;
-        border-top: 1px dashed #e9ecef !important;
-        margin-top: 8px !important; padding-top: 12px !important; padding-left: 0 !important; 
     }
 
-    /* 8. REFERENCIA (100% Ancho) */
-    #tablaKardex td:nth-child(8) {
-        width: 100% !important; order: 8 !important; padding-right: 0 !important; 
+    /* 6. ACCIÓN (Botón Eliminar flotando arriba a la derecha) */
+    #tablaLineasMovimiento td:nth-child(6) {
+        position: absolute !important;
+        top: 12px !important;
+        right: 12px !important;
+        width: auto !important;
+        padding: 0 !important;
+        order: 0 !important;
+    }
+    #tablaLineasMovimiento td:nth-child(6)::before { display: none !important; } /* Oculta "ACCIÓN:" */
+    
+    /* Pequeño ajuste para que el botón no se vea estirado */
+    #tablaLineasMovimiento td:nth-child(6) button {
+        padding: 0.25rem 0.5rem !important;
     }
 }

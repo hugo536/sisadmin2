@@ -421,7 +421,6 @@ $tipoItemLabel = static function (string $tipo): string {
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <div class="form-text mt-1"><i class="bi bi-info-circle me-1"></i>Obligatorio para salidas por consumo interno (Ej. Suministros, Repuestos).</div>
                                 </div>
                             </div>
                         </div>
@@ -440,39 +439,33 @@ $tipoItemLabel = static function (string $tipo): string {
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label text-muted small fw-bold mb-1">Stock en Almacén</label>
-                                    <input type="text" class="form-control bg-light text-primary fw-bold" id="stockActualItemSeleccionado" value="0.0000" readonly>
+                                    <input type="text" class="form-control bg-light text-primary fw-bold" id="stockActualItemSeleccionado" value="0" readonly>
                                 </div>
                             </div>
 
                             <div class="row g-3 align-items-start">
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <label for="cantidadMovimiento" class="form-label text-muted small fw-bold mb-1">Cantidad a Mover <span class="text-danger">*</span></label>
                                     <input type="number" step="0.0001" min="0.0001" class="form-control bg-light" id="cantidadMovimiento" name="cantidad" disabled>
-                                    <div class="form-text mt-1 text-primary fw-medium" id="stockDisponibleHint"></div>
                                 </div>
 
-                                <div class="col-md-4" id="grupoUnidadMovimiento">
+                                <div class="col-md-6" id="grupoUnidadMovimiento">
                                     <label for="unidadMovimiento" class="form-label text-muted small fw-bold mb-1">Unidad transaccional</label>
                                     <select id="unidadMovimiento" class="form-select bg-light" disabled>
                                         <option value="">Unidad base</option>
                                     </select>
                                 </div>
 
-                                <div class="col-md-4 d-flex align-items-end" id="grupoUnidadInfoMovimiento">
-                                    <div class="form-text small text-muted mt-0" id="unidadMovimientoInfo"></div>
-                                </div>
-
-                                <div class="col-md-4 d-none" id="grupoCostoUnitarioMovimiento">
-                                    <label for="costoUnitarioMovimiento" class="form-label text-muted small fw-bold mb-1">Costo Unitario (S/)</label>
+                                <div class="d-none !important" id="grupoCostoUnitarioMovimiento" style="display: none !important;">
                                     <input type="number" step="0.0001" min="0" class="form-control" id="costoUnitarioMovimiento" name="costo_unitario" value="0">
                                 </div>
 
-                                <div class="col-md-4 d-none" id="grupoLoteInput">
+                                <div class="col-md-6 d-none mt-3" id="grupoLoteInput">
                                     <label for="loteMovimientoInput" class="form-label text-muted small fw-bold mb-1">Nuevo Lote</label>
                                     <input type="text" class="form-control" id="loteMovimientoInput" maxlength="100" placeholder="Ej. LOTE-001">
                                 </div>
 
-                                <div class="col-md-4 d-none" id="grupoLoteSelect">
+                                <div class="col-md-6 d-none mt-3" id="grupoLoteSelect">
                                     <label for="loteMovimientoSelect" class="form-label text-muted small fw-bold mb-1">Lote Existente</label>
                                     <select class="form-select" id="loteMovimientoSelect">
                                         <option value="">Seleccione lote...</option>
@@ -480,7 +473,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                     <div class="form-text small text-danger d-none mt-1" id="msgSinLotes"><i class="bi bi-exclamation-circle"></i> Sin lotes disponibles.</div>
                                 </div>
 
-                                <div class="col-md-4 d-none" id="grupoVencimientoMovimiento">
+                                <div class="col-md-6 d-none mt-3" id="grupoVencimientoMovimiento">
                                     <label for="vencimientoMovimiento" class="form-label text-muted small fw-bold mb-1">Fecha Vencimiento</label>
                                     <input type="date" class="form-control" id="vencimientoMovimiento" name="fecha_vencimiento">
                                 </div>
@@ -502,18 +495,16 @@ $tipoItemLabel = static function (string $tipo): string {
                                                     <th class="text-secondary fw-semibold">Unidad</th>
                                                     <th class="text-secondary fw-semibold">Lote</th>
                                                     <th class="text-secondary fw-semibold">Vencimiento</th>
-                                                    <th class="text-end text-secondary fw-semibold">Costo Unit.</th>
                                                     <th class="text-center text-secondary fw-semibold" style="width: 80px;">Acción</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="movimientosDetalleBody">
                                                 <tr data-empty="1">
-                                                    <td colspan="7" class="text-center text-muted py-4">Aún no hay ítems agregados.</td>
+                                                    <td colspan="6" class="text-center text-muted py-4">Aún no hay ítems agregados.</td>
                                                 </tr>
                                             </tbody>
                                         </table>
                                     </div>
-                                    <small class="text-muted d-block mt-1">Máximo 100 líneas por operación.</small>
                                 </div>
                             </div>
                         </div>
