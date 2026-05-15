@@ -697,6 +697,7 @@ function initModalEjecucion() {
                             trClon.classList.add('fila-fraccion-extra');
                             trClon.querySelector('input[name="consumo_cantidad[]"]').value = '';
                             trClon.querySelector('td:last-child').innerHTML = '<button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Quitar fila extra"><i class="bi bi-trash-fill fs-5"></i></button>';
+                            filaActual.parentNode.insertBefore(trClon, filaActual.nextSibling);
                             filaActual = trClon;
                         }
                     }
@@ -883,11 +884,9 @@ function initModalEjecucion() {
             const celdaAccion = trClon.querySelector('td:last-child');
             if (celdaAccion) {
                 celdaAccion.innerHTML = `
-                    <div class="pc-trash-wrapper">
-                        <button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra">
-                            <i class="bi bi-trash-fill fs-5"></i>
-                        </button>
-                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Quitar fila extra">
+                        <i class="bi bi-trash-fill fs-5"></i>
+                    </button>
                 `;
             }
 
@@ -924,11 +923,9 @@ function initModalEjecucion() {
             const celdaAccion = trClon.querySelector('td:last-child');
             if (celdaAccion) {
                 celdaAccion.innerHTML = `
-                    <div class="pc-trash-wrapper">
-                        <button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra">
-                            <i class="bi bi-trash-fill fs-5"></i>
-                        </button>
-                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Quitar fila extra">
+                        <i class="bi bi-trash-fill fs-5"></i>
+                    </button>
                 `;
             }
 
@@ -1100,11 +1097,9 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
             <td data-label="Cantidad" class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-end text-md-center" required></td>
             <td data-label="Lote" class="align-middle d-none"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
             <td data-label="Acción" class="text-end text-md-center align-middle td-action-mobile">
-                <div class="pc-trash-wrapper">
-                    <button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra">
-                        <i class="bi bi-trash-fill fs-5"></i>
-                    </button>
-                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Quitar fila extra">
+                    <i class="bi bi-trash-fill fs-5"></i>
+                </button>
             </td>
         `;
     }
@@ -1176,23 +1171,20 @@ document.addEventListener('click', function(e) {
             const selectAlm = trClon.querySelector('select[name="ingreso_id_almacen[]"]');
             if (selectAlm) selectAlm.selectedIndex = 0;
 
-            // Acción para PC: Tacho de basura estilizado
+            // Acción para PC y móvil combinada sin el div wrapper
             const celdaAccion = trClon.querySelector('td:last-child');
             if (celdaAccion) {
                 celdaAccion.innerHTML = `
-                    <div class="pc-trash-wrapper d-none d-md-inline-flex">
-                        <button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra">
-                            <i class="bi bi-trash-fill fs-5"></i>
-                        </button>
-                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger js-remove-row d-none d-md-inline-block" title="Quitar fila extra">
+                        <i class="bi bi-trash-fill fs-5"></i>
+                    </button>
                 `;
             }
 
-            // Acción para móvil: Tacho de basura
             const mobileArea = trClon.querySelector('.icon-actions-mobile');
             if (mobileArea) {
                 mobileArea.innerHTML = `
-                    <button type="button" class="btn btn-sm text-danger border-0 js-remove-row" title="Quitar fila extra">
+                    <button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Quitar fila extra">
                         <i class="bi bi-trash-fill fs-5"></i>
                     </button>
                 `;

@@ -357,17 +357,45 @@
       paginationInfo: '#inventarioPaginationInfo',
       normalizeSearchText: normalizarTexto,
       infoText: ({ start, end, total }) => `Mostrando ${start}-${end} de ${total} resultados`,
-      emptyText: 'Mostrando 0-0 de 0 resultados'
+      emptyText: 'Mostrando 0-0 de 0 resultados',
+      // Agregar callback después de que la tabla se actualiza:
+      onUpdate: function() {
+         aplicarEstilosResponsivosTabla();
+      }
     }).init();
 
-    // PARCHE: Re-inyectar la clase que ERPTable borra al inicializarse
-    const trs = tablaStock.querySelectorAll('tbody tr');
-    trs.forEach(tr => {
-        tr.classList.add('mobile-expandable-row');
-    });
+    // Lo ejecutamos la primera vez que inicia la tabla
+    aplicarEstilosResponsivosTabla();
+  }
 
-    // El acordeón móvil se maneja de forma global en cards_acordeon.js
-    // para mantener el mismo comportamiento que Acuerdos Comerciales.
+  // --- NUEVA FUNCIÓN PARA REPARAR LA TABLA ---
+  function aplicarEstilosResponsivosTabla() {
+    if (!tablaStock) return;
+    
+    // Lista de los nombres de tus columnas en el orden exacto que aparecen
+    const etiquetasColumnas = [
+        "Producto", 
+        "Almacén", 
+        "Stock Actual", 
+        "Situación / Alertas", 
+        "Acciones"
+    ];
+
+    const trs = tablaStock.querySelectorAll('tbody tr:not(.empty-msg-row)');
+    
+    trs.forEach(tr => {
+        // PARCHE: Re-inyectar la clase para que se expanda en móvil
+        tr.classList.add('mobile-expandable-row');
+        
+        // Iterar sobre cada celda (td) de la fila actual
+        const celdas = tr.querySelectorAll('td');
+        celdas.forEach((td, index) => {
+            // Asignarle el data-label basado en su posición
+            if (etiquetasColumnas[index]) {
+                 td.setAttribute('data-label', etiquetasColumnas[index]);
+            }
+        });
+    });
   }
 
   function aplicarFiltroAlmacenServidor() {

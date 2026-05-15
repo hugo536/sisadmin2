@@ -168,35 +168,56 @@ tr.collapse-faltantes.collapsing {
     .op-mobile-cards thead,
     .mobile-card-dynamic thead { display: none !important; }
 
-    /* ---------------------------------------------------------
+ /* ---------------------------------------------------------
        1. TARJETA PRINCIPAL: TABLA ÓRDENES DE PRODUCCIÓN
        --------------------------------------------------------- */
     #tablaOrdenes.op-mobile-cards tbody tr.op-main-row {
         display: flex !important;
         flex-wrap: wrap !important;
-        padding: 15px 12px !important;
-        border-radius: 8px !important;
-        border: 1px solid var(--erp-table-border-color, #dee2e6) !important;
-        margin-bottom: 12px !important;
-        background-color: #fff !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        padding: 12px 14px !important; /* Más aire lateral, menos vertical */
+        border-radius: 10px !important;
+        border: 1px solid #dee2e6 !important;
+        margin-bottom: 10px !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05) !important;
     }
 
     #tablaOrdenes.op-mobile-cards tbody td {
         display: block !important;
         border: none !important;
-        padding: 4px 0 !important;
+        padding: 0 !important;
+        text-align: left !important; /* Forzamos a que todo se alinee a la izquierda limpiamente */
+        background: transparent !important; /* Quitamos el fondo gris */
     }
 
     #tablaOrdenes.op-mobile-cards tbody td::before { display: none !important; }
 
-    #tablaOrdenes tbody tr.op-main-row td:nth-child(1) { width: 50% !important; order: 1 !important; font-size: 1rem !important; }
-    #tablaOrdenes tbody tr.op-main-row td:nth-child(5) { width: 50% !important; order: 2 !important; display: flex !important; justify-content: flex-end !important; }
-    #tablaOrdenes tbody tr.op-main-row td:nth-child(2) { width: 100% !important; order: 3 !important; padding: 10px 0 !important; font-size: 1.05rem !important; border-bottom: 1px dashed #dee2e6 !important; margin-bottom: 8px !important; }
-    #tablaOrdenes tbody tr.op-main-row td:nth-child(3) { width: 60% !important; order: 4 !important; }
-    #tablaOrdenes tbody tr.op-main-row td:nth-child(4) { width: 40% !important; order: 5 !important; display: flex !important; justify-content: flex-end !important; align-items: flex-start !important; }
-    #tablaOrdenes tbody tr.op-main-row td:nth-child(6) { width: 100% !important; order: 6 !important; display: flex !important; justify-content: flex-end !important; border-top: 1px dashed #e9ecef !important; margin-top: 10px !important; padding-top: 12px !important; }
-
+    /* Fila 1: Código (Izq) y Estado (Der) */
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(1) { width: 55% !important; order: 1 !important; font-size: 0.95rem !important; margin-bottom: 6px !important; }
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(5) { width: 45% !important; order: 2 !important; display: flex !important; justify-content: flex-end !important; margin-bottom: 6px !important; align-items: flex-start !important;}
+    
+    /* Fila 2: Producto y Receta */
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(2) { width: 100% !important; order: 3 !important; font-size: 1rem !important; margin-bottom: 8px !important; }
+    
+    /* Fila 3: Badges (Planificado, Fecha, Planta) */
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(3) { width: 100% !important; order: 4 !important; margin-bottom: 4px !important; }
+    
+    /* MAGIA: Convertir la columna de badges en una fila envolvente para ahorrar 3 líneas de espacio */
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(3) .d-flex.flex-column {
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        align-items: center !important;
+    }
+    
+    /* Fila 4: Alerta de Stock (Faltantes) */
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(4) { width: 100% !important; order: 5 !important; display: flex !important; justify-content: flex-start !important; }
+    
+    /* Ocultar el guion "-" cuando no hay alerta para no gastar espacio en blanco */
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(4) > span.opacity-50 { display: none !important; }
+    
+    /* Fila 5: Acciones (Botones al final) */
+    #tablaOrdenes tbody tr.op-main-row td:nth-child(6) { width: 100% !important; order: 6 !important; display: flex !important; justify-content: flex-end !important; border-top: 1px solid #f1f3f5 !important; margin-top: 8px !important; padding-top: 10px !important; }
     /* ---------------------------------------------------------
        2. TARJETAS DINÁMICAS (Consumos e Ingresos) - DISEÑO LIMPIO
        --------------------------------------------------------- */

@@ -1,144 +1,148 @@
 <?php
 /**
- * 🔍 SUPER CHECKER - Diagnóstico de Lógica de Devoluciones (Switch Reemplazo)
+ * 🔍 SUPER CHECKER V2 - Diagnóstico de Nombres Ocultos en Tabla Inventario
  */
 declare(strict_types=1);
 error_reporting(E_ALL); ini_set('display_errors', '1');
 
-echo "<!DOCTYPE html><html><head><title>Debugger Devoluciones</title>";
-// Cargamos Bootstrap y Bootstrap Icons tal cual los usas en tu sistema
+echo "<!DOCTYPE html><html><head><title>Debugger Inventario Móvil</title>";
+echo '<meta name="viewport" content="width=device-width, initial-scale=1">';
 echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">';
 echo '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">';
-echo "</head><body style='background: #f8f9fa; padding: 30px;'>";
-
-echo "<div class='container' style='max-width: 800px;'>";
-echo "<h1 class='text-primary mb-4'>🕵️‍♂️ DIAGNÓSTICO: Lógica del Switch de Reemplazo</h1>";
-echo "<p class='lead'>Este es un clon exacto de la parte del modal de devoluciones que nos está dando problemas.</p>";
-
-// ==========================================
-// SIMULACIÓN DEL HTML DE TU MODAL
-// ==========================================
 ?>
-<div class="card shadow">
-    <div class="card-header bg-warning text-dark fw-bold">
-        Simulación: Registrar Devolución de Venta
-    </div>
-    <div class="card-body">
-        
-        <div class="row mb-4 g-3">
-            <div class="col-md-6">
-                <label class="form-label fw-bold small text-muted">Motivo de Devolución <span class="text-danger">*</span></label>
-                <select id="devolucionVentaMotivo" class="form-select border-warning-subtle" required>
-                    <option value="">Seleccione un motivo...</option>
-                    <optgroup label="📦 Restaura al Inventario Vendible">
-                        <option value="producto_incorrecto">Producto incorrecto entregado</option>
-                        <option value="error_despacho">Error de despacho / cantidad excedente</option>
-                        <option value="cliente_rechaza">Cliente rechaza pedido (Packs sellados e intactos)</option>
-                    </optgroup>
-                    <optgroup label="⚠️ Descuenta o Va a Cuarentena / Mermas">
-                        <option value="producto_defectuoso">Producto defectuoso, roto o dañado</option>
-                    </optgroup>
-                </select>
-                <small id="devolucionVentaMotivoHint" class="text-muted d-block mt-1">Selecciona un motivo...</small>
-            </div>
-            
-            <div class="col-md-6">
-                <label class="form-label fw-bold small text-muted">Resolución Comercial</label>
-                <select id="devolucionVentaResolucion" class="form-select border-warning-subtle">
-                    <option value="descuento_cxc">Reducción / Anulación de Deuda</option>
-                </select>
-            </div>
-        </div>
+<style>
+    /* Inyectamos el CSS que te di para verificar que funciona perfectamente a nivel de código */
+    @media (max-width: 767.98px) {
+        table#tablaInventarioStock.erp-mobile-cards,
+        table#tablaInventarioStock.erp-mobile-cards tbody,
+        table#tablaInventarioStock.erp-mobile-cards tr,
+        table#tablaInventarioStock.erp-mobile-cards td { display: block !important; width: 100% !important; }
+        table#tablaInventarioStock.erp-mobile-cards thead { display: none !important; }
+        table#tablaInventarioStock.erp-mobile-cards tr {
+            margin-bottom: 1rem !important; border: 1px solid #e0e0e0 !important;
+            border-radius: 10px !important; padding: 16px !important; background-color: #ffffff !important;
+        }
+        table#tablaInventarioStock.erp-mobile-cards td {
+            border: none !important; border-bottom: 1px dashed #e9ecef !important; padding: 10px 0 !important; text-align: left !important;
+        }
+        table#tablaInventarioStock.erp-mobile-cards td::before {
+            content: attr(data-label) !important; display: block !important;
+            font-size: 0.75rem !important; text-transform: uppercase !important; color: #6c757d !important; font-weight: 700 !important; margin-bottom: 6px !important;
+        }
+        table#tablaInventarioStock.erp-mobile-cards td:nth-child(1)::before { display: none !important; }
+        table#tablaInventarioStock.erp-mobile-cards td > div,
+        table#tablaInventarioStock.erp-mobile-cards td > span {
+            visibility: visible !important; opacity: 1 !important; display: flex !important;
+        }
+    }
+</style>
+</head><body style='background: #f8f9fa; padding: 20px;'>
 
-        <div class="row mb-4" id="filaSwitchReemplazo">
-            <div class="col-12">
-                <div class="form-check form-switch bg-white border rounded-3 p-3 d-flex align-items-center shadow-sm">
-                    <input class="form-check-input ms-0 me-3" type="checkbox" id="devolucionEnviarReemplazo" checked style="cursor: pointer; transform: scale(1.3); margin-top: 0;">
-                    <div>
-                        <label class="form-check-label fw-bold text-dark d-block" for="devolucionEnviarReemplazo" style="cursor: pointer;">
-                            Enviar mercadería de reemplazo (Cambio / Garantía)
-                        </label>
-                        <small class="text-muted">
-                            El pedido volverá a estado "Pendiente" para despachar los productos de reemplazo.
-                        </small>
-                    </div>
+<div class="container" style="max-width: 1000px;">
+    <h2 class="text-primary mb-3"><i class="bi bi-bug-fill"></i> DIAGNÓSTICO: ¿Dónde está el Producto?</h2>
+    <p class="lead">Este script evalúa el DOM en tiempo real para atrapar al JavaScript culpable que borra tu código.</p>
+
+    <div class="row g-4 mt-2">
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-dark text-white fw-bold">1. Fila Simulada (Como debería verse)</div>
+                <div class="card-body p-3 bg-light">
+                    
+                    <table class="table align-middle mb-0 erp-mobile-cards" id="tablaInventarioStock">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Almacén</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td data-label="Producto" id="tdProducto">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="fw-bold text-wrap" id="spanNombre">BOTELLA PET 18 GR - AGUA BELÉN 625ML</span>
+                                        <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold ms-1" style="font-size: 0.65rem;">PACK</span>
+                                    </div>
+                                </td>
+                                <td data-label="Almacén" id="tdAlmacen">Múltiples Almacenes</td>
+                                <td data-label="Acciones">
+                                    <div class="d-inline-flex align-items-center gap-2">
+                                        <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle">Activo</span>
+                                        <button class="btn btn-sm btn-light"><i class="bi bi-eye fs-5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
                 </div>
             </div>
         </div>
 
-        <div class="alert alert-dark mt-4">
-            <h6 class="fw-bold"><i class="bi bi-terminal"></i> Consola de Diagnóstico JS</h6>
-            <pre id="consolaLog" class="mb-0 text-success" style="font-size: 12px;"></pre>
+        <div class="col-lg-6">
+            <div class="card shadow border-0 h-100">
+                <div class="card-header bg-danger text-white fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-terminal"></i> Consola de DOM</span>
+                    <button id="btnEscanear" class="btn btn-sm btn-light text-danger fw-bold shadow-sm">ESCANEAR AHORA</button>
+                </div>
+                <div class="card-body bg-dark text-light p-3" style="font-family: monospace; font-size: 14px; overflow-y: auto; height: 350px;" id="consolaLog">
+                    > Esperando instrucción... <br>
+                    > Redimensiona tu pantalla simulando un móvil y luego presiona "ESCANEAR AHORA".<br><br>
+                </div>
+            </div>
         </div>
-
     </div>
-</div>
 </div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    const consola = document.getElementById('consolaLog');
+    const btnEscanear = document.getElementById('btnEscanear');
     
-    // Diccionario de configuración
-    const DEVOLUCION_VENTA_MOTIVOS = {
-        producto_incorrecto: { hint: 'La mercadería regresa al stock vendible.' },
-        error_despacho: { hint: 'La devolución corrige la salida y repone stock vendible.' },
-        cliente_rechaza: { hint: 'La mercadería vuelve al stock vendible si está sellada e intacta.' },
-        producto_defectuoso: { hint: 'No reingresa a stock vendible (cuarentena/merma).' },
-    };
-
-    // Variables del DOM
-    const devolucionVentaMotivo = document.getElementById('devolucionVentaMotivo');
-    const devolucionVentaMotivoHint = document.getElementById('devolucionVentaMotivoHint');
-    const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
-    const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazo');
-    const consolaLog = document.getElementById('consolaLog');
-
-    function log(msg) {
-        consolaLog.textContent += msg + '\n';
-        console.log(msg);
+    function log(msg, color = "#fff") {
+        consola.innerHTML += `<span style="color: ${color}">> ${msg}</span><br>`;
+        consola.scrollTop = consola.scrollHeight;
     }
 
-    log("Sistema iniciado. Esperando interacciones del usuario...");
-
-    // La función estrella
-    function actualizarHintDevolucionVenta() {
-        const motivoActual = devolucionVentaMotivo.value;
-        log(`\n▶️ Evento 'change' detectado. Motivo seleccionado: "${motivoActual}"`);
+    btnEscanear.addEventListener('click', function() {
+        log("--- INICIANDO DIAGNÓSTICO MÓVIL ---", "#00ffff");
         
-        // 1. Hint
-        const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoActual];
-        if (devolucionVentaMotivoHint) {
-            devolucionVentaMotivoHint.textContent = motivoCfg ? motivoCfg.hint : 'Selecciona un motivo...';
+        const tdProducto = document.getElementById('tdProducto');
+        const spanNombre = document.getElementById('spanNombre');
+        const tdAlmacen = document.getElementById('tdAlmacen');
+        
+        // 1. Verificación de Borrado de Nodos (El mayor sospechoso)
+        if (!tdProducto) {
+            log("❌ ERROR CRÍTICO: El contenedor <td> del Producto HA DESAPARECIDO.", "#ff5555");
+            log("💡 CAUSA: Un JS externo (ERPTable) está redibujando la tabla y destruyó el elemento.", "#ffff55");
+            return;
         }
-
-        // 2. Lógica del Switch
-        if (!filaSwitchReemplazo || !checkReemplazo) {
-            log("❌ ERROR: No se encontraron en el DOM los elementos del Switch.");
+        
+        if (!spanNombre) {
+            log("❌ ERROR CRÍTICO: El <span> del nombre existe, pero fue limpiado/borrado por JS.", "#ff5555");
             return;
         }
 
-        if (motivoActual === 'producto_incorrecto' || motivoActual === 'producto_defectuoso') {
-            log("✅ Acción: Mostrando el switch de reemplazo (Aplica garantía/cambio)");
-            
-            // LA CORRECCIÓN SUPREMA DE BOOTSTRAP:
-            // Removemos 'd-none' para devolverle el control a Bootstrap
-            filaSwitchReemplazo.classList.remove('d-none');
-            
-        } else {
-            log("🚫 Acción: Ocultando el switch de reemplazo y desmarcándolo (No aplica reemplazo)");
-            
-            // LA CORRECCIÓN SUPREMA DE BOOTSTRAP:
-            // Añadimos 'd-none' (clase nativa de BS) que oculta el elemento con !important
-            filaSwitchReemplazo.classList.add('d-none');
-            checkReemplazo.checked = false;
-        }
-    }
+        log("✅ DOM Intacto: Las etiquetas HTML siguen en su lugar.", "#55ff55");
 
-    // Escuchador de eventos
-    devolucionVentaMotivo.addEventListener('change', actualizarHintDevolucionVenta);
-    
-    // Llamada inicial para limpiar el estado al cargar
-    actualizarHintDevolucionVenta();
+        // 2. Verificación de CSS Computado
+        const estilosTd = window.getComputedStyle(tdProducto);
+        const estilosSpan = window.getComputedStyle(spanNombre);
+        
+        log(`[INFO] <td> Producto -> display: ${estilosTd.display}, visibility: ${estilosTd.visibility}`);
+        log(`[INFO] <span> Nombre -> display: ${estilosSpan.display}, visibility: ${estilosSpan.visibility}`);
+
+        if (estilosTd.display === 'none' || estilosSpan.display === 'none') {
+            log("❌ ERROR CSS: Un código externo está inyectando un 'display: none' muy agresivo.", "#ff5555");
+        } else if (parseFloat(estilosTd.width) < 5 || parseFloat(estilosSpan.width) < 5) {
+            log("❌ ERROR DE DIMENSIÓN: El elemento colapsó (Ancho de 0px).", "#ff5555");
+        } else {
+            log("✅ CSS PERFECTO: Si estuvieras viendo esto en tu sistema real, el nombre SE VERÍA.", "#55ff55");
+        }
+        
+        log("--- DIAGNÓSTICO FINALIZADO ---", "#00ffff");
+        log("💡 CONCLUSIÓN: Si en esta prueba aislada el diseño se ve perfecto, significa que el archivo base de tu sistema llamado 'ERPTable' está reestructurando la tabla usando Javascript cuando detecta pantallas pequeñas.", "#ffaa00");
+    });
 });
 </script>
 </body></html>

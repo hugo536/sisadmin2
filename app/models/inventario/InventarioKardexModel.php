@@ -9,6 +9,10 @@ class InventarioKardexModel extends InventarioModel
      * Obtiene los movimientos del kardex priorizando la fecha del documento
      * sobre la fecha de registro en el sistema.
      */
+    /**
+     * Obtiene los movimientos del kardex priorizando la fecha del documento
+     * sobre la fecha de registro en el sistema.
+     */
     public function obtenerKardex(array $filtros = []): array
     {
         $sql = 'SELECT m.id,
@@ -16,6 +20,7 @@ class InventarioKardexModel extends InventarioModel
                        m.fecha_documento, 
                        m.tipo_movimiento,
                        m.cantidad,
+                       m.stock_resultante AS saldo, /* <-- ¡AQUÍ ESTÁ LA MAGIA! */
                        m.referencia,
                        i.sku,
                        i.nombre AS item_nombre,

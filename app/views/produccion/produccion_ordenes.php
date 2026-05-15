@@ -158,7 +158,8 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     <td class="text-end pe-4 align-top pt-3">
                                         <?php if (in_array($estado, [0, 1], true)): ?>
                                             <div class="d-inline-flex align-items-center gap-2 acciones-op-wrap">
-                                                <button class="btn btn-sm <?php echo $estado === 1 ? 'btn-info text-white' : 'btn-success'; ?> fw-bold px-3 shadow-sm js-abrir-ejecucion"
+                                                
+                                                <button class="btn btn-sm <?php echo $estado === 1 ? 'btn-info text-white' : 'btn-success'; ?> fw-bold px-2 px-lg-3 shadow-sm js-abrir-ejecucion"
                                                         data-id="<?php echo (int) $orden['id']; ?>"
                                                         data-codigo="<?php echo e((string) $orden['codigo']); ?>"
                                                         data-receta="<?php echo (int) $orden['id_receta']; ?>"
@@ -179,46 +180,42 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                     <span class="d-none d-lg-inline ms-1"><?php echo $estado === 1 ? 'Continuar' : 'Ejecutar'; ?></span>
                                                 </button>
 
-                                                <div class="btn-group btn-group-sm shadow-sm" role="group">
-                                                    <a href="<?php echo e((string) route_url('inventario')); ?>"
-                                                       class="btn btn-dark text-white <?php echo $precheckOk ? '' : 'btn-aprovisionar-alert'; ?>"
-                                                       title="Aprovisionar Planta"
-                                                       data-bs-toggle="tooltip">
-                                                        <i class="bi bi-arrow-left-right"></i>
-                                                    </a>
+                                                <a href="<?php echo e((string) route_url('inventario')); ?>"
+                                                   class="btn btn-sm btn-dark text-white shadow-sm <?php echo $precheckOk ? '' : 'btn-aprovisionar-alert'; ?>"
+                                                   title="Aprovisionar Planta"
+                                                   data-bs-toggle="tooltip">
+                                                    <i class="bi bi-arrow-left-right"></i>
+                                                </a>
 
-                                                    <?php if ($estado === 0): ?>
-                                                    <button type="button"
-                                                            class="btn btn-warning text-dark js-editar-op"
-                                                            data-id="<?php echo (int) $orden['id']; ?>"
-                                                            data-cantidad="<?php echo (float) $orden['cantidad_planificada']; ?>"
-                                                            data-fecha="<?php echo e((string) ($orden['fecha_programada'] ?? '')); ?>"
-                                                            data-id-almacen="<?php echo (int) ($orden['id_almacen_planta'] ?? 0); ?>"
-                                                            data-observaciones="<?php echo e((string) ($orden['observaciones'] ?? '')); ?>"
-                                                            data-bs-toggle="tooltip"
-                                                            title="Editar borrador">
-                                                        <i class="bi bi-pencil"></i>
-                                                    </button>
-                                                    <?php endif; ?>
-                                                </div>
+                                                <?php if ($estado === 0): ?>
+                                                <button type="button"
+                                                        class="btn btn-sm btn-warning text-dark shadow-sm js-editar-op"
+                                                        data-id="<?php echo (int) $orden['id']; ?>"
+                                                        data-cantidad="<?php echo (float) $orden['cantidad_planificada']; ?>"
+                                                        data-fecha="<?php echo e((string) ($orden['fecha_programada'] ?? '')); ?>"
+                                                        data-id-almacen="<?php echo (int) ($orden['id_almacen_planta'] ?? 0); ?>"
+                                                        data-observaciones="<?php echo e((string) ($orden['observaciones'] ?? '')); ?>"
+                                                        data-bs-toggle="tooltip"
+                                                        title="Editar borrador">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <?php endif; ?>
 
-                                                <?php if (in_array($estado, [0, 1], true)): ?>
-                                                <form method="post" class="d-inline js-swal-confirm"
+                                                <form method="post" class="d-inline js-swal-confirm m-0 p-0"
                                                       data-confirm-title="<?php echo $estado === 1 ? '¿Eliminar orden en proceso?' : '¿Eliminar borrador?'; ?>"
                                                       data-confirm-text="Se ocultará la orden.">
                                                     <input type="hidden" name="accion" value="eliminar_borrador">
                                                     <input type="hidden" name="id_orden" value="<?php echo (int) $orden['id']; ?>">
-                                                    <button type="submit" class="btn btn-sm btn-light text-danger rounded-circle border-0 shadow-sm"
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm"
                                                             data-bs-toggle="tooltip"
                                                             title="<?php echo $estado === 1 ? 'Eliminar orden en proceso' : 'Eliminar borrador'; ?>">
-                                                        <i class="bi bi-trash fs-6"></i>
+                                                        <i class="bi bi-trash"></i>
                                                     </button>
                                                 </form>
-                                                <?php endif; ?>
                                             </div>
                                         <?php elseif (in_array($estado, [2, 9], true)): ?>
                                             <button type="button"
-                                                    class="btn btn-sm btn-light border text-primary rounded-circle shadow-sm js-ver-detalle"
+                                                    class="btn btn-sm btn-outline-primary shadow-sm js-ver-detalle"
                                                     data-id="<?php echo (int) $orden['id']; ?>"
                                                     data-codigo="<?php echo e((string) $orden['codigo']); ?>"
                                                     data-estado="<?php echo $estado === 2 ? 'Ejecutada' : 'Anulada'; ?>"
@@ -234,11 +231,11 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                     data-cif-teorico="<?php echo number_format(((float) ($orden['costo_cif_teorico_unit'] ?? 0) * (float) ($orden['cantidad_planificada'] ?? 0)), 4); ?>"
                                                     data-bs-toggle="tooltip"
                                                     title="Ver detalle de costos y consumos">
-                                                <i class="bi bi-search fs-6"></i>
+                                                <i class="bi bi-search"></i>
                                             </button>
                                         <?php endif; ?>
                                     </td>
-                                </tr>
+                                    </tr>
 
                                 <?php if ($estado === 0 && !$precheckOk): ?>
                                 <tr class="collapse collapse-faltantes bg-light" id="faltantes-<?php echo $orden['id']; ?>" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">

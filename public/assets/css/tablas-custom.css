@@ -264,6 +264,16 @@
         padding: 0.6rem 0.85rem;
     }
 
+    /* ESCUDO PROTECTOR CONTRA JAVASCRIPT: Fuerza a mostrar DIVs y SPANs */
+    .table-pro.erp-mobile-cards tbody td > div,
+    .table-pro.erp-mobile-cards tbody td > span,
+    .table-pro.erp-mobile-cards tbody th > div,
+    .table-pro.erp-mobile-cards tbody th > span {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
     /* Inyectar el Título de la celda desde el data-label */
     .table-pro.erp-mobile-cards tbody td::before,
     .table-pro.erp-mobile-cards tbody th::before {
@@ -300,97 +310,66 @@
         min-height: 32px;
     }
 
-
     /* =========================================================
-       MAGIA MÓVIL: Tarjetas Expandibles (Acordeón Manual)
+       PARCHE BULLETPROOF: TABLA INVENTARIO MÓVIL (TODO VISIBLE)
        ========================================================= */
-    .table-pro.erp-mobile-cards .mobile-expandable-row {
-        cursor: pointer;
-        -webkit-tap-highlight-color: rgba(0,0,0,0.05);
-        transition: background-color 0.2s ease;
-    }
-
-    .table-pro.erp-mobile-cards .mobile-expandable-row:active {
-        background-color: #f8f9fa !important;
-    }
-
-    /* 1. Ocultar columnas secundarias por defecto */
-    .table-pro.erp-mobile-cards tbody tr.mobile-expandable-row td.col-mobile-hide {
-        display: none !important;
-    }
-
-    /* 2. Mostrar columnas cuando la fila se expande */
-    .table-pro.erp-mobile-cards tbody tr.mobile-expandable-row.expanded td.col-mobile-hide {
-        display: flex !important; 
-        animation: fadeInMobile 0.25s ease forwards;
-        border-top: 1px dashed var(--erp-table-border-color);
-        margin-top: 5px;
-        padding-top: 5px;
-    }
-
-    @keyframes fadeInMobile {
-        from { opacity: 0; transform: translateY(-5px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-
-    /* =========================================================
-       PARCHE BULLETPROOF: ACORDEÓN INVENTARIO MÓVIL
-       ========================================================= */
-    #tablaInventarioStock.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(1),
-    #tablaInventarioStock.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(3),
-    #tablaInventarioStock.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(4),
-    #tablaInventarioStock.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(6),
-    #tablaInventarioStock.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(7) {
-        display: none !important;
-    }
-
     #tablaInventarioStock.erp-mobile-cards tbody tr {
-        cursor: pointer;
-        transition: background-color 0.2s ease;
+        cursor: default; /* Ya no es un acordeón oculto */
     }
-    
-    #tablaInventarioStock.erp-mobile-cards tbody tr:active {
+
+    /* Dar formato de Título al Producto */
+    #tablaInventarioStock.erp-mobile-cards tbody td:nth-child(1)::before { display: none !important; }
+    #tablaInventarioStock.erp-mobile-cards tbody td:nth-child(1) {
+        border-bottom: 2px solid #f1f3f5 !important;
         background-color: #f8f9fa !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        padding-top: 12px !important;
+        padding-bottom: 12px !important;
+    }
+    #tablaInventarioStock.erp-mobile-cards tbody td:nth-child(1) span.fw-bold {
+        font-size: 1.15rem !important;
+        color: #1a1d20 !important;
+        display: block !important;
+        text-align: left !important;
     }
 
-    #tablaInventarioStock.erp-mobile-cards tbody tr.expanded td {
-        animation: fadeInMobile 0.25s ease forwards;
+    /* Alinear Stock y Situación a la izquierda */
+    #tablaInventarioStock.erp-mobile-cards tbody td:nth-child(3) > div,
+    #tablaInventarioStock.erp-mobile-cards tbody td:nth-child(4) > span {
+        align-items: flex-start !important;
+        text-align: left !important;
+    }
+    #tablaInventarioStock.erp-mobile-cards tbody td:nth-child(3) .text-end {
+        text-align: left !important;
     }
 
+    /* Alinear Acciones (Botones) a la derecha */
+    #tablaInventarioStock.erp-mobile-cards tbody td:nth-child(5)::before { display: none !important; }
+    #tablaInventarioStock.erp-mobile-cards tbody td:nth-child(5) > div {
+        justify-content: flex-end !important;
+        width: 100% !important;
+    }
 
     /* =========================================================
-       PARCHE BULLETPROOF: ACORDEÓN ÍTEMS Y SERVICIOS MÓVIL
+       PARCHE BULLETPROOF: ÍTEMS Y SERVICIOS MÓVIL (TODO VISIBLE)
        ========================================================= */
-    #itemsTable.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(1),
-    #itemsTable.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(3),
-    #itemsTable.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(5),
-    #itemsTable.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(6) {
-        display: none !important;
+    #itemsTable.erp-mobile-cards tbody tr {
+        cursor: default; /* Ya no es un acordeón oculto */
     }
 
-    #itemsTable.erp-mobile-cards tbody tr:not(.expanded) td:nth-child(4) {
+    #itemsTable.erp-mobile-cards tbody tr td {
+        border-bottom: 1px dashed var(--erp-table-border-color) !important;
+    }
+
+    #itemsTable.erp-mobile-cards tbody tr td:last-child {
         border-bottom: none !important;
     }
 
-    #itemsTable.erp-mobile-cards tbody tr {
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-    }
-    
-    #itemsTable.erp-mobile-cards tbody tr:active {
-        background-color: #f8f9fa !important;
-    }
-
-    #itemsTable.erp-mobile-cards tbody tr.expanded td {
-        animation: fadeInMobile 0.25s ease forwards;
-    }
-
 
     /* =========================================================
-   PARCHE: TABLAS CON FORMULARIOS EN MODALES (VENTAS Y DESPACHO)
-   ========================================================= */
-@media (max-width: 767.98px) {
+       PARCHE: TABLAS CON FORMULARIOS EN MODALES (VENTAS Y DESPACHO)
+       ========================================================= */
     #tablaDetalleVenta.erp-mobile-cards tbody td,
     #tablaDetalleDespacho.erp-mobile-cards tbody td {
         display: block !important;
@@ -418,12 +397,10 @@
     #tablaDetalleDespacho.erp-mobile-cards tbody td.text-center {
         text-align: left !important;
     }
-}
 
-/* =========================================================
-   PARCHE EXCLUSIVO: TABLAS DINÁMICAS DE PRODUCCIÓN
-   ========================================================= */
-@media (max-width: 767.98px) {
+    /* =========================================================
+       PARCHE EXCLUSIVO: TABLAS DINÁMICAS DE PRODUCCIÓN
+       ========================================================= */
     /* 1. Destruimos la estructura de tabla tradicional */
     #tablaConsumosDynamic, #tablaIngresosDynamic, 
     #tablaConsumosDynamic tbody, #tablaIngresosDynamic tbody {
@@ -508,12 +485,10 @@
     #tablaIngresosDynamic tbody td:last-child::before {
         content: none !important;
     }
-}
 
-/* =========================================================
-   PARCHE: PESTAÑAS (TABS) RESPONSIVAS EN MÓVILES (PRODUCCIÓN)
-   ========================================================= */
-@media (max-width: 767.98px) {
+    /* =========================================================
+       PARCHE: PESTAÑAS (TABS) RESPONSIVAS EN MÓVILES (PRODUCCIÓN)
+       ========================================================= */
     /* 1. Ocultar la barra de scroll y quitar bordes sobrantes */
     .nav-tabs-custom {
         display: flex;
@@ -558,5 +533,4 @@
         border-bottom-color: #198754 !important;
         background-color: rgba(25, 135, 84, 0.04) !important;
     }
-}
 }

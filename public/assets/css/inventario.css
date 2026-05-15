@@ -1,6 +1,6 @@
 /* =========================================================
-   MÓDULO DE INVENTARIO: ESTILOS ESPECÍFICOS Y RESPONSIVOS
-   Archivo: public/assets/css/inventario.css
+   MÓDULO DE INVENTARIO: TARJETAS MÓVILES INDEPENDIENTES
+   (DISEÑO COMPACTO ESTILO VENTAS)
    ========================================================= */
 
 @media (max-width: 767.98px) {
@@ -8,234 +8,310 @@
     /* =========================================================
        1. TABLA PRINCIPAL DE INVENTARIO (#tablaInventarioStock)
        ========================================================= */
-    #tablaInventarioStock.table-pro.erp-mobile-cards tbody tr {
-        display: flex !important;
-        flex-wrap: wrap !important;
-        padding: 15px 12px !important;
-        border-radius: 8px !important;
-        border: 1px solid var(--erp-table-border-color) !important;
-        margin-bottom: 12px !important;
-        background-color: #fff !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
-    }
-
-    #tablaInventarioStock.table-pro.erp-mobile-cards tbody td {
+    #tablaInventarioStock,
+    #tablaInventarioStock tbody {
         display: block !important;
-        border-bottom: none !important;
-        padding: 4px 0 !important;
+        width: 100% !important;
     }
-
-    /* Ocultamos los labels del CSS global porque inyectaremos los propios */
-    #tablaInventarioStock.table-pro.erp-mobile-cards tbody td::before {
+    
+    #tablaInventarioStock thead {
         display: none !important;
     }
+    
+    /* Convertimos la tarjeta en un contenedor Flexbox */
+    #tablaInventarioStock tr {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        margin-bottom: 1rem !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 10px !important;
+        padding: 15px 12px !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+    }
+    
+    /* Limpiamos las celdas (sin bordes punteados interiores) */
+    #tablaInventarioStock td {
+        display: block !important;
+        border: none !important;
+        padding: 4px 0 !important;
+        text-align: left !important;
+    }
+    
+    /* Escudo protector contra ERPTable */
+    #tablaInventarioStock td > div,
+    #tablaInventarioStock td > span {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
 
-    /* Columna 1: Producto e Icono (100% ancho, separador inferior) */
-    #tablaInventarioStock tbody td:nth-child(1) {
+    /* --- REORDENAMIENTO Y DISTRIBUCIÓN COMPACTA --- */
+
+    /* Columna 1: Producto (100% ancho, Arriba) */
+    #tablaInventarioStock td:nth-child(1) {
         width: 100% !important;
         order: 1 !important;
-        border-bottom: 1px dashed #dee2e6 !important;
+        border-bottom: 1px dashed #e9ecef !important; /* Único divisor */
         padding-bottom: 10px !important;
         margin-bottom: 8px !important;
     }
+    #tablaInventarioStock td:nth-child(1)::before {
+        display: none !important; 
+    }
+    #tablaInventarioStock td:nth-child(1) span.fw-bold {
+        font-size: 1.10rem !important;
+        color: #1a1d20 !important;
+    }
 
-    /* Columna 2: Almacén (50% izquierda) */
-    #tablaInventarioStock tbody td:nth-child(2) {
+    /* Columna 2: Almacén (50% ancho, Medio Izquierda) */
+    #tablaInventarioStock td:nth-child(2) {
         width: 50% !important;
         order: 2 !important;
-        text-align: left !important;
+        display: flex !important;
+        flex-direction: column !important; /* Apila el título arriba y el texto abajo */
+        align-items: flex-start !important; /* Alinea a la izquierda */
+        justify-content: center !important;
+        font-size: 0.9rem !important;
+        color: #495057 !important;
+        padding-right: 5px !important;
     }
-    #tablaInventarioStock tbody td:nth-child(2)::before {
-        content: "Almacén:" !important;
+    #tablaInventarioStock td:nth-child(2)::before {
+        content: "Almacén" !important;
         display: block !important;
-        color: #6c757d !important;
-        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+        margin-right: 0 !important;
         margin-bottom: 4px !important;
+        text-transform: uppercase !important;
+        font-size: 0.7rem !important;
+        color: #adb5bd !important;
     }
 
-    /* Columna 3: Stock Actual (50% derecha) */
-    #tablaInventarioStock tbody td:nth-child(3) {
+    /* Columna 3: Stock Actual (50% ancho, Medio Derecha) */
+    #tablaInventarioStock td:nth-child(3) {
         width: 50% !important;
         order: 3 !important;
-        text-align: right !important;
+        display: flex !important;
+        flex-direction: column !important; 
+        align-items: center !important; /* <-- Centra toda la columna */
+        justify-content: center !important;
+        padding-left: 5px !important;
     }
-    #tablaInventarioStock tbody td:nth-child(3)::before {
-        content: "Stock:" !important;
+    #tablaInventarioStock td:nth-child(3)::before {
+        content: "Stock" !important;
         display: block !important;
-        color: #6c757d !important;
-        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+        margin-right: 0 !important;
         margin-bottom: 4px !important;
-        text-align: right !important;
+        text-transform: uppercase !important;
+        font-size: 0.7rem !important;
+        color: #adb5bd !important;
+        text-align: center !important; /* <-- Centra el título "STOCK" */
+    }
+    #tablaInventarioStock td:nth-child(3) > div {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important; /* <-- Centra el contenedor interno */
+        width: 100% !important;
+    }
+    #tablaInventarioStock td:nth-child(3) .text-end {
+        text-align: center !important; /* <-- Centra textos pequeños adicionales */
+    }
+    #tablaInventarioStock td:nth-child(3) span.fs-5 {
+        font-size: 1.3rem !important; 
+        line-height: 1 !important;
+        color: #1a1d20 !important;
+        text-align: center !important; /* <-- Centra el número grande */
+        width: 100% !important;
     }
 
-    /* Columna 4: Estado / Situación (50% izquierda, abajo) */
-    #tablaInventarioStock tbody td:nth-child(4) {
+    /* Columna 4: Situación / Alertas (50% ancho, Abajo Izquierda) */
+    #tablaInventarioStock td:nth-child(4) {
         width: 50% !important;
         order: 4 !important;
-        text-align: left !important;
         padding-top: 10px !important;
+    }
+    #tablaInventarioStock td:nth-child(4)::before {
+        display: none !important; /* La insignia (badge) ya es suficiente */
     }
 
-    /* Columna 5: Acciones (50% derecha, abajo) */
-    #tablaInventarioStock tbody td:nth-child(5) {
+    /* Columna 5: Acciones (50% ancho, Abajo Derecha) */
+    #tablaInventarioStock td:nth-child(5) {
         width: 50% !important;
         order: 5 !important;
-        display: flex !important;
-        justify-content: flex-end !important;
-        align-items: center !important;
         padding-top: 10px !important;
     }
+    #tablaInventarioStock td:nth-child(5)::before {
+        display: none !important;
+    }
+    #tablaInventarioStock td:nth-child(5) > div {
+        width: 100% !important;
+        justify-content: flex-end !important; /* Botones alineados a la derecha */
+    }
+
 
     /* =========================================================
        2. TABLA DE MOVIMIENTOS (MODAL) (#tablaLineasMovimiento)
        ========================================================= */
-    #tablaLineasMovimiento thead {
-        display: none !important;
+    #tablaLineasMovimiento,
+    #tablaLineasMovimiento tbody,
+    #tablaLineasMovimiento tr,
+    #tablaLineasMovimiento td {
+        display: block !important;
+        width: 100% !important;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
 
-    #tablaLineasMovimiento tbody tr:not([data-empty="1"]) {
-        display: flex !important;
-        flex-wrap: wrap !important;
+    #tablaLineasMovimiento thead { display: none !important; }
+
+    #tablaLineasMovimiento tr:not([data-empty="1"]) {
         position: relative !important;
         padding: 15px 12px !important;
-        border: 1px solid var(--erp-table-border-color) !important;
+        border: 1px solid #e0e0e0 !important;
         border-radius: 8px !important;
         margin-bottom: 12px !important;
-        background-color: #f8f9fa !important; /* Ligeramente gris para diferenciar del fondo blanco */
+        background-color: #f8f9fa !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
     }
 
-    #tablaLineasMovimiento tbody td {
-        display: block !important;
+    #tablaLineasMovimiento td {
         border: none !important;
-        padding: 4px 0 !important;
+        padding: 8px 0 !important;
+        text-align: left !important;
     }
 
-    /* Ocultar etiquetas predeterminadas si las hay */
-    #tablaLineasMovimiento.table-pro.erp-mobile-cards tbody td::before {
-        display: none !important;
+    #tablaLineasMovimiento td::before {
+        display: block !important;
+        font-size: 0.75rem !important;
+        text-transform: uppercase !important;
+        color: #6c757d !important;
+        font-weight: 700 !important;
+        margin-bottom: 4px !important;
     }
 
-    /* Basurero flotante (Esquina superior derecha) */
-    #tablaLineasMovimiento tbody td:nth-child(7) {
+    /* Basurero (Columna 7) */
+    #tablaLineasMovimiento td:nth-child(7) {
         position: absolute !important;
         top: 10px !important;
         right: 10px !important;
         width: auto !important;
         padding: 0 !important;
-        order: 0 !important;
     }
+    #tablaLineasMovimiento td:nth-child(7)::before { display: none !important; }
 
-    /* Columna 1: Ítem -> Arriba, ancho ajustado para no tapar basurero */
-    #tablaLineasMovimiento tbody td:nth-child(1) {
+    /* Columna 1: Ítem */
+    #tablaLineasMovimiento td:nth-child(1) {
         width: 85% !important; 
-        order: 1 !important;
         font-weight: bold !important;
         font-size: 1rem !important;
         border-bottom: 1px dashed #dee2e6 !important;
         padding-bottom: 8px !important;
-        margin-bottom: 8px !important;
-        text-align: left !important;
     }
+    #tablaLineasMovimiento td:nth-child(1)::before { display: none !important; }
 
-    /* Columna 2: Cantidad -> Izquierda */
-    #tablaLineasMovimiento tbody td:nth-child(2) {
-        width: 50% !important;
-        order: 2 !important;
-        text-align: left !important;
-        font-size: 0.95rem !important;
-        padding-right: 5px !important;
-    }
-    #tablaLineasMovimiento tbody td:nth-child(2)::before {
-        content: "Cantidad:" !important;
-        display: block !important;
-        color: #6c757d !important;
-        font-size: 0.8rem !important;
-        font-weight: normal !important;
-        margin-bottom: 4px !important;
-    }
-
-    /* Columna 3: Unidad -> Derecha */
-    #tablaLineasMovimiento tbody td:nth-child(3) {
-        width: 50% !important;
-        order: 3 !important;
-        text-align: right !important;
-        font-size: 0.95rem !important;
-    }
-    #tablaLineasMovimiento tbody td:nth-child(3)::before {
-        content: "Unidad:" !important;
-        display: block !important;
-        color: #6c757d !important;
-        font-size: 0.8rem !important;
-        font-weight: normal !important;
-        margin-bottom: 4px !important;
-        text-align: right !important;
-    }
-
-    /* Columna 4: Lote -> Izquierda abajo */
-    #tablaLineasMovimiento tbody td:nth-child(4) {
-        width: 50% !important;
-        order: 4 !important;
-        text-align: left !important;
-        font-size: 0.9rem !important;
-        padding-top: 10px !important;
-        padding-right: 5px !important;
-    }
-    #tablaLineasMovimiento tbody td:nth-child(4)::before {
-        content: "Lote:" !important;
-        display: block !important;
-        color: #6c757d !important;
-        font-size: 0.8rem !important;
-        font-weight: normal !important;
-        margin-bottom: 4px !important;
-    }
-
-    /* Columna 5: Vencimiento -> Centro abajo */
-    #tablaLineasMovimiento tbody td:nth-child(5) {
-        width: 50% !important;
-        order: 5 !important;
-        text-align: right !important;
-        font-size: 0.9rem !important;
-        padding-top: 10px !important;
-    }
-    #tablaLineasMovimiento tbody td:nth-child(5)::before {
-        content: "Vence:" !important;
-        display: block !important;
-        color: #6c757d !important;
-        font-size: 0.8rem !important;
-        font-weight: normal !important;
-        margin-bottom: 4px !important;
-        text-align: right !important;
-    }
-
-    /* Columna 6: Costo Unit. -> Ocupa el 100% al final, resaltado */
-    #tablaLineasMovimiento tbody td:nth-child(6) {
-        width: 100% !important;
-        order: 6 !important;
-        display: flex !important;
-        justify-content: flex-end !important;
-        align-items: center !important;
-        padding-top: 12px !important;
-        margin-top: 8px !important;
+    #tablaLineasMovimiento td:nth-child(2)::before { content: "Cantidad:" !important; }
+    #tablaLineasMovimiento td:nth-child(3)::before { content: "Unidad:" !important; }
+    #tablaLineasMovimiento td:nth-child(4)::before { content: "Lote:" !important; }
+    #tablaLineasMovimiento td:nth-child(5)::before { content: "Vence:" !important; }
+    
+    #tablaLineasMovimiento td:nth-child(6) {
         border-top: 1px dashed #e9ecef !important;
-        font-size: 1.05rem !important;
+        margin-top: 8px !important;
         font-weight: bold !important;
     }
-    #tablaLineasMovimiento tbody td:nth-child(6)::before {
-        content: "Costo Unit.:" !important;
-        color: #6c757d !important;
-        font-size: 0.85rem !important;
-        font-weight: normal !important;
-        margin-right: 8px !important;
-    }
+    #tablaLineasMovimiento td:nth-child(6)::before { content: "Costo Unit.:" !important; }
 
-    /* ---------------------------------------------------------
-       SEGURIDAD DE INPUTS: Evitar desbordamiento en móviles
-       --------------------------------------------------------- */
-    #tablaLineasMovimiento tbody td input,
-    #tablaLineasMovimiento tbody td select {
+    #tablaLineasMovimiento td input,
+    #tablaLineasMovimiento td select {
         width: 100% !important;
         max-width: none !important;
         box-sizing: border-box !important;
+    }
+}
+
+/* =========================================================
+   3. TABLA DE KARDEX DE INVENTARIO (#tablaKardex)
+   ========================================================= */
+
+@media (max-width: 767.98px) {
+    #tablaKardex, #tablaKardex tbody { display: block !important; width: 100% !important; }
+    #tablaKardex thead { display: none !important; }
+    
+    #tablaKardex tr {
+        display: flex !important; flex-wrap: wrap !important; align-items: flex-start !important;
+        margin-bottom: 1rem !important; border: 1px solid #e0e0e0 !important;
+        border-radius: 10px !important; padding: 15px 12px !important;
+        background-color: #ffffff !important; box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+    }
+    
+    #tablaKardex td {
+        display: block !important; border: none !important;
+        padding: 6px 0 !important; text-align: left !important;
+    }
+
+    #tablaKardex td > div, #tablaKardex td > span, #tablaKardex td > i {
+        visibility: visible !important; opacity: 1 !important;
+    }
+    
+    #tablaKardex td::before {
+        content: attr(data-label) !important; display: block !important;
+        font-size: 0.7rem !important; text-transform: uppercase !important;
+        color: #adb5bd !important; font-weight: 700 !important; margin-bottom: 4px !important;
+    }
+
+    /* 1. ÍTEM (100% Ancho) */
+    #tablaKardex td:nth-child(3) {
+        width: 100% !important; order: 1 !important;
+        border-bottom: 2px solid #f1f3f5 !important;
+        padding-bottom: 10px !important; margin-bottom: 8px !important;
+        font-size: 1.1rem !important; color: #1a1d20 !important;
+    }
+    #tablaKardex td:nth-child(3)::before { display: none !important; }
+
+    /* 2. FECHA (50% L) */
+    #tablaKardex td:nth-child(1) { width: 50% !important; order: 2 !important; }
+
+    /* 3. TIPO (50% R) */
+    #tablaKardex td:nth-child(2) {
+        width: 50% !important; order: 3 !important;
+        display: flex !important; flex-direction: column !important; align-items: flex-end !important;
+    }
+    #tablaKardex td:nth-child(2)::before { text-align: right !important; }
+
+    /* 4. UBICACIÓN (100% Ancho, línea separadora abajo) */
+    #tablaKardex td:nth-child(4) {
+        width: 100% !important; order: 4 !important;
+        border-bottom: 1px dashed #e9ecef !important;
+        padding-bottom: 8px !important; margin-bottom: 8px !important;
+    }
+
+    /* 5. CANTIDAD (50% L) */
+    #tablaKardex td:nth-child(5) {
+        width: 50% !important; order: 5 !important;
+        display: flex !important; flex-direction: column !important; align-items: flex-start !important;
+    }
+    #tablaKardex td:nth-child(5)::before { text-align: left !important; }
+    #tablaKardex td:nth-child(5) > div { text-align: left !important; }
+
+    /* 6. SALDO (50% R) */
+    #tablaKardex td:nth-child(6) {
+        width: 50% !important; order: 6 !important;
+        display: flex !important; flex-direction: column !important; align-items: flex-end !important;
+    }
+    #tablaKardex td:nth-child(6)::before { text-align: right !important; }
+    #tablaKardex td:nth-child(6) > div { text-align: right !important; }
+
+    /* 7. USUARIO (100% Ancho) */
+    #tablaKardex td:nth-child(7) {
+        width: 100% !important; order: 7 !important;
+        border-top: 1px dashed #e9ecef !important;
+        margin-top: 8px !important; padding-top: 12px !important; padding-left: 0 !important; 
+    }
+
+    /* 8. REFERENCIA (100% Ancho) */
+    #tablaKardex td:nth-child(8) {
+        width: 100% !important; order: 8 !important; padding-right: 0 !important; 
     }
 }

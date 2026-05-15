@@ -99,7 +99,7 @@ $tipoItemLabel = static function (string $tipo): string {
                 
                 <div class="col-12 col-md-4 col-lg-2">
                     <select class="form-select bg-light" id="inventarioFiltroEstado">
-                        <option value="">Situación / Alertas</option>
+                        <option value="">Alertas</option>
                         <option value="disponible">Disponible (Verde)</option>
                         <option value="próximo_a_vencer">Próximo a Vencer (Amarillo)</option>
                         <option value="bajo_mínimo">Bajo Mínimo (Amarillo)</option>
@@ -113,10 +113,9 @@ $tipoItemLabel = static function (string $tipo): string {
     </div>
 
     <div class="card border-0 shadow-sm">
-        <div class="card-body p-0">
-            <div class="table-responsive inventario-table-wrapper">
-                <!-- SE AGREGÓ LA CLASE erp-mobile-cards AQUÍ -->
-               <table class="table align-middle mb-0 table-pro table-hover erp-mobile-cards" id="tablaInventarioStock"
+    <div class="card-body p-0">
+        <div class="table-responsive inventario-table-wrapper">
+            <table class="table align-middle mb-0 table-pro table-hover" id="tablaInventarioStock"
                 data-erp-table="true"
                 data-search-input="#inventarioSearch"
                 data-pagination-controls="#inventarioPaginationControls"
@@ -130,13 +129,11 @@ $tipoItemLabel = static function (string $tipo): string {
                 <thead class="inventario-sticky-thead border-bottom">
                     <tr>
                         <th class="ps-4 text-secondary fw-semibold">Producto</th>
-                        <!-- SE QUITÓ col-mobile-hide -->
-                        <th class="text-secondary fw-semibold" style="width: 20%;">Almacén</th>
-                        <th class="text-end text-secondary fw-semibold" style="width: 15%;">Stock Actual</th>
-                        <!-- SE QUITÓ col-mobile-hide -->
-                        <th class="text-center text-secondary fw-semibold">Situación / Alertas</th>
-                        <!-- SE QUITÓ col-mobile-hide -->
-                        <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
+                        
+                        <th class="text-secondary fw-semibold" style="width: 18%;">Almacén</th>
+                        <th class="text-end text-secondary fw-semibold" style="width: 16%;">Stock Actual</th>
+                        <th class="text-center text-secondary fw-semibold" style="width: 14%;">Alertas</th>
+                        <th class="text-end pe-4 text-secondary fw-semibold" style="width: 12%;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -170,12 +167,11 @@ $tipoItemLabel = static function (string $tipo): string {
                                 data-almacen="<?php echo (int) $idAlmacen; ?>" 
                                 class="border-bottom align-middle">
                                 
-                                <td class="ps-4 text-dark">
+                                <td data-label="Producto" class="ps-4 text-dark">
                                     <div class="d-flex align-items-center gap-2">
                                         <span class="fw-bold text-wrap" style="font-size: 0.95rem;">
                                             <?php echo e($itemNombreCompleto); ?>
                                         </span>
-
 
                                         <?php if($tipoRegistro === 'pack'): ?>
                                             <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold ms-1" style="font-size: 0.65rem;">PACK</span>
@@ -183,10 +179,9 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                 </td>
                                 
-                                <!-- SE QUITÓ col-mobile-hide -->
-                                <td class="text-muted small"><?php echo e($almacenNombre); ?></td>
+                                <td data-label="Almacén" class="text-muted small"><?php echo e($almacenNombre); ?></td>
                                 
-                                <td class="text-end">
+                                <td data-label="Stock Actual" class="text-end">
                                     <div class="d-flex flex-column align-items-end w-100">
                                         <span class="fw-bold fs-5 text-dark mb-1"><?php echo $stockFormateado; ?></span>
                                         <?php if ($requiereFactorConversion && !empty($stock['desglose']) && is_array($stock['desglose'])): ?>
@@ -200,15 +195,13 @@ $tipoItemLabel = static function (string $tipo): string {
                                     </div>
                                 </td>
                                 
-                                <!-- SE QUITÓ col-mobile-hide -->
-                                <td class="text-center">
+                                <td data-label="Situación / Alertas" class="text-center">
                                     <span class="badge px-3 py-2 rounded-pill <?php echo $badgeColor; ?>">
                                         <?php echo e($badgeTexto); ?>
                                     </span>
                                 </td>
                                 
-                                <!-- SE QUITÓ col-mobile-hide -->
-                                <td class="text-end pe-4">
+                                <td data-label="Acciones" class="text-end pe-4">
                                     <div class="d-inline-flex align-items-center gap-2">
                                         <?php $itemActivo = (int) ($stock['item_estado'] ?? 0) === 1; ?>
                                         <span class="badge rounded-pill <?php echo $itemActivo ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle'; ?>"
@@ -251,15 +244,15 @@ $tipoItemLabel = static function (string $tipo): string {
                     <?php endif; ?>
                 </tbody>
             </table>
-            </div>
-            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center px-4">
-                <small class="text-muted fw-semibold" id="inventarioPaginationInfo">Cargando...</small>
-                <nav aria-label="Paginación de inventario">
-                    <ul class="pagination mb-0 justify-content-end" id="inventarioPaginationControls"></ul>
-                </nav>
-            </div>
+        </div>
+        <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center px-4">
+            <small class="text-muted fw-semibold" id="inventarioPaginationInfo">Cargando...</small>
+            <nav aria-label="Paginación de inventario">
+                <ul class="pagination mb-0 justify-content-end" id="inventarioPaginationControls"></ul>
+            </nav>
         </div>
     </div>
+</div>
 </div>
 
 <div class="modal fade" id="modalDetalleInventarioItem" tabindex="-1" aria-hidden="true">
@@ -501,8 +494,7 @@ $tipoItemLabel = static function (string $tipo): string {
                                 </div>
                                 <div class="col-12">
                                     <div class="table-responsive border rounded-3 bg-white">
-                                        <!-- SE AGREGÓ LA CLASE erp-mobile-cards AQUÍ -->
-                                        <table class="table table-sm align-middle mb-0 table-pro erp-mobile-cards" id="tablaLineasMovimiento">
+                                        <table class="table table-sm align-middle mb-0 table-pro" id="tablaLineasMovimiento">
                                             <thead class="table-light">
                                                 <tr>
                                                     <th class="ps-3 text-secondary fw-semibold">Ítem</th>
