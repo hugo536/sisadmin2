@@ -88,9 +88,15 @@ class VentasDocumentoModel extends Modelo
 
         $stockSqlPacksTotal = $this->resolverSubqueryStockCombo('d.id_presentacion', 0);
 
+        // 👇 NUEVO: Subconsulta para calcular el peso del combo en el historial
+        $pesoSqlPacksTotal = "(SELECT COALESCE(SUM(ppd.cantidad * i_comp.peso_kg), 0) 
+                               FROM precios_presentaciones_detalle ppd 
+                               JOIN items i_comp ON i_comp.id = ppd.id_item 
+                               WHERE ppd.id_presentacion = d.id_presentacion)";
+
         $sqlDetalle = "SELECT d.id,
-                              d.id_item AS raw_id_item, /* <-- NUEVO */
-                              d.id_presentacion AS raw_id_presentacion, /* <-- NUEVO */
+                              d.id_item AS raw_id_item, 
+                              d.id_presentacion AS raw_id_presentacion, 
                               CASE 
                                   WHEN d.id_item > 0 THEN CONCAT('ITEM-', d.id_item)
                                   WHEN d.id_presentacion > 0 THEN CONCAT('PACK-', d.id_presentacion)
@@ -106,11 +112,24 @@ class VentasDocumentoModel extends Modelo
                               d.precio_unitario,
                               d.total_linea AS subtotal,
                               d.cantidad_despachada,
-                              COALESCE(i.peso_kg, 0) AS peso_kg,
+                              /* 👇 NUEVO: Mapeo del Peso 👇 */
+                              CASE 
+                                  WHEN d.id_item > 0 THEN COALESCE(i.peso_kg, 0)
+                                  ELSE {$pesoSqlPacksTotal}
+                              END AS peso_kg,
                               CASE 
                                   WHEN d.id_item > 0 THEN (SELECT COALESCE(SUM(s.stock_actual), 0) FROM inventario_stock s WHERE s.id_item = d.id_item)
                                   ELSE {$stockSqlPacksTotal}
-                              END AS stock_actual
+                              END AS stock_actual,
+                              CASE 
+                                  WHEN d.id_presentacion > 0 THEN COALESCE(pp.incluye_envase, 0)
+                                  ELSE COALESCE(i.incluye_envase, 0)
+                              END AS incluye_envase,
+                              CASE 
+                                  WHEN d.id_presentacion > 0 AND COALESCE(pp.incluye_envase, 0) = 1 THEN 0
+                                  WHEN d.id_item > 0 AND COALESCE(i.incluye_envase, 0) = 1 THEN 0
+                                  ELSE 1
+                              END AS requiere_envase
                        FROM ventas_documentos_detalle d
                        LEFT JOIN items i ON i.id = d.id_item AND i.deleted_at IS NULL
                        LEFT JOIN precios_presentaciones pp ON pp.id = d.id_presentacion AND pp.deleted_at IS NULL
@@ -193,9 +212,12 @@ class VentasDocumentoModel extends Modelo
             $tipoOperacion = trim((string) ($cabecera['tipo_operacion'] ?? 'VENTA'));
 
             $sumaLineas = 0.0;
+            
+            // 👇 Vuelve a su estado natural, sumando solo el dinero, sin chequear inventario
             foreach ($detalle as $linea) {
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
+                
                 if ($cantidad <= 0 || $precio < 0) {
                     throw new RuntimeException('Hay líneas con cantidad o precio inválido.');
                 }
@@ -379,6 +401,7 @@ class VentasDocumentoModel extends Modelo
 
         // B. Verificar si hay dinero en caja (Cuentas por Cobrar)
         try {
+            // Buscamos usando la columna correcta: id_documento_venta
             $stmtCxc = $db->prepare('SELECT monto_pagado FROM tesoreria_cxc WHERE id_documento_venta = :id_documento AND deleted_at IS NULL LIMIT 1');
             $stmtCxc->execute(['id_documento' => $idDocumento]);
             $cxc = $stmtCxc->fetch(PDO::FETCH_ASSOC);
@@ -422,6 +445,7 @@ class VentasDocumentoModel extends Modelo
 
             // --- 3. LIMPIEZA: Anular también la deuda pendiente en Tesorería ---
             try {
+                // Actualizamos usando la columna correcta: id_documento_venta
                 $db->prepare('UPDATE tesoreria_cxc 
                               SET estado = "ANULADA", deleted_at = NOW(), updated_by = :user, updated_at = NOW() 
                               WHERE id_documento_venta = :id_documento AND deleted_at IS NULL')
@@ -515,6 +539,7 @@ class VentasDocumentoModel extends Modelo
             : "(SELECT SUM(s.stock_actual) FROM inventario_stock s WHERE s.id_item = i.id)";
 
         if ($acuerdo['tiene_acuerdo']) {
+            // 👇 NUEVO: Se agregó incluye_envase y requiere_envase
             $sqlItems = "SELECT CONCAT('ITEM-', i.id) AS id, i.sku, i.nombre, cap.precio_pactado AS precio_venta, i.tipo_item,
                                 COALESCE(i.permite_decimales, 0) AS permite_decimales,
                                 COALESCE(i.peso_kg, 0) AS peso_kg,
@@ -534,6 +559,7 @@ class VentasDocumentoModel extends Modelo
                 $subqueryVolumen = "(SELECT ipv.precio_unitario FROM item_precios_volumen ipv WHERE ipv.id_item = i.id AND ipv.cantidad_minima <= ? ORDER BY ipv.cantidad_minima DESC LIMIT 1)";
             }
 
+            // 👇 NUEVO: Se agregó incluye_envase y requiere_envase
             $sqlItems = "SELECT CONCAT('ITEM-', i.id) AS id, i.sku, i.nombre,
                                 COALESCE(
                                     {$subqueryVolumen},
@@ -558,8 +584,15 @@ class VentasDocumentoModel extends Modelo
 
         if ($this->tablaExiste('precios_presentaciones') && $this->tablaExiste('precios_presentaciones_detalle')) {
             $stockSqlPacks = $this->resolverSubqueryStockCombo('pp.id', $idAlmacen);
+            
+            // 👇 NUEVO: Subconsulta para calcular el peso total del combo sumando sus ingredientes
+            $pesoSqlPacks = "(SELECT COALESCE(SUM(ppd.cantidad * i_comp.peso_kg), 0) 
+                              FROM precios_presentaciones_detalle ppd 
+                              JOIN items i_comp ON i_comp.id = ppd.id_item 
+                              WHERE ppd.id_presentacion = pp.id)";
+            
             $sqlPacks = "SELECT CONCAT('PACK-', pp.id) AS id, 'SIN-SKU' AS sku, pp.nombre, pp.precio_venta,
-                                'combo' AS tipo_item, 0 AS permite_decimales, 0 AS peso_kg, {$stockSqlPacks} AS stock_actual,
+                                'combo' AS tipo_item, 0 AS permite_decimales, {$pesoSqlPacks} AS peso_kg, {$stockSqlPacks} AS stock_actual,
                                 COALESCE(pp.incluye_envase, 0) AS incluye_envase,
                                 CASE WHEN COALESCE(pp.incluye_envase, 0) = 1 THEN 0 ELSE 1 END AS requiere_envase
                          FROM precios_presentaciones pp
@@ -727,11 +760,13 @@ class VentasDocumentoModel extends Modelo
         return (float) $stmt->fetchColumn();
     }
 
+    // --- MODIFICADO: Agregamos array $envasesDevueltos ---
     public function guardarDespacho(int $idDoc, array $detalle, string $obs, bool $cerrarForzado, int $userId, string $fechaDespacho, array $envasesDevueltos = []): void
     {
         require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
         $despachoModel = new VentasDespachoModel();
         
+        // --- MODIFICADO: Le pasamos $envasesDevueltos a registrarDespacho ---
         $despachoModel->registrarDespacho($idDoc, $detalle, $cerrarForzado, $obs, $userId, $fechaDespacho, $envasesDevueltos);
     }
 
@@ -860,7 +895,7 @@ class VentasDocumentoModel extends Modelo
     {
         $db = $this->db();
 
-        // --- NUEVO: Si el producto o pack INCLUYE el envase, no exigimos nada ---
+        // 👇 NUEVO: ESCUDO. Si el producto o pack INCLUYE el envase, no exigimos nada 👇
         if ($idPresentacion > 0) {
             $stmt = $db->prepare('SELECT incluye_envase FROM precios_presentaciones WHERE id = ?');
             $stmt->execute([$idPresentacion]);
@@ -870,7 +905,7 @@ class VentasDocumentoModel extends Modelo
             $stmt->execute([$idItem]);
             if ($stmt->fetchColumn()) return []; // Retorna vacío, no hay deuda
         }
-        // -------------------------------------------------------------------------
+        // 👆 FIN DEL ESCUDO 👆
 
         $envases = [];
 

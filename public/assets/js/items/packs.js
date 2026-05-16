@@ -17,8 +17,10 @@
     const inputPrecioPack = document.getElementById('inputPrecioPack');
     const lblEstadoPack = document.getElementById('lblEstadoPack');
     const btnEliminarPack = document.getElementById('btnEliminarPack');
+    
+    // Elementos del Switch Inteligente
     const checkIncluyeEnvase = document.getElementById('combo_incluye_envase');
-    const contenedorSwitchEnvase = document.getElementById('contenedorSwitchEnvase'); // <-- NUEVO
+    const contenedorSwitchEnvase = document.getElementById('contenedorSwitchEnvase');
     
     const seccionComponentes = document.getElementById('seccionComponentes');
     const formAgregar = document.getElementById('formAgregarComponente');
@@ -64,25 +66,9 @@
         if (window.Swal) return window.Swal.fire({ icon: 'success', title: 'Correcto', text: message, timer: 1500, showConfirmButton: false });
     }
 
-    async function confirmarAccion({
-        title = '¿Confirmar acción?',
-        text = '',
-        icon = 'question',
-        confirmButtonText = 'Aceptar',
-        cancelButtonText = 'Cancelar',
-        confirmButtonColor = '#0d6efd'
-    } = {}) {
+    async function confirmarAccion({ title = '¿Confirmar acción?', text = '', icon = 'question', confirmButtonText = 'Aceptar', cancelButtonText = 'Cancelar', confirmButtonColor = '#0d6efd' } = {}) {
         if (window.Swal) {
-            const result = await window.Swal.fire({
-                icon,
-                title,
-                text,
-                showCancelButton: true,
-                confirmButtonText,
-                cancelButtonText,
-                confirmButtonColor,
-                reverseButtons: true
-            });
+            const result = await window.Swal.fire({ icon, title, text, showCancelButton: true, confirmButtonText, cancelButtonText, confirmButtonColor, reverseButtons: true });
             return !!result.isConfirmed;
         }
         return window.confirm(`${title}\n${text}`.trim());
@@ -95,7 +81,6 @@
     }
 
     function refrescarUI_Tabla() {
-        // Ejecuta las funciones globales de tu sistema para la nueva data
         if (window.ERPTable) {
             window.ERPTable.initTooltips(tbodyComponentes);
             window.ERPTable.applyResponsiveCards(tablaComponentes);
@@ -121,6 +106,7 @@
         }
     }
 
+    // MAGIA VISUAL: Evalúa si muestra el switch o lo oculta
     function evaluarVisibilidadSwitchEnvase() {
         if (!contenedorSwitchEnvase) return;
         
@@ -129,10 +115,10 @@
         const algunRetornableTabla = Array.from(tbodyComponentes.querySelectorAll('tr')).some(tr => tr.dataset.requiereEnvase === '1');
 
         if (algunRetornableLocales || algunRetornableTabla) {
-            contenedorSwitchEnvase.classList.remove('d-none'); // ¡Magia! Aparece
+            contenedorSwitchEnvase.classList.remove('d-none'); // Mostrar
         } else {
-            contenedorSwitchEnvase.classList.add('d-none'); // Se oculta
-            if (checkIncluyeEnvase) checkIncluyeEnvase.checked = false; // Se apaga por si acaso
+            contenedorSwitchEnvase.classList.add('d-none'); // Ocultar
+            if (checkIncluyeEnvase) checkIncluyeEnvase.checked = false; // Apagar por seguridad
         }
     }
 
@@ -141,6 +127,7 @@
     function renderTablaLocales() {
         if (componentesLocales.length === 0) {
             renderFilaVacia('Agrega productos a la lista. Se guardarán al crear el combo.');
+            evaluarVisibilidadSwitchEnvase();
             return;
         }
         
@@ -159,9 +146,8 @@
                 badgeTipo.classList.add('bg-info-subtle', 'text-info', 'border', 'border-info-subtle');
             }
 
-            // Integración de IconosAccion global
             const celdas = clon.querySelectorAll('td');
-            const tdAccion = celdas[celdas.length - 1]; // Seleccionamos la última celda (Quitar)
+            const tdAccion = celdas[celdas.length - 1]; 
             
             if (window.IconosAccion) {
                 tdAccion.innerHTML = window.IconosAccion.crear('eliminar', index, 'btn-eliminar-componente');
@@ -169,25 +155,19 @@
 
             const btnEliminar = clon.querySelector('.btn-eliminar-componente');
             btnEliminar.addEventListener('click', async () => {
-                const confirmar = await confirmarAccion({
-                    title: '¿Quitar componente temporal?',
-                    text: 'Este componente se eliminará de la lista antes de guardar el combo.',
-                    icon: 'warning',
-                    confirmButtonText: 'Sí, quitar',
-                    cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#dc3545'
-                });
+                const confirmar = await confirmarAccion({ title: '¿Quitar componente temporal?', text: 'Este componente se eliminará de la lista antes de guardar el combo.', icon: 'warning', confirmButtonText: 'Sí, quitar', confirmButtonColor: '#dc3545' });
                 if (!confirmar) return;
 
                 componentesLocales.splice(index, 1);
                 renderTablaLocales();
-                evaluarVisibilidadSwitchEnvase();
+                evaluarVisibilidadSwitchEnvase(); // Reevaluar al borrar
             });
 
             tbodyComponentes.appendChild(clon);
         });
         
         refrescarUI_Tabla();
+        evaluarVisibilidadSwitchEnvase();
     }
 
     function dibujarFilaEnTablaBD(data) {
@@ -198,6 +178,7 @@
         const clon = templateFila.content.cloneNode(true);
         const tr = clon.querySelector('tr');
         tr.dataset.idDetalle = String(data.id_detalle || 0);
+        tr.dataset.requiereEnvase = String(data.requiere_envase || 0); // Guardar si exige envase
 
         clon.querySelector('.td-nombre').textContent = data.nombre_item || 'Sin nombre';
         clon.querySelector('.td-cantidad').textContent = Number(data.cantidad || 0).toFixed(2);
@@ -211,7 +192,6 @@
             badgeTipo.classList.add('bg-info-subtle', 'text-info', 'border', 'border-info-subtle');
         }
 
-        // Integración de IconosAccion global
         const celdas = clon.querySelectorAll('td');
         const tdAccion = celdas[celdas.length - 1]; 
         
@@ -227,21 +207,11 @@
                 return;
             }
 
-            const confirmar = await confirmarAccion({
-                title: '¿Quitar componente del combo?',
-                text: 'Este componente dejará de formar parte del combo guardado.',
-                icon: 'warning',
-                confirmButtonText: 'Sí, quitar',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#dc3545'
-            });
+            const confirmar = await confirmarAccion({ title: '¿Quitar componente del combo?', text: 'Este componente dejará de formar parte del combo guardado.', icon: 'warning', confirmButtonText: 'Sí, quitar', confirmButtonColor: '#dc3545' });
             if (!confirmar) return;
 
             try {
-                const body = new URLSearchParams({
-                    id_detalle: String(data.id_detalle),
-                    csrf_token: csrfToken,
-                });
+                const body = new URLSearchParams({ id_detalle: String(data.id_detalle), csrf_token: csrfToken });
                 const response = await fetch(buildUrl('eliminar_componente'), {
                     method: 'POST',
                     headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
@@ -252,11 +222,11 @@
 
                 tr.remove();
                 
-                // Actualizamos tooltips por si la estructura cambió
                 if (window.ERPTable && window.bootstrap?.Tooltip) {
                     const tooltipInstance = bootstrap.Tooltip.getInstance(btnEliminar);
                     if (tooltipInstance) tooltipInstance.dispose();
                 }
+                evaluarVisibilidadSwitchEnvase(); // Reevaluar al borrar
 
             } catch (error) {
                 toastError(error.message);
@@ -264,14 +234,9 @@
         });
 
         tbodyComponentes.appendChild(clon);
-        // Guardamos el dato en el HTML de la fila
-        tr.dataset.requiereEnvase = String(data.requiere_envase || 0); 
-        tbodyComponentes.appendChild(clon);
-        // NOTA: evaluarVisibilidadSwitchEnvase() se llama después de cargar toda la tabla
     }
 
     async function cargarComponentesDelPack(idPack) {
-        // Usa el spinner de tu sistema si está disponible
         if (window.ERPTable && typeof window.ERPTable.showLoading === 'function') {
             window.ERPTable.showLoading(tablaComponentes);
         } else {
@@ -279,9 +244,7 @@
         }
 
         try {
-            const response = await fetch(buildUrl('obtener_componentes', { id_pack: idPack }), {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            });
+            const response = await fetch(buildUrl('obtener_componentes', { id_pack: idPack }), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             const data = await response.json();
             if (!response.ok || !data.ok) throw new Error(data.mensaje || 'No se pudo cargar la receta.');
 
@@ -323,6 +286,7 @@
             inputNombrePack.value = '';
             inputPrecioPack.value = '';
             if (checkIncluyeEnvase) checkIncluyeEnvase.checked = false;
+            
             lblEstadoPack.textContent = 'Nuevo Combo';
             lblEstadoPack.className = 'badge bg-success-subtle text-success border border-success-subtle mb-2';
             setEstadoBotonEliminar(0);
@@ -332,6 +296,7 @@
             
             componentesLocales = []; 
             renderTablaLocales();
+            evaluarVisibilidadSwitchEnvase();
 
             panelVacio.classList.add('d-none');
             panelConfiguracion.classList.remove('d-none');
@@ -347,7 +312,7 @@
             idPackSeleccionadoInput.value = btn.dataset.id || '0';
             inputNombrePack.value = btn.dataset.nombre || '';
             inputPrecioPack.value = Number(btn.dataset.precio || 0).toFixed(2);
-
+            
             if (checkIncluyeEnvase) checkIncluyeEnvase.checked = (btn.dataset.incluyeEnvase === '1');
             
             lblEstadoPack.textContent = 'Editando Combo';
@@ -401,29 +366,17 @@
                 nombre_item: nombreTomSelect,
                 cantidad: cantidad,
                 es_bonificacion: checkBonificacion.checked ? 1 : 0,
-                requiere_envase: optionSelect ? Number(optionSelect.requiere_envase || 0) : 0 // <-- NUEVO
+                requiere_envase: optionSelect ? Number(optionSelect.requiere_envase || 0) : 0 // Atrapar el dato
             });
             limpiarFormulario();
             renderTablaLocales();
-            evaluarVisibilidadSwitchEnvase(); // <-- NUEVO: Revisar si debe mostrarse
+            evaluarVisibilidadSwitchEnvase(); // Evaluar si debe mostrarse
             return; 
         }
 
         try {
-            const body = new URLSearchParams({
-                id_pack: String(idPack),
-                id_item: String(idItem),
-                cantidad: String(cantidad),
-                es_bonificacion: checkBonificacion.checked ? '1' : '0',
-                csrf_token: csrfToken,
-            });
-
-            const response = await fetch(buildUrl('agregar_componente'), {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-                body: body.toString(),
-            });
-
+            const body = new URLSearchParams({ id_pack: String(idPack), id_item: String(idItem), cantidad: String(cantidad), es_bonificacion: checkBonificacion.checked ? '1' : '0', csrf_token: csrfToken });
+            const response = await fetch(buildUrl('agregar_componente'), { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: body.toString() });
             const data = await response.json();
             if (!response.ok || !data.ok) throw new Error(data.mensaje || 'No se pudo guardar el componente.');
 
@@ -439,7 +392,6 @@
         e.preventDefault();
         
         const isNewPack = idPackSeleccionadoInput.value === '0';
-        const checkIncluyeEnvase = document.getElementById('combo_incluye_envase'); // Aseguramos la referencia
 
         if (isNewPack && componentesLocales.length === 0) {
             toastError('Debes añadir al menos un componente al combo antes de guardar.');
@@ -447,14 +399,13 @@
         }
 
         try {
-            // Capturamos si el switch está encendido (1) o apagado (0)
-            const incluyeEnvaseValor = (checkIncluyeEnvase && checkIncluyeEnvase.checked) ? '1' : '0';
+            const incluyeEnvaseValor = (checkIncluyeEnvase && !contenedorSwitchEnvase.classList.contains('d-none') && checkIncluyeEnvase.checked) ? '1' : '0';
 
             const body = new URLSearchParams({
                 id: idPackSeleccionadoInput.value,
                 nombre: inputNombrePack.value.trim(),
                 precio_venta: inputPrecioPack.value,
-                incluye_envase: incluyeEnvaseValor, // <-- DATO NUEVO ENVIADO AL BACKEND
+                incluye_envase: incluyeEnvaseValor, // Mandamos el valor al backend
                 csrf_token: csrfToken
             });
 
@@ -471,18 +422,8 @@
 
             if (isNewPack && componentesLocales.length > 0) {
                 for (const comp of componentesLocales) {
-                    const bodyComp = new URLSearchParams({
-                        id_pack: idGuardado,
-                        id_item: String(comp.id_item),
-                        cantidad: String(comp.cantidad),
-                        es_bonificacion: String(comp.es_bonificacion),
-                        csrf_token: csrfToken,
-                    });
-                    await fetch(buildUrl('agregar_componente'), {
-                        method: 'POST',
-                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-                        body: bodyComp.toString(),
-                    });
+                    const bodyComp = new URLSearchParams({ id_pack: idGuardado, id_item: String(comp.id_item), cantidad: String(comp.cantidad), es_bonificacion: String(comp.es_bonificacion), csrf_token: csrfToken });
+                    await fetch(buildUrl('agregar_componente'), { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: bodyComp.toString() });
                 }
                 componentesLocales = []; 
             }
@@ -497,7 +438,7 @@
             if (btnLista) {
                 btnLista.dataset.nombre = nombreGuardado;
                 btnLista.dataset.precio = precioGuardado;
-                btnLista.dataset.incluyeEnvase = incluyeEnvaseValor; // <-- GUARDAMOS EL ESTADO EN EL DATASET
+                btnLista.dataset.incluyeEnvase = incluyeEnvaseValor;
                 btnLista.querySelector('.fw-bold.text-dark').textContent = nombreGuardado;
                 btnLista.querySelector('.badge.bg-primary').textContent = `S/ ${precioGuardado}`;
             } else {
@@ -511,7 +452,7 @@
                 btnLista.dataset.id = idGuardado;
                 btnLista.dataset.nombre = nombreGuardado;
                 btnLista.dataset.precio = precioGuardado;
-                btnLista.dataset.incluyeEnvase = incluyeEnvaseValor; // <-- GUARDAMOS EL ESTADO EN EL DATASET
+                btnLista.dataset.incluyeEnvase = incluyeEnvaseValor;
                 btnLista.innerHTML = `
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="fw-bold text-dark">${nombreGuardado}</div>
@@ -528,11 +469,7 @@
                     inputNombrePack.value = btnLista.dataset.nombre || '';
                     inputPrecioPack.value = Number(btnLista.dataset.precio || 0).toFixed(2);
                     
-                    // 👇 AL HACER CLICK, RESTAURAMOS EL ESTADO DEL SWITCH
-                    const checkEnvase = document.getElementById('combo_incluye_envase');
-                    if (checkEnvase) {
-                        checkEnvase.checked = (btnLista.dataset.incluyeEnvase === '1');
-                    }
+                    if (checkIncluyeEnvase) checkIncluyeEnvase.checked = (btnLista.dataset.incluyeEnvase === '1');
                     
                     lblEstadoPack.textContent = 'Editando Combo';
                     lblEstadoPack.className = 'badge bg-primary-subtle text-primary border border-primary-subtle mb-2';
@@ -561,29 +498,14 @@
             const idPack = Number(idPackSeleccionadoInput.value || 0);
             if (idPack <= 0) return;
 
-            const confirmado = await confirmarAccion({
-                icon: 'warning',
-                title: '¿Eliminar combo?',
-                text: 'Se ocultará del catálogo y de buscar producto. Esta acción no borra físicamente la BD.',
-                confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#dc3545'
-            });
+            const confirmado = await confirmarAccion({ title: '¿Eliminar combo?', text: 'Se ocultará del catálogo.', icon: 'warning', confirmButtonText: 'Sí, eliminar', confirmButtonColor: '#dc3545' });
             if (!confirmado) return;
 
             try {
-                const body = new URLSearchParams({
-                    id_pack: String(idPack),
-                    csrf_token: csrfToken,
-                });
-
-                const response = await fetch(buildUrl('eliminar_pack'), {
-                    method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-                    body: body.toString(),
-                });
+                const body = new URLSearchParams({ id_pack: String(idPack), csrf_token: csrfToken });
+                const response = await fetch(buildUrl('eliminar_pack'), { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: body.toString() });
                 const data = await response.json();
-                if (!response.ok || !data.ok) throw new Error(data.mensaje || 'No se pudo eliminar el combo.');
+                if (!response.ok || !data.ok) throw new Error(data.mensaje || 'No se pudo eliminar.');
 
                 const idx = listaPacks.findIndex((btn) => Number(btn.dataset.id || 0) === idPack);
                 if (idx >= 0) {
@@ -609,18 +531,15 @@
 
     async function cargarComponentesDisponibles(termino = '') {
         try {
-            const response = await fetch(buildUrl('buscar_componentes', { q: termino }), {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            });
+            const response = await fetch(buildUrl('buscar_componentes', { q: termino }), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             const data = await response.json();
             if (!response.ok || !data.ok) throw new Error(data.mensaje || 'Error al cargar ítems.');
 
             const items = Array.isArray(data.items) ? data.items : [];
-
             return items.map(item => ({
                 value: String(item.id),
                 text: `${item.nombre} - [${(item.tipo_item || 'Ítem').toUpperCase()}]`,
-                requiere_envase: item.requiere_envase // <-- NUEVO
+                requiere_envase: item.requiere_envase // Guardamos si el item pide envase
             }));
         } catch (error) {
             console.error('Error al poblar Tom Select:', error.message);
@@ -628,7 +547,6 @@
         }
     }
 
-    // --- LÓGICA DE TOM SELECT ---
     if (selectComponente) {
         window.tomSelectInstance = new TomSelect(selectComponente, {
             create: false,
@@ -643,7 +561,6 @@
                 callback(opciones);
             },
             onBlur: function() {
-                // Al perder el foco, si el usuario no escogió nada (o escribió basura), se limpia el texto
                 this.setTextboxValue('');
             }
         });

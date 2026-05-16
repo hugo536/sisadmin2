@@ -55,6 +55,53 @@ class VentasDespachoModel extends Modelo
                 $mapaDetalle[(int) $d['id']] = $d;
             }
 
+            // =========================================================================
+            // 👇 NUEVO: PROTOCOLO DE SEGURIDAD (ANTI-REACTIVO LIMITANTE EN DESPACHO) 👇
+            // =========================================================================
+            $consumoFisicoConsolidado = []; 
+
+            foreach ($lineas as $linea) {
+                $idDetalle = (int) ($linea['id_documento_detalle'] ?? 0);
+                $cantidadDespachar = (float) ($linea['cantidad'] ?? 0);
+
+                if ($idDetalle <= 0 || $cantidadDespachar <= 0) continue;
+                if (!isset($mapaDetalle[$idDetalle])) continue;
+
+                $detalle = $mapaDetalle[$idDetalle];
+
+                if (!empty($detalle['id_presentacion'])) {
+                    // Es un combo, desglosar sus ingredientes
+                    $componentes = $this->obtenerComponentesCombo($db, (int) $detalle['id_presentacion']);
+                    foreach ($componentes as $comp) {
+                        $idFisico = (int) $comp['id_item'];
+                        $consumoFisicoConsolidado[$idFisico] = ($consumoFisicoConsolidado[$idFisico] ?? 0) + ($comp['cantidad'] * $cantidadDespachar);
+                    }
+                } else {
+                    // Es un ítem suelto
+                    $idFisico = (int) $detalle['id_item'];
+                    if ($idFisico > 0) {
+                        $consumoFisicoConsolidado[$idFisico] = ($consumoFisicoConsolidado[$idFisico] ?? 0) + $cantidadDespachar;
+                    }
+                }
+            }
+
+            // Verificamos si la suma de todo lo que intenta despachar excede el stock global
+            foreach ($consumoFisicoConsolidado as $idItemFisico => $cantidadTotalRequerida) {
+                $stockReal = $this->obtenerStockGlobalItem($db, $idItemFisico);
+                if ($cantidadTotalRequerida > $stockReal + 0.0001) { // Tolerancia decimal
+                    $stmtNom = $db->prepare("SELECT nombre FROM items WHERE id = ?");
+                    $stmtNom->execute([$idItemFisico]);
+                    $nombreItem = $stmtNom->fetchColumn() ?: "Ítem ID {$idItemFisico}";
+
+                    throw new RuntimeException(
+                        "ALERTA DE STOCK CRUZADO:\n" .
+                        "Intenta despachar un total de {$cantidadTotalRequerida} unidades físicas de '{$nombreItem}' (sumando ítems sueltos y combos), pero solo quedan {$stockReal} en el inventario de la planta."
+                    );
+                }
+            }
+            // 👆 FIN DEL PROTOCOLO DE SEGURIDAD 👆
+            // =========================================================================
+
             $despachosAgrupados = [];
             $cantidadesAcumuladasItem = []; 
 
@@ -84,15 +131,9 @@ class VentasDespachoModel extends Modelo
                     throw new RuntimeException('La suma a despachar excede el pendiente del ítem: ' . ($detalle['item_nombre'] ?? '')); 
                 }
 
+                // Las validaciones de stock individual las conservamos por si eligen un almacén específico sin stock
                 if (!empty($detalle['id_presentacion'])) {
-                    $componentes = $this->obtenerComponentesCombo($db, (int) $detalle['id_presentacion']);
-                    foreach ($componentes as $comp) {
-                        $stockComp = $this->obtenerStockGlobalItem($db, (int) $comp['id_item']);
-                        $cantRequerida = $comp['cantidad'] * $cantidad;
-                        if ($cantRequerida > $stockComp) {
-                            throw new RuntimeException('Stock insuficiente para un componente del combo en el stock global de almacenes.');
-                        }
-                    }
+                    // (Ya validado por el protocolo global arriba, pero lo dejamos por consistencia de tu código base)
                 } else {
                     $stockActual = $this->obtenerStockItem($db, (int) $detalle['id_item'], $idAlmacenLinea);
                     if ($cantidad > $stockActual) {
@@ -245,7 +286,7 @@ class VentasDespachoModel extends Modelo
             }
             
             // ====================================================================
-            // --- NUEVA LÓGICA: RECEPCIÓN INMEDIATA DE ENVASES VACÍOS ---
+            // --- LÓGICA: RECEPCIÓN INMEDIATA DE ENVASES VACÍOS ---
             // ====================================================================
             if (!empty($envasesDevueltos) && is_array($envasesDevueltos)) {
                 $idCliente = (int) ($documento['id_cliente'] ?? 0);

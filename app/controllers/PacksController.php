@@ -33,9 +33,6 @@ class PacksController extends Controlador
         $this->render('items/packs', $datos);
     }
 
-    /**
-     * NUEVA FUNCIÓN: Guarda el nombre y precio del Combo en la tabla items
-     */
     public function guardar_pack_padre(): void
     {
         AuthMiddleware::handle();
@@ -52,14 +49,11 @@ class PacksController extends Controlador
             return;
         }
 
-        // 👇 MODIFICADO: Agregamos incluye_envase al payload 👇
         $payload = [
             'id' => (int) ($_POST['id'] ?? 0),
             'nombre' => trim((string) ($_POST['nombre'] ?? '')),
             'precio_venta' => (float) str_replace(',', '.', (string) ($_POST['precio_venta'] ?? 0)),
-            'incluye_envase' => (int) ($_POST['incluye_envase'] ?? 0), // <-- ESTA LÍNEA
         ];
-        // 👆 FIN DEL CAMBIO 👆
 
         try {
             $idPack = $this->packsModel->guardarPackPadre($payload);

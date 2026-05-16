@@ -845,10 +845,7 @@
                             stock: parseFloat(prod.stock_actual || 0),
                             precio: parseFloat(prod.precio_venta || 0),
                             permiteDecimales: Number(prod.permite_decimales || 0),
-                            pesoKg: Number(prod.peso_kg || 0),
-                            // --- NUEVO: Leer configuración de envases del backend ---
-                            requiereEnvase: !!prod.requiere_envase, // Si es recarga normal
-                            incluyeEnvase: !!prod.incluye_envase    // Si es pack (recarga + bidón)
+                            pesoKg: Number(prod.peso_kg || 0)
                         }));
                         callback(items);
                     }).catch(() => callback());
@@ -870,25 +867,6 @@
                     // Permitimos que la cajita reciba hasta 4 decimales
                     inputPrecio.value = selectedOption.precio.toFixed(4);
                     filaReal.dataset.pesoKg = String(Number(selectedOption.pesoKg || 0));
-
-                    // --- NUEVO: Mostrar insignias de envase ---
-                    const badgeRequiere = filaReal.querySelector('.detalle-envase-retornable');
-                    const badgeIncluye = filaReal.querySelector('.detalle-envase-incluido');
-
-                    if (badgeRequiere && badgeIncluye) {
-                        if (selectedOption.requiereEnvase) {
-                            badgeRequiere.classList.remove('d-none');
-                            badgeIncluye.classList.add('d-none');
-                        } else if (selectedOption.incluyeEnvase) {
-                            badgeRequiere.classList.add('d-none');
-                            badgeIncluye.classList.remove('d-none');
-                        } else {
-                            // Productos normales (ej: vasos de plástico, dispensadores)
-                            badgeRequiere.classList.add('d-none');
-                            badgeIncluye.classList.add('d-none');
-                        }
-                    }
-                    // ------------------------------------------
                     
                     // MEJORA UX: Evitar el 0 molesto
                     let valorActual = inputCantidad.value;
@@ -944,14 +922,7 @@
             });
             tom.setValue(item.id_item);
             filaReal.dataset.pesoKg = String(Number(item.peso_kg || 0));
-
-            const badgeReq = filaReal.querySelector('.detalle-envase-retornable');
-            const badgeInc = filaReal.querySelector('.detalle-envase-incluido');
-            if (badgeReq && badgeInc) {
-                if (item.requiere_envase) badgeReq.classList.remove('d-none');
-                else if (item.incluye_envase) badgeInc.classList.remove('d-none');
-            }
-                    
+     
             if (!esBorrador) tom.disable(); 
 
             configurarInputCantidad(inputCantidad, item.permite_decimales, item.cantidad || 0);
@@ -1170,14 +1141,15 @@
             }
             // ---------------------------------------------------------------------------------
 
+            // 👇 NUEVO: Solo advertir, nunca bloquear en borrador 👇
             if (excedeStock) {
                 const confirmacion = await Swal.fire({
                     icon: 'warning',
-                    title: 'Stock excedido',
-                    text: 'Uno o más productos superan el stock disponible. Al ser un borrador, puedes guardarlo. ¿Estás seguro de continuar?',
+                    title: 'Stock excedido (Falta de producto)',
+                    text: 'Las cantidades requeridas (sumando sueltos y combos) superan tu stock físico en almacén. Puedes guardar el borrador, pero no podrás despacharlo hasta que repongas el stock. ¿Guardar de todos modos?',
                     showCancelButton: true,
-                    confirmButtonColor: '#0d6efd',
-                    cancelButtonColor: '#dc3545',
+                    confirmButtonColor: '#0d6efd', // Azul de "Aceptar"
+                    cancelButtonColor: '#6c757d', // Gris de "Cancelar"
                     confirmButtonText: 'Sí, guardar pedido',
                     cancelButtonText: 'Cancelar'
                 });
@@ -1186,6 +1158,7 @@
                     return; 
                 }
             }
+            // 👆 ------------------------------------------------ 👆
 
             const payload = await postJson(urls.guardar, {
                 id: Number(ventaId.value || 0),
@@ -1195,7 +1168,6 @@
                 observaciones: ventaObservaciones.value,
                 tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'exonerado',
                 detalle: detalle,
-                // --- AÑADE ESTAS DOS LÍNEAS ---
                 cobro_inmediato: esCobroInmediato,
                 metodos_pago: metodosPagoFinales
             });
@@ -1211,7 +1183,7 @@
     // ==========================================
     // --- LÓGICA DESPACHO MULTI-ALMACÉN ---
     // ==========================================
-    let envasesRequeridosActuales = []; // --- NUEVO: Estado global de envases requeridos ---
+    let envasesRequeridosActuales = []; 
 
     function actualizarTotalDevolucionVenta() {
         if (!tbodyDevolucionVenta || !devolucionVentaTotal) return;
@@ -1407,7 +1379,7 @@
         modalDespacho.show();
     }
 
-    // --- NUEVO: Función para dibujar y actualizar los envases vacíos (DISEÑO MODERNO) ---
+    // --- NUEVO: Función para dibujar y actualizar los envases vacíos ---
     function dibujarTablaEnvases() {
         if (!seccionRetornoEnvases || !contenedorRetornoEnvases) return;
 
@@ -1443,12 +1415,12 @@
             
             hayEnvasesAEntregar = true;
             
-            // Mantener el valor si el usuario ya lo había escrito
+            // 👇 NUEVO: Forzar siempre a 0 la primera vez que se dibuja el envase
             const divExistente = contenedorRetornoEnvases.querySelector(`div[data-id-envase="${idEnvase}"]`);
-            const valorPrevio = divExistente ? divExistente.querySelector('.input-retorno-vacio').value : cantLlenos;
+            const valorPrevio = divExistente ? divExistente.querySelector('.input-retorno-vacio').value : 0; 
+            // 👆 -------------------------------------------------------------
 
             const itemDiv = document.createElement('div');
-            // Clases flex para que en PC se vea horizontal y en móvil se apile verticalmente si no cabe
             itemDiv.className = 'd-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between bg-white p-2 rounded shadow-sm border border-info-subtle item-envase-retorno';
             itemDiv.dataset.idEnvase = idEnvase;
             itemDiv.innerHTML = `

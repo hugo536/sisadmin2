@@ -17,8 +17,7 @@ class PacksModel
      */
     public function obtenerTodosLosPacks(): array
     {
-        // 👇 MODIFICADO: Agregamos COALESCE(incluye_envase, 0)
-        $sql = "SELECT id, 'SIN-SKU' as sku, nombre, precio_venta, COALESCE(incluye_envase, 0) AS incluye_envase 
+        $sql = "SELECT id, 'SIN-SKU' as sku, nombre, precio_venta 
                 FROM precios_presentaciones 
                 WHERE estado = 1 
                   AND deleted_at IS NULL 
@@ -39,7 +38,6 @@ class PacksModel
         $id = (int) ($payload['id'] ?? 0);
         $nombre = trim((string) ($payload['nombre'] ?? ''));
         $precioVenta = (float) ($payload['precio_venta'] ?? 0); 
-        $incluyeEnvase = (int) ($payload['incluye_envase'] ?? 0); // <-- NUEVA VARIABLE
         $usuarioId = (int) ($_SESSION['id'] ?? $_SESSION['usuario_id'] ?? 1);
 
         if ($nombre === '') {
@@ -48,28 +46,26 @@ class PacksModel
 
         try {
             if ($id > 0) {
-                // 👇 MODIFICADO: Actualizar pack existente incluyendo incluye_envase
+                // Actualizar pack existente
                 $sql = "UPDATE precios_presentaciones 
-                        SET nombre = :nombre, precio_venta = :precio_venta, incluye_envase = :incluye_envase, updated_by = :updated_by 
+                        SET nombre = :nombre, precio_venta = :precio_venta, updated_by = :updated_by 
                         WHERE id = :id";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([
                     'nombre' => $nombre,
                     'precio_venta' => $precioVenta,
-                    'incluye_envase' => $incluyeEnvase, // <-- NUEVO
                     'updated_by' => $usuarioId,
                     'id' => $id
                 ]);
                 return $id;
             } else {
-                // 👇 MODIFICADO: Insertar nuevo pack incluyendo incluye_envase
-                $sql = "INSERT INTO precios_presentaciones (nombre, precio_venta, incluye_envase, estado, created_by, updated_by) 
-                        VALUES (:nombre, :precio_venta, :incluye_envase, 1, :created_by, :updated_by)";
+                // Insertar nuevo pack
+                $sql = "INSERT INTO precios_presentaciones (nombre, precio_venta, estado, created_by, updated_by) 
+                        VALUES (:nombre, :precio_venta, 1, :created_by, :updated_by)";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([
                     'nombre' => $nombre,
                     'precio_venta' => $precioVenta,
-                    'incluye_envase' => $incluyeEnvase, // <-- NUEVO
                     'created_by' => $usuarioId,
                     'updated_by' => $usuarioId
                 ]);
@@ -85,7 +81,7 @@ class PacksModel
      */
     public function buscarComponentes(string $termino): array
     {
-        // Traemos TODO menos los que sean tipo 'pack'
+        // Traemos TODO menos los que sean tipo 'pack' y leemos si exige envase
         $sql = "SELECT id, nombre, sku, unidad_base, tipo_item, COALESCE(es_envase_retornable, 0) AS requiere_envase
                 FROM items
                 WHERE estado = 1 
@@ -95,7 +91,7 @@ class PacksModel
         if ($termino !== '') {
             $sql .= " AND (nombre LIKE :termino OR sku LIKE :termino OR tipo_item LIKE :termino)";
         }
-        $sql .= ' ORDER BY nombre ASC LIMIT 100'; // Traeremos hasta 100 para que TomSelect fluya bien
+        $sql .= ' ORDER BY nombre ASC LIMIT 100'; 
 
         $stmt = $this->db->prepare($sql);
         if ($termino !== '') {
@@ -110,6 +106,7 @@ class PacksModel
      */
     public function obtenerComponentesPorPack(int $idPack): array
     {
+        // Leemos también la columna es_envase_retornable del ítem (componente)
         $sql = "SELECT d.id AS id_detalle,
                        d.id_item,
                        i.nombre AS nombre_item,
