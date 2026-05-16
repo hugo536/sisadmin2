@@ -946,7 +946,7 @@ class ProduccionOrdenesModel extends Modelo
                                                 COALESCE(t.nombre_completo, "Tarifa Estándar de Línea") AS empleado,
                                                 m.horas_reales,
                                                 m.costo_hora_real,
-                                                COALESCE(m.costo_total_mod, (m.horas_reales * m.costo_hora_real)) AS costo_total_mod
+                                                (m.horas_reales * m.costo_hora_real) AS costo_total_mod
                                          FROM produccion_ordenes_mod m
                                          LEFT JOIN terceros t ON t.id = m.id_empleado
                                          WHERE m.id_orden = :id_orden
