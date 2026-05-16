@@ -36,13 +36,12 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <select class="form-select bg-light border-secondary-subtle shadow-none" id="opFiltroEstado">
-                        <option value="">Todos los estados</option>
-                        <option value="0">Borrador</option>
-                        <option value="1">En Proceso</option>
-                        <option value="2">Ejecutada</option>
-                        <option value="9">Anulada</option>
-                    </select>
+                <select class="form-select bg-light border-secondary-subtle shadow-none" id="opFiltroEstado">
+                    <option value="">Todos los estados</option>
+                    <option value="0">Borrador</option>
+                    <option value="2">Ejecutada</option>
+                    <option value="9">Anulada</option>
+                </select>
                 </div>
             </div>
         </div>
@@ -67,7 +66,6 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                             <th class="ps-4 text-secondary fw-semibold">Código OP</th>
                             <th class="text-secondary fw-semibold">Producto / Receta</th>
                             <th class="text-secondary fw-semibold">Planificado / Real</th>
-                            <th class="text-center text-secondary fw-semibold">Stock</th> 
                             <th class="text-center text-secondary fw-semibold">Estado</th>
                             <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
                         </tr>
@@ -87,7 +85,15 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     $precheckOk = (int) ($orden['precheck_ok'] ?? 0) === 1;
                                     $precheckResumen = (string) ($orden['precheck_resumen'] ?? 'Sin información de faltantes');
                                     
-                                    // Búsqueda inteligente: Incluye código, producto y receta
+                                    // --- LÓGICA DE DECIMALES ---
+                                    // Asume que tu backend envía 'permite_decimales'. Si no lo envía, asume 1 (con decimales) para que no se rompa por ahora.
+                                    $permiteDecimales = isset($orden['permite_decimales']) ? (int) $orden['permite_decimales'] : 1; 
+                                    $decimales = $permiteDecimales === 1 ? 4 : 0;
+
+                                    // --- LÓGICA DE FECHA DD-MM-YYYY ---
+                                    $fechaProgStr = !empty($orden['fecha_programada']) ? date('d-m-Y', strtotime($orden['fecha_programada'])) : '';
+
+                                    // Búsqueda inteligente
                                     $searchStr = strtolower($orden['codigo'] . ' ' . $orden['producto_nombre'] . ' ' . $orden['receta_codigo'] . ' ' . (string) ($orden['almacen_planta_nombre'] ?? ''));
                                 ?>
                                 
@@ -109,45 +115,35 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     
                                     <td class="align-top pt-3">
                                         <div class="d-flex flex-column align-items-start gap-1">
-                                            <span class="badge bg-light text-secondary border border-secondary-subtle shadow-sm px-2">Plan: <?php echo number_format((float) $orden['cantidad_planificada'], 4); ?></span>
-                                            <?php if (!empty($orden['fecha_programada'])): ?>
-                                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2"><i class="bi bi-calendar3 me-1"></i><?php echo e((string) $orden['fecha_programada']); ?></span>
+                                            <?php 
+                                                // Extraemos la unidad base (Si no hay, queda en blanco)
+                                                $unidadBase = (string) ($orden['unidad_base'] ?? '');
+                                                $espacioUnidad = $unidadBase !== '' ? ' ' . $unidadBase : '';
+                                            ?>
+                                            
+                                            <span class="badge bg-light text-secondary border border-secondary-subtle shadow-sm px-2">
+                                                Plan: <?php echo number_format((float) $orden['cantidad_planificada'], $decimales) . $espacioUnidad; ?>
+                                            </span>
+                                            
+                                            <?php if ($fechaProgStr !== ''): ?>
+                                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2"><i class="bi bi-calendar3 me-1"></i><?php echo $fechaProgStr; ?></span>
                                             <?php endif; ?>
+                                            
                                             <?php if (!empty($orden['almacen_planta_nombre'])): ?>
                                                 <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2"><i class="bi bi-building me-1"></i><?php echo e((string) $orden['almacen_planta_nombre']); ?></span>
                                             <?php endif; ?>
+                                            
                                             <?php if ((float) $orden['cantidad_producida'] > 0): ?>
-                                                <span class="badge bg-success text-white px-2 shadow-sm"><i class="bi bi-check2-all me-1"></i>Real: <?php echo number_format((float) $orden['cantidad_producida'], 4); ?></span>
+                                                <span class="badge bg-success text-white px-2 shadow-sm">
+                                                    <i class="bi bi-check2-all me-1"></i>Real: <?php echo number_format((float) $orden['cantidad_producida'], $decimales) . $espacioUnidad; ?>
+                                                </span>
                                             <?php endif; ?>
                                         </div>
                                     </td>
-                                    
-                                    <td class="text-center align-top pt-3">
-                                        <?php if ($estado === 0): // Solo evaluamos stock visualmente en Borrador ?>
-                                            <?php if ($precheckOk): ?>
-                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
-                                                    <i class="bi bi-check-circle-fill me-1"></i> Completo
-                                                </span>
-                                            <?php else: ?>
-                                                <div class="d-inline-flex align-items-center">
-                                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill">
-                                                        <i class="bi bi-exclamation-triangle-fill me-1"></i> Faltantes
-                                                    </span>
-                                                    <button class="btn btn-sm btn-light rounded-circle border ms-2 text-secondary shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#faltantes-<?php echo $orden['id']; ?>" aria-expanded="false" title="Ver detalles de faltantes">
-                                                        <i class="bi bi-chevron-down"></i>
-                                                    </button>
-                                                </div>
-                                            <?php endif; ?>
-                                        <?php else: ?>
-                                            <span class="text-muted small opacity-50">-</span>
-                                        <?php endif; ?>
-                                    </td>
 
                                     <td class="text-center align-top pt-3">
-                                        <?php if ($estado === 0): ?>
+                                        <?php if (in_array($estado, [0, 1], true)): ?>
                                             <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-2 rounded-pill">Borrador</span>
-                                        <?php elseif ($estado === 1): ?>
-                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill">En proceso</span>
                                         <?php elseif ($estado === 2): ?>
                                             <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">Ejecutada</span>
                                         <?php elseif ($estado === 9): ?>
@@ -159,7 +155,18 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                         <?php if (in_array($estado, [0, 1], true)): ?>
                                             <div class="d-inline-flex align-items-center gap-2 acciones-op-wrap">
                                                 
-                                                <button class="btn btn-sm <?php echo $estado === 1 ? 'btn-info text-white' : 'btn-success'; ?> fw-bold px-2 px-lg-3 shadow-sm js-abrir-ejecucion"
+                                                <button type="button" 
+                                                        class="btn btn-sm shadow-sm js-ver-diagnostico <?php echo $precheckOk ? 'btn-outline-success' : 'btn-warning text-dark'; ?>"
+                                                        data-codigo="<?php echo e((string) $orden['codigo']); ?>"
+                                                        data-destino="<?php echo e((string) ($orden['almacen_planta_nombre'] ?? 'Planta no asignada')); ?>"
+                                                        data-resumen="<?php echo htmlspecialchars($precheckResumen, ENT_QUOTES, 'UTF-8'); ?>"
+                                                        data-ok="<?php echo $precheckOk ? '1' : '0'; ?>"
+                                                        data-bs-toggle="tooltip" 
+                                                        title="<?php echo $precheckOk ? 'Insumos Completos' : 'Faltan Insumos'; ?>">
+                                                    <i class="bi <?php echo $precheckOk ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'; ?>"></i>
+                                                </button>
+
+                                                <button class="btn btn-sm btn-success fw-bold px-2 px-lg-3 shadow-sm js-abrir-ejecucion"
                                                         data-id="<?php echo (int) $orden['id']; ?>"
                                                         data-codigo="<?php echo e((string) $orden['codigo']); ?>"
                                                         data-receta="<?php echo (int) $orden['id_receta']; ?>"
@@ -175,21 +182,13 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                         data-receta-version="<?php echo (int) ($orden['receta_version_snapshot'] ?? 1); ?>"
                                                         data-receta-rendimiento="<?php echo (float) ($orden['receta_rendimiento_base'] ?? 0); ?>"
                                                         data-receta-tiempo="<?php echo (float) ($orden['receta_tiempo_horas'] ?? 0); ?>"
-                                                        title="<?php echo $estado === 1 ? 'Continuar Producción' : 'Ejecutar Producción'; ?>">
+                                                        title="Ejecutar Producción">
                                                     <i class="bi bi-play-fill"></i>
-                                                    <span class="d-none d-lg-inline ms-1"><?php echo $estado === 1 ? 'Continuar' : 'Ejecutar'; ?></span>
+                                                    <span class="d-none d-lg-inline ms-1">Ejecutar</span>
                                                 </button>
 
-                                                <a href="<?php echo e((string) route_url('inventario')); ?>"
-                                                   class="btn btn-sm btn-dark text-white shadow-sm <?php echo $precheckOk ? '' : 'btn-aprovisionar-alert'; ?>"
-                                                   title="Aprovisionar Planta"
-                                                   data-bs-toggle="tooltip">
-                                                    <i class="bi bi-arrow-left-right"></i>
-                                                </a>
-
-                                                <?php if ($estado === 0): ?>
                                                 <button type="button"
-                                                        class="btn btn-sm btn-warning text-dark shadow-sm js-editar-op"
+                                                        class="btn btn-sm btn-light text-dark shadow-sm border js-editar-op"
                                                         data-id="<?php echo (int) $orden['id']; ?>"
                                                         data-cantidad="<?php echo (float) $orden['cantidad_planificada']; ?>"
                                                         data-fecha="<?php echo e((string) ($orden['fecha_programada'] ?? '')); ?>"
@@ -199,16 +198,15 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                         title="Editar borrador">
                                                     <i class="bi bi-pencil"></i>
                                                 </button>
-                                                <?php endif; ?>
 
                                                 <form method="post" class="d-inline js-swal-confirm m-0 p-0"
-                                                      data-confirm-title="<?php echo $estado === 1 ? '¿Eliminar orden en proceso?' : '¿Eliminar borrador?'; ?>"
-                                                      data-confirm-text="Se ocultará la orden.">
+                                                    data-confirm-title="¿Eliminar borrador?"
+                                                    data-confirm-text="Se ocultará la orden.">
                                                     <input type="hidden" name="accion" value="eliminar_borrador">
                                                     <input type="hidden" name="id_orden" value="<?php echo (int) $orden['id']; ?>">
                                                     <button type="submit" class="btn btn-sm btn-outline-danger shadow-sm"
                                                             data-bs-toggle="tooltip"
-                                                            title="<?php echo $estado === 1 ? 'Eliminar orden en proceso' : 'Eliminar borrador'; ?>">
+                                                            title="Eliminar borrador">
                                                         <i class="bi bi-trash"></i>
                                                     </button>
                                                 </form>
@@ -220,63 +218,19 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                                     data-codigo="<?php echo e((string) $orden['codigo']); ?>"
                                                     data-estado="<?php echo $estado === 2 ? 'Ejecutada' : 'Anulada'; ?>"
                                                     data-producto="<?php echo e((string) $orden['producto_nombre']); ?>"
-                                                    data-plan="<?php echo number_format((float) $orden['cantidad_planificada'], 4); ?>"
-                                                    data-real="<?php echo number_format((float) $orden['cantidad_producida'], 4); ?>"
-                                                    data-md-real="<?php echo number_format((float) ($orden['costo_md_real'] ?? 0), 4); ?>"
-                                                    data-mod-real="<?php echo number_format((float) ($orden['costo_mod_real'] ?? 0), 4); ?>"
-                                                    data-cif-real="<?php echo number_format((float) ($orden['costo_cif_real'] ?? 0), 4); ?>"
-                                                    data-total-real="<?php echo number_format((float) ($orden['costo_real_total'] ?? 0), 4); ?>"
-                                                    data-md-teorico="<?php echo number_format(((float) ($orden['costo_md_teorico_unit'] ?? 0) * (float) ($orden['cantidad_planificada'] ?? 0)), 4); ?>"
-                                                    data-mod-teorico="<?php echo number_format(((float) ($orden['costo_mod_teorico_unit'] ?? 0) * (float) ($orden['cantidad_planificada'] ?? 0)), 4); ?>"
-                                                    data-cif-teorico="<?php echo number_format(((float) ($orden['costo_cif_teorico_unit'] ?? 0) * (float) ($orden['cantidad_planificada'] ?? 0)), 4); ?>"
+                                                    data-plan="<?php echo (float) $orden['cantidad_planificada']; ?>"
+                                                    data-real="<?php echo (float) $orden['cantidad_producida']; ?>"
+                                                    data-md-real="<?php echo (float) ($orden['costo_md_real'] ?? 0); ?>"
+                                                    data-mod-real="<?php echo (float) ($orden['costo_mod_real'] ?? 0); ?>"
+                                                    data-cif-real="<?php echo (float) ($orden['costo_cif_real'] ?? 0); ?>"
+                                                    data-total-real="<?php echo (float) ($orden['costo_real_total'] ?? 0); ?>"
                                                     data-bs-toggle="tooltip"
                                                     title="Ver detalle de costos y consumos">
                                                 <i class="bi bi-search"></i>
                                             </button>
                                         <?php endif; ?>
                                     </td>
-                                    </tr>
-
-                                <?php if ($estado === 0 && !$precheckOk): ?>
-                                <tr class="collapse collapse-faltantes bg-light" id="faltantes-<?php echo $orden['id']; ?>" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
-                                    <td colspan="6" class="p-0 border-bottom">
-                                        <div class="card border-0 border-start border-4 border-warning m-3 shadow-sm bg-white">
-                                            <div class="card-body p-3">
-                                                <div class="d-flex align-items-start">
-                                                    <i class="bi bi-exclamation-triangle-fill text-warning fs-3 me-3 mt-1"></i>
-                                                    <div class="w-100">
-                                                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 border-bottom pb-2">
-                                                            <strong class="text-dark fs-6">Insumos a aprovisionar para ejecución</strong>
-                                                            <span class="badge bg-secondary-subtle text-secondary-emphasis fs-6 fw-normal px-3 border border-secondary-subtle">
-                                                                <i class="bi bi-building me-1"></i> Destino: <strong><?php echo e((string) ($orden['almacen_planta_nombre'] ?? 'Planta no asignada')); ?></strong>
-                                                            </span>
-                                                        </div>
-                                                        <div class="small text-muted">
-                                                            <?php 
-                                                                $textoLimpio = str_replace('Faltantes: ', '', $precheckResumen);
-                                                                $listaFaltantes = explode(';', $textoLimpio);
-                                                            ?>
-                                                            <ul class="list-unstyled mb-0 row g-2">
-                                                                <?php foreach ($listaFaltantes as $itemFaltante): ?>
-                                                                    <?php if (trim($itemFaltante) !== ''): ?>
-                                                                        <li class="col-md-6 col-lg-4">
-                                                                            <div class="d-flex align-items-center bg-light p-2 rounded border border-light-subtle">
-                                                                                <i class="bi bi-box-seam text-secondary me-2"></i>
-                                                                                <span class="text-dark fw-medium"><?php echo e(trim($itemFaltante)); ?></span>
-                                                                            </div>
-                                                                        </li>
-                                                                    <?php endif; ?>
-                                                                <?php endforeach; ?>
-                                                            </ul>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
                                 </tr>
-                                <?php endif; ?>
-
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </tbody>
@@ -448,19 +402,21 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 </div>
 
 <div class="modal fade" id="modalDetalleOP" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-dark text-white border-bottom-0 pb-4">
-                <h5 class="modal-title fw-bold"><i class="bi bi-clipboard2-data me-2"></i>Análisis Financiero de OP</h5>
+            
+            <div class="modal-header bg-dark text-white border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold"><i class="bi bi-clipboard2-data me-2 text-info"></i>Análisis Financiero de OP</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+            
+            <div class="modal-body p-4 bg-light">
                 
-                <div class="card border-0 shadow-sm mb-4">
+                <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body p-3">
                         <div class="row g-2 align-items-center text-center text-md-start">
                             <div class="col-6 col-md-3 border-end">
-                                <div class="small text-muted fw-bold text-uppercase">Código</div>
+                                <div class="small text-muted fw-bold text-uppercase">Código OP</div>
                                 <div id="detalleCodigo" class="fw-bold fs-5 text-primary">-</div>
                             </div>
                             <div class="col-6 col-md-5 border-end">
@@ -469,120 +425,61 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                             </div>
                             <div class="col-6 col-md-2 border-end">
                                 <div class="small text-muted fw-bold text-uppercase">Planificado</div>
-                                <div id="detallePlan" class="fw-bold fs-5 text-secondary">0.0000</div>
+                                <div id="detallePlan" class="fw-bold fs-5 text-secondary">0.00</div>
                             </div>
                             <div class="col-6 col-md-2">
-                                <div class="small text-muted fw-bold text-uppercase">Producido Real</div>
-                                <div id="detalleReal" class="fw-bold fs-5 text-success">0.0000</div>
+                                <div class="small text-muted fw-bold text-uppercase">Producido</div>
+                                <div id="detalleReal" class="fw-bold fs-5 text-success">0.00</div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="card border-0 shadow-sm mb-4">
+                <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body p-0">
-                        <ul class="nav nav-tabs px-3 pt-3 bg-white rounded-top" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active fw-bold px-4 py-3 text-primary" data-bs-toggle="tab" data-bs-target="#tabDetalleMd" type="button"><i class="bi bi-box-seam me-2"></i>Materiales (MD)</button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link fw-bold px-4 py-3 text-secondary" data-bs-toggle="tab" data-bs-target="#tabDetalleMod" type="button"><i class="bi bi-people me-2"></i>Mano de Obra (MOD)</button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link fw-bold px-4 py-3 text-secondary" data-bs-toggle="tab" data-bs-target="#tabDetalleCif" type="button"><i class="bi bi-lightning-charge me-2"></i>Gastos Indirectos (CIF)</button>
-                            </li>
+                        <ul class="nav nav-tabs nav-tabs-custom px-3 pt-2 bg-white rounded-top" role="tablist">
+                            <li class="nav-item"><button class="nav-link active fw-bold text-primary" data-bs-toggle="tab" data-bs-target="#tabDetalleMd"><i class="bi bi-box-seam me-1"></i>Materiales (MD)</button></li>
+                            <li class="nav-item"><button class="nav-link fw-bold text-secondary" data-bs-toggle="tab" data-bs-target="#tabDetalleMod"><i class="bi bi-people me-1"></i>Mano Obra (MOD)</button></li>
+                            <li class="nav-item"><button class="nav-link fw-bold text-secondary" data-bs-toggle="tab" data-bs-target="#tabDetalleCif"><i class="bi bi-lightning-charge me-1"></i>Indirectos (CIF)</button></li>
                         </ul>
-
-                        <div class="tab-content p-0" style="min-height:260px;">
-                            <div class="tab-pane fade show active" id="tabDetalleMd" role="tabpanel">
-                                <div class="table-responsive">
-                                    <table class="table table-hover align-middle mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th class="ps-4">Insumo Utilizado</th>
-                                                <th class="text-end">Cant. Teórica / Real</th>
-                                                <th class="text-end">Costo Unitario</th>
-                                                <th class="text-end pe-4">Costo Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="detalleTablaMd">
-                                            <tr><td colspan="4" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-1"></i>Sin datos</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                        <div class="tab-content p-0" style="min-height: 220px;">
+                            <div class="tab-pane fade show active" id="tabDetalleMd">
+                                <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0"><thead class="table-light text-muted small text-uppercase"><tr><th class="ps-3">Insumo Utilizado</th><th class="text-end">Cant. Teórica / Real</th><th class="text-end">Costo Unit.</th><th class="text-end pe-3">Total</th></tr></thead><tbody id="detalleTablaMd"></tbody></table></div>
                             </div>
-                            <div class="tab-pane fade" id="tabDetalleMod" role="tabpanel">
-                                <div class="table-responsive">
-                                    <table class="table table-hover align-middle mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th class="ps-4">Operario / Perfil</th>
-                                                <th class="text-end">Horas Registradas</th>
-                                                <th class="text-end">Costo por Hora</th>
-                                                <th class="text-end pe-4">Costo Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="detalleTablaMod">
-                                            <tr><td colspan="4" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-1"></i>Sin datos</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <div class="tab-pane fade" id="tabDetalleMod">
+                                <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0"><thead class="table-light text-muted small text-uppercase"><tr><th class="ps-3">Operario / Perfil</th><th class="text-end">Horas Registradas</th><th class="text-end">Costo Hora</th><th class="text-end pe-3">Total</th></tr></thead><tbody id="detalleTablaMod"></tbody></table></div>
                             </div>
-                            <div class="tab-pane fade" id="tabDetalleCif" role="tabpanel">
-                                <div class="table-responsive">
-                                    <table class="table table-hover align-middle mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th class="ps-4">Concepto / Activo</th>
-                                                <th>Base (Horas)</th>
-                                                <th class="text-end pe-4">Costo Aplicado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="detalleTablaCif">
-                                            <tr><td colspan="3" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-1"></i>Sin datos</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card border border-primary-subtle shadow-sm bg-primary-subtle bg-opacity-10">
-                    <div class="card-body p-4">
-                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="text-muted fw-bold text-uppercase small">Estado OP:</span>
-                                <span id="detalleEstado" class="badge bg-secondary px-3 py-2 fs-6 rounded-pill">-</span>
-                            </div>
-                            
-                            <div class="d-flex align-items-center flex-wrap gap-3 fs-5">
-                                <div class="text-center px-3 border-end">
-                                    <span class="d-block text-muted small fw-bold mb-1">Materiales (MD)</span>
-                                    <span class="fw-semibold text-dark">S/ <span id="detalleMdReal">0.00</span></span>
-                                </div>
-                                <div class="text-center px-3 border-end">
-                                    <span class="d-block text-muted small fw-bold mb-1">Mano Obra (MOD)</span>
-                                    <span class="fw-semibold text-dark">S/ <span id="detalleModReal">0.00</span></span>
-                                </div>
-                                <div class="text-center px-3 border-end">
-                                    <span class="d-block text-muted small fw-bold mb-1">Indirectos (CIF)</span>
-                                    <span class="fw-semibold text-dark">S/ <span id="detalleCifReal">0.00</span></span>
-                                </div>
-                                <div class="text-center px-3">
-                                    <span class="d-block text-primary small fw-bold mb-1">Costo Total</span>
-                                    <span class="fw-bold text-primary fs-4">S/ <span id="detalleTotalReal">0.00</span></span>
-                                </div>
-                                <div class="text-center ps-3 border-start">
-                                    <span class="d-block text-success small fw-bold mb-1">Costo Unitario</span>
-                                    <span class="fw-bold text-success fs-4">S/ <span id="detalleUnitarioReal">0.00</span></span>
-                                </div>
+                            <div class="tab-pane fade" id="tabDetalleCif">
+                                <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0"><thead class="table-light text-muted small text-uppercase"><tr><th class="ps-3">Concepto / Activo</th><th>Base (Horas)</th><th class="text-end pe-3">Costo Aplicado</th></tr></thead><tbody id="detalleTablaCif"></tbody></table></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
             </div>
+
+            <div class="modal-footer bg-primary-subtle bg-opacity-10 border-top d-flex flex-wrap justify-content-between align-items-center p-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-muted fw-bold text-uppercase small d-none d-md-inline">Estado:</span>
+                    <span id="detalleEstado" class="badge bg-secondary px-3 py-2 fs-6 rounded-pill">-</span>
+                </div>
+                
+                <div class="d-flex flex-wrap justify-content-end gap-3 gap-md-4 text-end">
+                    <div class="d-none d-lg-block">
+                        <div class="small text-muted fw-bold">MD + MOD + CIF</div>
+                        <div class="fw-semibold text-dark" style="font-size: 0.9rem;">S/ <span id="detalleMdReal">0.00</span> + <span id="detalleModReal">0.00</span> + <span id="detalleCifReal">0.00</span></div>
+                    </div>
+                    <div class="border-start ps-3 ps-md-4">
+                        <div class="small text-primary fw-bold text-uppercase mb-1">Costo Total</div>
+                        <div class="fw-bold text-primary fs-4 lh-1">S/ <span id="detalleTotalReal">0.00</span></div>
+                    </div>
+                    <div class="border-start ps-3 ps-md-4">
+                        <div class="small text-success fw-bold text-uppercase mb-1">Costo Unitario</div>
+                        <div class="fw-bold text-success fs-4 lh-1">S/ <span id="detalleUnitarioReal">0.00</span></div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
@@ -834,6 +731,32 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     </div>
                 </div>
 
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDiagnosticoOP" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-clipboard-data text-primary me-2"></i>Diagnóstico de Insumos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 pt-0">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                    <span class="badge bg-dark px-3 py-2 fs-6" id="diagCodigoOP">-</span>
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis border"><i class="bi bi-building me-1"></i> <span id="diagDestino">-</span></span>
+                </div>
+                
+                <div id="diagContenido">
+                    </div>
+            </div>
+            <div class="modal-footer bg-light border-top-0 d-flex justify-content-between">
+                <button type="button" class="btn btn-outline-secondary fw-semibold" data-bs-dismiss="modal">Cerrar</button>
+                <a href="<?php echo e((string) route_url('inventario')); ?>" target="_blank" class="btn btn-primary fw-bold shadow-sm">
+                    <i class="bi bi-box-seam me-2"></i>Ir a Inventario
+                </a>
             </div>
         </div>
     </div>

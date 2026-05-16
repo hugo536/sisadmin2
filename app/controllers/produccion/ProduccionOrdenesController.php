@@ -36,7 +36,6 @@ class ProduccionOrdenesController extends Controlador
             // AÑADIDOS LOS NUEVOS ENDPOINTS A LA LISTA AJAX
             $esAjaxReceta = in_array($accion, [
                 'obtener_receta_ajax', 
-                'iniciar_ejecucion_ajax', 
                 'obtener_planificador_ajax',
                 'crear_orden_ajax',
                 'analizar_subordenes_ajax',
@@ -167,21 +166,6 @@ class ProduccionOrdenesController extends Controlador
                     echo json_encode(['success' => true, 'data' => $resultado]);
                     exit;
                 }
-
-                if ($accion === 'iniciar_ejecucion_ajax') {
-                    if (ob_get_level() > 0) ob_clean();
-                    header('Content-Type: application/json; charset=utf-8');
-                    $idOrden = (int) ($_POST['id_orden'] ?? 0);
-                    if ($idOrden <= 0) {
-                        echo json_encode(['success' => false, 'message' => 'Orden inválida.']);
-                        exit;
-                    }
-
-                    $this->produccionOrdenesModel->marcarOrdenEnProceso($idOrden, $userId);
-                    echo json_encode(['success' => true]);
-                    exit;
-                }
-
 
                 if ($accion === 'obtener_detalle_costos_ajax') {
                     if (ob_get_level() > 0) ob_clean();

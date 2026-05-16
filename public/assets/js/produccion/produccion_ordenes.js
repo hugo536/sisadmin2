@@ -398,6 +398,60 @@ function initAccionesTabla() {
             return;
         }
 
+        // NUEVO: Lógica del Modal de Diagnóstico
+        const btnDiagnostico = e.target.closest('.js-ver-diagnostico');
+        if (btnDiagnostico) {
+            const modalDiagEl = document.getElementById('modalDiagnosticoOP');
+            if (!modalDiagEl || typeof bootstrap === 'undefined') return;
+
+            const modalDiag = bootstrap.Modal.getOrCreateInstance(modalDiagEl);
+            
+            // Traemos los datos del botón
+            const codigo = btnDiagnostico.getAttribute('data-codigo');
+            const destino = btnDiagnostico.getAttribute('data-destino');
+            const estaOk = btnDiagnostico.getAttribute('data-ok') === '1';
+            const resumen = btnDiagnostico.getAttribute('data-resumen') || '';
+
+            document.getElementById('diagCodigoOP').textContent = codigo;
+            document.getElementById('diagDestino').textContent = destino;
+
+            const contenedor = document.getElementById('diagContenido');
+            
+            if (estaOk) {
+                // Todo está bien
+                contenedor.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3 fw-bold text-dark">Todo en orden</h5>
+                        <p class="text-muted mb-0">La planta cuenta con stock suficiente de todos los insumos y semielaborados para iniciar esta producción.</p>
+                    </div>`;
+            } else {
+                // Hay faltantes
+                const listaFaltantes = resumen.replace('Faltantes: ', '').split(';').filter(i => i.trim() !== '');
+                
+                let htmlFaltantes = `<div class="alert alert-warning border-warning border-start border-4 shadow-sm mb-0">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="bi bi-exclamation-triangle-fill fs-5 text-warning me-2"></i>
+                                            <strong class="text-dark">Insumos Faltantes</strong>
+                                        </div>
+                                        <p class="small text-dark mb-3">Las siguientes cantidades deben ser transferidas o ajustadas para poder cumplir con esta orden:</p>
+                                        <ul class="list-group list-group-flush shadow-sm rounded">`;
+                
+                listaFaltantes.forEach(item => {
+                    htmlFaltantes += `<li class="list-group-item list-group-item-warning d-flex align-items-center py-2 px-3 border-warning-subtle">
+                                        <i class="bi bi-box-seam me-3 text-secondary"></i>
+                                        <span class="fw-medium text-dark flex-grow-1">${item.trim()}</span>
+                                      </li>`;
+                });
+                
+                htmlFaltantes += `</ul></div>`;
+                contenedor.innerHTML = htmlFaltantes;
+            }
+
+            modalDiag.show();
+            return;
+        }
+
         const btnDetalle = e.target.closest('.js-ver-detalle');
         if (btnDetalle) {
             const modalDetalleEl = document.getElementById('modalDetalleOP');
@@ -405,39 +459,46 @@ function initAccionesTabla() {
             if (modalDetalleEl && typeof bootstrap !== 'undefined') {
                 if (!modalDetalle) modalDetalle = new bootstrap.Modal(modalDetalleEl);
 
+                // Función de ayuda para formatear números con comas
+                const fmt = (num, dec = 4) => Number(num).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+
                 const estado = btnDetalle.getAttribute('data-estado') || '-';
                 const idOrden = Number(btnDetalle.getAttribute('data-id') || 0);
+                
+                // LEEMOS LOS NÚMEROS CRUDOS SIN COMAS
+                const plan = parseFloat(btnDetalle.getAttribute('data-plan') || '0') || 0;
                 const real = parseFloat(btnDetalle.getAttribute('data-real') || '0') || 0;
+                const mdRealVal = parseFloat(btnDetalle.getAttribute('data-md-real') || '0') || 0;
+                const modRealVal = parseFloat(btnDetalle.getAttribute('data-mod-real') || '0') || 0;
+                const cifRealVal = parseFloat(btnDetalle.getAttribute('data-cif-real') || '0') || 0;
                 const totalRealVal = parseFloat(btnDetalle.getAttribute('data-total-real') || '0') || 0;
+                
+                // CÁLCULO MATEMÁTICO CORREGIDO
+                const unitarioRealVal = real > 0 ? (totalRealVal / real) : 0;
                 
                 document.getElementById('detalleCodigo').textContent = btnDetalle.getAttribute('data-codigo') || '-';
                 document.getElementById('detalleProducto').textContent = btnDetalle.getAttribute('data-producto') || '-';
-                document.getElementById('detallePlan').textContent = btnDetalle.getAttribute('data-plan') || '0.0000';
-                document.getElementById('detalleReal').textContent = btnDetalle.getAttribute('data-real') || '0.0000';
                 
-                const mdReal = document.getElementById('detalleMdReal');
-                const modReal = document.getElementById('detalleModReal');
-                const cifReal = document.getElementById('detalleCifReal');
-                const totalReal = document.getElementById('detalleTotalReal');
-                const unitarioReal = document.getElementById('detalleUnitarioReal');
-                
-                if (mdReal) mdReal.textContent = btnDetalle.getAttribute('data-md-real') || '0.0000';
-                if (modReal) modReal.textContent = btnDetalle.getAttribute('data-mod-real') || '0.0000';
-                if (cifReal) cifReal.textContent = btnDetalle.getAttribute('data-cif-real') || '0.0000';
-                if (totalReal) totalReal.textContent = btnDetalle.getAttribute('data-total-real') || '0.0000';
-                if (unitarioReal) unitarioReal.textContent = (real > 0 ? (totalRealVal / real) : 0).toFixed(4);
+                // IMPRIMIMOS CON FORMATO
+                document.getElementById('detallePlan').textContent = fmt(plan);
+                document.getElementById('detalleReal').textContent = fmt(real);
+                document.getElementById('detalleMdReal').textContent = fmt(mdRealVal);
+                document.getElementById('detalleModReal').textContent = fmt(modRealVal);
+                document.getElementById('detalleCifReal').textContent = fmt(cifRealVal);
+                document.getElementById('detalleTotalReal').textContent = fmt(totalRealVal);
+                document.getElementById('detalleUnitarioReal').textContent = fmt(unitarioRealVal);
 
                 const badge = document.getElementById('detalleEstado');
                 if (badge) {
                     badge.textContent = estado;
-                    badge.className = `badge ${estado === 'Ejecutada' ? 'bg-success' : 'bg-danger'}`;
+                    badge.className = `badge ${estado === 'Ejecutada' ? 'bg-success' : 'bg-danger'} px-3 py-2 fs-6 rounded-pill`;
                 }
 
                 const fillTable = (id, rows, emptyCols, mapper) => {
                     const tbody = document.getElementById(id);
                     if (!tbody) return;
                     if (!Array.isArray(rows) || rows.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="${emptyCols}" class="text-center text-muted">Sin datos</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="${emptyCols}" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-1"></i>Sin datos para mostrar</td></tr>`;
                         return;
                     }
                     tbody.innerHTML = rows.map(mapper).join('');
@@ -447,47 +508,31 @@ function initAccionesTabla() {
                 fd.append('accion', 'obtener_detalle_costos_ajax');
                 fd.append('id_orden', String(idOrden));
 
+                // Ponemos los cargadores visuales mientras consultamos la DB
+                document.getElementById('detalleTablaMd').innerHTML = `<tr><td colspan="4" class="text-center text-primary py-4"><div class="spinner-border spinner-border-sm me-2"></div>Cargando datos...</td></tr>`;
+
                 fetch(window.location.href, { method: 'POST', body: fd })
                     .then((r) => r.json())
                     .then((resp) => {
-                        const data = (resp && resp.success && resp.data) ? resp.data : { materiales: [], mod: [], cif: [] };
-                        fillTable('detalleTablaMd', data.materiales, 4, (r) => `<tr><td>${r.item_nombre || '-'}</td><td class="text-end"><div>${Number(r.cantidad || 0).toFixed(4)}</div><div class="text-muted small">Real: ${Number(r.cantidad_real || 0).toFixed(4)}</div></td><td class="text-end">S/ ${Number(r.costo_unitario || 0).toFixed(4)}</td><td class="text-end">S/ ${Number(r.costo_total || 0).toFixed(4)}</td></tr>`);
-                        fillTable('detalleTablaMod', data.mod, 4, (r) => `<tr><td>${r.empleado || ('ID ' + (r.id_empleado || '-'))}</td><td class="text-end">${Number(r.horas_reales || 0).toFixed(4)}</td><td class="text-end">S/ ${Number(r.costo_hora_real || 0).toFixed(4)}</td><td class="text-end">S/ ${Number(r.costo_total_mod || 0).toFixed(4)}</td></tr>`);
-                        fillTable('detalleTablaCif', data.cif, 3, (r) => `<tr><td>${r.concepto || '-'}</td><td>${r.base_distribucion || '-'}</td><td class="text-end">S/ ${Number(r.costo_aplicado || 0).toFixed(4)}</td></tr>`);
+                        // SI HAY ERROR EN EL SQL (Backend), LO MOSTRAMOS EN LA TABLA
+                        if (!resp.success) {
+                            const errorMsg = resp.message || 'Error desconocido en el servidor.';
+                            document.getElementById('detalleTablaMd').innerHTML = `<tr><td colspan="4" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill fs-3 d-block mb-2"></i><b>Error SQL:</b> ${errorMsg}</td></tr>`;
+                            fillTable('detalleTablaMod', [], 4, () => '');
+                            fillTable('detalleTablaCif', [], 3, () => '');
+                            return;
+                        }
+
+                        const data = resp.data || { materiales: [], mod: [], cif: [] };
+                        fillTable('detalleTablaMd', data.materiales, 4, (r) => `<tr><td class="ps-3 fw-medium">${r.item_nombre || '-'}</td><td class="text-end"><div><span class="fw-bold">${fmt(r.cantidad)}</span></div><div class="text-muted small">Real: ${fmt(r.cantidad_real)}</div></td><td class="text-end">S/ ${fmt(r.costo_unitario)}</td><td class="text-end pe-3 fw-semibold">S/ ${fmt(r.costo_total)}</td></tr>`);
+                        fillTable('detalleTablaMod', data.mod, 4, (r) => `<tr><td class="ps-3 fw-medium">${r.empleado || ('ID ' + (r.id_empleado || '-'))}</td><td class="text-end fw-bold">${fmt(r.horas_reales)}</td><td class="text-end">S/ ${fmt(r.costo_hora_real)}</td><td class="text-end pe-3 fw-semibold">S/ ${fmt(r.costo_total_mod)}</td></tr>`);
+                        fillTable('detalleTablaCif', data.cif, 3, (r) => `<tr><td class="ps-3 fw-medium">${r.concepto || '-'}</td><td class="text-muted">${r.base_distribucion || '-'}</td><td class="text-end pe-3 fw-semibold">S/ ${fmt(r.costo_aplicado)}</td></tr>`);
                     })
-                    .catch(() => {
-                        fillTable('detalleTablaMd', [], 4, () => '');
-                        fillTable('detalleTablaMod', [], 4, () => '');
-                        fillTable('detalleTablaCif', [], 3, () => '');
+                    .catch((err) => {
+                        document.getElementById('detalleTablaMd').innerHTML = `<tr><td colspan="4" class="text-center text-danger py-4"><i class="bi bi-wifi-off fs-3 d-block mb-2"></i>Error de conexión al obtener detalles.</td></tr>`;
                     });
 
                 modalDetalle.show();
-            }
-        }
-    });
-
-    document.addEventListener('show.bs.collapse', function (e) {
-        if (e.target.classList.contains('collapse-faltantes')) {
-            const tablaOrdenes = document.getElementById('tablaOrdenes');
-            if(tablaOrdenes) {
-                const abiertos = tablaOrdenes.querySelectorAll('.collapse-faltantes.show');
-                abiertos.forEach(abierto => {
-                    if (abierto !== e.target && typeof bootstrap !== 'undefined') {
-                        const bsCollapse = bootstrap.Collapse.getInstance(abierto);
-                        if (bsCollapse) bsCollapse.hide();
-                    }
-                });
-            }
-        }
-    }, true);
-
-    document.addEventListener('click', function(e) {
-        const isClickInsideTable = e.target.closest('#tablaOrdenes');
-        if (!isClickInsideTable) {
-            const acordeonAbierto = document.querySelector('.collapse-faltantes.show');
-            if (acordeonAbierto && typeof bootstrap !== 'undefined') {
-                const bsCollapse = bootstrap.Collapse.getInstance(acordeonAbierto);
-                if (bsCollapse) bsCollapse.hide();
             }
         }
     });
@@ -802,18 +847,6 @@ function initModalEjecucion() {
                     cancelButtonText: 'Cancelar'
                 });
                 if (!confirmacion.isConfirmed) return;
-            }
-
-            try {
-                const formInicio = new FormData();
-                formInicio.append('accion', 'iniciar_ejecucion_ajax');
-                formInicio.append('id_orden', idOrden);
-                const inicioResponse = await fetch(window.location.href, { method: 'POST', body: formInicio });
-                const inicioJson = await inicioResponse.json();
-                if (!inicioJson.success) throw new Error(inicioJson.message || 'No se pudo iniciar la ejecución');
-            } catch (errorInicio) {
-                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: errorInicio.message || 'No se pudo iniciar la ejecución.' });
-                return;
             }
 
             if (!modalEjecutar) modalEjecutar = new bootstrap.Modal(modalEl);
@@ -1371,15 +1404,9 @@ function initPlanificadorOperaciones() {
                             const producto = op.producto || '-';
                             const codigoLimpio = op.codigo ? op.codigo.replace('OP-', '') : '-'; 
                             const cantidad = Number(op.cantidad || 0).toFixed(2);
-                            const badgeColor = op.estado === 2
-                                ? 'bg-success text-white'
-                                : (op.estado === 1 ? 'bg-warning text-dark' : 'bg-secondary text-white');
-                            const estadoTexto = op.estado === 2
-                                ? 'Ejecutada'
-                                : (op.estado === 1 ? 'Proceso' : 'Borrador');
-                            const bordeEstado = op.estado === 2
-                                ? 'border-success'
-                                : (op.estado === 1 ? 'border-warning' : 'border-secondary');
+                            const badgeColor = op.estado === 2 ? 'bg-success text-white' : 'bg-secondary text-white';
+                            const estadoTexto = op.estado === 2 ? 'Ejecutada' : 'Borrador';
+                            const bordeEstado = op.estado === 2 ? 'border-success' : 'border-secondary';
                             
                             return `<div class="mini-card-op small bg-white border rounded p-2 mt-2 text-start shadow-sm lh-sm border-start border-4 ${bordeEstado}" style="min-height: 60px;">
                                         <div class="d-flex justify-content-between align-items-center mb-1">
@@ -1403,9 +1430,7 @@ function initPlanificadorOperaciones() {
                             if (index < 2) {
                                 const bgColor = op.estado === 2
                                     ? 'bg-success-subtle border-success text-success-emphasis'
-                                    : (op.estado === 1
-                                        ? 'bg-warning-subtle border-warning text-warning-emphasis'
-                                        : 'bg-light border-secondary-subtle text-secondary');
+                                    : 'bg-light border-secondary-subtle text-secondary';
                                 
                                 resumenHtml += `<div class="border rounded px-1 mb-1 text-start ${bgColor}" style="font-size: 0.65rem; padding: 4px 2px;" title="${op.producto}">
                                     <span class="d-block op-product-name-mes fw-bold opacity-100 text-center">${op.producto}</span>

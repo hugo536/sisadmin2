@@ -121,7 +121,7 @@ class ProduccionOrdenesModel extends Modelo
                        COALESCE(r.costo_cif_teorico, 0) AS costo_cif_teorico_unit,
                        r.id_centro_costo AS receta_id_centro_costo,
                        p.nombre AS producto_nombre,
-                       p.requiere_lote, p.requiere_vencimiento, p.unidad_base 
+                       p.requiere_lote, p.requiere_vencimiento, p.unidad_base, p.permite_decimales
                 FROM produccion_ordenes o
                 INNER JOIN produccion_recetas r ON r.id = o.id_receta
                 INNER JOIN items p ON p.id = r.id_producto
@@ -554,8 +554,8 @@ class ProduccionOrdenesModel extends Modelo
 
             if ($costoModReal > 0) {
                 try {
-                    $db->prepare('INSERT INTO produccion_ordenes_mod (id_orden, id_empleado, horas_reales, costo_hora_real, costo_total_mod) VALUES (?, NULL, ?, ?, ?)')
-                       ->execute([$idOrden, $netHours, $tarifaMod, $costoModReal]);
+                    $db->prepare('INSERT INTO produccion_ordenes_mod (id_orden, id_empleado, horas_reales, costo_hora_real) VALUES (?, NULL, ?, ?)')
+                       ->execute([$idOrden, $netHours, $tarifaMod]);
                 } catch (Throwable $e) {} 
             }
 
