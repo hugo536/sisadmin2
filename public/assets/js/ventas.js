@@ -1465,7 +1465,7 @@
         } else {
             almacenesDisp.forEach(alm => {
                 const stockDisponible = Number.parseFloat(alm.stock_actual || 0) || 0;
-                opcionesHTML += `<option value="${alm.id}" data-stock="${stockDisponible}">${alm.nombre} (Dispo: ${stockDisponible})</option>`;
+                opcionesHTML += `<option value="${alm.id}" data-stock="${stockDisponible}">${alm.nombre}</option>`;
                 
                 if (stockDisponible > maxStock) {
                     maxStock = stockDisponible;
