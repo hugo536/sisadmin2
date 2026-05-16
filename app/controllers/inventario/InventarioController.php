@@ -32,9 +32,14 @@ class InventarioController extends Controlador
 
         $idAlmacenFiltro = (int) ($_GET['id_almacen'] ?? 0);
         $stockActualRaw = $this->inventarioModel->obtenerStock($idAlmacenFiltro);
-        
+
+        // La vista Inventario de Productos solo debe mostrar ítems reales de inventario.
+        $stockSoloItems = array_values(array_filter($stockActualRaw, static function (array $fila): bool {
+            return ($fila['tipo_registro'] ?? 'item') === 'item';
+        }));
+
         // ACCIÓN 1 y 2: Procesar la data cruda para inyectarle la lógica de estado y formato
-        $stockProcesado = $this->procesarEstadosStock($stockActualRaw);
+        $stockProcesado = $this->procesarEstadosStock($stockSoloItems);
 
         $datos = [
                 'ruta_actual' => 'inventario',
