@@ -161,7 +161,12 @@ class GastosController extends Controlador
         ]; 
 
         $this->render('gastos/registro_gastos', [
-             // ... el resto de tus variables ...
+            'ruta_actual' => 'gastos/registros',
+            'registros' => $this->registroModel->listar($filtros),
+            'proveedores' => $this->proveedorModel->listarActivos(),
+            'conceptos' => $this->conceptoModel->listarActivos(),
+            'centrosCosto' => $this->centroCostoModel->listarActivos(),
+            'filtros' => $filtros,
             'cuentas' => $cuentas,
             'metodos' => $metodos,
         ]);
