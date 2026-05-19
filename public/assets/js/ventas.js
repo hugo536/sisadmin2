@@ -29,8 +29,12 @@
                 actualizarBloqueoFormularioPorCliente();
 
                 const btnGuardar = document.getElementById('btnGuardarVenta');
-                btnGuardar.style.display = 'block';
-                btnGuardar.textContent = 'Guardar Pedido';
+                if (btnGuardar) {
+                    btnGuardar.style.display = 'block';
+                    btnGuardar.textContent = 'Guardar Pedido';
+                } else {
+                    console.warn('No se encontró #btnGuardarVenta al abrir nueva venta.');
+                }
 
                 if (!document.getElementById('alertaBorradorInfo')) {
                     const contenedor = document.getElementById('alertaBorradorContenedor');
