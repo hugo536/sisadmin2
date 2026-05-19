@@ -189,5 +189,53 @@
       inputMontoTotalGasto.addEventListener('input', calcularTotalPagado);
     }
 
+    // ==========================================
+    // 5. Limpieza automática del Modal al Cerrar
+    // ==========================================
+    const modalNuevoGastoEl = document.getElementById('modalNuevoGasto');
+    
+    if (modalNuevoGastoEl) {
+      modalNuevoGastoEl.addEventListener('hidden.bs.modal', function () {
+        // 1. Resetear inputs nativos (Fecha, Monto, etc.)
+        const formulario = document.getElementById('formNuevoGasto');
+        if (formulario) {
+          formulario.reset();
+        }
+
+        // 2. Limpiar los selectores avanzados (TomSelect)
+        const selectoresAvanzados = ['idConceptoGasto', 'id_proveedor', 'idCentroCostoGasto'];
+        selectoresAvanzados.forEach(function(id) {
+          const elemento = document.getElementById(id);
+          if (element && elemento.tomselect) {
+            elemento.tomselect.clear(true); // Remueve la selección visual de TomSelect sin disparar eventos extra
+          }
+        });
+
+        // 3. Apagar el switch de pago al contado
+        const switchPago = document.getElementById('switchPagoInmediato');
+        if (switchPago) {
+          switchPago.checked = false;
+        }
+
+        // 4. Ocultar la sección verde de Pago Rápido
+        const seccionPago = document.getElementById('seccionPagoInmediato');
+        if (seccionPago) {
+          seccionPago.classList.add('d-none');
+        }
+
+        // 5. Vaciar todas las filas dinámicas de cuentas/métodos acumuladas
+        const contenedorPagos = document.getElementById('contenedorMetodosPagoGasto');
+        if (contenedorPagos) {
+          contenedorPagos.innerHTML = '';
+        }
+
+        // 6. Resetear el marcador del total pagado a cero
+        const totalPagadoText = document.getElementById('totalPagadoInmediatoGasto');
+        if (totalPagadoText) {
+          totalPagadoText.textContent = 'S/ 0.00';
+          totalPagadoText.className = 'fw-bold text-dark fs-5'; // Regresa al color oscuro por defecto
+        }
+      });
+    }
   });
 })();
