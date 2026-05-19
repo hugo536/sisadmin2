@@ -206,7 +206,7 @@
         const selectoresAvanzados = ['idConceptoGasto', 'id_proveedor', 'idCentroCostoGasto'];
         selectoresAvanzados.forEach(function(id) {
           const elemento = document.getElementById(id);
-          if (element && elemento.tomselect) {
+          if (elemento && elemento.tomselect) {
             elemento.tomselect.clear(true); // Remueve la selección visual de TomSelect sin disparar eventos extra
           }
         });
