@@ -492,8 +492,11 @@ class VentasController extends Controlador
             }
 
             $envasesDevueltos = is_array($data['envases_devueltos'] ?? null) ? $data['envases_devueltos'] : [];
-
             $detalle = $data['detalle'] ?? [];
+
+            // --- NUEVO: Capturar datos del cobro ---
+            $esCobroInmediato = filter_var($data['cobro_inmediato'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $metodosPago = is_array($data['metodos_pago'] ?? null) ? $data['metodos_pago'] : [];
 
             if ($idDocumento <= 0) throw new RuntimeException('Documento inválido');
             if (empty($detalle) || !is_array($detalle)) throw new RuntimeException('No hay ítems para despachar');
@@ -504,23 +507,57 @@ class VentasController extends Controlador
                 }
             }
 
+            // Validar los métodos de pago antes de procesar nada
+            if ($esCobroInmediato) {
+                if (empty($metodosPago)) {
+                    throw new RuntimeException('Debe especificar al menos un método de pago para el cobro.');
+                }
+                foreach ($metodosPago as $pago) {
+                    if (empty($pago['id_cuenta']) || empty($pago['id_metodo']) || empty($pago['monto']) || (float)$pago['monto'] <= 0) {
+                        throw new RuntimeException('Todos los métodos de pago ingresados deben tener cuenta, método y un monto válido.');
+                    }
+                }
+            }
+
             $userId = $this->obtenerUsuarioId(); 
 
-            // --- TOQUE DE ORO: VALIDACIÓN ESTRICTA DE FECHAS EN BACKEND ---
+            // Validación de fechas
             $ventaData = $this->documentoModel->obtener($idDocumento);
             if (!empty($ventaData['fecha_emision'])) {
-                // Extraemos solo el YYYY-MM-DD
                 $fechaEmisionSoloDia = explode(' ', $ventaData['fecha_emision'])[0];
                 if ($fechaDespacho < $fechaEmisionSoloDia) {
                     throw new RuntimeException("Error: La fecha de despacho ($fechaDespacho) no puede ser anterior a la emisión del pedido ($fechaEmisionSoloDia).");
                 }
             }
-            // --------------------------------------------------------------
             
-            // Usamos el modelo correcto y el nombre de la función correcta
+            // 1. Registrar salida de mercadería
             $this->despachoModel->registrarDespacho($idDocumento, $detalle, $cerrarForzado, $observaciones, $userId, $fechaDespacho, $envasesDevueltos);
             
-            json_response(['ok' => true, 'mensaje' => 'Despacho registrado correctamente']);
+            // 2. Registrar cobro (Si se activó el switch)
+            if ($esCobroInmediato) {
+                $deuda = $this->tesoreriaCxcModel->obtenerPorVenta($idDocumento);
+                if (empty($deuda)) {
+                    throw new RuntimeException('Se despachó la mercadería, pero no se encontró la cuenta por cobrar del pedido para aplicar el pago.');
+                }
+                
+                foreach ($metodosPago as $pago) {
+                    $idCuenta = (int) $pago['id_cuenta'];
+                    $idMetodo = (int) $pago['id_metodo'];
+                    $montoPago = (float) $pago['monto'];
+                    
+                    $this->tesoreriaCxcModel->registrarCobroDirecto(
+                        (int) $deuda['id'],
+                        $idCuenta,
+                        $idMetodo,
+                        $montoPago,
+                        $fechaDespacho, 
+                        'Cobro al Despachar - Caja',
+                        $userId
+                    );
+                }
+            }
+
+            json_response(['ok' => true, 'mensaje' => 'Despacho registrado correctamente' . ($esCobroInmediato ? ' junto con su cobro.' : '.')]);
         } catch (Throwable $e) {
             json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
         }

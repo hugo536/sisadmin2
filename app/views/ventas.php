@@ -356,16 +356,27 @@ $formatearFechaDMY = static function ($fecha): string {
             </div>
             
             <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div class="form-check form-switch m-0 ps-5" id="switchCobroContainer">
-                    <input class="form-check-input" type="checkbox" id="switchCobroInmediato" style="cursor: pointer;">
-                    <label class="form-check-label fw-bold text-primary small" for="switchCobroInmediato" style="cursor: pointer;">
-                        Cobrar Al Contado (Inmediato)
-                    </label>
+                <div class="d-flex align-items-center gap-4 ps-2">
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" id="cerrarForzado" style="cursor: pointer;">
+                        <label class="form-check-label fw-semibold text-danger small" for="cerrarForzado">
+                            Forzar cierre
+                        </label>
+                    </div>
+                    
+                    <div class="form-check form-switch m-0" id="switchCobroDespachoContainer">
+                        <input class="form-check-input border-success" type="checkbox" id="switchCobroDespacho" style="cursor: pointer;">
+                        <label class="form-check-label fw-bold text-success small" for="switchCobroDespacho" style="cursor: pointer;">
+                            Cobrar al entregar
+                        </label>
+                    </div>
                 </div>
-                
+
                 <div class="d-flex align-items-center gap-2">
                     <button class="btn btn-light text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-primary px-4 fw-bold" id="btnGuardarVenta"><i class="bi bi-save me-2"></i>Guardar Pedido</button>
+                    <button class="btn btn-info text-white fw-bold px-4" id="btnGuardarDespacho">
+                        <i class="bi bi-check-lg me-2"></i>Confirmar Despacho
+                    </button>
                 </div>
             </div>
         </div>
@@ -375,10 +386,12 @@ $formatearFechaDMY = static function ($fecha): string {
 <div class="modal fade" id="modalDespacho" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
+            
             <div class="modal-header bg-info text-white border-bottom-0 pb-4">
                 <h5 class="modal-title fw-bold d-flex flex-wrap align-items-center gap-2"><span><i class="bi bi-truck me-2"></i>Despachar Pedido</span><small id="despachoClienteNombre" class="fw-semibold text-white-50"></small></h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
+            
             <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 <input type="hidden" id="despachoDocumentoId" value="0">
                 
@@ -436,21 +449,61 @@ $formatearFechaDMY = static function ($fecha): string {
                     </h6>
                     <div id="contenedorRetornoEnvases" class="d-flex flex-column gap-2"></div>
                 </div>
+
+                <div class="card border-success-subtle shadow-sm mt-4 d-none fade-in" id="seccionCobroDespacho">
+                    <div class="card-body p-3 bg-success-subtle rounded">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 42px; height: 42px;">
+                                <i class="bi bi-cash-stack fs-5"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0 fw-bold text-success-emphasis">Registro de Pago Rápido</h6>
+                                <small class="text-success-emphasis opacity-75">Selecciona cómo está pagando el cliente al recibir la mercadería.</small>
+                            </div>
+                        </div>
+
+                        <div id="contenedorMetodosPagoDespacho" class="d-flex flex-column gap-2 mb-2">
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <button type="button" class="btn btn-sm btn-light text-success fw-bold shadow-sm" id="btnAgregarPagoDespacho">
+                                <i class="bi bi-plus-circle me-1"></i> Añadir otro método
+                            </button>
+                            <div class="text-end">
+                                <small class="text-success-emphasis fw-bold d-block lh-1" style="font-size: 0.7rem;">TOTAL A COBRAR</small>
+                                <span class="fw-bold text-dark fs-5" id="totalPagadoDespacho">S/ 0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
             
-            <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center">
-                <div class="form-check form-switch m-0 ps-5">
-                    <input class="form-check-input" type="checkbox" id="cerrarForzado" style="cursor: pointer;">
-                    <label class="form-check-label fw-semibold text-danger small" for="cerrarForzado">
-                        Forzar cierre (Cancelar pendientes restantes)
-                    </label>
+            <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                
+                <div class="d-flex align-items-center gap-4 ps-2">
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" id="cerrarForzado" style="cursor: pointer;">
+                        <label class="form-check-label fw-semibold text-danger small" for="cerrarForzado">
+                            Forzar cierre
+                        </label>
+                    </div>
+                    
+                    <div class="form-check form-switch m-0" id="switchCobroDespachoContainer">
+                        <input class="form-check-input border-success" type="checkbox" id="switchCobroDespacho" style="cursor: pointer;">
+                        <label class="form-check-label fw-bold text-success small" for="switchCobroDespacho" style="cursor: pointer;">
+                            Cobrar al entregar
+                        </label>
+                    </div>
                 </div>
-                <div>
-                    <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-light text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
                     <button class="btn btn-info text-white fw-bold px-4" id="btnGuardarDespacho">
                         <i class="bi bi-check-lg me-2"></i>Confirmar Despacho
                     </button>
                 </div>
+
             </div>
         </div>
     </div>

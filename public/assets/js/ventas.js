@@ -184,6 +184,14 @@
     const despachoClienteNombre = document.getElementById('despachoClienteNombre');
 
     // --- NUEVO: VARIABLES DE TESORERÍA Y COBRO INMEDIATO ---
+    // --- VARIABLES DE COBRO EN DESPACHO ---
+    const seccionCobroDespacho = document.getElementById('seccionCobroDespacho');
+    const contenedorMetodosPagoDespacho = document.getElementById('contenedorMetodosPagoDespacho');
+    const btnAgregarPagoDespacho = document.getElementById('btnAgregarPagoDespacho');
+    const totalPagadoDespacho = document.getElementById('totalPagadoDespacho');
+    const switchCobroDespachoContainer = document.getElementById('switchCobroDespachoContainer');
+    const switchCobroDespacho = document.getElementById('switchCobroDespacho');
+    let totalPendienteDespacho = 0; // Guardaremos aquí cuánto falta pagar
     const cuentasDisponibles = window.TESORERIA_CUENTAS || [];
     const metodosDisponibles = window.TESORERIA_METODOS || [];
     
@@ -495,6 +503,97 @@
 
         calcularTotalCobroInmediato();
     }
+
+    // ==============================================================
+    // --- NUEVO: LÓGICA DE COBRO EN DESPACHO ---
+    // ==============================================================
+    function calcularTotalCobroDespacho() {
+        if (!contenedorMetodosPagoDespacho) return;
+        let total = 0;
+        contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho').forEach(fila => {
+            total += parseFloat(fila.querySelector('.input-monto-despacho').value) || 0;
+        });
+        
+        if (totalPagadoDespacho) {
+            totalPagadoDespacho.textContent = `S/ ${total.toFixed(2)}`;
+            
+            // Lógica de colores UX
+            if (total > totalPendienteDespacho) {
+                totalPagadoDespacho.className = 'fw-bold fs-5 text-danger';
+            } else if (total === totalPendienteDespacho && total > 0) {
+                totalPagadoDespacho.className = 'fw-bold fs-5 text-success';
+            } else {
+                totalPagadoDespacho.className = 'fw-bold fs-5 text-dark';
+            }
+        }
+    }
+
+    function agregarFilaPagoDespacho(montoSugerido = '') {
+        if (!contenedorMetodosPagoDespacho) return;
+        
+        let opcionesCuentas = '<option value="" selected disabled>Cuenta Destino...</option>';
+        cuentasDisponibles.forEach(c => { opcionesCuentas += `<option value="${c.id}">${c.nombre} (${c.moneda})</option>`; });
+
+        let opcionesMetodos = '<option value="" selected disabled>Método...</option>';
+        metodosDisponibles.forEach(m => { opcionesMetodos += `<option value="${m.id}">${m.nombre}</option>`; });
+
+        const numFilas = contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho').length;
+
+        const div = document.createElement('div');
+        div.className = 'd-flex flex-column flex-sm-row gap-2 align-items-start align-items-sm-center bg-white p-2 rounded border border-success-subtle fila-pago-despacho';
+        div.innerHTML = `
+            <div class="w-100">
+                <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-cuenta-despacho" required>
+                    ${opcionesCuentas}
+                </select>
+            </div>
+            <div class="w-100">
+                <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-metodo-despacho" required>
+                    ${opcionesMetodos}
+                </select>
+            </div>
+            <div class="w-100 d-flex gap-2 align-items-center">
+                <div class="input-group input-group-sm w-100">
+                    <span class="input-group-text bg-light text-muted fw-semibold border-secondary-subtle">S/</span>
+                    <input type="number" class="form-control text-end text-success fw-bold border-secondary-subtle input-monto-despacho" min="0" step="0.01" placeholder="0.00" value="${montoSugerido}" required>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-quitar-pago-despacho ${numFilas === 0 ? 'd-none' : ''} px-2" title="Quitar pago"><i class="bi bi-trash"></i></button>
+            </div>
+        `;
+
+        contenedorMetodosPagoDespacho.appendChild(div);
+
+        div.querySelector('.input-monto-despacho').addEventListener('input', calcularTotalCobroDespacho);
+        div.querySelector('.btn-quitar-pago-despacho').addEventListener('click', () => {
+            div.remove();
+            const filasRestantes = contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho');
+            if (filasRestantes.length === 1) filasRestantes[0].querySelector('.btn-quitar-pago-despacho').classList.add('d-none');
+            calcularTotalCobroDespacho();
+        });
+        calcularTotalCobroDespacho();
+
+        return div;
+    }
+
+    switchCobroDespacho?.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            seccionCobroDespacho.classList.remove('d-none');
+            contenedorMetodosPagoDespacho.innerHTML = '';
+            agregarFilaPagoDespacho(totalPendienteDespacho > 0 ? totalPendienteDespacho.toFixed(2) : '');
+        } else {
+            seccionCobroDespacho.classList.add('d-none');
+            contenedorMetodosPagoDespacho.innerHTML = '';
+            calcularTotalCobroDespacho();
+        }
+    });
+
+    btnAgregarPagoDespacho?.addEventListener('click', () => {
+        let pagado = 0;
+        contenedorMetodosPagoDespacho.querySelectorAll('.input-monto-despacho').forEach(inp => pagado += parseFloat(inp.value) || 0);
+        let faltante = totalPendienteDespacho - pagado;
+        agregarFilaPagoDespacho(faltante > 0 ? faltante.toFixed(2) : '');
+        contenedorMetodosPagoDespacho.querySelectorAll('.btn-quitar-pago-despacho').forEach(btn => btn.classList.remove('d-none'));
+    });
 
     switchCobroInmediato?.addEventListener('change', (e) => {
         if (e.target.checked) {
@@ -1323,6 +1422,26 @@
         cerrarForzado.checked = false;
         tbodyDespacho.innerHTML = '';
 
+        // --- LÓGICA DE SALDO PARA EL COBRO EN DESPACHO ---
+        const totalVenta = Number(venta.total || 0);
+        const montoPagado = Number(venta.monto_pagado || 0); // Tu backend debe enviar esto
+        totalPendienteDespacho = Math.max(0, totalVenta - montoPagado);
+
+        if (switchCobroDespachoContainer) {
+            if (totalPendienteDespacho > 0.001) {
+                switchCobroDespachoContainer.style.display = 'block';
+                switchCobroDespacho.checked = false;
+                if (seccionCobroDespacho) seccionCobroDespacho.classList.add('d-none');
+                if (contenedorMetodosPagoDespacho) contenedorMetodosPagoDespacho.innerHTML = '';
+            } else {
+                // Si el pedido ya está 100% pagado, ocultamos la opción de cobro
+                switchCobroDespachoContainer.style.display = 'none';
+                switchCobroDespacho.checked = false;
+                if (seccionCobroDespacho) seccionCobroDespacho.classList.add('d-none');
+            }
+        }
+        // -------------------------------------------------
+
         if (despachoClienteNombre) {
             const cliente = String(venta.cliente || '').trim();
             despachoClienteNombre.textContent = cliente ? `- ${cliente}` : '';
@@ -1709,95 +1828,144 @@
     }
 
     document.getElementById('btnGuardarDespacho').addEventListener('click', async () => {
-        try {
-            const filas = [...tbodyDespacho.querySelectorAll('tr')];
+    try {
+        const filas = [...tbodyDespacho.querySelectorAll('tr')];
+        
+        const detalle = filas.map(fila => {
+            const idAlmacen = fila.querySelector('.fila-almacen').value;
+            const cantidad = parseFloat(fila.querySelector('.despacho-cantidad').value || 0);
             
-            const detalle = filas.map(fila => {
-                const idAlmacen = fila.querySelector('.fila-almacen').value;
-                const cantidad = parseFloat(fila.querySelector('.despacho-cantidad').value || 0);
+            return {
+                id_documento_detalle: Number(fila.dataset.idDetalle),
+                id_almacen: Number(idAlmacen),
+                cantidad: cantidad
+            };
+        }).filter(d => d.cantidad > 0); 
+
+        if (detalle.length === 0) throw new Error('Ingrese cantidades a despachar.');
+        if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione almacén para todas las filas con cantidad.');
+        if (tbodyDespacho.querySelector('.is-invalid')) throw new Error('Corrija las cantidades marcadas en rojo (exceden stock o pendiente).');
+
+        // --- Validar fecha de despacho ---
+        const fechaDespachoVal = despachoFecha ? despachoFecha.value : '';
+        if (!fechaDespachoVal) throw new Error('Debe especificar la fecha de despacho.');
+        // ----------------------------------------
+
+        // =========================================================
+        // --- NUEVO: Validar Cobro en Despacho ---
+        // =========================================================
+        let esCobroDespacho = false;
+        const metodosPagoDespachoFinales = [];
+
+        if (switchCobroDespacho && switchCobroDespacho.checked) {
+            esCobroDespacho = true;
+            contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho').forEach(fila => {
+                const idCuenta = fila.querySelector('.select-cuenta-despacho').value;
+                const idMetodo = fila.querySelector('.select-metodo-despacho').value;
+                const monto = parseFloat(fila.querySelector('.input-monto-despacho').value) || 0;
                 
-                return {
-                    id_documento_detalle: Number(fila.dataset.idDetalle),
-                    id_almacen: Number(idAlmacen),
-                    cantidad: cantidad
-                };
-            }).filter(d => d.cantidad > 0); 
-
-            if (detalle.length === 0) throw new Error('Ingrese cantidades a despachar.');
-            if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione almacén para todas las filas con cantidad.');
-            if (tbodyDespacho.querySelector('.is-invalid')) throw new Error('Corrija las cantidades marcadas en rojo (exceden stock o pendiente).');
-
-            // --- NUEVO: Validar fecha de despacho ---
-            const fechaDespachoVal = despachoFecha ? despachoFecha.value : '';
-            if (!fechaDespachoVal) throw new Error('Debe especificar la fecha de despacho.');
-            // ----------------------------------------
-
-            const resumenPorItem = {}; 
-            filas.forEach(f => {
-                const id = f.dataset.idDetalle;
-                const cant = parseFloat(f.querySelector('.despacho-cantidad').value || 0);
-                resumenPorItem[id] = (resumenPorItem[id] || 0) + cant;
+                if (idCuenta && idMetodo && monto > 0) {
+                    metodosPagoDespachoFinales.push({ id_cuenta: idCuenta, id_metodo: idMetodo, monto: monto });
+                }
             });
 
-            let esParcial = false;
-            filas.forEach(f => {
-                const id = f.dataset.idDetalle;
-                const pendiente = parseFloat(f.dataset.pendienteTotal);
-                const despachando = resumenPorItem[id] || 0;
-                if (despachando < pendiente - 0.01) esParcial = true;
-            });
-
-            // --- NUEVO: Capturar Envases Retornados (Adaptado al nuevo DOM) ---
-            const envasesDevueltos = [];
-            if (contenedorRetornoEnvases && !seccionRetornoEnvases.classList.contains('d-none')) {
-                contenedorRetornoEnvases.querySelectorAll('.item-envase-retorno').forEach(div => {
-                    const cant = Number(div.querySelector('.input-retorno-vacio').value || 0);
-                    if (cant > 0) {
-                        envasesDevueltos.push({
-                            id_envase: Number(div.dataset.idEnvase),
-                            cantidad: cant
-                        });
-                    }
-                });
+            if (metodosPagoDespachoFinales.length === 0) {
+                throw new Error("Debe completar Cuenta, Método y Monto para el cobro.");
             }
-            // -----------------------------------------
 
-            if (esParcial && cerrarForzado.checked) {
-                const resp = await Swal.fire({
+            // Validar montos contra la deuda pendiente
+            let sumaPagos = 0;
+            metodosPagoDespachoFinales.forEach(p => sumaPagos += p.monto);
+            const diferencia = totalPendienteDespacho - sumaPagos;
+
+            if (diferencia > 0.01) {
+                const confirmacionPago = await Swal.fire({
                     icon: 'warning',
-                    title: 'Cerrar pedido de forma forzada',
-                    text: 'Se despachará de forma parcial y el saldo restante quedará cancelado para este pedido. ¿Desea continuar?',
+                    title: 'Pago Incompleto',
+                    text: `Falta cobrar S/ ${diferencia.toFixed(2)}. ¿Deseas despachar y dejar ese saldo como cuenta por cobrar?`,
                     showCancelButton: true,
-                    confirmButtonText: 'Sí, cerrar pedido'
+                    confirmButtonText: 'Sí, despachar con deuda',
+                    cancelButtonText: 'No, corregir pago',
+                    confirmButtonColor: '#ffc107',
+                    cancelButtonColor: '#6c757d'
                 });
-                if (!resp.isConfirmed) return;
+                if (!confirmacionPago.isConfirmed) return;
+            } else if (diferencia < -0.01) {
+                throw new Error(`El total ingresado (S/ ${sumaPagos.toFixed(2)}) supera la deuda pendiente (S/ ${totalPendienteDespacho.toFixed(2)}). Por favor, ajuste los montos.`);
             }
-
-            if (esParcial && !cerrarForzado.checked) {
-                const resp = await Swal.fire({
-                    icon: 'warning', title: 'Despacho Parcial', 
-                    text: 'No se está cubriendo todo el pendiente. ¿Continuar sin cerrar pedido?', 
-                    showCancelButton: true, confirmButtonText: 'Sí, despachar parcial'
-                });
-                if (!resp.isConfirmed) return;
-            }
-
-            const payload = await postJson(urls.despachar, {
-                id_documento: Number(despachoDocumentoId.value || 0),
-                observaciones: despachoObservaciones.value,
-                fecha_despacho: fechaDespachoVal, 
-                cerrar_forzado: cerrarForzado.checked,
-                detalle: detalle,
-                envases_devueltos: envasesDevueltos // <-- MANDAMOS LA DATA AL SERVIDOR
-            });
-
-            await Swal.fire('Despachado', payload.mensaje, 'success');
-            modalDespacho.hide();
-            recargarTabla();
-        } catch (error) {
-            Swal.fire('Error', error.message, 'error');
         }
-    });
+        // =========================================================
+
+        const resumenPorItem = {}; 
+        filas.forEach(f => {
+            const id = f.dataset.idDetalle;
+            const cant = parseFloat(f.querySelector('.despacho-cantidad').value || 0);
+            resumenPorItem[id] = (resumenPorItem[id] || 0) + cant;
+        });
+
+        let esParcial = false;
+        filas.forEach(f => {
+            const id = f.dataset.idDetalle;
+            const pendiente = parseFloat(f.dataset.pendienteTotal);
+            const despachando = resumenPorItem[id] || 0;
+            if (despachando < pendiente - 0.01) esParcial = true;
+        });
+
+        // --- Capturar Envases Retornados ---
+        const envasesDevueltos = [];
+        if (contenedorRetornoEnvases && !seccionRetornoEnvases.classList.contains('d-none')) {
+            contenedorRetornoEnvases.querySelectorAll('.item-envase-retorno').forEach(div => {
+                const cant = Number(div.querySelector('.input-retorno-vacio').value || 0);
+                if (cant > 0) {
+                    envasesDevueltos.push({
+                        id_envase: Number(div.dataset.idEnvase),
+                        cantidad: cant
+                    });
+                }
+            });
+        }
+        // -----------------------------------------
+
+        if (esParcial && cerrarForzado.checked) {
+            const resp = await Swal.fire({
+                icon: 'warning',
+                title: 'Cerrar pedido de forma forzada',
+                text: 'Se despachará de forma parcial y el saldo restante quedará cancelado para este pedido. ¿Desea continuar?',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, cerrar pedido'
+            });
+            if (!resp.isConfirmed) return;
+        }
+
+        if (esParcial && !cerrarForzado.checked) {
+            const resp = await Swal.fire({
+                icon: 'warning', title: 'Despacho Parcial', 
+                text: 'No se está cubriendo todo el pendiente. ¿Continuar sin cerrar pedido?', 
+                showCancelButton: true, confirmButtonText: 'Sí, despachar parcial'
+            });
+            if (!resp.isConfirmed) return;
+        }
+
+        const payload = await postJson(urls.despachar, {
+            id_documento: Number(despachoDocumentoId.value || 0),
+            observaciones: despachoObservaciones.value,
+            fecha_despacho: fechaDespachoVal, 
+            cerrar_forzado: cerrarForzado.checked,
+            detalle: detalle,
+            envases_devueltos: envasesDevueltos,
+            // --- NUEVO: Datos de Cobro Inmediato ---
+            cobro_inmediato: esCobroDespacho,
+            metodos_pago: metodosPagoDespachoFinales
+            // ---------------------------------------
+        });
+
+        await Swal.fire('Despachado', payload.mensaje, 'success');
+        modalDespacho.hide();
+        recargarTabla();
+    } catch (error) {
+        Swal.fire('Error', error.message, 'error');
+    }
+});
 
     // ==========================================
     // --- MEJORA PREMIUM: FILTROS Y RECARGAS ---
