@@ -148,14 +148,22 @@ class GastosController extends Controlador
             'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
         ];
 
+        // DATOS DE PRUEBA: Luego los cambias por $this->cuentaModel->listarActivos()
+        $cuentas = [
+            ['id' => 1, 'nombre' => 'Caja Principal'],
+            ['id' => 2, 'nombre' => 'BCP - Cuenta Corriente']
+        ]; 
+        
+        $metodos = [
+            ['id' => 1, 'nombre' => 'Efectivo'],
+            ['id' => 2, 'nombre' => 'Transferencia'],
+            ['id' => 3, 'nombre' => 'Yape / Plin']
+        ]; 
+
         $this->render('gastos/registro_gastos', [
-            'ruta_actual' => 'gastos/registros',
-            'registros' => $this->registroModel->listar($filtros),
-            'filtros' => $filtros,
-            'conceptos' => $this->conceptoModel->listarActivos(),
-            'proveedores' => $this->proveedorModel->listarActivos(),
-            // 👇 PEQUEÑA MEJORA: Solo enviamos los centros activos al formulario
-            'centrosCosto' => $this->centroCostoModel->listarActivos(),
+             // ... el resto de tus variables ...
+            'cuentas' => $cuentas,
+            'metodos' => $metodos,
         ]);
     }
 
@@ -169,6 +177,31 @@ class GastosController extends Controlador
         }
 
         try {
+            // 1. Capturar el flag de pago inmediato
+            $pagoInmediato = isset($_POST['pago_inmediato']) ? 1 : 0;
+            $detallesPago = [];
+
+            // 2. Si el switch está activo, procesamos los arrays de las filas generadas por JS
+            if ($pagoInmediato === 1) {
+                $cuentasPOST = $_POST['pago_cuenta'] ?? [];
+                $metodosPOST = $_POST['pago_metodo'] ?? [];
+                $montosPOST  = $_POST['pago_monto'] ?? [];
+
+                foreach ($cuentasPOST as $index => $idCuenta) {
+                    $montoPago = (float) ($montosPOST[$index] ?? 0);
+                    
+                    // Solo agregamos pagos con monto válido
+                    if ($montoPago > 0) {
+                        $detallesPago[] = [
+                            'id_cuenta' => (int) $idCuenta,
+                            'id_metodo' => (int) ($metodosPOST[$index] ?? 0),
+                            'monto'     => $montoPago
+                        ];
+                    }
+                }
+            }
+
+            // 3. Ensamblamos el payload final
             $payload = [
                 'fecha' => trim((string) ($_POST['fecha'] ?? date('Y-m-d'))),
                 'id_proveedor' => (int) ($_POST['id_proveedor'] ?? 0),
@@ -176,9 +209,17 @@ class GastosController extends Controlador
                 'monto' => (float) ($_POST['monto'] ?? 0),
                 'impuesto_tipo' => trim((string) ($_POST['impuesto_tipo'] ?? 'NINGUNO')),
                 'id_centro_costo' => (int) ($_POST['id_centro_costo'] ?? 0),
+                
+                // 👇 NUEVO: Pasamos la estructura de pago al modelo
+                'pago_inmediato' => $pagoInmediato,
+                'pagos_detalle'  => $detallesPago
             ];
 
+            // El GastoRegistroModel ahora recibirá el $payload completo y podrá 
+            // iterar sobre 'pagos_detalle' para insertar en Tesorería y cambiar 
+            // el estado del gasto a PAGADO si los montos coinciden.
             $this->registroModel->crear($payload, $this->uid());
+            
             redirect('gastos/registros?ok=1');
         } catch (Throwable $e) {
             redirect('gastos/registros?error=' . urlencode($e->getMessage()));

@@ -216,8 +216,8 @@ $estadoLabels = [
 </div>
 
 <div class="modal fade" id="modalNuevoGasto" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered">
-        <form method="post" action="<?php echo e(route_url('gastos/guardar_registro')); ?>" class="modal-content border-0 shadow-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <form method="post" action="<?php echo e(route_url('gastos/guardar_registro')); ?>" class="modal-content border-0 shadow-lg" id="formNuevoGasto">
             
             <div class="modal-header bg-primary text-white py-3">
                 <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Nuevo Registro de Gasto</h5>
@@ -225,7 +225,7 @@ $estadoLabels = [
             </div>
             
             <div class="modal-body bg-light p-3 p-md-4">
-                <div class="card modal-pastel-card mb-0">
+                <div class="card modal-pastel-card mb-4 border-0 shadow-sm">
                     <div class="card-body p-3">
                         <div class="row g-3">
                             <div class="col-md-6">
@@ -260,7 +260,6 @@ $estadoLabels = [
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            
 
                             <div class="col-12">
                                 <label class="form-label small text-muted fw-semibold mb-1">Centro de Costo <span class="text-danger">*</span></label>
@@ -276,18 +275,59 @@ $estadoLabels = [
                                 <label class="form-label small text-muted fw-semibold mb-1">Monto Total <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light text-muted fw-bold border-secondary-subtle">S/</span>
-                                    <input type="number" step="0.01" min="0.01" class="form-control shadow-none border-secondary-subtle text-primary fw-bold fs-5" name="monto" placeholder="0.00" required>
+                                    <input type="number" id="gastoMontoTotal" step="0.01" min="0.01" class="form-control shadow-none border-secondary-subtle text-primary fw-bold fs-5" name="monto" placeholder="0.00" required>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-success-subtle shadow-sm d-none fade-in" id="seccionPagoInmediato">
+                    <div class="card-body p-3 bg-success-subtle rounded">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 42px; height: 42px;">
+                                <i class="bi bi-cash-stack fs-5"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0 fw-bold text-success-emphasis">Registro de Pago Rápido</h6>
+                                <small class="text-success-emphasis opacity-75">Define la salida de dinero de caja o bancos para liquidar este gasto al instante.</small>
+                            </div>
+                        </div>
+
+                        <div id="contenedorMetodosPagoGasto" class="d-flex flex-column gap-2 mb-2"></div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <button type="button" class="btn btn-sm btn-light text-success fw-bold shadow-sm" id="btnAgregarPagoInmediatoGasto">
+                                <i class="bi bi-plus-circle me-1"></i> Añadir otra cuenta/método
+                            </button>
+                            <div class="text-end">
+                                <small class="text-success-emphasis fw-bold d-block lh-1" style="font-size: 0.7rem;">TOTAL PAGADO</small>
+                                <span class="fw-bold text-dark fs-5" id="totalPagadoInmediatoGasto">S/ 0.00</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="modal-footer bg-white border-top">
-                <button type="button" class="btn btn-light text-secondary me-2 fw-medium border border-secondary-subtle" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-save me-2"></i>Guardar Gasto</button>
+            <div class="modal-footer bg-white border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="form-check form-switch m-0 ps-5" id="switchPagoGastoContainer">
+                    <input class="form-check-input" type="checkbox" id="switchPagoInmediato" name="pago_inmediato" value="1" style="cursor: pointer; transform: scale(1.1);">
+                    <label class="form-check-label fw-bold text-success small ms-2" for="switchPagoInmediato" style="cursor: pointer;">
+                        Efectuar Pago Al Contado
+                    </label>
+                </div>
+                
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-light text-secondary fw-medium border border-secondary-subtle" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm" id="btnGuardarGasto"><i class="bi bi-save me-2"></i>Guardar Gasto</button>
+                </div>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+    // Puente de datos PHP -> JavaScript para Pagos Inmediatos de Gastos
+    window.TESORERIA_CUENTAS = <?php echo json_encode($cuentas ?? []); ?>;
+    window.TESORERIA_METODOS = <?php echo json_encode($metodos ?? []); ?>;
+</script>

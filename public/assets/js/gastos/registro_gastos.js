@@ -5,13 +5,10 @@
     // 1. Inicialización de selectores avanzados (TomSelect)
     // ==========================================
     if (window.TomSelect) {
-      // Agregamos los IDs de todos los selects que queremos mejorar
       const selectoresAvanzados = ['idConceptoGasto', 'id_proveedor', 'idCentroCostoGasto'];
 
       selectoresAvanzados.forEach(function(id) {
         const elemento = document.getElementById(id);
-        
-        // Si el elemento existe en esta vista, lo inicializamos
         if (elemento) {
           new TomSelect(elemento, {
             create: false, 
@@ -22,7 +19,9 @@
       });
     }
 
-
+    // ==========================================
+    // 2. Autocompletado de Centro de Costo
+    // ==========================================
     const selectConcepto = document.getElementById('idConceptoGasto');
     const selectCentroCosto = document.getElementById('idCentroCostoGasto');
 
@@ -42,6 +41,9 @@
       autocompletarCentro();
     }
 
+    // ==========================================
+    // 3. Modal de Detalles de Gasto
+    // ==========================================
     const modalEl = document.getElementById('modalDetalleGasto');
     const modalDetalle = modalEl && window.bootstrap ? new bootstrap.Modal(modalEl) : null;
 
@@ -71,6 +73,121 @@
 
       modalDetalle.show();
     });
+
+    // ==========================================
+    // 4. Lógica de Cobro Inmediato (Nuevo)
+    // ==========================================
+    const switchPago = document.getElementById('switchPagoInmediato');
+    const seccionPago = document.getElementById('seccionPagoInmediato');
+    const contenedorPagos = document.getElementById('contenedorMetodosPagoGasto');
+    const btnAgregarPago = document.getElementById('btnAgregarPagoInmediatoGasto');
+    const totalPagadoText = document.getElementById('totalPagadoInmediatoGasto');
+    const inputMontoTotalGasto = document.getElementById('gastoMontoTotal');
+
+    // Función para calcular el total ingresado en las filas de pago
+    function calcularTotalPagado() {
+      let total = 0;
+      const inputsMonto = contenedorPagos.querySelectorAll('.input-monto-pago');
+      
+      inputsMonto.forEach(input => {
+        total += parseFloat(input.value) || 0;
+      });
+      
+      if (totalPagadoText) {
+        totalPagadoText.textContent = 'S/ ' + total.toFixed(2);
+        
+        // Cambio de color visual si el monto coincide con el total del gasto
+        const totalGasto = parseFloat(inputMontoTotalGasto.value) || 0;
+        if (total === totalGasto && total > 0) {
+          totalPagadoText.classList.replace('text-dark', 'text-success');
+        } else {
+          totalPagadoText.classList.replace('text-success', 'text-dark');
+        }
+      }
+    }
+
+    // Función para crear una nueva fila dinámica de pago
+    function agregarFilaPago() {
+      const row = document.createElement('div');
+      row.className = 'row g-2 align-items-center mb-2 animate__animated animate__fadeIn'; 
+      
+      const cuentas = window.TESORERIA_CUENTAS || [];
+      const metodos = window.TESORERIA_METODOS || [];
+      
+      // Construimos el HTML de las opciones con un placeholder por defecto (Igual que en Ventas)
+      let opcionesCuentas = '<option value="" selected disabled>Seleccionar Cuenta...</option>';
+      cuentas.forEach(c => { opcionesCuentas += `<option value="${c.id}">${c.nombre}</option>`; });
+      
+      let opcionesMetodos = '<option value="" selected disabled>Método...</option>';
+      metodos.forEach(m => { opcionesMetodos += `<option value="${m.id}">${m.nombre}</option>`; });
+      
+      // Autocompletar el monto restante por defecto
+      let totalGasto = parseFloat(inputMontoTotalGasto.value) || 0;
+      let totalActual = 0;
+      contenedorPagos.querySelectorAll('.input-monto-pago').forEach(inp => totalActual += (parseFloat(inp.value) || 0));
+      let montoSugerido = Math.max(0, totalGasto - totalActual).toFixed(2);
+
+      row.innerHTML = `
+        <div class="col-md-5">
+          <select class="form-select form-select-sm shadow-none border-secondary-subtle" name="pago_cuenta[]" required>
+            ${opcionesCuentas}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select class="form-select form-select-sm shadow-none border-secondary-subtle" name="pago_metodo[]" required>
+            ${opcionesMetodos}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-light border-secondary-subtle fw-semibold">S/</span>
+            <input type="number" step="0.01" min="0.01" class="form-control text-end text-success fw-bold shadow-none border-secondary-subtle input-monto-pago" name="pago_monto[]" value="${montoSugerido}" required>
+          </div>
+        </div>
+        <div class="col-md-1 text-center">
+          <button type="button" class="btn btn-sm text-danger border-0 btn-quitar-pago rounded-circle p-1" title="Quitar">
+            <i class="bi bi-trash-fill fs-6"></i>
+          </button>
+        </div>
+      `;
+      
+      contenedorPagos.appendChild(row);
+      
+      row.querySelector('.btn-quitar-pago').addEventListener('click', function() {
+        row.remove();
+        calcularTotalPagado();
+      });
+      
+      row.querySelector('.input-monto-pago').addEventListener('input', calcularTotalPagado);
+      
+      calcularTotalPagado();
+    }
+
+    // Eventos para interactuar con la interfaz de pagos
+    if (switchPago && seccionPago) {
+      switchPago.addEventListener('change', function() {
+        if (this.checked) {
+          seccionPago.classList.remove('d-none');
+          // Agregar la primera fila si el contenedor está vacío
+          if (contenedorPagos.children.length === 0) {
+            agregarFilaPago();
+          } else {
+            calcularTotalPagado();
+          }
+        } else {
+          seccionPago.classList.add('d-none');
+        }
+      });
+    }
+
+    if (btnAgregarPago) {
+      btnAgregarPago.addEventListener('click', agregarFilaPago);
+    }
     
+    // Si el usuario cambia el total del gasto principal, actualizamos el texto del total pagado visualmente
+    if (inputMontoTotalGasto) {
+      inputMontoTotalGasto.addEventListener('input', calcularTotalPagado);
+    }
+
   });
 })();
