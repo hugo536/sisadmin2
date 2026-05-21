@@ -6,7 +6,7 @@ $metodos = $metodos ?? [];
 $proveedores = $proveedores ?? [];
 $centros_costo = $centros_costo ?? []; 
 
-// Orden por fecha más reciente a más antigua (mismo criterio visual que CxC).
+// Orden por fecha: MÁS ANTIGUA a MÁS RECIENTE (Lo más vencido va arriba)
 usort($registros, function($a, $b) {
     $fechaA = strtotime((string) ($a['fecha_vencimiento'] ?? '')) ?: 0;
     $fechaB = strtotime((string) ($b['fecha_vencimiento'] ?? '')) ?: 0;
@@ -14,10 +14,11 @@ usort($registros, function($a, $b) {
     if ($fechaA === $fechaB) {
         $docA = (int) ($a['id_recepcion'] ?? 0);
         $docB = (int) ($b['id_recepcion'] ?? 0);
-        return $docB <=> $docA;
+        return $docA <=> $docB;
     }
 
-    return $fechaB <=> $fechaA;
+    // ASCENDENTE
+    return $fechaA <=> $fechaB;
 });
 
 $badge = static function (string $estado): string {
@@ -119,7 +120,7 @@ if (!empty($_GET['error'])) {
                         type="date"
                         class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium"
                         name="fecha_desde"
-                        value="<?php echo e((string) ($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-6 days')))); ?>">
+                        value="<?php echo e((string) ($filtros['fecha_desde'] ?? date('Y-m-01'))); ?>">
                 </div>
 
                 <div class="col-12 col-md-3">
@@ -128,7 +129,7 @@ if (!empty($_GET['error'])) {
                         type="date"
                         class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium"
                         name="fecha_hasta"
-                        value="<?php echo e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d'))); ?>">
+                        value="<?php echo e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d', strtotime('+30 days')))); ?>">
                 </div>
             </form>
         </div>
@@ -254,9 +255,6 @@ if (!empty($_GET['error'])) {
     </div>
 </div>
 
-<!-- ============================================== -->
-<!-- MODAL DE PAGO MANUAL (ABONO A CUENTA)          -->
-<!-- ============================================== -->
 <div class="modal fade" id="modalPagoManual" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -332,9 +330,6 @@ if (!empty($_GET['error'])) {
     </div>
 </div>
 
-<!-- ============================================== -->
-<!-- MODAL DE PAGO NORMAL (ESPECÍFICO A DOCUMENTO)  -->
-<!-- ============================================== -->
 <div class="modal fade" id="modalPago" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -347,7 +342,6 @@ if (!empty($_GET['error'])) {
                     <input type="hidden" name="id_origen" id="pagoIdOrigen">
                     
                     <div class="row g-3">
-                        <!-- CAMPO MONTO (TAMAÑO ESTÁNDAR) CON SALDO INTEGRADO -->
                         <div class="col-12">
                             <div class="d-flex justify-content-between align-items-end mb-1">
                                 <label class="form-label small text-muted fw-bold mb-0">Monto a Pagar (Total) <span class="text-danger">*</span></label>
@@ -357,15 +351,12 @@ if (!empty($_GET['error'])) {
                                     <input type="text" id="pagoSaldo" class="form-control-plaintext text-warning-emphasis p-0 fw-bold" data-saldo-target="1" style="width: 65px; pointer-events: none;" readonly>
                                 </div>
                             </div>
-                            <!-- Agregamos bg-light y readonly asumiendo que se calcula igual que en CxC -->
-                            <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis bg-light" readonly required>
+                            <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis bg-white" required>
                         </div>
                         
-                        <!-- DISTRIBUCIÓN: CUENTA Y MÉTODO (Adaptado del modelo CxC) -->
                         <div class="col-12">
                             <label class="form-label small text-muted fw-bold mb-2">Cuenta Origen y Método <span class="text-danger">*</span></label>
                             <div id="pagoDistribucionRows" class="d-grid gap-2">
-                                <!-- Fila dinámica inicial -->
                                 <div class="row g-2 js-pago-distribucion-row" data-row-index="0">
                                     <div class="col-12 col-md-5">
                                         <select name="cuenta_origen_ids[]" class="form-select shadow-sm border-secondary-subtle js-pago-cuenta" required>
@@ -394,7 +385,6 @@ if (!empty($_GET['error'])) {
                                 </div>
                             </div>
                             
-                            <!-- Controles para agregar filas de distribución -->
                             <div class="d-flex justify-content-between align-items-center mt-3">
                                 <button type="button" id="btnAddPagoDistribucion" class="btn btn-sm btn-outline-secondary px-3">
                                     <i class="bi bi-plus-circle me-1"></i>Dividir pago
@@ -402,12 +392,10 @@ if (!empty($_GET['error'])) {
                                 <small id="pagoDistribucionHint" class="text-muted fw-medium"></small>
                             </div>
                             
-                            <!-- Inputs ocultos para mantener compatibilidad con el backend si espera variables únicas por defecto -->
                             <input type="hidden" name="id_cuenta" id="selectCuentaOrigen" value="">
                             <input type="hidden" name="id_metodo_pago" id="selectMetodoPagoUnico" value="">
                         </div>
                         
-                        <!-- ACORDEÓN DE OPCIONES AVANZADAS -->
                         <div class="col-12 mt-3 pt-3 border-top">
                             <a class="text-decoration-none fw-bold text-warning-emphasis d-flex align-items-center" data-bs-toggle="collapse" href="#pagoOpcionesAvanzadas" role="button" aria-expanded="false" aria-controls="pagoOpcionesAvanzadas">
                                 <i class="bi bi-gear-fill me-2"></i> Mostrar opciones adicionales 
@@ -442,7 +430,6 @@ if (!empty($_GET['error'])) {
                                             <input type="number" step="0.01" min="0" name="monto_interes" id="pagoMontoInteres" class="form-control border-secondary-subtle text-danger" value="0">
                                         </div>
 
-                                        <!-- Propio de CxP: Centro de Costo -->
                                         <div class="col-12 d-none" id="grupoCentroCostoInteres">
                                             <label class="form-label small text-muted fw-bold mb-1">Centro de Costo (Gasto) <span class="text-danger">*</span></label>
                                             <select name="id_centro_costo" id="pagoCentroCosto" class="form-select border-secondary-subtle bg-warning-subtle">

@@ -5,44 +5,60 @@ $cuentas = $cuentas ?? [];
 $metodos = $metodos ?? [];
 $clientes = $clientes ?? [];
 
-// CAMBIO: Ordenamiento de los registros
-usort($registros, function($a, $b) {
-    // 1. Extraemos las fechas (si no hay, la mandamos al final como más antiguas)
+// 1. CAPTURAR LA PESTAÑA ACTIVA (Por defecto: pendientes)
+$vistaActual = $_GET['vista'] ?? 'pendientes';
+
+// 2. FILTRAR LOS REGISTROS SEGÚN LA PESTAÑA
+$registrosFiltrados = array_filter($registros, function($r) use ($vistaActual) {
+    $estado = strtoupper(trim((string) ($r['estado'] ?? '')));
+    $esDeuda = in_array($estado, ['PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA'], true);
+    
+    if ($vistaActual === 'pendientes') return $esDeuda;
+    if ($vistaActual === 'resueltos') return !$esDeuda;
+    return true; // 'todos'
+});
+
+// 3. ORDENAMIENTO INTELIGENTE
+usort($registrosFiltrados, function($a, $b) {
+    $estadosDeuda = ['PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA']; 
+    
+    $estadoA = strtoupper(trim((string) ($a['estado'] ?? '')));
+    $estadoB = strtoupper(trim((string) ($b['estado'] ?? '')));
+    
+    $esDeudaA = in_array($estadoA, $estadosDeuda, true) ? 1 : 0;
+    $esDeudaB = in_array($estadoB, $estadosDeuda, true) ? 1 : 0;
+    
+    // Si mezclamos en la pestaña "Todas", las deudas vivas van primero
+    if ($esDeudaA !== $esDeudaB) {
+        return $esDeudaB <=> $esDeudaA; 
+    }
+    
     $fechaA = strtotime((string) ($a['fecha_vencimiento'] ?? '')) ?: 0;
     $fechaB = strtotime((string) ($b['fecha_vencimiento'] ?? '')) ?: 0;
     
-    // 2. Si las fechas son iguales, ordenamos por número de documento (descendente)
-    if ($fechaA === $fechaB) {
-        $docA = (int) ($a['id_documento_venta'] ?? 0);
-        $docB = (int) ($b['id_documento_venta'] ?? 0);
-        return $docB <=> $docA;
+    if ($esDeudaA === 1) {
+        // AMBAS SON DEUDAS: Lo más ANTIGUO va primero (Ascendente)
+        if ($fechaA === $fechaB) {
+            return (int)($a['id_documento_venta'] ?? 0) <=> (int)($b['id_documento_venta'] ?? 0);
+        }
+        return $fechaA <=> $fechaB;
+    } else {
+        // AMBAS ESTÁN RESUELTAS: Lo más RECIENTE va primero (Descendente)
+        if ($fechaA === $fechaB) {
+            return (int)($b['id_documento_venta'] ?? 0) <=> (int)($a['id_documento_venta'] ?? 0);
+        }
+        return $fechaB <=> $fechaA;
     }
-    
-    // 3. Si son distintas, ordenamos por fecha (descendente: más reciente primero)
-    return $fechaB <=> $fechaA;
 });
 
 $badge = static function (string $estado): string {
-    if ($estado === 'PAGADA') {
-        return 'bg-success-subtle text-success border border-success-subtle';
-    }
-
-    if ($estado === 'PARCIAL') {
-        return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
-    }
-
-    if ($estado === 'VENCIDA') {
-        return 'bg-danger-subtle text-danger border border-danger-subtle';
-    }
-
-    if ($estado === 'ANULADA') {
-        return 'bg-secondary-subtle text-secondary border border-secondary-subtle';
-    }
-
+    if ($estado === 'PAGADA') return 'bg-success-subtle text-success border border-success-subtle';
+    if ($estado === 'PARCIAL') return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+    if ($estado === 'VENCIDA') return 'bg-danger-subtle text-danger border border-danger-subtle';
+    if ($estado === 'ANULADA') return 'bg-secondary-subtle text-secondary border border-secondary-subtle';
     return 'bg-primary-subtle text-primary border border-primary-subtle';
 };
-?>
-<?php
+
 $swalIcon = null;
 $swalMessage = null;
 
@@ -79,12 +95,11 @@ if (!empty($_GET['error'])) {
             </button>
         </div>
     </div>
+    
     <?php if ($swalMessage !== null): ?>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
-                if (typeof Swal === 'undefined') {
-                    return;
-                }
+                if (typeof Swal === 'undefined') return;
                 Swal.fire({
                     icon: <?php echo json_encode($swalIcon); ?>,
                     title: <?php echo json_encode($swalIcon === 'error' ? 'Error' : 'Éxito'); ?>,
@@ -99,11 +114,12 @@ if (!empty($_GET['error'])) {
         <div class="card-body p-3 p-md-4">
             <form method="get" action="" class="row g-3 align-items-end" id="formFiltrosCxc">
                 <input type="hidden" name="ruta" value="tesoreria/cxc">
+                <input type="hidden" name="vista" id="inputVistaGlobal" value="<?php echo e($vistaActual); ?>">
 
                 <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Estado de Cuenta</label>
                     <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="estado">
-                        <option value="">Todos los estados</option>
+                        <option value="">Cualquiera en esta pestaña</option>
                         <?php foreach (['PENDIENTE', 'ABIERTA', 'PARCIAL', 'PAGADA', 'VENCIDA', 'ANULADA'] as $estado): ?>
                             <option value="<?php echo e($estado); ?>" <?php echo (($filtros['estado'] ?? '') === $estado) ? 'selected' : ''; ?>><?php echo e($estado); ?></option>
                         <?php endforeach; ?>
@@ -122,30 +138,54 @@ if (!empty($_GET['error'])) {
 
                 <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Desde (Vencimiento)</label>
-                    <input
-                        type="date"
-                        class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium"
-                        name="fecha_desde"
-                        value="<?php echo e((string) ($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-6 days')))); ?>">
+                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="fecha_desde" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>">
                 </div>
 
                 <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Hasta (Vencimiento)</label>
-                    <input
-                        type="date"
-                        class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium"
-                        name="fecha_hasta"
-                        value="<?php echo e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d'))); ?>">
+                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="fecha_hasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>">
                 </div>
             </form>
         </div>
     </div>
 
+    <ul class="nav nav-pills mb-3 gap-2">
+        <li class="nav-item">
+            <button class="nav-link border <?php echo $vistaActual === 'pendientes' ? 'active bg-primary text-white fw-bold border-primary' : 'bg-white text-secondary fw-medium border-secondary-subtle hover-bg-light'; ?>" onclick="cambiarPestana('pendientes')">
+                <i class="bi bi-exclamation-circle me-1"></i> Por Cobrar
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link border <?php echo $vistaActual === 'resueltos' ? 'active bg-success text-white fw-bold border-success' : 'bg-white text-secondary fw-medium border-secondary-subtle hover-bg-light'; ?>" onclick="cambiarPestana('resueltos')">
+                <i class="bi bi-check2-all me-1"></i> Historial Cobrado
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link border <?php echo $vistaActual === 'todos' ? 'active bg-dark text-white fw-bold border-dark' : 'bg-white text-secondary fw-medium border-secondary-subtle hover-bg-light'; ?>" onclick="cambiarPestana('todos')">
+                <i class="bi bi-border-all me-1"></i> Todas
+            </button>
+        </li>
+    </ul>
+
+    <script>
+        function cambiarPestana(vista) {
+            document.getElementById('inputVistaGlobal').value = vista;
+            document.querySelector('select[name="estado"]').value = '';
+            document.getElementById('formFiltrosCxc').submit();
+        }
+    </script>
+
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div class="d-flex align-items-center">
-                <h2 class="h6 fw-bold text-dark mb-0">Detalle de Cuentas por Cobrar</h2>
-                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill ms-3" id="badgeRegistros"><?php echo count($registros); ?> Registros</span>
+                <h2 class="h6 fw-bold text-dark mb-0">
+                    <?php 
+                        if($vistaActual === 'pendientes') echo "Facturas Pendientes";
+                        elseif($vistaActual === 'resueltos') echo "Historial de Cobros Completados";
+                        else echo "Todas las Facturas";
+                    ?>
+                </h2>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill ms-3" id="badgeRegistros"><?php echo count($registrosFiltrados); ?> Registros</span>
             </div>
             <div class="input-group shadow-sm" style="max-width: 300px;">
                 <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
@@ -160,42 +200,38 @@ if (!empty($_GET['error'])) {
                        data-manager-global="cxcManager"
                        data-rows-selector="#cxcTableBody tr:not(.empty-msg-row)"
                        data-search-input="#searchCxc"
-                       data-empty-text="No hay cuentas por cobrar registradas"
+                       data-empty-text="No hay cuentas en esta pestaña"
                        data-info-text-template="Mostrando {start} a {end} de {total} registros"
                        data-pagination-controls="#cxcPaginationControls"
                        data-pagination-info="#cxcPaginationInfo">
                     <thead class="bg-dark text-white border-bottom">
                         <tr>
                             <th class="ps-4 fw-semibold" style="width: 25%; min-width: 180px;">Cliente</th>
-                            
                             <th class="fw-semibold" style="white-space: nowrap !important; width: 10%;">Documento</th>
                             <th class="text-center fw-semibold" style="white-space: nowrap !important; width: 10%;">Vencimiento</th>
                             <th class="text-end fw-semibold" style="white-space: nowrap !important; width: 12%;">Total</th>
-                            <th class="text-end fw-semibold" style="white-space: nowrap !important; width: 12%;">Pagado</th>
+                            <th class="text-end fw-semibold" style="white-space: nowrap !important; width: 12%;">Cobrado</th>
                             <th class="text-end fw-bold" style="white-space: nowrap !important; width: 12%;">Saldo</th>
                             <th class="text-center fw-semibold" style="white-space: nowrap !important; width: 10%;">Estado</th>
-                            
                             <th class="text-center pe-4 fw-semibold" style="white-space: nowrap !important; width: 130px; min-width: 130px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="cxcTableBody">
-                        <?php if (empty($registros)): ?>
+                        <?php if (empty($registrosFiltrados)): ?>
                             <tr class="empty-msg-row border-bottom-0">
                                 <td colspan="8" class="text-center text-muted py-5">
                                     <i class="bi bi-clipboard-check fs-1 d-block mb-2 text-light"></i>
-                                    No se encontraron cuentas por cobrar con los filtros actuales.
+                                    No se encontraron cuentas con los filtros y pestaña actuales.
                                 </td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($registros as $r): ?>
+                            <?php foreach ($registrosFiltrados as $r): ?>
                                 <?php 
                                     $estadoStr = (string) ($r['estado'] ?? 'PENDIENTE');
                                     
-                                    // CAMBIO: Formateamos la fecha a DD-MM-YYYY
                                     $fechaVencimientoOriginal = (string) ($r['fecha_vencimiento'] ?? '');
                                     $fechaVencimientoFormateada = !empty($fechaVencimientoOriginal) ? date('d-m-Y', strtotime($fechaVencimientoOriginal)) : '';
 
-                                    // CAMBIO: Añadimos la fecha formateada al string de búsqueda
                                     $searchStr = strtolower(($r['cliente'] ?? '') . ' ' . ($r['id_documento_venta'] ?? '') . ' ' . ($r['documento_referencia'] ?? '') . ' ' . $estadoStr . ' ' . $fechaVencimientoFormateada);
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
@@ -340,8 +376,8 @@ if (!empty($_GET['error'])) {
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-white">
-                    <button type="button" class="btn btn-light border shadow-sm text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                <div class="modal-footer bg-light border-top-0 pt-0">
+                    <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold mb-2 mb-md-0 d-block d-md-inline-block w-100 w-md-auto" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-check-circle me-2"></i>Confirmar Cobro Manual</button>
                 </div>
             </form>
@@ -362,16 +398,16 @@ if (!empty($_GET['error'])) {
 
                     <div class="row g-3">
                         <div class="col-12">
-                        <div class="d-flex justify-content-between align-items-end mb-1">
-                            <label class="form-label small text-muted fw-bold mb-0">Monto a Cobrar (Total) <span class="text-danger">*</span></label>
-                            <div class="small fw-medium text-primary d-flex align-items-center">
-                                <i class="bi bi-info-circle me-1"></i>Saldo: 
-                                <input type="text" name="moneda" id="cobroMoneda" class="form-control-plaintext text-primary p-0 ms-1 fw-bold" style="width: 30px; pointer-events: none;" readonly>
-                                <input type="text" id="cobroSaldo" class="form-control-plaintext text-primary p-0 fw-bold" data-saldo-target="1" style="width: 65px; pointer-events: none;" readonly>
+                            <div class="d-flex justify-content-between align-items-end mb-1">
+                                <label class="form-label small text-muted fw-bold mb-0">Monto a Cobrar (Total) <span class="text-danger">*</span></label>
+                                <div class="small fw-medium text-primary d-flex align-items-center">
+                                    <i class="bi bi-info-circle me-1"></i>Saldo: 
+                                    <input type="text" name="moneda" id="cobroMoneda" class="form-control-plaintext text-primary p-0 ms-1 fw-bold" style="width: 30px; pointer-events: none;" readonly>
+                                    <input type="text" id="cobroSaldo" class="form-control-plaintext text-primary p-0 fw-bold" data-saldo-target="1" style="width: 65px; pointer-events: none;" readonly>
+                                </div>
                             </div>
+                            <input type="number" step="0.01" min="0.01" name="monto" id="cobroMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-success bg-white" required>
                         </div>
-                        <input type="number" step="0.01" min="0.01" name="monto" id="cobroMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-success bg-light" readonly required>
-                    </div>
                         
                         <div class="col-12">
                             <label class="form-label small text-muted fw-bold mb-2">Cuenta y Método <span class="text-danger">*</span></label>

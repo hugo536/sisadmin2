@@ -59,6 +59,10 @@ class GastoRegistroModel extends Modelo
             $impuestoTipo = strtoupper(trim((string) ($data['impuesto_tipo'] ?? 'NINGUNO')));
             $idCentroCosto = (int) ($data['id_centro_costo'] ?? 0);
 
+            // Nuevos datos del pago inmediato
+            $pagoInmediato = (int) ($data['pago_inmediato'] ?? 0);
+            $pagosDetalle  = is_array($data['pagos_detalle'] ?? null) ? $data['pagos_detalle'] : [];
+
             if ($fecha === '' || $idProveedor <= 0 || $idConcepto <= 0 || $monto <= 0) {
                 throw new RuntimeException('Complete todos los campos obligatorios del registro de gasto.');
             }
@@ -74,11 +78,11 @@ class GastoRegistroModel extends Modelo
                 throw new RuntimeException('Concepto de gasto inválido.');
             }
 
-            // 1. Guardar Gasto
+            // 1. Guardar Gasto (Inicia como PENDIENTE)
             $stmt = $db->prepare('INSERT INTO gastos_registros
                 (fecha, id_proveedor, id_concepto, id_centro_costo, monto, impuesto_tipo, impuesto_monto, total, estado, created_by, updated_by, created_at, updated_at)
                 VALUES
-                (:fecha, :id_proveedor, :id_concepto, :id_centro_costo, :monto, :impuesto_tipo, :impuesto_monto, :total, "REGISTRADO", :created_by, :updated_by, NOW(), NOW())');
+                (:fecha, :id_proveedor, :id_concepto, :id_centro_costo, :monto, :impuesto_tipo, :impuesto_monto, :total, "PENDIENTE", :created_by, :updated_by, NOW(), NOW())');
             $stmt->execute([
                 'fecha' => $fecha,
                 'id_proveedor' => $idProveedor,
@@ -114,11 +118,37 @@ class GastoRegistroModel extends Modelo
                 'glosa' => 'Registro de gasto: ' . (string) ($concepto['nombre'] ?? ''),
             ], $userId);
 
-            // 4. Vincular los IDs en el Gasto Maestro
-            $stmtFin = $db->prepare('UPDATE gastos_registros SET id_cxp = :id_cxp, id_asiento = :id_asiento, updated_by = :user, updated_at = NOW() WHERE id = :id');
+            // 4. LÓGICA DE PAGO INMEDIATO (Si aplica)
+            $montoPagadoTotal = 0.0;
+            if ($pagoInmediato === 1 && !empty($pagosDetalle)) {
+                foreach ($pagosDetalle as $pago) {
+                    $idCuenta = (int) $pago['id_cuenta'];
+                    $idMetodo = (int) $pago['id_metodo'];
+                    $montoPago = (float) $pago['monto'];
+
+                    // Asumiendo que tu TesoreriaCxpModel tiene una función equivalente a la de ventas
+                    $cxpModel->registrarPagoDirecto(
+                        $idCxp,
+                        $idCuenta,
+                        $idMetodo,
+                        $montoPago,
+                        $fecha,
+                        'Pago Rápido Gasto',
+                        $userId
+                    );
+                    $montoPagadoTotal += $montoPago;
+                }
+            }
+
+            // Determinar si el gasto queda PAGADO o PENDIENTE (parcial)
+            $estadoFinal = ($montoPagadoTotal >= ($total - 0.001)) ? 'PAGADO' : 'PENDIENTE';
+
+            // 5. Vincular los IDs y actualizar el estado final en el Gasto Maestro
+            $stmtFin = $db->prepare('UPDATE gastos_registros SET id_cxp = :id_cxp, id_asiento = :id_asiento, estado = :estado, updated_by = :user, updated_at = NOW() WHERE id = :id');
             $stmtFin->execute([
                 'id_cxp' => $idCxp,
                 'id_asiento' => $idAsiento,
+                'estado' => $estadoFinal,
                 'user' => $userId,
                 'id' => $idRegistro,
             ]);
@@ -251,4 +281,5 @@ class GastoRegistroModel extends Modelo
 
         $this->tablaValidada = true;
     }
+
 }

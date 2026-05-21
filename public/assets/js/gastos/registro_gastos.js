@@ -75,7 +75,7 @@
     });
 
     // ==========================================
-    // 4. Lógica de Cobro Inmediato (Nuevo)
+    // 4. Lógica de Cobro Inmediato (Nuevo - Estilo Ventas)
     // ==========================================
     const switchPago = document.getElementById('switchPagoInmediato');
     const seccionPago = document.getElementById('seccionPagoInmediato');
@@ -84,7 +84,7 @@
     const totalPagadoText = document.getElementById('totalPagadoInmediatoGasto');
     const inputMontoTotalGasto = document.getElementById('gastoMontoTotal');
 
-    // Función para calcular el total ingresado en las filas de pago
+    // Función para calcular el total ingresado en las filas de pago (Con colores UX)
     function calcularTotalPagado() {
       let total = 0;
       const inputsMonto = contenedorPagos.querySelectorAll('.input-monto-pago');
@@ -96,25 +96,24 @@
       if (totalPagadoText) {
         totalPagadoText.textContent = 'S/ ' + total.toFixed(2);
         
-        // Cambio de color visual si el monto coincide con el total del gasto
+        // Cambio de color visual calcando el estilo de Ventas
         const totalGasto = parseFloat(inputMontoTotalGasto.value) || 0;
-        if (total === totalGasto && total > 0) {
-          totalPagadoText.classList.replace('text-dark', 'text-success');
+        
+        if (total > totalGasto) {
+            totalPagadoText.className = 'fw-bold fs-5 text-danger'; // Rojo si se pasa
+        } else if (total === totalGasto && total > 0) {
+            totalPagadoText.className = 'fw-bold fs-5 text-success'; // Verde si está exacto
         } else {
-          totalPagadoText.classList.replace('text-success', 'text-dark');
+            totalPagadoText.className = 'fw-bold fs-5 text-dark'; // Oscuro si falta
         }
       }
     }
 
-    // Función para crear una nueva fila dinámica de pago
+    // Función para crear una nueva fila dinámica de pago (Estilo Flex Compacto)
     function agregarFilaPago() {
-      const row = document.createElement('div');
-      row.className = 'row g-2 align-items-center mb-2 animate__animated animate__fadeIn'; 
-      
       const cuentas = window.TESORERIA_CUENTAS || [];
       const metodos = window.TESORERIA_METODOS || [];
       
-      // Construimos el HTML de las opciones con un placeholder por defecto (Igual que en Ventas)
       let opcionesCuentas = '<option value="" selected disabled>Seleccionar Cuenta...</option>';
       cuentas.forEach(c => { opcionesCuentas += `<option value="${c.id}">${c.nombre}</option>`; });
       
@@ -127,38 +126,48 @@
       contenedorPagos.querySelectorAll('.input-monto-pago').forEach(inp => totalActual += (parseFloat(inp.value) || 0));
       let montoSugerido = Math.max(0, totalGasto - totalActual).toFixed(2);
 
-      row.innerHTML = `
-        <div class="col-md-5">
-          <select class="form-select form-select-sm shadow-none border-secondary-subtle" name="pago_cuenta[]" required>
-            ${opcionesCuentas}
-          </select>
+      const numFilas = contenedorPagos.querySelectorAll('.fila-pago-gasto').length;
+
+      const div = document.createElement('div');
+      // Aplicamos exactamente las mismas clases de Ventas (bg-white, bordes verdes, flex)
+      div.className = 'd-flex flex-column flex-sm-row gap-2 align-items-start align-items-sm-center bg-white p-2 rounded border border-success-subtle mb-2 fila-pago-gasto animate__animated animate__fadeIn';
+      
+      div.innerHTML = `
+        <div class="w-100">
+            <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary" name="pago_cuenta[]" required>
+                ${opcionesCuentas}
+            </select>
         </div>
-        <div class="col-md-3">
-          <select class="form-select form-select-sm shadow-none border-secondary-subtle" name="pago_metodo[]" required>
-            ${opcionesMetodos}
-          </select>
+        <div class="w-100">
+            <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary" name="pago_metodo[]" required>
+                ${opcionesMetodos}
+            </select>
         </div>
-        <div class="col-md-3">
-          <div class="input-group input-group-sm">
-            <span class="input-group-text bg-light border-secondary-subtle fw-semibold">S/</span>
-            <input type="number" step="0.01" min="0.01" class="form-control text-end text-success fw-bold shadow-none border-secondary-subtle input-monto-pago" name="pago_monto[]" value="${montoSugerido}" required>
-          </div>
-        </div>
-        <div class="col-md-1 text-center">
-          <button type="button" class="btn btn-sm text-danger border-0 btn-quitar-pago rounded-circle p-1" title="Quitar">
-            <i class="bi bi-trash-fill fs-6"></i>
-          </button>
+        <div class="w-100 d-flex gap-2 align-items-center">
+            <div class="input-group input-group-sm w-100">
+                <span class="input-group-text bg-light text-muted fw-semibold border-secondary-subtle">S/</span>
+                <input type="number" step="0.01" min="0.01" class="form-control text-end text-success fw-bold shadow-none border-secondary-subtle input-monto-pago" name="pago_monto[]" value="${montoSugerido}" placeholder="0.00" required>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-quitar-pago ${numFilas === 0 ? 'd-none' : ''} px-2" title="Quitar pago">
+                <i class="bi bi-trash"></i>
+            </button>
         </div>
       `;
       
-      contenedorPagos.appendChild(row);
+      contenedorPagos.appendChild(div);
       
-      row.querySelector('.btn-quitar-pago').addEventListener('click', function() {
-        row.remove();
+      // Lógica al eliminar una fila
+      div.querySelector('.btn-quitar-pago').addEventListener('click', function() {
+        div.remove();
+        // Si solo queda 1 fila, ocultamos su basurero
+        const filasRestantes = contenedorPagos.querySelectorAll('.fila-pago-gasto');
+        if (filasRestantes.length === 1) {
+            filasRestantes[0].querySelector('.btn-quitar-pago').classList.add('d-none');
+        }
         calcularTotalPagado();
       });
       
-      row.querySelector('.input-monto-pago').addEventListener('input', calcularTotalPagado);
+      div.querySelector('.input-monto-pago').addEventListener('input', calcularTotalPagado);
       
       calcularTotalPagado();
     }
@@ -181,7 +190,11 @@
     }
 
     if (btnAgregarPago) {
-      btnAgregarPago.addEventListener('click', agregarFilaPago);
+      btnAgregarPago.addEventListener('click', () => {
+          agregarFilaPago();
+          // Asegurarnos de que todas las filas muestren el basurero cuando hay más de una
+          contenedorPagos.querySelectorAll('.btn-quitar-pago').forEach(btn => btn.classList.remove('d-none'));
+      });
     }
     
     // Si el usuario cambia el total del gasto principal, actualizamos el texto del total pagado visualmente
@@ -238,4 +251,66 @@
       });
     }
   });
+
+  // ==========================================
+    // 6. Validación al Guardar el Gasto
+    // ==========================================
+    const formNuevoGasto = document.getElementById('formNuevoGasto');
+    
+    if (formNuevoGasto) {
+      formNuevoGasto.addEventListener('submit', function(e) {
+        const switchPagoCheck = document.getElementById('switchPagoInmediato');
+        
+        // Solo validamos montos si el switch de pago inmediato está activado
+        if (switchPagoCheck && switchPagoCheck.checked) {
+          const contenedorMetodos = document.getElementById('contenedorMetodosPagoGasto');
+          const inputMontoGasto = document.getElementById('gastoMontoTotal');
+            
+          let totalPagado = 0;
+          if (contenedorMetodos) {
+              contenedorMetodos.querySelectorAll('.input-monto-pago').forEach(inp => {
+                totalPagado += parseFloat(inp.value) || 0;
+              });
+          }
+          
+          const totalGasto = parseFloat(inputMontoGasto ? inputMontoGasto.value : 0) || 0;
+          
+          // Validación 1: Evitar que pague 0
+          if (totalPagado === 0) {
+            e.preventDefault(); 
+            Swal.fire('Atención', 'Has activado el pago inmediato pero no has ingresado un monto válido.', 'warning');
+            return;
+          }
+
+          // Validación 2: Evitar que pague más de lo que cuesta
+          if (totalPagado > totalGasto) {
+            e.preventDefault();
+            Swal.fire('Error', `El monto ingresado (S/ ${totalPagado.toFixed(2)}) supera el total del gasto (S/ ${totalGasto.toFixed(2)}).`, 'error');
+            return;
+          }
+
+          // Validación 3: Pago parcial (Avisamos al usuario y si confirma enviamos)
+          if (totalPagado < totalGasto) {
+            e.preventDefault();
+            Swal.fire({
+              icon: 'warning',
+              title: 'Pago Incompleto',
+              text: `El gasto es de S/ ${totalGasto.toFixed(2)}, pero solo se registrarán S/ ${totalPagado.toFixed(2)}. La diferencia quedará como deuda. ¿Deseas guardar así?`,
+              showCancelButton: true,
+              confirmButtonText: 'Sí, guardar con deuda',
+              cancelButtonText: 'No, corregir monto',
+              confirmButtonColor: '#ffc107',
+              cancelButtonColor: '#6c757d'
+            }).then((result) => {
+              if (result.isConfirmed) {
+                // Si confirma, enviamos manualmente el formulario
+                formNuevoGasto.submit(); 
+              }
+            });
+            return;
+          }
+        }
+      });
+    }
+    
 })();

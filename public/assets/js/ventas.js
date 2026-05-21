@@ -11,7 +11,7 @@
         const inputPaginas = document.getElementById('cantidadPaginasPedido');
         const selectTipo = document.getElementById('tipoDocumentoImprimir');
         if (inputPaginas) inputPaginas.value = 1;
-        if (selectTipo) selectTipo.value = 'imprimir'; // Por defecto Pedido Interno
+        if (selectTipo) selectTipo.value = 'imprimir'; 
 
         const modalEl = document.getElementById('modalImpresionPedido');
         if (!modalEl || typeof bootstrap === 'undefined') return;
@@ -32,8 +32,6 @@
                 if (btnGuardar) {
                     btnGuardar.style.display = 'block';
                     btnGuardar.textContent = 'Guardar Pedido';
-                } else {
-                    console.warn('No se encontró #btnGuardarVenta al abrir nueva venta.');
                 }
 
                 if (!document.getElementById('alertaBorradorInfo')) {
@@ -80,12 +78,10 @@
     }
 
     function initSelectAjax(target, urlBackend, options = {}) {
-        // 1. Evaluamos en tiempo real (así no importa si main.js tardó 2 milisegundos más en cargar)
         if (typeof window !== 'undefined' && window.AppSelects && typeof window.AppSelects.initAjax === 'function') {
             return window.AppSelects.initAjax(target, urlBackend, options);
         }
         
-        // 2. SALVAVIDAS: Si main.js falla o no ha cargado, inyectamos los campos vitales que borraste
         console.warn('AppSelects no detectado a tiempo. Usando configuración de emergencia.');
         const fallbackOptions = Object.assign({
             valueField: 'id',
@@ -100,7 +96,7 @@
         tomSelectCliente = initSelectAjax('#idCliente', `${urls.index}&accion=buscar_clientes`, {
             allowEmptyOption: true,
             placeholder: "Buscar cliente por nombre o documento...",
-            dropdownParent: 'body', // <--- CAMBIAR ESTO
+            dropdownParent: 'body', 
             preload: true,
             loadThrottle: 250,
             load: function(query, callback) {
@@ -138,7 +134,6 @@
 
     // --- REFERENCIAS DOM ---
     const modalVentaEl = document.getElementById('modalVenta');
-    // APAGAMOS EL FOCUS TRAP PARA QUE TOMSELECT FUNCIONE
     const modalVenta = new bootstrap.Modal(modalVentaEl, { focus: false });
     
     const modalDespachoEl = document.getElementById('modalDespacho');
@@ -151,8 +146,6 @@
         if (despachoClienteNombre) despachoClienteNombre.textContent = '';
     });
 
-    // Endurecer limpieza de estado visual para evitar "pantalla bloqueada" por
-    // backdrops huérfanos o body con clases de scroll-lock cuando el modal cierra.
     modalVentaEl?.addEventListener('hidden.bs.modal', () => {
         const hayModalesAbiertos = document.querySelectorAll('.modal.show').length > 0;
         if (!hayModalesAbiertos) {
@@ -173,7 +166,6 @@
 
     const despachoFecha = document.getElementById('despachoFecha');
     
-    // --- VARIABLES DE VENTA/DONACIÓN ---
     const tipoOperacion = document.getElementById('tipoOperacion');
     const tipoImpuesto = document.getElementById('tipoImpuesto');
     const ventaSubtotal = document.getElementById('ventaSubtotal');
@@ -187,15 +179,7 @@
     const cerrarForzado = document.getElementById('cerrarForzado');
     const despachoClienteNombre = document.getElementById('despachoClienteNombre');
 
-    // --- NUEVO: VARIABLES DE TESORERÍA Y COBRO INMEDIATO ---
-    // --- VARIABLES DE COBRO EN DESPACHO ---
-    const seccionCobroDespacho = document.getElementById('seccionCobroDespacho');
-    const contenedorMetodosPagoDespacho = document.getElementById('contenedorMetodosPagoDespacho');
-    const btnAgregarPagoDespacho = document.getElementById('btnAgregarPagoDespacho');
-    const totalPagadoDespacho = document.getElementById('totalPagadoDespacho');
-    const switchCobroDespachoContainer = document.getElementById('switchCobroDespachoContainer');
-    const switchCobroDespacho = document.getElementById('switchCobroDespacho');
-    let totalPendienteDespacho = 0; // Guardaremos aquí cuánto falta pagar
+    // --- VARIABLES DE TESORERÍA Y COBRO INMEDIATO (VENTAS) ---
     const cuentasDisponibles = window.TESORERIA_CUENTAS || [];
     const metodosDisponibles = window.TESORERIA_METODOS || [];
     
@@ -205,11 +189,18 @@
     const contenedorMetodosPago = document.getElementById('contenedorMetodosPago');
     const btnAgregarPagoInmediato = document.getElementById('btnAgregarPagoInmediato');
     const totalPagadoInmediato = document.getElementById('totalPagadoInmediato');
+
+    // --- NUEVO: VARIABLES DE COBRO EN DESPACHO ---
+    const seccionCobroDespacho = document.getElementById('seccionCobroDespacho');
+    const contenedorMetodosPagoDespacho = document.getElementById('contenedorMetodosPagoDespacho');
+    const btnAgregarPagoDespacho = document.getElementById('btnAgregarPagoDespacho');
+    const totalPagadoDespacho = document.getElementById('totalPagadoDespacho');
+    const switchCobroDespachoContainer = document.getElementById('switchCobroDespachoContainer');
+    const switchCobroDespacho = document.getElementById('switchCobroDespacho');
+    let totalPendienteDespacho = 0;
     
-    // --- NUEVO: Referencias DOM para Envases Retornables ---
     const seccionRetornoEnvases = document.getElementById('seccionRetornoEnvasesDespacho');
     const contenedorRetornoEnvases = document.getElementById('contenedorRetornoEnvases');
-    // -------------------------------------------------------
 
     const tbodyDevolucionVenta = document.querySelector('#tablaDetalleDevolucionVenta tbody');
     const devolucionVentaDocumentoId = document.getElementById('devolucionVentaDocumentoId');
@@ -234,36 +225,27 @@
     };
 
     function actualizarHintDevolucionVenta() {
-        // 1. Actualizar textos de ayuda (hints)
         const motivoActual = devolucionVentaMotivo?.value || '';
         
         if (devolucionVentaMotivoHint) {
             const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoActual];
-            devolucionVentaMotivoHint.textContent = motivoCfg
-                ? motivoCfg.hint
-                : 'Selecciona un motivo para definir cómo tratar la mercadería devuelta.';
+            devolucionVentaMotivoHint.textContent = motivoCfg ? motivoCfg.hint : 'Selecciona un motivo para definir cómo tratar la mercadería devuelta.';
         }
 
         if (devolucionVentaResolucionHint) {
             const resolucionSeleccionada = devolucionVentaResolucion?.value || '';
             const resolucionHint = DEVOLUCION_VENTA_RESOLUCIONES[resolucionSeleccionada];
-            devolucionVentaResolucionHint.textContent = resolucionHint
-                || 'Selecciona una resolución comercial para registrar el impacto financiero.';
+            devolucionVentaResolucionHint.textContent = resolucionHint || 'Selecciona una resolución comercial para registrar el impacto financiero.';
         }
 
-        // 👇 2. LÓGICA DEL SWITCH CORREGIDA (SOLO PARA GARANTÍAS) 👇
         const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
         const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazo');
 
         if (filaSwitchReemplazo && checkReemplazo) {
-            // Evaluamos si el motivo amerita reemplazo (AHORA SÍ, SOLO DEFECTUOSO)
             if (motivoActual === 'producto_defectuoso') {
-                // Le quitamos el d-none para que Bootstrap lo vuelva a mostrar
                 filaSwitchReemplazo.classList.remove('d-none');
             } else {
-                // Le agregamos la clase d-none de Bootstrap para forzar que se oculte
                 filaSwitchReemplazo.classList.add('d-none');
-                // Lo desmarcamos por seguridad
                 checkReemplazo.checked = false;
             }
         }
@@ -288,7 +270,6 @@
 
         const saldo = Number(saldoFavor || 0);
         if (saldo > 0) {
-            // Diseño ultra compacto: Flexbox alineado al centro, textos pequeños, padding mínimo
             contenedorSaldo.innerHTML = `
                 <div class="alert alert-success d-flex align-items-center justify-content-between p-2 mb-2 shadow-sm border-success rounded" role="alert">
                     <div class="d-flex align-items-center gap-2">
@@ -303,14 +284,11 @@
                     </button>
                 </div>
             `;
-
-            // Evento para aplicar el saldo
             document.getElementById('btnAplicarSaldoFavor').addEventListener('click', (e) => {
                 aplicarSaldoFavorAutomatizado(Number(e.target.dataset.saldo));
             });
             return;
         }
-
         contenedorSaldo.innerHTML = '';
     }
 
@@ -354,7 +332,7 @@
     }
 
     // ==============================================================
-    // --- NUEVO: LÓGICA DE COBRO INMEDIATO MÚLTIPLE ---
+    // --- LÓGICA DE COBRO INMEDIATO (VENTA / BORRADOR) ---
     // ==============================================================
     function calcularTotalCobroInmediato() {
         if (!contenedorMetodosPago) return;
@@ -366,17 +344,15 @@
         
         if (totalPagadoInmediato) {
             totalPagadoInmediato.textContent = `S/ ${total.toFixed(2)}`;
-            
-            // Lógica de colores UX:
             const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
             const totalPedido = parseFloat(totalTexto) || 0;
 
             if (total > totalPedido) {
-                totalPagadoInmediato.className = 'fw-bold fs-5 text-danger'; // Rojo si se pasó
+                totalPagadoInmediato.className = 'fw-bold fs-5 text-danger'; 
             } else if (total === totalPedido && total > 0) {
-                totalPagadoInmediato.className = 'fw-bold fs-5 text-success'; // Verde si está exacto
+                totalPagadoInmediato.className = 'fw-bold fs-5 text-success';
             } else {
-                totalPagadoInmediato.className = 'fw-bold fs-5 text-dark'; // Oscuro si falta
+                totalPagadoInmediato.className = 'fw-bold fs-5 text-dark';
             }
         }
     }
@@ -444,7 +420,6 @@
         const montoAAplicar = Math.min(saldoDisponible, totalPedido);
         const saldoRestante = totalPedido - montoAAplicar;
 
-        // Fila 1: Saldo a Favor
         if (montoAAplicar > 0) {
             const filaSaldo = agregarFilaPagoInmediato(montoAAplicar.toFixed(2));
             if (filaSaldo) {
@@ -459,26 +434,20 @@
                 const cuentaVirtual = window.TESORERIA_CUENTAS.find(c => c.nombre.toLowerCase().includes('saldo') || c.nombre.toLowerCase().includes('caja'));
                 if (cuentaVirtual) cuentaSelect.value = cuentaVirtual.id;
 
-                // Bloqueamos cuentas para proteger contabilidad, PERO dejamos el monto editable
                 cuentaSelect.disabled = true;
                 metodoSelect.disabled = true;
-                
-                // Configurar el input para que sea flexible pero no exceda el saldo
                 inputMonto.readOnly = false; 
                 inputMonto.max = montoAAplicar.toFixed(2);
                 
-                // Validación para evitar que ingresen más del saldo que poseen
                 inputMonto.addEventListener('input', function() {
                     const maxPermitido = Math.min(saldoDisponible, parseFloat(ventaTotal.textContent.replace(/[^\d.-]/g, '')) || 0);
                     if (parseFloat(this.value) > maxPermitido) {
-                        this.value = maxPermitido.toFixed(2); // Auto-corrige si se pasa
+                        this.value = maxPermitido.toFixed(2); 
                     }
                 });
 
-                // Habilitamos el tacho de basura para REVERTIR
                 if (btnQuitar) {
                     btnQuitar.classList.remove('d-none');
-                    // Agregamos un evento extra al tacho para reactivar el botón verde de la alerta
                     btnQuitar.addEventListener('click', () => {
                         const btnUsar = document.getElementById('btnAplicarSaldoFavor');
                         if (btnUsar) {
@@ -491,13 +460,11 @@
             }
         }
 
-        // Fila 2: Diferencia (si la hay)
         if (saldoRestante > 0.001) {
             agregarFilaPagoInmediato(saldoRestante.toFixed(2));
             contenedorMetodosPago.querySelectorAll('.btn-quitar-pago').forEach(btn => btn.classList.remove('d-none'));
         }
 
-        // Cambiar estado del botón
         const btnUsar = document.getElementById('btnAplicarSaldoFavor');
         if (btnUsar) {
             btnUsar.disabled = true;
@@ -508,6 +475,36 @@
         calcularTotalCobroInmediato();
     }
 
+    switchCobroInmediato?.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            seccionCobroInmediato.classList.remove('d-none');
+            contenedorMetodosPago.innerHTML = '';
+            const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
+            const totalNumerico = parseFloat(totalTexto) || 0;
+            agregarFilaPagoInmediato(totalNumerico > 0 ? totalNumerico.toFixed(2) : '');
+        } else {
+            seccionCobroInmediato.classList.add('d-none');
+            contenedorMetodosPago.innerHTML = '';
+            calcularTotalCobroInmediato();
+        }
+    });
+
+    btnAgregarPagoInmediato?.addEventListener('click', () => {
+        const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
+        const totalPedido = parseFloat(totalTexto) || 0;
+        
+        let totalPagadoHastaAhora = 0;
+        contenedorMetodosPago.querySelectorAll('.input-monto-inmediato').forEach(inp => {
+            totalPagadoHastaAhora += parseFloat(inp.value) || 0;
+        });
+
+        let faltante = totalPedido - totalPagadoHastaAhora;
+        if (faltante < 0) faltante = 0;
+
+        agregarFilaPagoInmediato(faltante > 0 ? faltante.toFixed(2) : '');
+        contenedorMetodosPago.querySelectorAll('.btn-quitar-pago').forEach(btn => btn.classList.remove('d-none'));
+    });
+
     // ==============================================================
     // --- NUEVO: LÓGICA DE COBRO EN DESPACHO ---
     // ==============================================================
@@ -515,13 +512,13 @@
         if (!contenedorMetodosPagoDespacho) return;
         let total = 0;
         contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho').forEach(fila => {
-            total += parseFloat(fila.querySelector('.input-monto-despacho').value) || 0;
+            const monto = parseFloat(fila.querySelector('.input-monto-despacho').value) || 0;
+            total += monto;
         });
         
         if (totalPagadoDespacho) {
             totalPagadoDespacho.textContent = `S/ ${total.toFixed(2)}`;
             
-            // Lógica de colores UX
             if (total > totalPendienteDespacho) {
                 totalPagadoDespacho.className = 'fw-bold fs-5 text-danger';
             } else if (total === totalPendienteDespacho && total > 0) {
@@ -592,45 +589,19 @@
     });
 
     btnAgregarPagoDespacho?.addEventListener('click', () => {
-        let pagado = 0;
-        contenedorMetodosPagoDespacho.querySelectorAll('.input-monto-despacho').forEach(inp => pagado += parseFloat(inp.value) || 0);
-        let faltante = totalPendienteDespacho - pagado;
+        let totalPagadoHastaAhora = 0;
+        contenedorMetodosPagoDespacho.querySelectorAll('.input-monto-despacho').forEach(inp => {
+            totalPagadoHastaAhora += parseFloat(inp.value) || 0;
+        });
+
+        let faltante = totalPendienteDespacho - totalPagadoHastaAhora;
+        if (faltante < 0) faltante = 0;
+
         agregarFilaPagoDespacho(faltante > 0 ? faltante.toFixed(2) : '');
         contenedorMetodosPagoDespacho.querySelectorAll('.btn-quitar-pago-despacho').forEach(btn => btn.classList.remove('d-none'));
     });
 
-    switchCobroInmediato?.addEventListener('change', (e) => {
-        if (e.target.checked) {
-            seccionCobroInmediato.classList.remove('d-none');
-            contenedorMetodosPago.innerHTML = '';
-            
-            const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
-            const totalNumerico = parseFloat(totalTexto) || 0;
-            agregarFilaPagoInmediato(totalNumerico > 0 ? totalNumerico.toFixed(2) : '');
-        } else {
-            seccionCobroInmediato.classList.add('d-none');
-            contenedorMetodosPago.innerHTML = '';
-            calcularTotalCobroInmediato();
-        }
-    });
-
-    btnAgregarPagoInmediato?.addEventListener('click', () => {
-        // Calcular cuánto falta pagar automáticamente
-        const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
-        const totalPedido = parseFloat(totalTexto) || 0;
-        
-        let totalPagadoHastaAhora = 0;
-        contenedorMetodosPago.querySelectorAll('.input-monto-inmediato').forEach(inp => {
-            totalPagadoHastaAhora += parseFloat(inp.value) || 0;
-        });
-
-        let faltante = totalPedido - totalPagadoHastaAhora;
-        if (faltante < 0) faltante = 0;
-
-        // Agrega la fila con el monto sugerido que falta
-        agregarFilaPagoInmediato(faltante > 0 ? faltante.toFixed(2) : '');
-        contenedorMetodosPago.querySelectorAll('.btn-quitar-pago').forEach(btn => btn.classList.remove('d-none'));
-    });
+    // ==============================================================
 
     function obtenerFechaLocalISO() {
         const ahora = new Date();
@@ -659,7 +630,6 @@
         }
     }
 
-    // --- HELPERS DE RED ---
     async function getJson(url) {
         const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
         const payload = await res.json();
@@ -678,7 +648,6 @@
         return payload;
     }
 
-    // --- NUEVO: FUNCION PARA NUMERAR FILAS ---
     function actualizarNumeracionFilas() {
         const filas = tbodyVenta.querySelectorAll('tr');
         filas.forEach((fila, index) => {
@@ -689,7 +658,6 @@
         });
     }
 
-    // --- LÓGICA VENTA (CALCULOS E IMPUESTOS) ---
     function filaVentaPayload(fila) {
         const selectElement = fila.querySelector('.detalle-item');
         const idValue = selectElement && selectElement.tomselect ? selectElement.tomselect.getValue() : (selectElement ? selectElement.value : '');
@@ -722,14 +690,12 @@
             const data = filaVentaPayload(fila);
             const subtotal = data.cantidad * data.precio_unitario;
             
-            // Cálculos de Peso
             const pesoUnitarioKg = obtenerPesoUnitarioFila(fila);
             const pesoLineaKg = data.cantidad * pesoUnitarioKg;
             
             sumaLineas += subtotal;
             pesoTotalKg += pesoLineaKg;
             
-            // --- NUEVO: Actualizar la UI del peso en la fila ---
             const infoPeso = fila.querySelector('.detalle-peso-info');
             if (infoPeso) {
                 if (pesoUnitarioKg > 0) {
@@ -740,7 +706,6 @@
                     infoPeso.classList.add('d-none');
                 }
             }
-            // --------------------------------------------------
 
             const celdaSubtotal = fila.querySelector('.detalle-subtotal');
             if (esDonacion) {
@@ -792,21 +757,15 @@
         if (ventaIgv) ventaIgv.textContent = `S/ ${igv.toFixed(2)}`;
         if (ventaTotal) ventaTotal.textContent = esDonacion ? 'S/ 0.00 (GRATUITO)' : `S/ ${total.toFixed(2)}`;
         
-        // --- MODIFICADO: Actualizar el span del peso total ---
         if (ventaPesoTotal) ventaPesoTotal.textContent = `${pesoTotalKg.toFixed(3)} kg`;
 
-        // --- NUEVO: ACTUALIZAR AUTOMÁTICAMENTE EL MONTO DE COBRO INMEDIATO ---
         if (switchCobroInmediato && switchCobroInmediato.checked && !esDonacion) {
-            // Solo auto-completamos si hay exactamente UNA fila y NO es saldo a favor
             const filasPago = contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato');
             const btnUsarSaldo = document.getElementById('btnAplicarSaldoFavor');
             
-            // Si hay 1 sola fila y el saldo a favor NO está aplicado
             if (filasPago.length === 1 && (!btnUsarSaldo || !btnUsarSaldo.disabled)) { 
                 filasPago[0].querySelector('.input-monto-inmediato').value = total.toFixed(2);
             }
-            
-            // Siempre llamamos al cálculo para que los colores de UX indiquen si falta dinero
             calcularTotalCobroInmediato();
         }
     }
@@ -883,7 +842,6 @@
         
         if (precioNuevo === null) return;
         
-
         if (precioNuevo > 0) {
             inputPrecio.value = precioNuevo.toFixed(4);
         }
@@ -919,7 +877,7 @@
         btnQuitar.addEventListener('click', () => {
             if (selectItem.tomselect) selectItem.tomselect.destroy();
             filaReal.remove();
-            actualizarNumeracionFilas(); // <-- NUEVO: Actualizar números
+            actualizarNumeracionFilas(); 
             recalcularTotalVenta();
         });
 
@@ -931,7 +889,7 @@
 
         const tom = initSelectAjax(selectItem, `${urls.index}&accion=buscar_items`, {
             placeholder: "Buscar producto...",
-            dropdownParent: 'body', // <--- CAMBIAR ESTO
+            dropdownParent: 'body', 
             load: function(query, callback) {
                 const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0);
                 const cantidadActual = Number(inputCantidad.value || 1) || 1;
@@ -967,18 +925,14 @@
                     }
 
                     filaReal.querySelector('.detalle-stock').textContent = selectedOption.stock.toFixed(2);
-                    // Permitimos que la cajita reciba hasta 4 decimales
                     inputPrecio.value = selectedOption.precio.toFixed(4);
                     filaReal.dataset.pesoKg = String(Number(selectedOption.pesoKg || 0));
                     
-                    // MEJORA UX: Evitar el 0 molesto
                     let valorActual = inputCantidad.value;
                     if (valorActual === '0' || valorActual === '0.00' || valorActual === '') {
-                        valorActual = ''; // Lo forzamos a vacío
+                        valorActual = ''; 
                     }
                     configurarInputCantidad(inputCantidad, selectedOption.permiteDecimales, valorActual);
-                    
-                    // MEJORA UX EXTRA: Enfocar la caja de texto automáticamente
                     setTimeout(() => inputCantidad.focus(), 50);
                 }
                 validarCantidadVsStock(filaReal);
@@ -994,13 +948,11 @@
                 loading: (data, escape) => '<div class="spinner-border spinner-border-sm text-primary m-2"></div> buscando...',
                 option: function(data, escape) {
                     const stockColor = data.stock <= 0 ? 'text-danger fw-bold' : 'text-success';
-                    
-                    // --- MEJORA UX: Mostrar decimales solo si está permitido ---
                     let stockLabel = 'SIN STOCK';
                     if (data.stock > 0) {
                         stockLabel = (data.permiteDecimales === 1) 
                             ? Number(data.stock).toFixed(2) 
-                            : String(Math.round(data.stock)); // Mostrar como entero
+                            : String(Math.round(data.stock)); 
                     }
 
                     return `<div class="py-2 d-flex justify-content-between align-items-center">
@@ -1029,10 +981,8 @@
             if (!esBorrador) tom.disable(); 
 
             configurarInputCantidad(inputCantidad, item.permite_decimales, item.cantidad || 0);
-            // Respetamos los 4 decimales del precio guardado en la BD
             inputPrecio.value = Number(item.precio_unitario || 0).toFixed(4);
             
-            // Mostrar stock inicial de la línea cargada (sin depender de selectedOption del onChange)
             const stockItem = Number(item.stock_actual || 0);
             const stockMostrar = Number(item.permite_decimales || 0) === 1
                 ? stockItem.toFixed(2)
@@ -1061,7 +1011,7 @@
             }, 100);
         }
 
-        actualizarNumeracionFilas(); // <-- NUEVO: Actualizar números
+        actualizarNumeracionFilas(); 
         recalcularTotalVenta();
     }
 
@@ -1099,16 +1049,17 @@
             ventaTotal.classList.add('text-primary');
             ventaTotal.classList.remove('text-success');
         }
-        // --- MODIFICADO: Resetear usando textContent ---
         if (ventaPesoTotal) ventaPesoTotal.textContent = '0.000 kg'; 
         
         const btnGuardar = document.getElementById('btnGuardarVenta');
-        if (btnGuardar) btnGuardar.textContent = 'Guardar Pedido';
+        if (btnGuardar) {
+            btnGuardar.textContent = 'Guardar Pedido';
+            btnGuardar.style.display = 'block';
+        }
         
         const contenedorAlerta = document.getElementById('alertaBorradorContenedor');
         if (contenedorAlerta) contenedorAlerta.innerHTML = '';
         
-        // Limpiar sección devoluciones
         const seccionDevoluciones = document.getElementById('seccionDevolucionesVenta');
         if (seccionDevoluciones) {
             seccionDevoluciones.classList.add('d-none');
@@ -1116,7 +1067,6 @@
             if (tbodyDevHistorico) tbodyDevHistorico.innerHTML = '';
         }
 
-        // --- NUEVO: Limpieza UI Cobro Inmediato ---
         if (switchCobroContainer) switchCobroContainer.style.display = 'block';
         if (switchCobroInmediato) switchCobroInmediato.checked = false;
         if (seccionCobroInmediato) seccionCobroInmediato.classList.add('d-none');
@@ -1125,12 +1075,10 @@
 
         actualizarBloqueoFormularioPorCliente();
 
-        // Limpiar la alerta de saldo a favor al abrir un nuevo formulario
         const contenedorSaldo = document.getElementById('alertaSaldoFavorContenedor');
         if (contenedorSaldo) {
             contenedorSaldo.innerHTML = '';
         }
-        
     }
 
     document.getElementById('btnAgregarFilaVenta')?.addEventListener('click', async () => {
@@ -1187,7 +1135,6 @@
                 }
             }
 
-            // --- NUEVO: Validar Cobro Inmediato ---
             let esCobroInmediato = false;
             const metodosPagoFinales = [];
 
@@ -1208,7 +1155,6 @@
                 }
             }
 
-            // --- NUEVO: Validar Pagos y Advertir sobre Saldos Pendientes ---
             if (esCobroInmediato) {
                 let sumaPagos = 0;
                 metodosPagoFinales.forEach(p => sumaPagos += p.monto);
@@ -1216,10 +1162,8 @@
                 const totalPedTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
                 const totalPedNumerico = parseFloat(totalPedTexto) || 0;
 
-                // Tolerancia matemática de 1 céntimo por temas de redondeo en JavaScript
                 const diferencia = totalPedNumerico - sumaPagos;
 
-                // 1. Si el pago es menor al total (Pago incompleto)
                 if (diferencia > 0.01) {
                     const confirmacionPago = await Swal.fire({
                         icon: 'warning',
@@ -1228,31 +1172,27 @@
                         showCancelButton: true,
                         confirmButtonText: 'Sí, guardar con deuda',
                         cancelButtonText: 'No, corregir pago',
-                        confirmButtonColor: '#ffc107', // Color amarillo de advertencia
-                        cancelButtonColor: '#6c757d'   // Color gris para cancelar
+                        confirmButtonColor: '#ffc107', 
+                        cancelButtonColor: '#6c757d'   
                     });
 
-                    // Si el usuario cancela, detenemos el proceso de guardado
                     if (!confirmacionPago.isConfirmed) {
                         return; 
                     }
                 } 
-                // 2. Si el pago es mayor al total (Exceso de pago)
                 else if (diferencia < -0.01) {
                     throw new Error(`El total ingresado (S/ ${sumaPagos.toFixed(2)}) supera el total del pedido (S/ ${totalPedNumerico.toFixed(2)}). Por favor, ajuste los montos.`);
                 }
             }
-            // ---------------------------------------------------------------------------------
 
-            // 👇 NUEVO: Solo advertir, nunca bloquear en borrador 👇
             if (excedeStock) {
                 const confirmacion = await Swal.fire({
                     icon: 'warning',
                     title: 'Stock excedido (Falta de producto)',
                     text: 'Las cantidades requeridas (sumando sueltos y combos) superan tu stock físico en almacén. Puedes guardar el borrador, pero no podrás despacharlo hasta que repongas el stock. ¿Guardar de todos modos?',
                     showCancelButton: true,
-                    confirmButtonColor: '#0d6efd', // Azul de "Aceptar"
-                    cancelButtonColor: '#6c757d', // Gris de "Cancelar"
+                    confirmButtonColor: '#0d6efd', 
+                    cancelButtonColor: '#6c757d', 
                     confirmButtonText: 'Sí, guardar pedido',
                     cancelButtonText: 'Cancelar'
                 });
@@ -1261,7 +1201,6 @@
                     return; 
                 }
             }
-            // 👆 ------------------------------------------------ 👆
 
             const payload = await postJson(urls.guardar, {
                 id: Number(ventaId.value || 0),
@@ -1369,15 +1308,12 @@
         tbodyDevolucionVenta.innerHTML = '';
         if (devolucionVentaTotal) devolucionVentaTotal.textContent = 'S/ 0.00';
 
-        // 👇 MAGIA FINANCIERA: Filtrar opciones de Resolución según el pago 👇
         if (devolucionVentaResolucion) {
-            // Asumimos que tu backend nos dice cuánto pagó y cuánto era el total
             const montoPagado = Number(venta.monto_pagado || 0);
             const totalPedido = Number(venta.total || 0);
             
-            devolucionVentaResolucion.innerHTML = ''; // Limpiamos el combo
+            devolucionVentaResolucion.innerHTML = ''; 
 
-            // Si el cliente NO ha pagado todo (es un pedido a crédito / fiado)
             if (montoPagado < totalPedido) {
                 devolucionVentaResolucion.innerHTML = `
                     <optgroup label="🔄 Ajuste de Deuda (Sin pagos previos)">
@@ -1385,7 +1321,6 @@
                     </optgroup>
                 `;
             } 
-            // Si el cliente YA PAGÓ todo (es un pedido al contado)
             else {
                 devolucionVentaResolucion.innerHTML = `
                     <optgroup label="💳 Saldo a Favor (No sale dinero)">
@@ -1397,7 +1332,6 @@
                 `;
             }
         }
-        // 👆 FIN DE LA MAGIA FINANCIERA 👆
 
         let lineasDisponibles = 0;
         detalle.forEach((linea) => {
@@ -1423,45 +1357,41 @@
 
         despachoDocumentoId.value = venta.id;
         despachoObservaciones.value = '';
-        cerrarForzado.checked = false;
+        if (cerrarForzado) cerrarForzado.checked = false;
         tbodyDespacho.innerHTML = '';
-
-        // --- LÓGICA DE SALDO PARA EL COBRO EN DESPACHO ---
-        const totalVenta = Number(venta.total || 0);
-        const montoPagado = Number(venta.monto_pagado || 0); // Tu backend debe enviar esto
-        totalPendienteDespacho = Math.max(0, totalVenta - montoPagado);
-
-        if (switchCobroDespachoContainer) {
-            if (totalPendienteDespacho > 0.001) {
-                switchCobroDespachoContainer.style.display = 'block';
-                switchCobroDespacho.checked = false;
-                if (seccionCobroDespacho) seccionCobroDespacho.classList.add('d-none');
-                if (contenedorMetodosPagoDespacho) contenedorMetodosPagoDespacho.innerHTML = '';
-            } else {
-                // Si el pedido ya está 100% pagado, ocultamos la opción de cobro
-                switchCobroDespachoContainer.style.display = 'none';
-                switchCobroDespacho.checked = false;
-                if (seccionCobroDespacho) seccionCobroDespacho.classList.add('d-none');
-            }
-        }
-        // -------------------------------------------------
 
         if (despachoClienteNombre) {
             const cliente = String(venta.cliente || '').trim();
             despachoClienteNombre.textContent = cliente ? `- ${cliente}` : '';
         }
+
+        // --- LÓGICA DE COBRO EN DESPACHO ---
+        const totalVenta = Number(venta.total || 0);
+        const montoPagado = Number(venta.monto_pagado || 0);
+        totalPendienteDespacho = Math.max(0, totalVenta - montoPagado);
+
+        if (switchCobroDespachoContainer) {
+            if (totalPendienteDespacho > 0.001) {
+                switchCobroDespachoContainer.style.display = 'block';
+                if (switchCobroDespacho) switchCobroDespacho.checked = false;
+                if (seccionCobroDespacho) seccionCobroDespacho.classList.add('d-none');
+                if (contenedorMetodosPagoDespacho) contenedorMetodosPagoDespacho.innerHTML = '';
+            } else {
+                // Ya pagado, esconder opción
+                switchCobroDespachoContainer.style.display = 'none';
+                if (switchCobroDespacho) switchCobroDespacho.checked = false;
+                if (seccionCobroDespacho) seccionCobroDespacho.classList.add('d-none');
+            }
+        }
         
-        // --- NUEVO: Resetear estado de envases ---
         envasesRequeridosActuales = [];
         if (contenedorRetornoEnvases) contenedorRetornoEnvases.innerHTML = '';
         if (seccionRetornoEnvases) seccionRetornoEnvases.classList.add('d-none');
 
-        // Configurar Fecha de Despacho
         if (despachoFecha) {
             const hoy = obtenerFechaLocalISO();
             let fechaMinima = '';
 
-            // Extraer solo la parte "YYYY-MM-DD" de la fecha de creación o emisión
             if (venta.created_at) {
                 fechaMinima = venta.created_at.substring(0, 10);
             } else if (venta.fecha_emision) {
@@ -1470,10 +1400,9 @@
 
             if (fechaMinima) {
                 despachoFecha.min = fechaMinima;
-                // Si por alguna razón (zona horaria o error de PC) "hoy" es menor que la mínima, forzamos la mínima
                 despachoFecha.value = hoy < fechaMinima ? fechaMinima : hoy;
             } else {
-                despachoFecha.removeAttribute('min'); // Limpiamos por seguridad
+                despachoFecha.removeAttribute('min'); 
                 despachoFecha.value = hoy;
             }
         }
@@ -1482,7 +1411,6 @@
             if (Number(linea.cantidad_pendiente) > 0.0001) {
                 agregarFilaDespacho(linea, null);
                 
-                // --- NUEVO: Mapear los envases que requiere este producto ---
                 if (linea.envases_retornables && linea.envases_retornables.length > 0) {
                     linea.envases_retornables.forEach(env => {
                         const idEnv = env.id_envase;
@@ -1498,11 +1426,10 @@
             }
         });
         
-        dibujarTablaEnvases(); // --- NUEVO: Pintar la tabla inicial ---
+        dibujarTablaEnvases(); 
         modalDespacho.show();
     }
 
-    // --- NUEVO: Función para dibujar y actualizar los envases vacíos ---
     function dibujarTablaEnvases() {
         if (!seccionRetornoEnvases || !contenedorRetornoEnvases) return;
 
@@ -1538,10 +1465,8 @@
             
             hayEnvasesAEntregar = true;
             
-            // 👇 NUEVO: Forzar siempre a 0 la primera vez que se dibuja el envase
             const divExistente = contenedorRetornoEnvases.querySelector(`div[data-id-envase="${idEnvase}"]`);
             const valorPrevio = divExistente ? divExistente.querySelector('.input-retorno-vacio').value : 0; 
-            // 👆 -------------------------------------------------------------
 
             const itemDiv = document.createElement('div');
             itemDiv.className = 'd-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between bg-white p-2 rounded shadow-sm border border-info-subtle item-envase-retorno';
@@ -1572,7 +1497,6 @@
             seccionRetornoEnvases.classList.add('d-none');
         }
     }
-    // --------------------------------------------------------------------------
 
     function agregarFilaDespacho(linea, filaReferencia = null) {
         let opcionesHTML = '<option value="">Seleccione...</option>';
@@ -1701,7 +1625,7 @@
                 spanStock.textContent = '-';
                 inputCant.value = 0;
                 validarGrupoItem(linea.id);
-                dibujarTablaEnvases(); // <-- NUEVO: Actualizar envases
+                dibujarTablaEnvases(); 
                 return;
             }
 
@@ -1712,7 +1636,7 @@
                 spanStock.textContent = '-';
                 inputCant.value = 0;
                 validarGrupoItem(linea.id);
-                dibujarTablaEnvases(); // <-- NUEVO: Actualizar envases
+                dibujarTablaEnvases(); 
                 return;
             }
 
@@ -1733,7 +1657,7 @@
 
             sincronizarGrupo(tr);
             validarGrupoItem(linea.id);
-            dibujarTablaEnvases(); // <-- NUEVO: Actualizar envases
+            dibujarTablaEnvases(); 
         });
 
         inputCant.addEventListener('input', () => {
@@ -1742,7 +1666,7 @@
             }
             sincronizarGrupo(tr);
             validarGrupoItem(linea.id);
-            dibujarTablaEnvases(); // <-- NUEVO: Actualiza la tabla de envases en tiempo real
+            dibujarTablaEnvases(); 
         });
 
         btnSplit.addEventListener('click', () => {
@@ -1780,7 +1704,7 @@
                 unica.querySelector('.despacho-cantidad').value = Math.max(0, Math.min(stockUnico, pendiente));
             }
             validarGrupoItem(linea.id);
-            dibujarTablaEnvases(); // <-- NUEVO: Actualizar envases
+            dibujarTablaEnvases(); 
         });
 
         actualizarModoGrupo();
@@ -1831,145 +1755,136 @@
         }
     }
 
-    document.getElementById('btnGuardarDespacho').addEventListener('click', async () => {
-    try {
-        const filas = [...tbodyDespacho.querySelectorAll('tr')];
-        
-        const detalle = filas.map(fila => {
-            const idAlmacen = fila.querySelector('.fila-almacen').value;
-            const cantidad = parseFloat(fila.querySelector('.despacho-cantidad').value || 0);
+    document.getElementById('btnGuardarDespacho')?.addEventListener('click', async () => {
+        try {
+            const filas = [...tbodyDespacho.querySelectorAll('tr')];
             
-            return {
-                id_documento_detalle: Number(fila.dataset.idDetalle),
-                id_almacen: Number(idAlmacen),
-                cantidad: cantidad
-            };
-        }).filter(d => d.cantidad > 0); 
-
-        if (detalle.length === 0) throw new Error('Ingrese cantidades a despachar.');
-        if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione almacén para todas las filas con cantidad.');
-        if (tbodyDespacho.querySelector('.is-invalid')) throw new Error('Corrija las cantidades marcadas en rojo (exceden stock o pendiente).');
-
-        // --- Validar fecha de despacho ---
-        const fechaDespachoVal = despachoFecha ? despachoFecha.value : '';
-        if (!fechaDespachoVal) throw new Error('Debe especificar la fecha de despacho.');
-        // ----------------------------------------
-
-        // =========================================================
-        // --- NUEVO: Validar Cobro en Despacho ---
-        // =========================================================
-        let esCobroDespacho = false;
-        const metodosPagoDespachoFinales = [];
-
-        if (switchCobroDespacho && switchCobroDespacho.checked) {
-            esCobroDespacho = true;
-            contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho').forEach(fila => {
-                const idCuenta = fila.querySelector('.select-cuenta-despacho').value;
-                const idMetodo = fila.querySelector('.select-metodo-despacho').value;
-                const monto = parseFloat(fila.querySelector('.input-monto-despacho').value) || 0;
+            const detalle = filas.map(fila => {
+                const idAlmacen = fila.querySelector('.fila-almacen').value;
+                const cantidad = parseFloat(fila.querySelector('.despacho-cantidad').value || 0);
                 
-                if (idCuenta && idMetodo && monto > 0) {
-                    metodosPagoDespachoFinales.push({ id_cuenta: idCuenta, id_metodo: idMetodo, monto: monto });
-                }
-            });
+                return {
+                    id_documento_detalle: Number(fila.dataset.idDetalle),
+                    id_almacen: Number(idAlmacen),
+                    cantidad: cantidad
+                };
+            }).filter(d => d.cantidad > 0); 
 
-            if (metodosPagoDespachoFinales.length === 0) {
-                throw new Error("Debe completar Cuenta, Método y Monto para el cobro.");
-            }
+            if (detalle.length === 0) throw new Error('Ingrese cantidades a despachar.');
+            if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione almacén para todas las filas con cantidad.');
+            if (tbodyDespacho.querySelector('.is-invalid')) throw new Error('Corrija las cantidades marcadas en rojo (exceden stock o pendiente).');
 
-            // Validar montos contra la deuda pendiente
-            let sumaPagos = 0;
-            metodosPagoDespachoFinales.forEach(p => sumaPagos += p.monto);
-            const diferencia = totalPendienteDespacho - sumaPagos;
+            const fechaDespachoVal = despachoFecha ? despachoFecha.value : '';
+            if (!fechaDespachoVal) throw new Error('Debe especificar la fecha de despacho.');
 
-            if (diferencia > 0.01) {
-                const confirmacionPago = await Swal.fire({
-                    icon: 'warning',
-                    title: 'Pago Incompleto',
-                    text: `Falta cobrar S/ ${diferencia.toFixed(2)}. ¿Deseas despachar y dejar ese saldo como cuenta por cobrar?`,
-                    showCancelButton: true,
-                    confirmButtonText: 'Sí, despachar con deuda',
-                    cancelButtonText: 'No, corregir pago',
-                    confirmButtonColor: '#ffc107',
-                    cancelButtonColor: '#6c757d'
+            // --- VALIDAR COBRO EN DESPACHO ---
+            let esCobroDespacho = false;
+            const metodosPagoDespachoFinales = [];
+
+            if (switchCobroDespacho && switchCobroDespacho.checked) {
+                esCobroDespacho = true;
+                contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho').forEach(fila => {
+                    const idCuenta = fila.querySelector('.select-cuenta-despacho').value;
+                    const idMetodo = fila.querySelector('.select-metodo-despacho').value;
+                    const monto = parseFloat(fila.querySelector('.input-monto-despacho').value) || 0;
+                    
+                    if (idCuenta && idMetodo && monto > 0) {
+                        metodosPagoDespachoFinales.push({ id_cuenta: idCuenta, id_metodo: idMetodo, monto: monto });
+                    }
                 });
-                if (!confirmacionPago.isConfirmed) return;
-            } else if (diferencia < -0.01) {
-                throw new Error(`El total ingresado (S/ ${sumaPagos.toFixed(2)}) supera la deuda pendiente (S/ ${totalPendienteDespacho.toFixed(2)}). Por favor, ajuste los montos.`);
-            }
-        }
-        // =========================================================
 
-        const resumenPorItem = {}; 
-        filas.forEach(f => {
-            const id = f.dataset.idDetalle;
-            const cant = parseFloat(f.querySelector('.despacho-cantidad').value || 0);
-            resumenPorItem[id] = (resumenPorItem[id] || 0) + cant;
-        });
-
-        let esParcial = false;
-        filas.forEach(f => {
-            const id = f.dataset.idDetalle;
-            const pendiente = parseFloat(f.dataset.pendienteTotal);
-            const despachando = resumenPorItem[id] || 0;
-            if (despachando < pendiente - 0.01) esParcial = true;
-        });
-
-        // --- Capturar Envases Retornados ---
-        const envasesDevueltos = [];
-        if (contenedorRetornoEnvases && !seccionRetornoEnvases.classList.contains('d-none')) {
-            contenedorRetornoEnvases.querySelectorAll('.item-envase-retorno').forEach(div => {
-                const cant = Number(div.querySelector('.input-retorno-vacio').value || 0);
-                if (cant > 0) {
-                    envasesDevueltos.push({
-                        id_envase: Number(div.dataset.idEnvase),
-                        cantidad: cant
-                    });
+                if (metodosPagoDespachoFinales.length === 0) {
+                    throw new Error("Debe completar Cuenta, Método y Monto para el cobro en despacho.");
                 }
+
+                let sumaPagos = 0;
+                metodosPagoDespachoFinales.forEach(p => sumaPagos += p.monto);
+                const diferencia = totalPendienteDespacho - sumaPagos;
+
+                if (diferencia > 0.01) {
+                    const confirmacionPago = await Swal.fire({
+                        icon: 'warning',
+                        title: 'Pago Incompleto',
+                        text: `Falta cobrar S/ ${diferencia.toFixed(2)}. ¿Deseas despachar y dejar ese saldo como deuda?`,
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, despachar con deuda',
+                        cancelButtonText: 'No, corregir pago',
+                        confirmButtonColor: '#ffc107',
+                        cancelButtonColor: '#6c757d'
+                    });
+                    if (!confirmacionPago.isConfirmed) return;
+                } else if (diferencia < -0.01) {
+                    throw new Error(`El total ingresado (S/ ${sumaPagos.toFixed(2)}) supera la deuda pendiente (S/ ${totalPendienteDespacho.toFixed(2)}).`);
+                }
+            }
+            // ---------------------------------
+
+            const resumenPorItem = {}; 
+            filas.forEach(f => {
+                const id = f.dataset.idDetalle;
+                const cant = parseFloat(f.querySelector('.despacho-cantidad').value || 0);
+                resumenPorItem[id] = (resumenPorItem[id] || 0) + cant;
             });
-        }
-        // -----------------------------------------
 
-        if (esParcial && cerrarForzado.checked) {
-            const resp = await Swal.fire({
-                icon: 'warning',
-                title: 'Cerrar pedido de forma forzada',
-                text: 'Se despachará de forma parcial y el saldo restante quedará cancelado para este pedido. ¿Desea continuar?',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, cerrar pedido'
+            let esParcial = false;
+            filas.forEach(f => {
+                const id = f.dataset.idDetalle;
+                const pendiente = parseFloat(f.dataset.pendienteTotal);
+                const despachando = resumenPorItem[id] || 0;
+                if (despachando < pendiente - 0.01) esParcial = true;
             });
-            if (!resp.isConfirmed) return;
-        }
 
-        if (esParcial && !cerrarForzado.checked) {
-            const resp = await Swal.fire({
-                icon: 'warning', title: 'Despacho Parcial', 
-                text: 'No se está cubriendo todo el pendiente. ¿Continuar sin cerrar pedido?', 
-                showCancelButton: true, confirmButtonText: 'Sí, despachar parcial'
+            const envasesDevueltos = [];
+            if (contenedorRetornoEnvases && !seccionRetornoEnvases.classList.contains('d-none')) {
+                contenedorRetornoEnvases.querySelectorAll('.item-envase-retorno').forEach(div => {
+                    const cant = Number(div.querySelector('.input-retorno-vacio').value || 0);
+                    if (cant > 0) {
+                        envasesDevueltos.push({
+                            id_envase: Number(div.dataset.idEnvase),
+                            cantidad: cant
+                        });
+                    }
+                });
+            }
+
+            if (esParcial && cerrarForzado && cerrarForzado.checked) {
+                const resp = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Cerrar pedido de forma forzada',
+                    text: 'Se despachará de forma parcial y el saldo restante quedará cancelado para este pedido. ¿Desea continuar?',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, cerrar pedido'
+                });
+                if (!resp.isConfirmed) return;
+            }
+
+            if (esParcial && (!cerrarForzado || !cerrarForzado.checked)) {
+                const resp = await Swal.fire({
+                    icon: 'warning', title: 'Despacho Parcial', 
+                    text: 'No se está cubriendo todo el pendiente. ¿Continuar sin cerrar pedido?', 
+                    showCancelButton: true, confirmButtonText: 'Sí, despachar parcial'
+                });
+                if (!resp.isConfirmed) return;
+            }
+
+            const payload = await postJson(urls.despachar, {
+                id_documento: Number(despachoDocumentoId.value || 0),
+                observaciones: despachoObservaciones.value,
+                fecha_despacho: fechaDespachoVal, 
+                cerrar_forzado: cerrarForzado ? cerrarForzado.checked : false,
+                detalle: detalle,
+                envases_devueltos: envasesDevueltos,
+                cobro_inmediato: esCobroDespacho,
+                metodos_pago: metodosPagoDespachoFinales
             });
-            if (!resp.isConfirmed) return;
+
+            await Swal.fire('Despachado', payload.mensaje, 'success');
+            modalDespacho.hide();
+            recargarTabla();
+        } catch (error) {
+            Swal.fire('Error', error.message, 'error');
         }
-
-        const payload = await postJson(urls.despachar, {
-            id_documento: Number(despachoDocumentoId.value || 0),
-            observaciones: despachoObservaciones.value,
-            fecha_despacho: fechaDespachoVal, 
-            cerrar_forzado: cerrarForzado.checked,
-            detalle: detalle,
-            envases_devueltos: envasesDevueltos,
-            // --- NUEVO: Datos de Cobro Inmediato ---
-            cobro_inmediato: esCobroDespacho,
-            metodos_pago: metodosPagoDespachoFinales
-            // ---------------------------------------
-        });
-
-        await Swal.fire('Despachado', payload.mensaje, 'success');
-        modalDespacho.hide();
-        recargarTabla();
-    } catch (error) {
-        Swal.fire('Error', error.message, 'error');
-    }
-});
+    });
 
     // ==========================================
     // --- MEJORA PREMIUM: FILTROS Y RECARGAS ---
@@ -1995,13 +1910,10 @@
         window.location.href = nextUrl.toString();
     }
 
-    // PROTECCIÓN DE RANGO DE FECHAS
     if (filtroFechaDesde && filtroFechaHasta) {
         filtroFechaDesde.addEventListener('change', () => {
             if (filtroFechaDesde.value) {
-                // El 'Hasta' no puede ser anterior al 'Desde'
                 filtroFechaHasta.min = filtroFechaDesde.value; 
-                // Auto-corrección si el usuario se equivocó
                 if (filtroFechaHasta.value && filtroFechaHasta.value < filtroFechaDesde.value) {
                     filtroFechaHasta.value = filtroFechaDesde.value;
                 }
@@ -2013,9 +1925,7 @@
 
         filtroFechaHasta.addEventListener('change', () => {
             if (filtroFechaHasta.value) {
-                // El 'Desde' no puede ser posterior al 'Hasta'
                 filtroFechaDesde.max = filtroFechaHasta.value; 
-                // Auto-corrección si el usuario se equivocó
                 if (filtroFechaDesde.value && filtroFechaDesde.value > filtroFechaHasta.value) {
                     filtroFechaDesde.value = filtroFechaHasta.value;
                 }
@@ -2025,15 +1935,12 @@
             recargarTabla();
         });
 
-        // Inicializamos las restricciones visuales al cargar la página
         if (filtroFechaDesde.value) filtroFechaHasta.min = filtroFechaDesde.value;
         if (filtroFechaHasta.value) filtroFechaDesde.max = filtroFechaHasta.value;
     }
 
-    // EVENTOS PARA EL RESTO DE FILTROS
     [filtroBusqueda, filtroEstado, filtroOrdenFecha].forEach(el => {
         if(el) {
-            // Para el buscador, esperamos que presione Enter para no recargar a cada letra
             if (el.id === 'filtroBusqueda') {
                 el.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') recargarTabla();
@@ -2044,7 +1951,6 @@
         }
     });
     
-    // Helper para mostrar fechas como DD/MM/YYYY en toda la sección de ventas.
     const formatearFechaVista = (fechaStr) => {
         if (!fechaStr) return '-';
 
@@ -2066,7 +1972,6 @@
         return fechaStr;
     };
 
-    // --- EVENTO DE CLICS EN LA TABLA (EDICIÓN, ANULACIÓN, IMPRESIÓN) ---
     document.querySelector('#tablaVentas tbody')?.addEventListener('click', async (e) => {
         const btn = e.target.closest('button');
         if (!btn) return;
@@ -2087,31 +1992,25 @@
 
                 const estadoDoc = Number(venta.estado || 0);
 
-                // --- MODAL DE RESUMEN (Estado 3 o superior) ---
                 if (estadoDoc >= 3) {
                     const modalResumenEl = document.getElementById('modalResumenVenta');
                     if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
 
-                    // EXTRAER NOMBRE DE CLIENTE DE LA TABLA
                     const nombreClienteTabla = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente No Especificado';
 
-                    // LLENAR DATOS GENERALES
                     document.getElementById('resumenVentaCodigo').textContent = venta.codigo || '-';
                     document.getElementById('resumenVentaCliente').textContent = nombreClienteTabla;
                     document.getElementById('resumenVentaOperacion').textContent = venta.tipo_operacion || 'VENTA';
                     
-                    // APLICAMOS LA FUNCIÓN FORMATDMY AQUÍ
                     document.getElementById('resumenVentaFechaEmision').textContent = formatearFechaVista(venta.fecha_emision);
                     document.getElementById('resumenVentaFechaDespacho').textContent = venta.fecha_despacho ? formatearFechaVista(venta.fecha_despacho) : 'Pendiente';
                     
                     document.getElementById('resumenVentaObservaciones').textContent = venta.observaciones || 'Sin observaciones.';
 
-                    // LLENAR TABLA DE PRODUCTOS
                     const tbodyResumen = document.querySelector('#tablaResumenProductos tbody');
                     const pesoTotalResumenEl = document.getElementById('resumenVentaPesoTotal');
                     let pesoTotalResumen = 0;
                     
-                    // NUEVO: Variable para sumar el total real despachado
                     let sumaTotalDespachada = 0;
 
                     tbodyResumen.innerHTML = '';
@@ -2127,7 +2026,7 @@
                             const subtotal = cantDesp * precio;
                             
                             pesoTotalResumen += pesoSubtotal;
-                            sumaTotalDespachada += subtotal; // Sumamos la línea real
+                            sumaTotalDespachada += subtotal; 
 
                             const subtituloPeso = pesoUnitario > 0
                                 ? `<small class="text-muted d-block mt-1">Peso total: ${pesoSubtotal.toFixed(3)} kg</small>`
@@ -2151,19 +2050,14 @@
                         pesoTotalResumenEl.textContent = `Peso total: ${pesoTotalResumen.toFixed(3)} kg`;
                     }
 
-                    // Total final del resumen: debe reflejar exactamente lo despachado vigente.
-                    // En escenarios con devolución parcial, el precio unitario de la línea ya representa
-                    // el cálculo base mostrado en el subtotal; por eso no se vuelve a recalcular IGV aquí.
                     const totalFinalReal = Number.isFinite(sumaTotalDespachada) ? sumaTotalDespachada : 0;
                     document.getElementById('resumenVentaTotalFinal').textContent = `S/ ${totalFinalReal.toFixed(2)}`;
 
                     const modalResumen = bootstrap.Modal.getOrCreateInstance(modalResumenEl);
                     modalResumen.show();
-                    return; // Salimos para no abrir el modal de edición normal
+                    return; 
                 }
-                // ------------------------------------------------------------------------------------------------------
 
-                // Si NO está despachada, abrimos el modal normal (El resto de tu código sigue igual)
                 limpiarModalVenta();
                 ventaId.value = venta.id;
                 
@@ -2215,28 +2109,27 @@
                 
                 const btnGuardar = document.getElementById('btnGuardarVenta');
                 if (esBorrador) {
-                    btnGuardar.style.display = 'block';
-                    btnGuardar.textContent = 'Actualizar Pedido';
+                    if (btnGuardar) {
+                        btnGuardar.style.display = 'block';
+                        btnGuardar.textContent = 'Actualizar Pedido';
+                    }
                     document.getElementById('alertaBorradorContenedor').innerHTML = `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
-                    // Mostrar switch si es borrador
                     if (switchCobroContainer) switchCobroContainer.style.display = 'block';
                 } else {
-                    btnGuardar.style.display = 'none';
-                    // Ocultar switch si ya está aprobado/despachado
+                    if (btnGuardar) btnGuardar.style.display = 'none';
                     if (switchCobroContainer) switchCobroContainer.style.display = 'none';
                 }
 
                 actualizarBloqueoFormularioPorCliente();
 
-                // PINTAR HISTORIAL DE DEVOLUCIONES
                 const seccionDevoluciones = document.getElementById('seccionDevolucionesVenta');
                 const tbodyDevHistorico = document.querySelector('#tablaDevolucionesHistorico tbody');
                 
                 if (seccionDevoluciones && tbodyDevHistorico) {
-                    tbodyDevHistorico.innerHTML = ''; // Limpiar historial anterior
+                    tbodyDevHistorico.innerHTML = ''; 
                     
                     if (venta.devoluciones && venta.devoluciones.length > 0) {
-                        seccionDevoluciones.classList.remove('d-none'); // Mostrar la sección
+                        seccionDevoluciones.classList.remove('d-none'); 
                         
                         venta.devoluciones.forEach(dev => {
                             let detallesHTML = '<ul class="mb-0 ps-3 text-muted" style="font-size: 0.85rem;">';
@@ -2245,7 +2138,6 @@
                             });
                             detallesHTML += '</ul>';
 
-                            // Formatear la resolución para que sea más legible
                             let resTexto = dev.tipo_resolucion;
                             if (resTexto === 'descuento_cxc') resTexto = 'Nota de Crédito (CxC)';
                             else if (resTexto === 'reembolso_dinero') resTexto = 'Reembolso (Caja/Bancos)';
@@ -2264,7 +2156,7 @@
                             tbodyDevHistorico.appendChild(trDev);
                         });
                     } else {
-                        seccionDevoluciones.classList.add('d-none'); // Ocultar si no hay devoluciones
+                        seccionDevoluciones.classList.add('d-none'); 
                     }
                 }
                 
@@ -2275,7 +2167,6 @@
             }
         }
 
-        // --- NUEVO: BOTÓN REVERTIR A BORRADOR ---
         if (btn.classList.contains('btn-revertir')) {
             const ok = await Swal.fire({ 
                 icon: 'warning', 
@@ -2283,14 +2174,12 @@
                 text: 'El pedido volverá a estado inicial y podrá ser editado. Se eliminará la cuenta por cobrar (si existe).',
                 showCancelButton: true, 
                 confirmButtonText: 'Sí, revertir',
-                confirmButtonColor: '#ffc107', // Color advertencia
+                confirmButtonColor: '#ffc107', 
                 cancelButtonColor: '#6c757d'
             });
             
             if (ok.isConfirmed) {
                 try {
-                    // Usamos tu helper postJson. 
-                    // Asegúrate de que tu backend reciba la acción 'revertir'
                     const res = await postJson(`${urls.index}&accion=revertir`, { id });
                     await Swal.fire('Revertido', res.mensaje, 'success');
                     recargarTabla();
@@ -2330,8 +2219,6 @@
             try { await abrirModalDevolucionVenta(id); } catch (err) { Swal.fire('Error', err.message, 'error'); }
         }
 
-        // LÓGICA DEL BOTÓN DE IMPRESIÓN (NUEVO)
-        // Ya no necesitamos la función global, lo controlamos todo desde aquí
         const btnImprimir = btn.closest('.btn-imprimir-modal');
         if (btnImprimir) {
             window.imprimirPedido(id);
@@ -2376,7 +2263,6 @@
 
             if (!detalle.length) throw new Error('Ingrese al menos una cantidad a devolver mayor a cero.');
 
-            // --- NUEVO: CAPTURAR EL SWITCH DE REEMPLAZO ---
             const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
             const enviarReemplazo = checkReemplazo ? checkReemplazo.checked : false;
 
@@ -2385,7 +2271,7 @@
                 motivo: motivoCfg.label,
                 motivo_codigo: motivoSeleccionado,
                 resolucion: resolucionSeleccionada,
-                enviar_reemplazo: enviarReemplazo, // <-- LO ENVIAMOS AL BACKEND
+                enviar_reemplazo: enviarReemplazo, 
                 detalle,
             });
 
@@ -2401,7 +2287,6 @@
     devolucionVentaResolucion?.addEventListener('change', actualizarHintDevolucionVenta);
     actualizarHintDevolucionVenta();
 
-    // LÓGICA DEL BOTÓN CONFIRMAR IMPRESIÓN (NUEVO - EXTRAÍDO Y REORDENADO)
     const btnConfirmarImpresion = document.getElementById('btnConfirmarImpresionPedido');
     if (btnConfirmarImpresion) {
         btnConfirmarImpresion.addEventListener('click', () => {

@@ -1,182 +1,290 @@
-<?php 
-    // Capturamos la sección activa de la URL, por defecto 'cxc'
-    $seccionActiva = $_GET['seccion_activa'] ?? ($filtros['seccion_activa'] ?? 'cxc');
-    if (!in_array($seccionActiva, ['cxc', 'cxp', 'flujo', 'depositos'])) {
-        $seccionActiva = 'cxc';
-    }
-?>
-<div class="container-fluid p-4" id="reportesTesoreriaApp">
+<?php
+$registros = $registros ?? [];
+$filtros = $filtros ?? [];
+$cuentas = $cuentas ?? [];
+$metodos = $metodos ?? [];
+$clientes = $clientes ?? [];
+
+// 1. CAPTURAR LA PESTAÑA ACTIVA (Por defecto: pendientes)
+$vistaActual = $_GET['vista'] ?? 'pendientes';
+
+// 2. FILTRAR LOS REGISTROS SEGÚN LA PESTAÑA
+$registrosFiltrados = array_filter($registros, function($r) use ($vistaActual) {
+    $estado = strtoupper(trim((string) ($r['estado'] ?? '')));
+    $esDeuda = in_array($estado, ['PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA'], true);
     
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in">
+    if ($vistaActual === 'pendientes') return $esDeuda;
+    if ($vistaActual === 'resueltos') return !$esDeuda;
+    return true; // 'todos'
+});
+
+// 3. ORDENAMIENTO INTELIGENTE
+usort($registrosFiltrados, function($a, $b) {
+    $estadosDeuda = ['PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA']; 
+    
+    $estadoA = strtoupper(trim((string) ($a['estado'] ?? '')));
+    $estadoB = strtoupper(trim((string) ($b['estado'] ?? '')));
+    
+    $esDeudaA = in_array($estadoA, $estadosDeuda, true) ? 1 : 0;
+    $esDeudaB = in_array($estadoB, $estadosDeuda, true) ? 1 : 0;
+    
+    // Si mezclamos en la pestaña "Todas", las deudas vivas van primero
+    if ($esDeudaA !== $esDeudaB) {
+        return $esDeudaB <=> $esDeudaA; 
+    }
+    
+    $fechaA = strtotime((string) ($a['fecha_vencimiento'] ?? '')) ?: 0;
+    $fechaB = strtotime((string) ($b['fecha_vencimiento'] ?? '')) ?: 0;
+    
+    if ($esDeudaA === 1) {
+        // AMBAS SON DEUDAS: Lo más ANTIGUO va primero (Ascendente)
+        if ($fechaA === $fechaB) {
+            return (int)($a['id_documento_venta'] ?? 0) <=> (int)($b['id_documento_venta'] ?? 0);
+        }
+        return $fechaA <=> $fechaB;
+    } else {
+        // AMBAS ESTÁN RESUELTAS: Lo más RECIENTE va primero (Descendente)
+        if ($fechaA === $fechaB) {
+            return (int)($b['id_documento_venta'] ?? 0) <=> (int)($a['id_documento_venta'] ?? 0);
+        }
+        return $fechaB <=> $fechaA;
+    }
+});
+
+$badge = static function (string $estado): string {
+    if ($estado === 'PAGADA') return 'bg-success-subtle text-success border border-success-subtle';
+    if ($estado === 'PARCIAL') return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+    if ($estado === 'VENCIDA') return 'bg-danger-subtle text-danger border border-danger-subtle';
+    if ($estado === 'ANULADA') return 'bg-secondary-subtle text-secondary border border-secondary-subtle';
+    return 'bg-primary-subtle text-primary border border-primary-subtle';
+};
+
+$swalIcon = null;
+$swalMessage = null;
+
+if (!empty($_GET['error'])) {
+    $swalIcon = 'error';
+    $swalMessage = (string) $_GET['error'];
+} elseif (!empty($_GET['ok'])) {
+    $swalIcon = 'success';
+    $swalMessage = 'Cobro registrado correctamente.';
+}
+?>
+
+<div class="container-fluid p-4" id="tesoreriaCxcApp">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
-                <i class="bi bi-bank2 me-2 text-primary"></i> Reportes de Tesorería
+                <i class="bi bi-cash-stack me-2 text-primary"></i> Tesorería - Cuentas por Cobrar
             </h1>
-            <p class="text-muted small mb-0 ms-1">Análisis de cuentas por cobrar, pagar, flujo y depósitos.</p>
+            <p class="text-muted small mb-0 ms-1">Control de saldos por cliente y registro de cobros.</p>
         </div>
-        <a href="javascript:history.back()" class="btn btn-outline-secondary shadow-sm fw-semibold">
-            <i class="bi bi-arrow-left me-2"></i>Volver
-        </a>
+        <div class="d-flex gap-2 justify-content-end align-items-center flex-nowrap">
+            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
+                <i class="bi bi-bank me-2 text-primary"></i>Ir a Cuentas
+            </a>
+            <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
+                <i class="bi bi-clock-history me-2 text-info"></i>Historial Global
+            </a>
+            <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
+                <i class="bi bi-bar-chart-line me-2 text-primary"></i>Reportes
+            </a>
+            <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalCobroManual">
+                <i class="bi bi-plus-circle me-2"></i>Registrar Cobro Manual
+            </button>
+        </div>
     </div>
+    
+    <?php if ($swalMessage !== null): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof Swal === 'undefined') return;
+                Swal.fire({
+                    icon: <?php echo json_encode($swalIcon); ?>,
+                    title: <?php echo json_encode($swalIcon === 'error' ? 'Error' : 'Éxito'); ?>,
+                    text: <?php echo json_encode($swalMessage); ?>,
+                    confirmButtonText: 'Entendido'
+                });
+            });
+        </script>
+    <?php endif; ?>
 
-    <ul class="nav nav-tabs border-bottom-1 mb-0 px-2" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'cxc' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="cxc">
-                <i class="bi bi-arrow-down-left-circle me-2"></i>Cuentas por Cobrar
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'cxp' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="cxp">
-                <i class="bi bi-arrow-up-right-circle me-2"></i>Cuentas por Pagar
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'flujo' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="flujo">
-                <i class="bi bi-wallet2 me-2"></i>Flujo por Cuenta
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'depositos' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="depositos">
-                <i class="bi bi-cash-coin me-2"></i>Ingresos / Depósitos
-            </button>
-        </li>
-    </ul>
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3 p-md-4">
+            <form method="get" action="" class="row g-3 align-items-end" id="formFiltrosCxc">
+                <input type="hidden" name="ruta" value="tesoreria/cxc">
+                <input type="hidden" name="vista" id="inputVistaGlobal" value="<?php echo e($vistaActual); ?>">
 
-    <div class="card border-0 shadow-sm mb-4 rounded-top-0 border-top border-primary border-3">
-        <div class="card-body p-4 bg-white">
-            <form class="row g-3" method="get" action="<?php echo e(route_url('reportes/tesoreria')); ?>" id="formFiltrosReporteTesoreria">
-                <input type="hidden" name="ruta" value="reportes/tesoreria">
-                <input type="hidden" name="seccion_activa" id="input_seccion_activa" value="<?php echo e($seccionActiva); ?>">
-                
-                <div class="col-12 col-md-3">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Fecha Desde <span class="text-danger">*</span></label>
-                    <input type="date" name="fecha_desde" class="form-control bg-light auto-submit" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
-                </div>
-                <div class="col-12 col-md-3">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Fecha Hasta <span class="text-danger">*</span></label>
-                    <input type="date" name="fecha_hasta" class="form-control bg-light auto-submit" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
-                </div>
-                <div class="col-12 col-md-3">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Cliente / Distribuidor</label>
-                    <select name="id_tercero" class="form-select bg-light auto-submit">
-                        <option value="">Todos...</option>
-                        <?php foreach (($tercerosFiltro ?? []) as $tercero): ?>
-                            <?php $idTercero = (int) ($tercero['id'] ?? 0); ?>
-                            <option value="<?php echo $idTercero; ?>" <?php echo ((int)($filtros['id_tercero'] ?? 0) === $idTercero) ? 'selected' : ''; ?>>
-                                <?php echo e((string) ($tercero['nombre'] ?? '')); ?> (<?php echo e((string) ($tercero['tipo_label'] ?? '')); ?>)
-                            </option>
-                        <?php endforeach; ?>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted fw-bold mb-1">Tipo de Tercero</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit" name="tipo_tercero">
+                        <option value="">Todos</option>
+                        <option value="cliente_distribuidor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente_distribuidor') ? 'selected' : ''; ?>>Cliente / Distribuidor</option>
+                        <option value="cliente" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente') ? 'selected' : ''; ?>>Cliente</option>
+                        <option value="distribuidor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'distribuidor') ? 'selected' : ''; ?>>Distribuidor</option>
                     </select>
                 </div>
 
-                <div class="col-12 col-md-3 d-flex flex-column justify-content-end">
-                    <button type="submit" name="exportar_pdf" value="1" class="btn btn-danger w-100 shadow-sm fw-semibold" formtarget="_blank">
-                        <i class="bi bi-file-pdf-fill me-2"></i>Exportar PDF
-                    </button>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted fw-bold mb-1">Desde (Vencimiento)</label>
+                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit" name="fecha_desde" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>">
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted fw-bold mb-1">Hasta (Vencimiento)</label>
+                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit" name="fecha_hasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>">
                 </div>
             </form>
         </div>
     </div>
 
-    <?php if ($seccionActiva === 'cxc'): ?>
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
-                <i class="bi bi-arrow-down-left-circle me-2 text-success"></i>Aging Cuentas por Cobrar (CxC)
-            </h5>
-            <div class="input-group input-group-sm w-auto" style="max-width: 250px;">
-                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepCxC" placeholder="Buscar cliente en tabla...">
+    <ul class="nav nav-tabs border-bottom-1 mb-0 px-2" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $vistaActual === 'pendientes' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('pendientes')">
+                <i class="bi bi-exclamation-circle me-2"></i>Por Cobrar
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $vistaActual === 'resueltos' ? 'active text-success border-success border-bottom-0' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('resueltos')">
+                <i class="bi bi-check2-all me-2"></i>Historial Cobrado
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $vistaActual === 'todos' ? 'active text-dark border-dark border-bottom-0' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('todos')">
+                <i class="bi bi-border-all me-2"></i>Todas
+            </button>
+        </li>
+    </ul>
+
+    <script>
+        function cambiarPestana(vista) {
+            document.getElementById('inputVistaGlobal').value = vista;
+            document.getElementById('formFiltrosCxc').submit();
+        }
+
+        // Auto Submit de los filtros de fecha y tercero
+        document.addEventListener('DOMContentLoaded', () => {
+            const inputs = document.querySelectorAll('.auto-submit');
+            inputs.forEach(input => {
+                input.addEventListener('change', () => {
+                    document.getElementById('formFiltrosCxc').submit();
+                });
+            });
+        });
+    </script>
+
+    <div class="card border-0 shadow-sm rounded-top-0 border-top border-primary border-3">
+        <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center">
+                <h2 class="h6 fw-bold text-dark mb-0">
+                    <?php 
+                        if($vistaActual === 'pendientes') echo "Facturas Pendientes";
+                        elseif($vistaActual === 'resueltos') echo "Historial de Pagos Completados";
+                        else echo "Todas las Facturas";
+                    ?>
+                </h2>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill ms-3" id="badgeRegistros"><?php echo count($registrosFiltrados); ?> Registros</span>
+            </div>
+            <div class="input-group shadow-sm" style="max-width: 300px;">
+                <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="searchCxc" placeholder="Buscar cliente, doc o fecha...">
             </div>
         </div>
+        
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="tablaRepCxC" data-erp-table="true" data-search-input="#filtroRepCxC" data-rows-per-page="10">
-                    <thead>
+                <table class="table align-middle mb-0 table-pro" id="cxcTable"
+                       data-erp-table="true"
+                       data-manager-global="cxcManager"
+                       data-rows-selector="#cxcTableBody tr:not(.empty-msg-row)"
+                       data-search-input="#searchCxc"
+                       data-empty-text="No hay cuentas en esta pestaña"
+                       data-info-text-template="Mostrando {start} a {end} de {total} registros"
+                       data-pagination-controls="#cxcPaginationControls"
+                       data-pagination-info="#cxcPaginationInfo">
+                    <thead class="bg-dark text-white border-bottom">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold">Cliente</th>
-                            <th class="text-end text-secondary fw-semibold">Saldo</th>
-                            <th class="text-center text-secondary fw-semibold">Vencimiento</th>
-                            <th class="text-center text-secondary fw-semibold">Días Atraso</th>
-                            <th class="text-center pe-4 text-secondary fw-semibold">Bucket</th>
+                            <th class="ps-4 fw-semibold" style="width: 25%; min-width: 180px;">Cliente</th>
+                            <th class="fw-semibold" style="white-space: nowrap !important; width: 10%;">Documento</th>
+                            <th class="text-center fw-semibold" style="white-space: nowrap !important; width: 10%;">Vencimiento</th>
+                            <th class="text-end fw-semibold" style="white-space: nowrap !important; width: 12%;">Total</th>
+                            <th class="text-end fw-semibold" style="white-space: nowrap !important; width: 12%;">Cobrado</th>
+                            <th class="text-end fw-bold" style="white-space: nowrap !important; width: 12%;">Saldo</th>
+                            <th class="text-center fw-semibold" style="white-space: nowrap !important; width: 10%;">Estado</th>
+                            <th class="text-center pe-4 fw-semibold" style="white-space: nowrap !important; width: 130px; min-width: 130px;">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <?php if(empty($agingCxc['rows'])): ?>
-                            <tr class="empty-msg-row"><td colspan="5" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay cuentas por cobrar pendientes.</td></tr>
+                    <tbody id="cxcTableBody">
+                        <?php if (empty($registrosFiltrados)): ?>
+                            <tr class="empty-msg-row border-bottom-0">
+                                <td colspan="8" class="text-center text-muted py-5">
+                                    <i class="bi bi-clipboard-check fs-1 d-block mb-2 text-light"></i>
+                                    No se encontraron cuentas con los filtros y pestaña actuales.
+                                </td>
+                            </tr>
                         <?php else: ?>
-                            <?php foreach (($agingCxc['rows'] ?? []) as $r): ?>
+                            <?php foreach ($registrosFiltrados as $r): ?>
                                 <?php 
-                                    $diasAtraso = (int)($r['dias_atraso'] ?? 0);
-                                    $badgeAtraso = $diasAtraso > 0 ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-success-subtle text-success border-success-subtle';
-                                    $textoAtraso = $diasAtraso > 0 ? $diasAtraso . ' días' : 'Al día';
+                                    $estadoStr = (string) ($r['estado'] ?? 'PENDIENTE');
+                                    
+                                    $fechaVencimientoOriginal = (string) ($r['fecha_vencimiento'] ?? '');
+                                    $fechaVencimientoFormateada = !empty($fechaVencimientoOriginal) ? date('d-m-Y', strtotime($fechaVencimientoOriginal)) : '';
+
+                                    $searchStr = strtolower(($r['cliente'] ?? '') . ' ' . ($r['id_documento_venta'] ?? '') . ' ' . ($r['documento_referencia'] ?? '') . ' ' . $estadoStr . ' ' . $fechaVencimientoFormateada);
                                 ?>
-                                <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['cliente'])); ?>">
-                                    <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['cliente']); ?></td>
-                                    <td class="text-end fw-bold text-success">S/ <?php echo number_format((float)($r['saldo'] ?? 0), 2); ?></td>
-                                    <td class="text-center text-muted small"><i class="bi bi-calendar-x me-1"></i><?php echo e((string)$r['fecha_vencimiento']); ?></td>
-                                    <td class="text-center">
-                                        <span class="badge px-2 py-1 rounded border <?php echo $badgeAtraso; ?>"><?php echo $textoAtraso; ?></span>
+                                <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
+                                    <td class="ps-4 align-top pt-3">
+                                        <div class="fw-bold text-dark"><?php echo e((string) ($r['cliente'] ?? '')); ?></div>
+                                        <?php if (!empty($r['observacion_subtitulo'])): ?>
+                                            <div class="small text-muted mt-1"><?php echo e((string) $r['observacion_subtitulo']); ?></div>
+                                        <?php endif; ?>
                                     </td>
-                                    <td class="text-center pe-4">
-                                        <span class="badge bg-light text-secondary border"><?php echo e((string)$r['bucket']); ?></span>
+                                    <td class="align-top pt-3 text-muted fw-medium">
+                                        <?php if (($r['origen'] ?? 'SISTEMA') === 'MIGRACION'): ?>
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle mb-1"><i class="bi bi-clock-history"></i> Saldo Inicial</span><br>
+                                            <small class="text-dark fw-bold"><?php echo e((string) ($r['documento_referencia'] ?? '')); ?></small>
+                                            <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" title="<?php echo e((string) ($r['observaciones'] ?? '')); ?>"></i>
+                                        <?php else: ?>
+                                            #<?php echo str_pad((string) ($r['id_documento_venta'] ?? 0), 6, '0', STR_PAD_LEFT); ?>
+                                        <?php endif; ?>
                                     </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
-                <small class="text-muted fw-semibold" id="tablaRepCxCPaginationInfo">Cargando...</small>
-                <nav><ul class="pagination mb-0 justify-content-end" id="tablaRepCxCPaginationControls"></ul></nav>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
+                                    
+                                    <td class="text-center align-top pt-3 text-muted" data-sort="<?php echo e($fechaVencimientoOriginal); ?>">
+                                        <i class="bi bi-calendar-event small me-1 opacity-50"></i><?php echo e($fechaVencimientoFormateada); ?>
+                                    </td>
 
-    <?php if ($seccionActiva === 'cxp'): ?>
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
-                <i class="bi bi-arrow-up-right-circle me-2 text-danger"></i>Aging Cuentas por Pagar (CxP)
-            </h5>
-            <div class="input-group input-group-sm w-auto" style="max-width: 250px;">
-                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepCxP" placeholder="Buscar proveedor en tabla...">
-            </div>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="tablaRepCxP" data-erp-table="true" data-search-input="#filtroRepCxP" data-rows-per-page="10">
-                    <thead>
-                        <tr>
-                            <th class="ps-4 text-secondary fw-semibold">Proveedor</th>
-                            <th class="text-end text-secondary fw-semibold">Saldo</th>
-                            <th class="text-center text-secondary fw-semibold">Vencimiento</th>
-                            <th class="text-center text-secondary fw-semibold">Días Atraso</th>
-                            <th class="text-center pe-4 text-secondary fw-semibold">Bucket</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if(empty($agingCxp['rows'])): ?>
-                            <tr class="empty-msg-row"><td colspan="5" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay cuentas por pagar pendientes.</td></tr>
-                        <?php else: ?>
-                            <?php foreach (($agingCxp['rows'] ?? []) as $r): ?>
-                                <?php 
-                                    $diasAtraso = (int)($r['dias_atraso'] ?? 0);
-                                    $badgeAtraso = $diasAtraso > 0 ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-success-subtle text-success border-success-subtle';
-                                    $textoAtraso = $diasAtraso > 0 ? $diasAtraso . ' días' : 'Al día';
-                                ?>
-                                <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['proveedor'])); ?>">
-                                    <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['proveedor']); ?></td>
-                                    <td class="text-end fw-bold text-danger">S/ <?php echo number_format((float)($r['saldo'] ?? 0), 2); ?></td>
-                                    <td class="text-center text-muted small"><i class="bi bi-calendar-x me-1"></i><?php echo e((string)$r['fecha_vencimiento']); ?></td>
-                                    <td class="text-center">
-                                        <span class="badge px-2 py-1 rounded border <?php echo $badgeAtraso; ?>"><?php echo $textoAtraso; ?></span>
+                                    <td class="text-end align-top pt-3 fw-medium text-secondary">
+                                        <span class="small text-muted me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format((float) ($r['monto_total'] ?? 0), 2); ?>
                                     </td>
-                                    <td class="text-center pe-4">
-                                        <span class="badge bg-light text-secondary border"><?php echo e((string)$r['bucket']); ?></span>
+                                    <td class="text-end align-top pt-3 fw-medium text-success opacity-75">
+                                        <span class="small me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format((float) ($r['monto_pagado'] ?? 0), 2); ?>
+                                    </td>
+                                    <td class="text-end align-top pt-3 fw-bold text-primary">
+                                        <span class="small text-muted me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format((float) ($r['saldo'] ?? 0), 2); ?>
+                                    </td>
+                                    <td class="text-center align-top pt-3">
+                                        <span class="badge px-3 py-2 rounded-pill shadow-sm <?php echo e($badge($estadoStr)); ?>">
+                                            <?php echo e($estadoStr); ?>
+                                        </span>
+                                    </td>
+                                    <td class="text-center pe-4 align-top pt-3">
+                                        <?php if (in_array($estadoStr, ['PENDIENTE', 'ABIERTA', 'PARCIAL', 'VENCIDA'], true)): ?>
+                                            <span data-bs-toggle="tooltip" title="Registrar Cobro">
+                                                <button type="button" class="btn btn-sm btn-light text-success border-0 rounded-circle js-open-cobro shadow-sm me-1" 
+                                                    data-bs-toggle="modal" data-bs-target="#modalCobro"
+                                                    data-id-origen="<?php echo (int) $r['id']; ?>" 
+                                                    data-moneda="<?php echo e((string) ($r['moneda'] ?? '')); ?>" 
+                                                    data-saldo="<?php echo (float) ($r['saldo'] ?? 0); ?>">
+                                                    <i class="bi bi-currency-dollar fs-5"></i>
+                                                </button>
+                                            </span>
+                                        <?php endif; ?>
+                                        <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>&origen=CXC&id_origen=<?php echo (int) $r['id']; ?>&id_tercero=<?php echo (int) ($r['id_cliente'] ?? 0); ?>" 
+                                           class="btn btn-sm btn-light text-primary border-0 rounded-circle shadow-sm"
+                                           data-bs-toggle="tooltip" title="Ver Historial">
+                                            <i class="bi bi-journal-text fs-5"></i>
+                                        </a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -184,137 +292,227 @@
                     </tbody>
                 </table>
             </div>
-            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
-                <small class="text-muted fw-semibold" id="tablaRepCxPPaginationInfo">Cargando...</small>
-                <nav><ul class="pagination mb-0 justify-content-end" id="tablaRepCxPPaginationControls"></ul></nav>
+            
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mt-3 px-4 pb-4 border-top pt-3">
+                <div class="small text-muted fw-medium" id="cxcPaginationInfo">Calculando...</div>
+                <nav aria-label="Paginación">
+                    <ul class="pagination mb-0 shadow-sm" id="cxcPaginationControls"></ul>
+                </nav>
             </div>
+            
         </div>
     </div>
-    <?php endif; ?>
-
-    <?php if ($seccionActiva === 'flujo'): ?>
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
-                <i class="bi bi-wallet2 me-2 text-info"></i>Flujo por cuenta
-            </h5>
-            <div class="input-group input-group-sm w-auto" style="max-width: 250px;">
-                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepFlujo" placeholder="Buscar cuenta en tabla...">
-            </div>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="tablaRepFlujo" data-erp-table="true" data-search-input="#filtroRepFlujo" data-rows-per-page="10">
-                    <thead>
-                        <tr>
-                            <th class="ps-4 text-secondary fw-semibold">Cuenta</th>
-                            <th class="text-end text-secondary fw-semibold">Ingresos</th>
-                            <th class="text-end text-secondary fw-semibold">Egresos</th>
-                            <th class="text-end pe-4 text-secondary fw-semibold">Neto</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if(empty($flujo['rows'])): ?>
-                            <tr class="empty-msg-row"><td colspan="4" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay movimientos en las cuentas en este periodo.</td></tr>
-                        <?php else: ?>
-                            <?php foreach (($flujo['rows'] ?? []) as $r): ?>
-                                <?php 
-                                    $neto = (float)($r['saldo_neto'] ?? 0);
-                                    $colorNeto = $neto > 0 ? 'text-success' : ($neto < 0 ? 'text-danger' : 'text-secondary');
-                                ?>
-                                <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['cuenta'])); ?>">
-                                    <td class="ps-4 fw-bold text-dark"><i class="bi bi-journal-album me-2 text-muted"></i><?php echo e((string)$r['cuenta']); ?></td>
-                                    <td class="text-end fw-semibold text-success">S/ <?php echo number_format((float)($r['total_ingresos'] ?? 0), 2); ?></td>
-                                    <td class="text-end fw-semibold text-danger">S/ <?php echo number_format((float)($r['total_egresos'] ?? 0), 2); ?></td>
-                                    <td class="text-end pe-4 fw-bold <?php echo $colorNeto; ?>">S/ <?php echo number_format($neto, 2); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
-                <small class="text-muted fw-semibold" id="tablaRepFlujoPaginationInfo">Cargando...</small>
-                <nav><ul class="pagination mb-0 justify-content-end" id="tablaRepFlujoPaginationControls"></ul></nav>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($seccionActiva === 'depositos'): ?>
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
-                <i class="bi bi-cash-coin me-2 text-primary"></i>Ingresos y Depósitos Confirmados
-                <span class="badge bg-light text-secondary border ms-3 fw-normal" style="font-size: 0.75rem;">
-                    Total: S/ <?php echo number_format((float)($depositos['suma_total'] ?? 0), 2); ?>
-                </span>
-            </h5>
-            <div class="input-group input-group-sm w-auto" style="max-width: 250px;">
-                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepDepositos" placeholder="Buscar cliente o ref...">
-            </div>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro" id="tablaRepDepositos" data-erp-table="true" data-search-input="#filtroRepDepositos" data-rows-per-page="10">
-                    <thead>
-                        <tr>
-                            <th class="ps-4 text-secondary fw-semibold">Fecha</th>
-                            <th class="text-secondary fw-semibold">Cliente / Origen</th>
-                            <th class="text-secondary fw-semibold">Referencia</th>
-                            <th class="text-secondary fw-semibold">Cuenta Destino</th>
-                            <th class="text-end pe-4 text-secondary fw-semibold">Monto Depositado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if(empty($depositos['rows'])): ?>
-                            <tr class="empty-msg-row"><td colspan="5" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay depósitos registrados en este periodo.</td></tr>
-                        <?php else: ?>
-                            <?php foreach (($depositos['rows'] ?? []) as $r): ?>
-                                <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['cliente_origen'] . ' ' . (string)$r['referencia'])); ?>">
-                                    <td class="ps-4 text-muted small"><i class="bi bi-calendar me-1"></i><?php echo date('d/m/Y', strtotime((string)$r['fecha'])); ?></td>
-                                    <td class="fw-bold text-dark"><?php echo e((string)$r['cliente_origen']); ?></td>
-                                    <td class="text-muted"><?php echo e((string)$r['referencia'] ?: '-'); ?></td>
-                                    <td class="text-dark fw-medium"><span class="badge bg-secondary-subtle text-secondary border"><?php echo e((string)$r['cuenta']); ?></span></td>
-                                    <td class="text-end pe-4 fw-bold text-success">S/ <?php echo number_format((float)($r['monto'] ?? 0), 2); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
-                <small class="text-muted fw-semibold" id="tablaRepDepositosPaginationInfo">Cargando...</small>
-                <nav><ul class="pagination mb-0 justify-content-end" id="tablaRepDepositosPaginationControls"></ul></nav>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const btnTabs = document.querySelectorAll('.btn-tab-seccion');
-    const inputSeccion = document.getElementById('input_seccion_activa');
-    const autoSubmits = document.querySelectorAll('.auto-submit');
-    const formFiltros = document.getElementById('formFiltrosReporteTesoreria');
+<div class="modal fade" id="modalCobroManual" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Registrar Cobro Manual</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="<?php echo e(route_url('tesoreria/registrar_cobro_manual')); ?>" class="js-form-confirm">
+                <div class="modal-body p-4 bg-light">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Cliente <span class="text-danger">*</span></label>
+                            <select name="id_tercero" id="cobroManualCliente" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="" selected disabled>Seleccione un cliente...</option>
+                                <?php foreach($clientes as $cli): ?>
+                                    <option value="<?php echo (int) $cli['id']; ?>"><?php echo e((string) $cli['nombre_completo']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Moneda <span class="text-danger">*</span></label>
+                            <select name="moneda" id="cobroManualMoneda" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="" disabled>Seleccione moneda...</option>
+                                <option value="PEN" selected>PEN (Soles)</option>
+                                <option value="USD">USD (Dólares)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Monto a Cobrar <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0.01" name="monto" class="form-control shadow-sm border-secondary-subtle fw-bold text-primary" required>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Cuenta Destino <span class="text-danger">*</span></label>
+                            <select name="id_cuenta" id="cobroManualCuentaDestino" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="" selected disabled>Seleccione cuenta destino...</option>
+                                <?php foreach($cuentas as $c): ?>
+                                    <?php $tieneAdvertenciaContable = empty($c['id_cuenta_contable']); ?>
+                                    <?php if (!$tieneAdvertenciaContable): ?>
+                                        <option
+                                            value="<?php echo (int) $c['id']; ?>"
+                                            data-tipo="<?php echo e($c['tipo']); ?>"
+                                            data-tiene-advertencia="0">
+                                            <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
+                                        </option>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Método de Pago <span class="text-danger">*</span></label>
+                            <select name="id_metodo_pago" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="" selected disabled>Seleccione un método...</option>
+                                <?php foreach($metodos as $m): ?>
+                                    <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Fecha de Cobro <span class="text-danger">*</span></label>
+                            <input type="date" name="fecha" class="form-control shadow-sm border-secondary-subtle" value="<?php echo date('Y-m-d'); ?>" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted fw-bold mb-1">Referencia / N° Operación</label>
+                            <input type="text" name="referencia" class="form-control shadow-sm border-secondary-subtle" placeholder="Ej. DEP-2026-001">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted fw-bold mb-1">Observaciones</label>
+                            <textarea name="observaciones" class="form-control shadow-sm border-secondary-subtle" rows="2" placeholder="Se aplicará automáticamente a las deudas más antiguas."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 pt-0">
+                    <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold mb-2 mb-md-0 d-block d-md-inline-block w-100 w-md-auto" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-check-circle me-2"></i>Confirmar Cobro Manual</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
-    btnTabs.forEach(btn => {
-        btn.addEventListener('click', function() {
-            if (this.classList.contains('active')) return;
-            const seccion = this.getAttribute('data-seccion');
-            if (inputSeccion) inputSeccion.value = seccion;
-            if (formFiltros) formFiltros.submit();
-        });
-    });
+<div class="modal fade" id="modalCobro" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i>Registrar Cobro</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="<?php echo e(route_url('tesoreria/registrar_cobro')); ?>" class="js-form-confirm js-form-monto" id="formCobro">
+                <div class="modal-body p-4 bg-light">
+                    <input type="hidden" name="id_origen" id="cobroIdOrigen">
 
-    autoSubmits.forEach(input => {
-        input.addEventListener('change', function() {
-            if (formFiltros) formFiltros.submit();
-        });
-    });
-});
-</script>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-end mb-1">
+                                <label class="form-label small text-muted fw-bold mb-0">Monto a Cobrar (Total) <span class="text-danger">*</span></label>
+                                <div class="small fw-medium text-primary d-flex align-items-center">
+                                    <i class="bi bi-info-circle me-1"></i>Saldo: 
+                                    <input type="text" name="moneda" id="cobroMoneda" class="form-control-plaintext text-primary p-0 ms-1 fw-bold" style="width: 30px; pointer-events: none;" readonly>
+                                    <input type="text" id="cobroSaldo" class="form-control-plaintext text-primary p-0 fw-bold" data-saldo-target="1" style="width: 65px; pointer-events: none;" readonly>
+                                </div>
+                            </div>
+                            <input type="number" step="0.01" min="0.01" name="monto" id="cobroMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-success bg-white" required>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label small text-muted fw-bold mb-2">Cuenta y Método <span class="text-danger">*</span></label>
+                            <div id="cobroDistribucionRows" class="d-grid gap-2">
+                                <div class="row g-2 js-cobro-distribucion-row" data-row-index="0">
+                                    <div class="col-12 col-md-5">
+                                        <select name="cuenta_destino_ids[]" class="form-select shadow-sm border-secondary-subtle js-cobro-cuenta" required>
+                                            <option value="" selected disabled>Cuenta destino...</option>
+                                            <?php foreach($cuentas as $c): ?>
+                                                <?php $tieneAdvertenciaContable = empty($c['id_cuenta_contable']); ?>
+                                                <?php if (!$tieneAdvertenciaContable): ?>
+                                                    <option
+                                                        value="<?php echo (int) $c['id']; ?>"
+                                                        data-tipo="<?php echo e($c['tipo']); ?>"
+                                                        data-moneda="<?php echo e(strtoupper((string) $c['moneda'])); ?>"
+                                                        data-tiene-advertencia="0">
+                                                        <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
+                                                    </option>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-6 col-md-4">
+                                        <select name="metodo_pago_ids[]" class="form-select shadow-sm border-secondary-subtle js-cobro-metodo" required>
+                                            <option value="" selected disabled>Método...</option>
+                                            <?php foreach($metodos as $m): ?>
+                                                <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <div class="input-group shadow-sm">
+                                            <input type="number" step="0.01" min="0.01" name="metodo_montos[]" class="form-control border-secondary-subtle js-cobro-monto-distribucion" placeholder="Monto" required>
+                                            <button type="button" class="btn btn-outline-danger px-2 js-remove-cobro-row d-none" title="Quitar"><i class="bi bi-trash"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <button type="button" id="btnAddCobroDistribucion" class="btn btn-sm btn-outline-secondary px-3">
+                                    <i class="bi bi-plus-circle me-1"></i>Dividir pago
+                                </button>
+                                <small id="cobroDistribucionHint" class="text-muted fw-medium"></small>
+                            </div>
+                            <input type="hidden" name="id_cuenta" id="selectCuentaDestino" value="">
+                            <input type="hidden" name="id_metodo_pago" id="selectMetodoCobroUnico" value="">
+                        </div>
+
+                        <div class="col-12 mt-3 pt-3 border-top">
+                            <a class="text-decoration-none fw-bold text-primary d-flex align-items-center" data-bs-toggle="collapse" href="#cobroOpcionesAvanzadas" role="button" aria-expanded="false" aria-controls="cobroOpcionesAvanzadas">
+                                <i class="bi bi-gear-fill me-2"></i> Mostrar opciones adicionales 
+                                <i class="bi bi-chevron-down ms-auto small"></i>
+                            </a>
+                            
+                            <div class="collapse mt-3" id="cobroOpcionesAvanzadas">
+                                <div class="card card-body bg-white border-0 shadow-sm p-3">
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label small text-muted fw-bold mb-1">Fecha de Cobro <span class="text-danger">*</span></label>
+                                            <input type="date" name="fecha" class="form-control border-secondary-subtle" value="<?php echo date('Y-m-d'); ?>" required>
+                                        </div>
+
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label small text-muted fw-bold mb-1">Naturaleza <span class="text-danger">*</span></label>
+                                            <select name="naturaleza_pago" id="cobroNaturaleza" class="form-select border-secondary-subtle" required>
+                                                <option value="DOCUMENTO" selected>Cobro de deuda normal</option>
+                                                <option value="CAPITAL">Solo capital</option>
+                                                <option value="INTERES">Solo mora/interés</option>
+                                                <option value="MIXTO">Mixto (capital + mora)</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-6 d-none" id="grupoCobroCapital">
+                                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Capital</label>
+                                            <input type="number" step="0.01" min="0" name="monto_capital" id="cobroMontoCapital" class="form-control border-secondary-subtle" value="0">
+                                        </div>
+
+                                        <div class="col-6 d-none" id="grupoCobroInteres">
+                                            <label class="form-label small text-muted fw-bold mb-1">Desglose: Mora</label>
+                                            <input type="number" step="0.01" min="0" name="monto_interes" id="cobroMontoInteres" class="form-control border-secondary-subtle text-success" value="0">
+                                        </div>
+                                        
+                                        <div class="col-12">
+                                            <label class="form-label small text-muted fw-bold mb-1">Referencia / N° Operación</label>
+                                            <input type="text" name="referencia" class="form-control border-secondary-subtle" placeholder="Ej. TRF-849392">
+                                        </div>
+                                        
+                                        <div class="col-12">
+                                            <label class="form-label small text-muted fw-bold mb-1">Observaciones</label>
+                                            <textarea name="observaciones" class="form-control border-secondary-subtle" rows="2" placeholder="Notas adicionales..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 pt-0">
+                    <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold mb-2 mb-md-0 d-block d-md-inline-block w-100 w-md-auto" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success fw-bold shadow-sm d-block d-md-inline-block w-100 w-md-auto"><i class="bi bi-check-circle me-2"></i>Confirmar Cobro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="<?php echo e(base_url()); ?>/assets/js/tesoreria.js"></script>

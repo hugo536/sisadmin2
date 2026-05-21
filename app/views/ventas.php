@@ -27,7 +27,6 @@ $formatearFechaDMY = static function ($fecha): string {
 };
 ?>
 
-<!-- Cargar estilos específicos para el módulo de ventas (Tarjetas Móviles) -->
 <link rel="stylesheet" href="<?php echo e(base_url('assets/css/ventas.css')); ?>?v=<?php echo time(); ?>">
 <link rel="stylesheet" href="<?php echo e(asset_url('css/ventas.css')); ?>?v=1.0">
 
@@ -337,12 +336,12 @@ $formatearFechaDMY = static function ($fecha): string {
                             </div>
                         </div>
 
-                                                <div id="alertaSaldoFavorContenedor" class="mb-3"></div>
+                        <div id="alertaSaldoFavorContenedor" class="mb-3"></div>
 
                         <div id="contenedorMetodosPago" class="d-flex flex-column gap-2 mb-2">
                         </div>
 
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mt-3">
                             <button type="button" class="btn btn-sm btn-light text-success fw-bold shadow-sm" id="btnAgregarPagoInmediato">
                                 <i class="bi bi-plus-circle me-1"></i> Añadir otro método
                             </button>
@@ -356,32 +355,22 @@ $formatearFechaDMY = static function ($fecha): string {
             </div>
             
             <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div class="d-flex align-items-center gap-4 ps-2">
-                    <div class="form-check form-switch m-0">
-                        <input class="form-check-input" type="checkbox" id="cerrarForzado" style="cursor: pointer;">
-                        <label class="form-check-label fw-semibold text-danger small" for="cerrarForzado">
-                            Forzar cierre
-                        </label>
-                    </div>
-                    
-                    <div class="form-check form-switch m-0" id="switchCobroDespachoContainer">
-                        <input class="form-check-input border-success" type="checkbox" id="switchCobroDespacho" style="cursor: pointer;">
-                        <label class="form-check-label fw-bold text-success small" for="switchCobroDespacho" style="cursor: pointer;">
-                            Cobrar al entregar
-                        </label>
-                    </div>
+                <div class="form-check form-switch m-0 ps-5" id="switchCobroContainer">
+                    <input class="form-check-input" type="checkbox" id="switchCobroInmediato" style="cursor: pointer;">
+                    <label class="form-check-label fw-bold text-primary small" for="switchCobroInmediato" style="cursor: pointer;">
+                        Cobrar Al Contado (Inmediato)
+                    </label>
                 </div>
-
+                
                 <div class="d-flex align-items-center gap-2">
                     <button class="btn btn-light text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-info text-white fw-bold px-4" id="btnGuardarDespacho">
-                        <i class="bi bi-check-lg me-2"></i>Confirmar Despacho
-                    </button>
+                    <button class="btn btn-primary px-4 fw-bold" id="btnGuardarVenta"><i class="bi bi-save me-2"></i>Guardar Pedido</button>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
 
 <div class="modal fade" id="modalDespacho" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -480,7 +469,6 @@ $formatearFechaDMY = static function ($fecha): string {
             </div>
             
             <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                
                 <div class="d-flex align-items-center gap-4 ps-2">
                     <div class="form-check form-switch m-0">
                         <input class="form-check-input" type="checkbox" id="cerrarForzado" style="cursor: pointer;">
@@ -503,11 +491,11 @@ $formatearFechaDMY = static function ($fecha): string {
                         <i class="bi bi-check-lg me-2"></i>Confirmar Despacho
                     </button>
                 </div>
-
             </div>
         </div>
     </div>
 </div>
+
 
 <div class="modal fade" id="modalDevolucionVenta" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -655,7 +643,7 @@ $formatearFechaDMY = static function ($fecha): string {
         const inputPaginas = document.getElementById('cantidadPaginasPedido');
         const selectTipo = document.getElementById('tipoDocumentoImprimir');
         if (inputPaginas) inputPaginas.value = 1;
-        if (selectTipo) selectTipo.value = 'imprimir'; // Por defecto Pedido Interno
+        if (selectTipo) selectTipo.value = 'imprimir'; 
 
         const modalEl = document.getElementById('modalImpresionPedido');
         if (!modalEl || typeof bootstrap === 'undefined') return;
@@ -802,7 +790,6 @@ $formatearFechaDMY = static function ($fecha): string {
 </template>
 
 <script>
-    // Puente de datos PHP -> JavaScript para Cobros Inmediatos
     window.TESORERIA_CUENTAS = <?php echo json_encode($cuentas ?? []); ?>;
     window.TESORERIA_METODOS = <?php echo json_encode($metodos ?? []); ?>;
 </script>

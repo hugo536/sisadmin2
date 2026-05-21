@@ -282,5 +282,74 @@ class TesoreriaCxpModel extends Modelo
 
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
     }
+    
+    // ====================================================================
+    // --- NUEVO: FUNCIÓN PARA REGISTRAR PAGOS INMEDIATOS DESDE GASTOS ---
+    // ====================================================================
+    public function registrarPagoDirecto(int $idCxp, int $idCuenta, int $idMetodo, float $monto, string $fecha, string $observacion, int $userId): void
+    {
+        if ($idCxp <= 0 || $idCuenta <= 0 || $idMetodo <= 0 || $monto <= 0) {
+            throw new RuntimeException('Datos inválidos para registrar el pago del gasto.');
+        }
 
+        $db = $this->db();
+
+        // 1. Obtener datos de la Cuenta por Pagar para verificar saldo y moneda
+        $stmtCxp = $db->prepare('SELECT id_proveedor, moneda, saldo FROM tesoreria_cxp WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE');
+        $stmtCxp->execute(['id' => $idCxp]);
+        $cxp = $stmtCxp->fetch(PDO::FETCH_ASSOC);
+
+        if (!$cxp) {
+            throw new RuntimeException('La Cuenta por Pagar no existe o fue eliminada.');
+        }
+
+        if ((float)$cxp['saldo'] < $monto - 0.0001) {
+            throw new RuntimeException('El monto a pagar supera el saldo pendiente de la deuda.');
+        }
+
+        // 2. Registrar el Egreso en Tesorería (Salida de dinero de caja/bancos)
+        $stmtMov = $db->prepare('INSERT INTO tesoreria_movimientos 
+            (id_cuenta, id_metodo, id_tercero, tipo, monto, moneda, fecha, observacion, estado, created_by, updated_by, created_at, updated_at) 
+            VALUES 
+            (:id_cuenta, :id_metodo, :id_tercero, "EGRESO", :monto, :moneda, :fecha, :observacion, 1, :user, :user, NOW(), NOW())');
+            
+        $stmtMov->execute([
+            'id_cuenta'   => $idCuenta,
+            'id_metodo'   => $idMetodo,
+            'id_tercero'  => $cxp['id_proveedor'], // Pagamos al proveedor
+            'monto'       => round($monto, 4),
+            'moneda'      => $cxp['moneda'],
+            'fecha'       => $fecha,
+            'observacion' => $observacion,
+            'user'        => $userId
+        ]);
+
+        $idMovimiento = (int) $db->lastInsertId();
+
+        // 3. Vincular el Movimiento con la CxP (Amortización/Pago)
+        $stmtPago = $db->prepare('INSERT INTO tesoreria_cxp_pagos 
+            (id_cxp, id_movimiento, monto_aplicado, created_by, updated_by, created_at, updated_at) 
+            VALUES 
+            (:id_cxp, :id_movimiento, :monto_aplicado, :user, :user, NOW(), NOW())');
+            
+        $stmtPago->execute([
+            'id_cxp'         => $idCxp,
+            'id_movimiento'  => $idMovimiento,
+            'monto_aplicado' => round($monto, 4),
+            'user'           => $userId
+        ]);
+
+        // 4. Actualizar Monto Pagado en la tabla Maestra de CxP
+        $stmtUpd = $db->prepare('UPDATE tesoreria_cxp 
+            SET monto_pagado = monto_pagado + :monto, updated_by = :user, updated_at = NOW() 
+            WHERE id = :id_cxp');
+        $stmtUpd->execute([
+            'monto'  => round($monto, 4),
+            'user'   => $userId,
+            'id_cxp' => $idCxp
+        ]);
+
+        // 5. Recalcular el Estado Final (Pagado, Parcial)
+        $this->recalcularEstado($idCxp, $userId);
+    }
 }

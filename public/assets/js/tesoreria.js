@@ -302,7 +302,7 @@
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Error',
-                                    text: error && error.message ? `No se pudo registrar el pago: ${error.message}` : 'No se pudo actualizar la tabla automáticamente. Se recargará la página.',
+                                    text: error && error.message ? `No se pudo registrar la operación: ${error.message}` : 'No se pudo actualizar la tabla automáticamente. Se recargará la página.',
                                     confirmButtonText: 'Entendido'
                                 }).then(() => this.submit());
                             } else {
@@ -1986,4 +1986,29 @@
             }
         });
     }
+
+    // ========================================================================
+    // 9. VALIDACIÓN UX EN TIEMPO REAL PARA COBROS/PAGOS PARCIALES
+    // ========================================================================
+    const inputsMontosTotales = [
+        document.getElementById('cobroMonto'), // Input de CxC
+        document.getElementById('pagoMonto')   // Input de CxP
+    ];
+
+    inputsMontosTotales.forEach(inputEl => {
+        if (inputEl) {
+            inputEl.addEventListener('input', function() {
+                // Solo limitamos si el atributo 'max' existe (Es decir, si no es pago MIXTO/INTERÉS)
+                if (this.hasAttribute('max')) {
+                    const maxVal = parseFloat(this.getAttribute('max'));
+                    if (!isNaN(maxVal) && parseFloat(this.value) > maxVal) {
+                        this.value = maxVal.toFixed(2); // Auto-corrige al máximo permitido
+                        this.classList.add('is-invalid');
+                    } else {
+                        this.classList.remove('is-invalid');
+                    }
+                }
+            });
+        }
+    });
 })();

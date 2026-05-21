@@ -175,18 +175,20 @@ class TesoreriaController extends Controlador
         AuthMiddleware::handle();
         require_permiso('tesoreria.cxc.ver');
 
-        $hoy = date('Y-m-d');
-        $fechaDesdeDefault = date('Y-m-d', strtotime('-6 days'));
+        // CAMBIO: Fechas proyectadas para flujo de caja (Mes actual + 30 días)
+        $fechaDesdeDefault = date('Y-m-01');
+        $fechaHastaDefault = date('Y-m-d', strtotime('+30 days'));
+
         $tipoTercero = trim((string) ($_GET['tipo_tercero'] ?? ''));
         if (!in_array($tipoTercero, ['', 'cliente', 'cliente_distribuidor', 'distribuidor'], true)) {
             $tipoTercero = '';
         }
 
         $filtros = [
-            'estado'      => trim((string) ($_GET['estado'] ?? '')),
+            'estado'       => trim((string) ($_GET['estado'] ?? '')),
             'tipo_tercero' => $tipoTercero,
-            'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? $fechaDesdeDefault)),
-            'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? $hoy)),
+            'fecha_desde'  => trim((string) ($_GET['fecha_desde'] ?? $fechaDesdeDefault)),
+            'fecha_hasta'  => trim((string) ($_GET['fecha_hasta'] ?? $fechaHastaDefault)),
         ];
 
         if (!$this->esFechaValida($filtros['fecha_desde'])) {
@@ -194,7 +196,7 @@ class TesoreriaController extends Controlador
         }
 
         if (!$this->esFechaValida($filtros['fecha_hasta'])) {
-            $filtros['fecha_hasta'] = $hoy;
+            $filtros['fecha_hasta'] = $fechaHastaDefault;
         }
 
         if ($filtros['fecha_desde'] > $filtros['fecha_hasta']) {
@@ -247,18 +249,20 @@ class TesoreriaController extends Controlador
         AuthMiddleware::handle();
         require_permiso('tesoreria.cxp.ver');
 
-        $hoy = date('Y-m-d');
-        $fechaDesdeDefault = date('Y-m-d', strtotime('-6 days'));
+        // CAMBIO: Fechas proyectadas para flujo de caja (Mes actual + 30 días)
+        $fechaDesdeDefault = date('Y-m-01');
+        $fechaHastaDefault = date('Y-m-d', strtotime('+30 days'));
+
         $tipoTercero = trim((string) ($_GET['tipo_tercero'] ?? ''));
         if (!in_array($tipoTercero, ['', 'cliente', 'cliente_distribuidor', 'distribuidor'], true)) {
             $tipoTercero = '';
         }
 
         $filtros = [
-            'estado'      => trim((string) ($_GET['estado'] ?? '')),
+            'estado'       => trim((string) ($_GET['estado'] ?? '')),
             'tipo_tercero' => $tipoTercero,
-            'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? $fechaDesdeDefault)),
-            'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? $hoy)),
+            'fecha_desde'  => trim((string) ($_GET['fecha_desde'] ?? $fechaDesdeDefault)),
+            'fecha_hasta'  => trim((string) ($_GET['fecha_hasta'] ?? $fechaHastaDefault)),
         ];
 
         if (!$this->esFechaValida($filtros['fecha_desde'])) {
@@ -266,7 +270,7 @@ class TesoreriaController extends Controlador
         }
 
         if (!$this->esFechaValida($filtros['fecha_hasta'])) {
-            $filtros['fecha_hasta'] = $hoy;
+            $filtros['fecha_hasta'] = $fechaHastaDefault;
         }
 
         if ($filtros['fecha_desde'] > $filtros['fecha_hasta']) {
