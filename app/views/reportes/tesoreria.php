@@ -146,12 +146,12 @@ if (!empty($_GET['error'])) {
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $vistaActual === 'resueltos' ? 'active text-success border-success border-bottom-0' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('resueltos')">
+            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $vistaActual === 'resueltos' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('resueltos')">
                 <i class="bi bi-check2-all me-2"></i>Historial Cobrado
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $vistaActual === 'todos' ? 'active text-dark border-dark border-bottom-0' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('todos')">
+            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $vistaActual === 'todos' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('todos')">
                 <i class="bi bi-border-all me-2"></i>Todas
             </button>
         </li>
