@@ -88,7 +88,7 @@ if (!empty($_GET['error'])) {
                 <i class="bi bi-clock-history me-2 text-info"></i>Historial Global
             </a>
             <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
-                <i class="bi bi-bar-chart-line me-2 text-primary"></i>Reportes de Tesorería
+                <i class="bi bi-bar-chart-line me-2 text-primary"></i>Reportes
             </a>
             <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalCobroManual">
                 <i class="bi bi-plus-circle me-2"></i>Registrar Cobro Manual
@@ -116,19 +116,9 @@ if (!empty($_GET['error'])) {
                 <input type="hidden" name="ruta" value="tesoreria/cxc">
                 <input type="hidden" name="vista" id="inputVistaGlobal" value="<?php echo e($vistaActual); ?>">
 
-                <div class="col-12 col-md-3">
-                    <label class="form-label small text-muted fw-bold mb-1">Estado de Cuenta</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="estado">
-                        <option value="">Cualquiera en esta pestaña</option>
-                        <?php foreach (['PENDIENTE', 'ABIERTA', 'PARCIAL', 'PAGADA', 'VENCIDA', 'ANULADA'] as $estado): ?>
-                            <option value="<?php echo e($estado); ?>" <?php echo (($filtros['estado'] ?? '') === $estado) ? 'selected' : ''; ?>><?php echo e($estado); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-4">
                     <label class="form-label small text-muted fw-bold mb-1">Tipo de Tercero</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="tipo_tercero">
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit" name="tipo_tercero">
                         <option value="">Todos</option>
                         <option value="cliente_distribuidor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente_distribuidor') ? 'selected' : ''; ?>>Cliente / Distribuidor</option>
                         <option value="cliente" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente') ? 'selected' : ''; ?>>Cliente</option>
@@ -136,33 +126,33 @@ if (!empty($_GET['error'])) {
                     </select>
                 </div>
 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-4">
                     <label class="form-label small text-muted fw-bold mb-1">Desde (Vencimiento)</label>
-                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="fecha_desde" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>">
+                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit" name="fecha_desde" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>">
                 </div>
 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-4">
                     <label class="form-label small text-muted fw-bold mb-1">Hasta (Vencimiento)</label>
-                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="fecha_hasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>">
+                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit" name="fecha_hasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>">
                 </div>
             </form>
         </div>
     </div>
 
-    <ul class="nav nav-pills mb-3 gap-2">
-        <li class="nav-item">
-            <button class="nav-link border <?php echo $vistaActual === 'pendientes' ? 'active bg-primary text-white fw-bold border-primary' : 'bg-white text-secondary fw-medium border-secondary-subtle hover-bg-light'; ?>" onclick="cambiarPestana('pendientes')">
-                <i class="bi bi-exclamation-circle me-1"></i> Por Cobrar
+    <ul class="nav nav-tabs border-bottom-1 mb-0 px-2" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $vistaActual === 'pendientes' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('pendientes')">
+                <i class="bi bi-exclamation-circle me-2"></i>Por Cobrar
             </button>
         </li>
-        <li class="nav-item">
-            <button class="nav-link border <?php echo $vistaActual === 'resueltos' ? 'active bg-primary text-white fw-bold border-primary' : 'bg-white text-secondary fw-medium border-secondary-subtle hover-bg-light'; ?>" onclick="cambiarPestana('resueltos')">
-                <i class="bi bi-check2-all me-1"></i> Historial Cobrado
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $vistaActual === 'resueltos' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('resueltos')">
+                <i class="bi bi-check2-all me-2"></i>Historial Cobrado
             </button>
         </li>
-        <li class="nav-item">
-            <button class="nav-link border <?php echo $vistaActual === 'todos' ? 'active bg-primary text-white fw-bold border-primary' : 'bg-white text-secondary fw-medium border-secondary-subtle hover-bg-light'; ?>" onclick="cambiarPestana('todos')">
-                <i class="bi bi-border-all me-1"></i> Todas
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $vistaActual === 'todos' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('todos')">
+                <i class="bi bi-border-all me-2"></i>Todas
             </button>
         </li>
     </ul>
@@ -170,12 +160,20 @@ if (!empty($_GET['error'])) {
     <script>
         function cambiarPestana(vista) {
             document.getElementById('inputVistaGlobal').value = vista;
-            document.querySelector('select[name="estado"]').value = '';
             document.getElementById('formFiltrosCxc').submit();
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const inputs = document.querySelectorAll('.auto-submit');
+            inputs.forEach(input => {
+                input.addEventListener('change', () => {
+                    document.getElementById('formFiltrosCxc').submit();
+                });
+            });
+        });
     </script>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm rounded-top-0 border-top border-primary border-3">
         <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div class="d-flex align-items-center">
                 <h2 class="h6 fw-bold text-dark mb-0">
@@ -323,6 +321,7 @@ if (!empty($_GET['error'])) {
                                     <option value="<?php echo (int) $cli['id']; ?>"><?php echo e((string) $cli['nombre_completo']); ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <small id="cobroManualDeudaHint" class="mt-1 d-block"></small> 
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Moneda <span class="text-danger">*</span></label>
@@ -334,7 +333,7 @@ if (!empty($_GET['error'])) {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Monto a Cobrar <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="0.01" name="monto" class="form-control shadow-sm border-secondary-subtle fw-bold text-primary" required>
+                            <input type="number" step="0.01" min="0.01" name="monto" id="cobroManualMontoInput" class="form-control shadow-sm border-secondary-subtle fw-bold text-primary" required>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Cuenta Destino <span class="text-danger">*</span></label>
@@ -346,8 +345,9 @@ if (!empty($_GET['error'])) {
                                         <option
                                             value="<?php echo (int) $c['id']; ?>"
                                             data-tipo="<?php echo e($c['tipo']); ?>"
+                                            data-moneda="<?php echo e(strtoupper((string) $c['moneda'])); ?>"
                                             data-tiene-advertencia="0">
-                                            <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
+                                            <?php echo e($c['nombre']); ?>
                                         </option>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
@@ -376,9 +376,11 @@ if (!empty($_GET['error'])) {
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-light border-top-0 pt-0">
-                    <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold mb-2 mb-md-0 d-block d-md-inline-block w-100 w-md-auto" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm"><i class="bi bi-check-circle me-2"></i>Confirmar Cobro Manual</button>
+                <div class="modal-footer bg-light border-top-0 d-flex flex-nowrap gap-2 p-3">
+                    <button type="button" class="btn btn-outline-secondary fw-semibold w-100 m-0" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold shadow-sm w-100 m-0">
+                        <i class="bi bi-check-circle me-2"></i>Confirmar Cobro Manual
+                    </button>
                 </div>
             </form>
         </div>
@@ -424,7 +426,7 @@ if (!empty($_GET['error'])) {
                                                         data-tipo="<?php echo e($c['tipo']); ?>"
                                                         data-moneda="<?php echo e(strtoupper((string) $c['moneda'])); ?>"
                                                         data-tiene-advertencia="0">
-                                                        <?php echo e($c['codigo'].' - '.$c['nombre'].' ('.$c['moneda'].')'); ?>
+                                                        <?php echo e($c['nombre']); ?>
                                                     </option>
                                                 <?php endif; ?>
                                             <?php endforeach; ?>
@@ -507,9 +509,11 @@ if (!empty($_GET['error'])) {
                         
                     </div>
                 </div>
-                <div class="modal-footer bg-light border-top-0 pt-0">
-                    <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold mb-2 mb-md-0 d-block d-md-inline-block w-100 w-md-auto" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success fw-bold shadow-sm d-block d-md-inline-block w-100 w-md-auto"><i class="bi bi-check-circle me-2"></i>Confirmar Cobro</button>
+                <div class="modal-footer bg-light border-top-0 d-flex flex-nowrap gap-2 p-3">
+                    <button type="button" class="btn btn-outline-secondary fw-semibold w-100 m-0" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success fw-bold shadow-sm w-100 m-0">
+                        <i class="bi bi-check-circle me-2"></i>Confirmar Cobro
+                    </button>
                 </div>
             </form>
         </div>

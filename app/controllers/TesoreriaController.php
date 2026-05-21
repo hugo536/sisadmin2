@@ -1237,4 +1237,31 @@ class TesoreriaController extends Controlador
         }
         exit;
     }
+    
+    public function ajax_obtener_deuda_tercero(): void
+    {
+        AuthMiddleware::handle();
+        header('Content-Type: application/json; charset=utf-8');
+        
+        $idTercero = (int) ($_GET['id_tercero'] ?? 0);
+        $moneda = strtoupper(trim((string) ($_GET['moneda'] ?? 'PEN')));
+        $tipo = strtoupper(trim((string) ($_GET['tipo'] ?? 'CXC'))); // CXC o CXP
+
+        $tabla = $tipo === 'CXC' ? 'tesoreria_cxc' : 'tesoreria_cxp';
+        $colTercero = $tipo === 'CXC' ? 'id_cliente' : 'id_proveedor';
+
+        $sql = "SELECT COALESCE(SUM(saldo), 0) as deuda_total 
+                FROM {$tabla} 
+                WHERE {$colTercero} = :id 
+                  AND moneda = :moneda 
+                  AND estado IN ('PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA') 
+                  AND deleted_at IS NULL";
+                  
+        $stmt = Conexion::get()->prepare($sql);
+        $stmt->execute(['id' => $idTercero, 'moneda' => $moneda]);
+        $deuda = (float) $stmt->fetchColumn();
+
+        echo json_encode(['ok' => true, 'deuda' => round($deuda, 2)]);
+        exit;
+    }
 }

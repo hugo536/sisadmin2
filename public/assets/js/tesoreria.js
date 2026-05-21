@@ -1120,7 +1120,9 @@
                     return;
                 }
                 
-                if (moneda && opcion.textContent.includes(`(${moneda})`)) {
+                const optMoneda = String(opcion.dataset.moneda || '').toUpperCase();
+                
+                if (moneda && optMoneda === moneda) {
                     opcion.style.display = '';
                     opcion.disabled = false;
                 } else if (moneda) {
@@ -1141,21 +1143,8 @@
     const selectClienteCobroManual = document.getElementById('cobroManualCliente');
     const selectMonedaCobroManual = document.getElementById('cobroManualMoneda');
     const selectCuentaCobroManual = document.getElementById('cobroManualCuentaDestino');
-
-    if (selectClienteCobroManual && typeof TomSelect !== 'undefined' && !selectClienteCobroManual.tomselect) {
-        new TomSelect(selectClienteCobroManual, {
-            create: false,
-            allowEmptyOption: true,
-            placeholder: 'Buscar cliente o distribuidor...',
-            maxOptions: 150,
-            closeAfterSelect: true,
-            render: {
-                no_results: function () {
-                    return '<div class="no-results py-2 px-3 text-muted">Sin coincidencias.</div>';
-                }
-            }
-        });
-    }
+    const labelDeudaManualHint = document.getElementById('cobroManualDeudaHint');
+    const inputMontoCobroManual = document.getElementById('cobroManualMontoInput');
 
     const filtrarCuentasCobroManualPorMoneda = () => {
         if (!selectMonedaCobroManual || !selectCuentaCobroManual) return;
@@ -1172,7 +1161,9 @@
                 return;
             }
 
-            if (moneda && opcion.textContent.toUpperCase().includes(`(${moneda})`)) {
+            const optMoneda = String(opcion.dataset.moneda || '').toUpperCase();
+
+            if (moneda && optMoneda === moneda) {
                 opcion.style.display = '';
                 opcion.disabled = false;
                 if (!primeraOpcionValida) primeraOpcionValida = opcion.value;
@@ -1188,14 +1179,85 @@
         selectCuentaCobroManual.value = primeraOpcionValida || '';
     };
 
+    const actualizarDeudaCobroManual = () => {
+        if (!selectClienteCobroManual || !selectMonedaCobroManual || !labelDeudaManualHint) return;
+        
+        const idTercero = selectClienteCobroManual.value;
+        const moneda = selectMonedaCobroManual.value;
+        
+        if (!idTercero || !moneda) {
+            labelDeudaManualHint.textContent = '';
+            if (inputMontoCobroManual) inputMontoCobroManual.removeAttribute('max');
+            return;
+        }
+
+        labelDeudaManualHint.innerHTML = '<span class="spinner-border spinner-border-sm text-primary" style="width: 12px; height: 12px;"></span> Calculando deuda...';
+
+        fetch(`?ruta=tesoreria/ajax_obtener_deuda_tercero&id_tercero=${idTercero}&moneda=${moneda}&tipo=CXC`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok) {
+                const deuda = parseFloat(data.deuda);
+                if (deuda > 0) {
+                    labelDeudaManualHint.innerHTML = `<i class="bi bi-info-circle me-1"></i>Deuda pendiente: <strong>${moneda} ${deuda.toFixed(2)}</strong>`;
+                    labelDeudaManualHint.className = 'text-danger small mt-1 d-block';
+                } else {
+                    labelDeudaManualHint.innerHTML = `<i class="bi bi-check-circle me-1"></i>El cliente no tiene deuda pendiente en ${moneda}.`;
+                    labelDeudaManualHint.className = 'text-success small mt-1 d-block';
+                }
+                
+                if (inputMontoCobroManual) {
+                    inputMontoCobroManual.setAttribute('max', deuda);
+                    if (parseFloat(inputMontoCobroManual.value) > deuda) {
+                        inputMontoCobroManual.value = deuda.toFixed(2);
+                    }
+                }
+            }
+        })
+        .catch(() => {
+            labelDeudaManualHint.textContent = '';
+        });
+    };
+
+    if (selectClienteCobroManual && typeof TomSelect !== 'undefined' && !selectClienteCobroManual.tomselect) {
+        new TomSelect(selectClienteCobroManual, {
+            create: false,
+            allowEmptyOption: true,
+            placeholder: 'Buscar cliente o distribuidor...',
+            maxOptions: 150,
+            closeAfterSelect: true,
+            render: {
+                no_results: function () {
+                    return '<div class="no-results py-2 px-3 text-muted">Sin coincidencias.</div>';
+                }
+            },
+            onChange: function(value) {
+                actualizarDeudaCobroManual();
+            }
+        });
+    }
+
     if (selectMonedaCobroManual && selectCuentaCobroManual) {
-        selectMonedaCobroManual.addEventListener('change', filtrarCuentasCobroManualPorMoneda);
+        selectMonedaCobroManual.addEventListener('change', () => {
+            filtrarCuentasCobroManualPorMoneda();
+            actualizarDeudaCobroManual();
+        });
         filtrarCuentasCobroManualPorMoneda();
     }
 
     if (modalCobroManualEl) {
         modalCobroManualEl.addEventListener('shown.bs.modal', function () {
             filtrarCuentasCobroManualPorMoneda();
+            if (!selectClienteCobroManual.value && labelDeudaManualHint) {
+                labelDeudaManualHint.textContent = '';
+            }
+        });
+        
+        modalCobroManualEl.addEventListener('hidden.bs.modal', function () {
+            if (labelDeudaManualHint) labelDeudaManualHint.textContent = '';
+            if (inputMontoCobroManual) inputMontoCobroManual.classList.remove('is-invalid');
         });
     }
 
