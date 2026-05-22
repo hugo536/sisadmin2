@@ -160,11 +160,21 @@ class VentasDespachoModel extends Modelo
                                             :codigo, :id_documento, :id_almacen, :fecha_despacho, :observaciones, :created_by, NOW()
                                         )');
 
-            $stmtDetalle = $db->prepare('INSERT INTO ventas_despachos_detalle (
-                                            id_despacho, id_item, id_presentacion, cantidad_despachada, created_at
-                                         ) VALUES (
-                                            :id_despacho, :id_item, :id_presentacion, :cantidad, NOW()
-                                         )');
+            $detalleTieneCreatedBy = $this->tablaTieneColumna($db, 'ventas_despachos_detalle', 'created_by');
+
+            if ($detalleTieneCreatedBy) {
+                $stmtDetalle = $db->prepare('INSERT INTO ventas_despachos_detalle (
+                                                id_despacho, id_item, id_presentacion, cantidad_despachada, created_by, created_at
+                                             ) VALUES (
+                                                :id_despacho, :id_item, :id_presentacion, :cantidad, :created_by, NOW()
+                                             )');
+            } else {
+                $stmtDetalle = $db->prepare('INSERT INTO ventas_despachos_detalle (
+                                                id_despacho, id_item, id_presentacion, cantidad_despachada, created_at
+                                             ) VALUES (
+                                                :id_despacho, :id_item, :id_presentacion, :cantidad, NOW()
+                                             )');
+            }
 
             $stmtUpdateDocDetalle = $db->prepare('UPDATE ventas_documentos_detalle 
                                                   SET cantidad_despachada = cantidad_despachada + :cantidad,
@@ -210,12 +220,16 @@ class VentasDespachoModel extends Modelo
                 foreach ($lineasAlmacen as $lineaValida) {
                     $esCombo = !empty($lineaValida['id_presentacion']);
 
-                    $stmtDetalle->execute([
+                    $paramsDetalle = [
                         'id_despacho' => $idDespacho,
                         'id_item' => $esCombo ? null : $lineaValida['id_item'],
                         'id_presentacion' => $esCombo ? $lineaValida['id_presentacion'] : null,
                         'cantidad' => $lineaValida['cantidad'],
-                    ]);
+                    ];
+                    if ($detalleTieneCreatedBy) {
+                        $paramsDetalle['created_by'] = $userId;
+                    }
+                    $stmtDetalle->execute($paramsDetalle);
 
                     $stmtUpdateDocDetalle->execute([
                         'cantidad' => $lineaValida['cantidad'],
@@ -369,6 +383,21 @@ class VentasDespachoModel extends Modelo
             }
             throw $e;
         }
+    }
+
+
+    private function tablaTieneColumna(PDO $db, string $tabla, string $columna): bool
+    {
+        $stmt = $db->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS
+                              WHERE TABLE_SCHEMA = DATABASE()
+                                AND TABLE_NAME = :tabla
+                                AND COLUMN_NAME = :columna');
+        $stmt->execute([
+            'tabla' => $tabla,
+            'columna' => $columna,
+        ]);
+
+        return (int) $stmt->fetchColumn() > 0;
     }
 
     private function obtenerComponentesCombo(PDO $db, int $idPresentacion): array
