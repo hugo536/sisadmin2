@@ -6,38 +6,60 @@ $metodos = $metodos ?? [];
 $proveedores = $proveedores ?? [];
 $centros_costo = $centros_costo ?? []; 
 
-// Orden por fecha: MÁS ANTIGUA a MÁS RECIENTE (Lo más vencido va arriba)
-usort($registros, function($a, $b) {
+// 1. CAPTURAR LA PESTAÑA ACTIVA (Por defecto: pendientes)
+$vistaActual = $_GET['vista'] ?? 'pendientes';
+
+// 2. FILTRAR LOS REGISTROS SEGÚN LA PESTAÑA
+$registrosFiltrados = array_filter($registros, function($r) use ($vistaActual) {
+    $estado = strtoupper(trim((string) ($r['estado'] ?? '')));
+    $esDeuda = in_array($estado, ['PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA'], true);
+    
+    if ($vistaActual === 'pendientes') return $esDeuda;
+    if ($vistaActual === 'resueltos') return !$esDeuda;
+    return true; // 'todos'
+});
+
+// 3. ORDENAMIENTO INTELIGENTE
+usort($registrosFiltrados, function($a, $b) {
+    $estadosDeuda = ['PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA']; 
+    
+    $estadoA = strtoupper(trim((string) ($a['estado'] ?? '')));
+    $estadoB = strtoupper(trim((string) ($b['estado'] ?? '')));
+    
+    $esDeudaA = in_array($estadoA, $estadosDeuda, true) ? 1 : 0;
+    $esDeudaB = in_array($estadoB, $estadosDeuda, true) ? 1 : 0;
+    
+    // Si mezclamos en la pestaña "Todas", las deudas vivas van primero
+    if ($esDeudaA !== $esDeudaB) {
+        return $esDeudaB <=> $esDeudaA; 
+    }
+    
     $fechaA = strtotime((string) ($a['fecha_vencimiento'] ?? '')) ?: 0;
     $fechaB = strtotime((string) ($b['fecha_vencimiento'] ?? '')) ?: 0;
-
-    if ($fechaA === $fechaB) {
-        $docA = (int) ($a['id_recepcion'] ?? 0);
-        $docB = (int) ($b['id_recepcion'] ?? 0);
-        return $docA <=> $docB;
+    
+    if ($esDeudaA === 1) {
+        // AMBAS SON DEUDAS: Lo más ANTIGUO va primero (Ascendente)
+        if ($fechaA === $fechaB) {
+            return (int)($a['id_recepcion'] ?? 0) <=> (int)($b['id_recepcion'] ?? 0);
+        }
+        return $fechaA <=> $fechaB;
+    } else {
+        // AMBAS ESTÁN RESUELTAS: Lo más RECIENTE va primero (Descendente)
+        if ($fechaA === $fechaB) {
+            return (int)($b['id_recepcion'] ?? 0) <=> (int)($a['id_recepcion'] ?? 0);
+        }
+        return $fechaB <=> $fechaA;
     }
-
-    // ASCENDENTE
-    return $fechaA <=> $fechaB;
 });
 
 $badge = static function (string $estado): string {
-    if ($estado === 'PAGADA') {
-        return 'bg-success-subtle text-success border border-success-subtle';
-    }
-    if ($estado === 'PARCIAL') {
-        return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
-    }
-    if ($estado === 'VENCIDA') {
-        return 'bg-danger-subtle text-danger border border-danger-subtle';
-    }
-    if ($estado === 'ANULADA') {
-        return 'bg-secondary-subtle text-secondary border border-secondary-subtle';
-    }
+    if ($estado === 'PAGADA') return 'bg-success-subtle text-success border border-success-subtle';
+    if ($estado === 'PARCIAL') return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+    if ($estado === 'VENCIDA') return 'bg-danger-subtle text-danger border border-danger-subtle';
+    if ($estado === 'ANULADA') return 'bg-secondary-subtle text-secondary border border-secondary-subtle';
     return 'bg-primary-subtle text-primary border border-primary-subtle';
 };
-?>
-<?php
+
 $swalIcon = null;
 $swalMessage = null;
 
@@ -60,6 +82,13 @@ if (!empty($_GET['error'])) {
             <p class="text-muted small mb-0 ms-1">Control de saldos por proveedor y registro de pagos.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap justify-content-end">
+        <div class="d-flex gap-2 flex-wrap justify-content-end align-items-center">
+            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
+                <i class="bi bi-bank me-2 text-warning"></i>Ir a Cuentas
+            </a>
+            <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
+                <i class="bi bi-clock-history me-2 text-info"></i>Historial Global
+            </a>
             <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bar-chart-line me-2 text-primary"></i>Reportes
             </a>
@@ -87,41 +116,31 @@ if (!empty($_GET['error'])) {
         <div class="card-body p-3 p-md-4">
             <form method="get" action="" class="row g-3 align-items-end" id="formFiltrosCxp">
                 <input type="hidden" name="ruta" value="tesoreria/cxp">
+                <input type="hidden" name="vista" id="inputVistaGlobal" value="<?php echo e($vistaActual); ?>">
 
-                <div class="col-12 col-md-3">
-                    <label class="form-label small text-muted fw-bold mb-1">Estado de Cuenta</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="estado">
-                        <option value="">Todos los estados</option>
-                        <?php foreach (['PENDIENTE', 'ABIERTA', 'PARCIAL', 'PAGADA', 'VENCIDA', 'ANULADA'] as $estado): ?>
-                            <option value="<?php echo e($estado); ?>" <?php echo (($filtros['estado'] ?? '') === $estado) ? 'selected' : ''; ?>><?php echo e($estado); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-4">
                     <label class="form-label small text-muted fw-bold mb-1">Tipo de Tercero</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="tipo_tercero">
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit" name="tipo_tercero">
                         <option value="">Todos</option>
-                        <option value="cliente_distribuidor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente_distribuidor') ? 'selected' : ''; ?>>Cliente / Distribuidor</option>
-                        <option value="cliente" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente') ? 'selected' : ''; ?>>Cliente</option>
-                        <option value="distribuidor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'distribuidor') ? 'selected' : ''; ?>>Distribuidor</option>
+                        <option value="proveedor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'proveedor') ? 'selected' : ''; ?>>Proveedor</option>
+                        <option value="servicios" <?php echo (($filtros['tipo_tercero'] ?? '') === 'servicios') ? 'selected' : ''; ?>>Servicios</option>
                     </select>
                 </div>
 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-4">
                     <label class="form-label small text-muted fw-bold mb-1">Desde (Vencimiento)</label>
                     <input
                         type="date"
-                        class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium"
+                        class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit"
                         name="fecha_desde"
                         value="<?php echo e((string) ($filtros['fecha_desde'] ?? date('Y-m-01'))); ?>">
                 </div>
 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-4">
                     <label class="form-label small text-muted fw-bold mb-1">Hasta (Vencimiento)</label>
                     <input
                         type="date"
-                        class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium"
+                        class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit"
                         name="fecha_hasta"
                         value="<?php echo e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d', strtotime('+30 days')))); ?>">
                 </div>
@@ -129,11 +148,51 @@ if (!empty($_GET['error'])) {
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    <ul class="nav nav-tabs border-bottom-1 mb-0 px-2" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $vistaActual === 'pendientes' ? 'active text-warning-emphasis border-warning border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('pendientes')">
+                <i class="bi bi-exclamation-circle me-2"></i>Por Pagar
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $vistaActual === 'resueltos' ? 'active text-warning-emphasis border-warning border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('resueltos')">
+                <i class="bi bi-check2-all me-2"></i>Historial Pagado
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $vistaActual === 'todos' ? 'active text-warning-emphasis border-warning border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('todos')">
+                <i class="bi bi-border-all me-2"></i>Todas
+            </button>
+        </li>
+    </ul>
+
+    <script>
+        function cambiarPestana(vista) {
+            document.getElementById('inputVistaGlobal').value = vista;
+            document.getElementById('formFiltrosCxp').submit();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const inputs = document.querySelectorAll('.auto-submit');
+            inputs.forEach(input => {
+                input.addEventListener('change', () => {
+                    document.getElementById('formFiltrosCxp').submit();
+                });
+            });
+        });
+    </script>
+
+    <div class="card border-0 shadow-sm rounded-top-0 border-top border-warning border-3">
         <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div class="d-flex align-items-center">
-                <h2 class="h6 fw-bold text-dark mb-0">Detalle de Cuentas por Pagar</h2>
-                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill ms-3" id="badgeRegistros"><?php echo count($registros); ?> Registros</span>
+                <h2 class="h6 fw-bold text-dark mb-0">
+                    <?php 
+                        if($vistaActual === 'pendientes') echo "Cuentas Pendientes";
+                        elseif($vistaActual === 'resueltos') echo "Historial de Pagos Completados";
+                        else echo "Todas las Cuentas";
+                    ?>
+                </h2>
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill ms-3" id="badgeRegistros"><?php echo count($registrosFiltrados); ?> Registros</span>
             </div>
             <div class="input-group shadow-sm" style="max-width: 300px;">
                 <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
@@ -148,32 +207,32 @@ if (!empty($_GET['error'])) {
                        data-manager-global="cxpManager"
                        data-rows-selector="#cxpTableBody tr:not(.empty-msg-row)"
                        data-search-input="#searchCxp"
-                       data-empty-text="No hay cuentas por pagar registradas"
+                       data-empty-text="No hay cuentas en esta pestaña"
                        data-info-text-template="Mostrando {start} a {end} de {total} registros"
                        data-pagination-controls="#cxpPaginationControls"
                        data-pagination-info="#cxpPaginationInfo">
-                    <thead class="bg-light border-bottom">
+                    <thead class="bg-dark text-white border-bottom">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold">Proveedor</th>
-                            <th class="text-secondary fw-semibold">Recepción</th>
-                            <th class="text-center text-secondary fw-semibold">Vencimiento</th>
-                            <th class="text-end text-secondary fw-semibold">Total</th>
-                            <th class="text-end text-secondary fw-semibold">Pagado</th>
-                            <th class="text-end text-dark fw-bold">Saldo</th>
-                            <th class="text-center text-secondary fw-semibold">Estado</th>
-                            <th class="text-center pe-4 text-secondary fw-semibold">Acciones</th>
+                            <th class="ps-4 fw-semibold" style="width: 25%; min-width: 180px;">Proveedor</th>
+                            <th class="fw-semibold" style="white-space: nowrap !important; width: 10%;">Documento</th>
+                            <th class="text-center fw-semibold" style="white-space: nowrap !important; width: 10%;">Vencimiento</th>
+                            <th class="text-end fw-semibold" style="white-space: nowrap !important; width: 12%;">Total</th>
+                            <th class="text-end fw-semibold" style="white-space: nowrap !important; width: 12%;">Pagado</th>
+                            <th class="text-end fw-bold" style="white-space: nowrap !important; width: 12%;">Saldo</th>
+                            <th class="text-center fw-semibold" style="white-space: nowrap !important; width: 10%;">Estado</th>
+                            <th class="text-center pe-4 fw-semibold" style="white-space: nowrap !important; width: 130px; min-width: 130px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="cxpTableBody">
-                        <?php if (empty($registros)): ?>
+                        <?php if (empty($registrosFiltrados)): ?>
                             <tr class="empty-msg-row border-bottom-0">
                                 <td colspan="8" class="text-center text-muted py-5">
                                     <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
-                                    No se encontraron cuentas por pagar con los filtros actuales.
+                                    No se encontraron cuentas con los filtros y pestaña actuales.
                                 </td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($registros as $r): ?>
+                            <?php foreach ($registrosFiltrados as $r): ?>
                                 <?php 
                                     $estadoStr = (string) ($r['estado'] ?? 'PENDIENTE');
                                     
@@ -203,9 +262,15 @@ if (!empty($_GET['error'])) {
                                     <td class="text-end align-top pt-3 fw-medium text-secondary">
                                         <span class="small text-muted me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format((float) ($r['monto_total'] ?? 0), 2); ?>
                                     </td>
-                                    <td class="text-end align-top pt-3 fw-medium text-success opacity-75">
-                                        <span class="small me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format((float) ($r['monto_pagado'] ?? 0), 2); ?>
+                                    
+                                    <?php 
+                                        $montoPagado = (float) ($r['monto_pagado'] ?? 0);
+                                        $colorPagado = $montoPagado > 0 ? 'text-success opacity-75' : 'text-muted';
+                                    ?>
+                                    <td class="text-end align-top pt-3 fw-medium <?php echo $colorPagado; ?>">
+                                        <span class="small me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format($montoPagado, 2); ?>
                                     </td>
+
                                     <td class="text-end align-top pt-3 fw-bold text-danger">
                                         <span class="small text-muted me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format((float) ($r['saldo'] ?? 0), 2); ?>
                                     </td>
@@ -260,34 +325,45 @@ if (!empty($_GET['error'])) {
                 <div class="modal-body p-4 bg-light">
                     <div class="row g-3">
                         <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Proveedor <span class="text-danger">*</span></label>
-                            <select name="id_tercero" class="form-select shadow-sm border-secondary-subtle" required>
+                            <div class="d-flex justify-content-between align-items-end mb-1">
+                                <label class="form-label small text-muted fw-bold mb-0">Proveedor <span class="text-danger">*</span></label>
+                                <div id="pagoManualDeudaHint" class="small text-end mb-0 fade-in"></div>
+                            </div>
+                            <select name="id_tercero" id="pagoManualProveedor" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" selected disabled>Seleccione proveedor...</option>
                                 <?php foreach($proveedores as $prov): ?>
-                                    <option value="<?php echo (int) $prov['id']; ?>"><?php echo e((string) $prov['nombre_completo']); ?></option>
+                                    <option value="<?php echo (int) $prov['id']; ?>" data-deuda="<?php echo (float) ($prov['deuda_total'] ?? 0); ?>">
+                                        <?php echo e((string) $prov['nombre_completo']); ?>
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Moneda <span class="text-danger">*</span></label>
-                            <select name="moneda" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="" selected disabled>Seleccione moneda...</option>
-                                <option value="PEN">PEN (Soles)</option>
+                            <select name="moneda" id="pagoManualMoneda" class="form-select shadow-sm border-secondary-subtle" required>
+                                <option value="" disabled>Seleccione moneda...</option>
+                                <option value="PEN" selected>PEN (Soles)</option>
                                 <option value="USD">USD (Dólares)</option>
                             </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Monto a Pagar <span class="text-danger">*</span></label>
-                           <input type="number" step="0.01" min="0.01" name="monto" id="pagoManualMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis" required>
+                           <input type="number" step="0.01" min="0.01" name="monto" id="pagoManualMontoInput" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis" required>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Cuenta Origen <span class="text-danger">*</span></label>
                             <select name="id_cuenta" id="selectCuentaOrigenManual" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" data-saldo="0" selected disabled>Seleccione una cuenta...</option>
                                 <?php foreach ($cuentas as $cta): ?>
-                                    <option value="<?php echo $cta['id']; ?>" data-saldo="<?php echo $cta['saldo'] ?? 0; ?>">
-                                        <?php echo htmlspecialchars(($cta['codigo'] ?? '') . ' - ' . $cta['nombre'] . ' (' . ($cta['moneda'] ?? '') . ')'); ?>
-                                    </option>
+                                    <?php $tieneAdvertenciaContable = empty($cta['id_cuenta_contable']); ?>
+                                    <?php if (!$tieneAdvertenciaContable): ?>
+                                        <option 
+                                            value="<?php echo $cta['id']; ?>" 
+                                            data-saldo="<?php echo $cta['saldo'] ?? 0; ?>"
+                                            data-moneda="<?php echo e(strtoupper((string) $cta['moneda'])); ?>">
+                                            <?php echo htmlspecialchars(($cta['codigo'] ?? '') . ' - ' . $cta['nombre']); ?>
+                                        </option>
+                                    <?php endif; ?>
                                 <?php endforeach; ?>
                             </select>
                             <small id="textoSaldoDisponibleManual" class="text-primary fw-bold mt-1 d-block"></small>
@@ -356,9 +432,17 @@ if (!empty($_GET['error'])) {
                                         <select name="cuenta_origen_ids[]" class="form-select shadow-sm border-secondary-subtle js-pago-cuenta" required>
                                             <option value="" data-saldo="0" selected disabled>Cuenta origen...</option>
                                             <?php foreach ($cuentas as $cta): ?>
-                                                <option value="<?php echo $cta['id']; ?>" data-saldo="<?php echo $cta['saldo'] ?? 0; ?>">
-                                                    <?php echo htmlspecialchars(($cta['codigo'] ?? '') . ' - ' . $cta['nombre'] . ' (' . ($cta['moneda'] ?? '') . ')'); ?>
-                                                </option>
+                                                <?php $tieneAdvertenciaContable = empty($cta['id_cuenta_contable']); ?>
+                                                <?php if (!$tieneAdvertenciaContable): ?>
+                                                    <option 
+                                                        value="<?php echo $cta['id']; ?>" 
+                                                        data-saldo="<?php echo $cta['saldo'] ?? 0; ?>"
+                                                        data-tipo="<?php echo e($cta['tipo']); ?>"
+                                                        data-moneda="<?php echo e(strtoupper((string) $cta['moneda'])); ?>"
+                                                        data-tiene-advertencia="0">
+                                                        <?php echo htmlspecialchars(($cta['codigo'] ?? '') . ' - ' . $cta['nombre'] . ' (' . ($cta['moneda'] ?? '') . ')'); ?>
+                                                    </option>
+                                                <?php endif; ?>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
@@ -448,6 +532,7 @@ if (!empty($_GET['error'])) {
                                 </div>
                             </div>
                         </div>
+                        
                     </div>
                 </div>
                 <div class="modal-footer bg-light border-top-0 pt-0">
