@@ -256,8 +256,12 @@ if (!empty($_GET['error'])) {
                                     <td class="text-end align-top pt-3 fw-medium text-secondary">
                                         <span class="small text-muted me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format((float) ($r['monto_total'] ?? 0), 2); ?>
                                     </td>
-                                    <td class="text-end align-top pt-3 fw-medium text-success opacity-75">
-                                        <span class="small me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format((float) ($r['monto_pagado'] ?? 0), 2); ?>
+                                    <?php 
+                                        $montoPagado = (float) ($r['monto_pagado'] ?? 0);
+                                        $colorPagado = $montoPagado > 0 ? 'text-success opacity-75' : 'text-muted';
+                                    ?>
+                                    <td class="text-end align-top pt-3 fw-medium <?php echo $colorPagado; ?>">
+                                        <span class="small me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format($montoPagado, 2); ?>
                                     </td>
                                     <td class="text-end align-top pt-3 fw-bold text-primary">
                                         <span class="small text-muted me-1"><?php echo e($r['moneda'] ?? ''); ?></span><?php echo number_format((float) ($r['saldo'] ?? 0), 2); ?>
@@ -384,7 +388,7 @@ if (!empty($_GET['error'])) {
                 <div class="modal-footer bg-light border-top-0 d-flex flex-nowrap gap-2 p-3">
                     <button type="button" class="btn btn-outline-secondary fw-semibold w-100 m-0" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary fw-bold shadow-sm w-100 m-0">
-                        <i class="bi bi-check-circle me-2"></i>Confirmar Cobro Manual
+                        <i class="bi bi-check-circle me-2"></i>Confirmar
                     </button>
                 </div>
             </form>
