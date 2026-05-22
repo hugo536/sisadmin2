@@ -1026,7 +1026,14 @@ class TesoreriaController extends Controlador
 
     private function listarClientesActivos(): array
     {
-        $sql = 'SELECT DISTINCT t.id, t.nombre_completo
+        $sql = "SELECT DISTINCT t.id, t.nombre_completo,
+                       COALESCE((
+                           SELECT SUM(c.saldo) 
+                           FROM tesoreria_cxc c
+                           WHERE c.id_cliente = t.id 
+                             AND c.estado IN ('PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA') 
+                             AND c.deleted_at IS NULL
+                       ), 0) AS deuda_total
                 FROM terceros t
                 LEFT JOIN distribuidores d
                   ON d.id_tercero = t.id
@@ -1034,13 +1041,27 @@ class TesoreriaController extends Controlador
                 WHERE t.estado = 1
                   AND t.deleted_at IS NULL
                   AND (t.es_cliente = 1 OR d.id_tercero IS NOT NULL)
-                ORDER BY t.nombre_completo ASC';
+                ORDER BY t.nombre_completo ASC";
+                
         return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     private function listarProveedoresActivos(): array
     {
-        $sql = 'SELECT id, nombre_completo FROM terceros WHERE estado = 1 AND es_proveedor = 1 AND deleted_at IS NULL ORDER BY nombre_completo ASC';
+        $sql = "SELECT t.id, t.nombre_completo,
+                       COALESCE((
+                           SELECT SUM(p.saldo) 
+                           FROM tesoreria_cxp p
+                           WHERE p.id_proveedor = t.id 
+                             AND p.estado IN ('PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA') 
+                             AND p.deleted_at IS NULL
+                       ), 0) AS deuda_total
+                FROM terceros t
+                WHERE t.estado = 1 
+                  AND t.es_proveedor = 1 
+                  AND t.deleted_at IS NULL 
+                ORDER BY t.nombre_completo ASC";
+                
         return Conexion::get()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
@@ -1237,7 +1258,7 @@ class TesoreriaController extends Controlador
         }
         exit;
     }
-    
+
     public function ajax_obtener_deuda_tercero(): void
     {
         AuthMiddleware::handle();

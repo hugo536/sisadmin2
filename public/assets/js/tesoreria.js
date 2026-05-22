@@ -1054,7 +1054,6 @@
     // ========================================================================
     // 6. LÓGICA DE SALDOS Y LÍMITES (PAGO MANUAL ÚNICAMENTE)
     // ========================================================================
-    const modalPagoManualEl = document.getElementById('modalPagoManual');
     const selectCuentaManual = document.getElementById('selectCuentaOrigenManual');
     const textoSaldoManual = document.getElementById('textoSaldoDisponibleManual');
     const inputMontoManual = document.getElementById('pagoManualMonto');
@@ -2092,4 +2091,87 @@
             });
         }
     });
+
+    // ========================================================================
+    // --- LÓGICA PARA PAGO MANUAL CXP ---
+    // ========================================================================
+    const selectProveedorPagoManual = document.getElementById('pagoManualProveedor');
+    const selectMonedaPagoManual = document.getElementById('pagoManualMoneda');
+    const labelDeudaPagoHint = document.getElementById('pagoManualDeudaHint');
+    const inputMontoPagoManual = document.getElementById('pagoManualMontoInput');
+
+    const actualizarDeudaPagoManual = () => {
+        if (!selectProveedorPagoManual || !labelDeudaPagoHint) return;
+        
+        const idProveedor = selectProveedorPagoManual.value;
+        const moneda = selectMonedaPagoManual ? selectMonedaPagoManual.value : 'PEN';
+        
+        if (!idProveedor) {
+            labelDeudaPagoHint.innerHTML = '';
+            if (inputMontoPagoManual) inputMontoPagoManual.removeAttribute('max');
+            return;
+        }
+
+        const selectedOption = selectProveedorPagoManual.querySelector(`option[value="${idProveedor}"]`);
+        let deuda = 0;
+        
+        if (selectedOption) {
+            deuda = parseFloat(selectedOption.getAttribute('data-deuda')) || 0;
+        }
+
+        if (deuda > 0) {
+            labelDeudaPagoHint.innerHTML = `
+                <span class="text-danger fw-bold">
+                    <i class="bi bi-exclamation-circle-fill me-1"></i>Debe: ${moneda} ${deuda.toFixed(2)}
+                </span>`;
+        } else {
+            labelDeudaPagoHint.innerHTML = `
+                <span class="text-success fw-bold">
+                    <i class="bi bi-check-circle-fill me-1"></i>Al día (S/ 0.00)
+                </span>`;
+        }
+        
+        if (inputMontoPagoManual) {
+            // Descomentar si no quieres permitir pagar más de lo que debes
+            // inputMontoPagoManual.setAttribute('max', deuda); 
+            if (parseFloat(inputMontoPagoManual.value) > deuda && deuda > 0) {
+                inputMontoPagoManual.value = deuda.toFixed(2);
+            }
+        }
+    };
+
+    const modalPagoManualEl = document.getElementById('modalPagoManual');
+    
+    if (modalPagoManualEl) {
+        modalPagoManualEl.addEventListener('shown.bs.modal', function () {
+            if (!selectProveedorPagoManual.value && labelDeudaPagoHint) {
+                labelDeudaPagoHint.innerHTML = '';
+            }
+
+            // Inicialización segura del TomSelect para proveedores
+            if (selectProveedorPagoManual && typeof window.AppSelects !== 'undefined' && !selectProveedorPagoManual.tomselect) {
+                window.AppSelects.initLocal('#pagoManualProveedor', {
+                    placeholder: 'Buscar proveedor...',
+                    maxOptions: 150,
+                    dropdownParent: 'body',
+                    onChange: function(value) {
+                        actualizarDeudaPagoManual();
+                    }
+                });
+            }
+        });
+
+        modalPagoManualEl.addEventListener('hidden.bs.modal', function () {
+            if (labelDeudaPagoHint) labelDeudaPagoHint.innerHTML = '';
+            if (inputMontoPagoManual) inputMontoPagoManual.classList.remove('is-invalid');
+            
+            if (selectProveedorPagoManual && selectProveedorPagoManual.tomselect) {
+                selectProveedorPagoManual.tomselect.clear(true);
+            }
+        });
+    }
+
+    if (selectMonedaPagoManual) {
+        selectMonedaPagoManual.addEventListener('change', actualizarDeudaPagoManual);
+    }
 })();
