@@ -181,9 +181,9 @@ class VentasDespachoModel extends Modelo
                                                       updated_at = NOW()
                                                   WHERE id = :id_detalle');
 
-            $stmtStock = $db->prepare('INSERT INTO inventario_stock (id_item, id_almacen, stock_actual)
-                                       VALUES (:id_item, :id_almacen, 0)
-                                       ON DUPLICATE KEY UPDATE stock_actual = stock_actual');
+            $stmtStock = $db->prepare('INSERT INTO inventario_stock (id_item, id_almacen, stock_actual, created_by)
+                           VALUES (:id_item, :id_almacen, 0, :created_by)
+                           ON DUPLICATE KEY UPDATE stock_actual = stock_actual');
                                        
             $stmtDescuento = $db->prepare('UPDATE inventario_stock
                                            SET stock_actual = stock_actual - :cantidad,
@@ -249,7 +249,11 @@ class VentasDespachoModel extends Modelo
                             );
 
                             foreach ($distribucion as $salida) {
-                                $stmtStock->execute(['id_item' => $comp['id_item'], 'id_almacen' => $salida['id_almacen']]);
+                                $stmtStock->execute([
+                                    'id_item' => $comp['id_item'], 
+                                    'id_almacen' => $salida['id_almacen'], 
+                                    'created_by' => $userId
+                                ]);
                                 $stmtDescuento->execute([
                                     'cantidad' => $salida['cantidad'],
                                     'id_item' => $comp['id_item'],
@@ -271,7 +275,11 @@ class VentasDespachoModel extends Modelo
                             $lineasParaEnvases[] = ['id_item' => $comp['id_item'], 'cantidad' => $cantFisica, 'id_presentacion' => $lineaValida['id_presentacion']];
                         }
                     } else {
-                        $stmtStock->execute(['id_item' => $lineaValida['id_item'], 'id_almacen' => $idAlmacenFisico]);
+                        $stmtStock->execute([
+                            'id_item' => $lineaValida['id_item'], 
+                            'id_almacen' => $idAlmacenFisico, 
+                            'created_by' => $userId
+                        ]);
                         $stmtDescuento->execute(['cantidad' => $lineaValida['cantidad'], 'id_item' => $lineaValida['id_item'], 'id_almacen' => $idAlmacenFisico]);
                         
                         $stmtMov->execute([

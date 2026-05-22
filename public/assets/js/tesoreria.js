@@ -1180,45 +1180,44 @@
     };
 
     const actualizarDeudaCobroManual = () => {
-        if (!selectClienteCobroManual || !selectMonedaCobroManual || !labelDeudaManualHint) return;
+        if (!selectClienteCobroManual || !labelDeudaManualHint) return;
         
         const idTercero = selectClienteCobroManual.value;
-        const moneda = selectMonedaCobroManual.value;
+        const moneda = selectMonedaCobroManual ? selectMonedaCobroManual.value : 'PEN';
         
-        if (!idTercero || !moneda) {
-            labelDeudaManualHint.textContent = '';
+        if (!idTercero) {
+            labelDeudaManualHint.innerHTML = '';
             if (inputMontoCobroManual) inputMontoCobroManual.removeAttribute('max');
             return;
         }
 
-        labelDeudaManualHint.innerHTML = '<span class="spinner-border spinner-border-sm text-primary" style="width: 12px; height: 12px;"></span> Calculando deuda...';
+        const selectedOption = selectClienteCobroManual.querySelector(`option[value="${idTercero}"]`);
+        let deuda = 0;
+        
+        if (selectedOption) {
+            deuda = parseFloat(selectedOption.getAttribute('data-deuda')) || 0;
+        }
 
-        fetch(`?ruta=tesoreria/ajax_obtener_deuda_tercero&id_tercero=${idTercero}&moneda=${moneda}&tipo=CXC`, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.ok) {
-                const deuda = parseFloat(data.deuda);
-                if (deuda > 0) {
-                    labelDeudaManualHint.innerHTML = `<i class="bi bi-info-circle me-1"></i>Deuda pendiente: <strong>${moneda} ${deuda.toFixed(2)}</strong>`;
-                    labelDeudaManualHint.className = 'text-danger small mt-1 d-block';
-                } else {
-                    labelDeudaManualHint.innerHTML = `<i class="bi bi-check-circle me-1"></i>El cliente no tiene deuda pendiente en ${moneda}.`;
-                    labelDeudaManualHint.className = 'text-success small mt-1 d-block';
-                }
-                
-                if (inputMontoCobroManual) {
-                    inputMontoCobroManual.setAttribute('max', deuda);
-                    if (parseFloat(inputMontoCobroManual.value) > deuda) {
-                        inputMontoCobroManual.value = deuda.toFixed(2);
-                    }
-                }
+        // --- NUEVO DISEÑO COMPACTO ---
+        if (deuda > 0) {
+            // Cliente con deuda (Rojo)
+            labelDeudaManualHint.innerHTML = `
+                <span class="text-danger fw-bold">
+                    <i class="bi bi-exclamation-circle-fill me-1"></i>Debe: ${moneda} ${deuda.toFixed(2)}
+                </span>`;
+        } else {
+            // Cliente sin deuda (Verde)
+            labelDeudaManualHint.innerHTML = `
+                <span class="text-success fw-bold">
+                    <i class="bi bi-check-circle-fill me-1"></i>Al día (S/ 0.00)
+                </span>`;
+        }
+        
+        if (inputMontoCobroManual) {
+            if (parseFloat(inputMontoCobroManual.value) > deuda && deuda > 0) {
+                inputMontoCobroManual.value = deuda.toFixed(2);
             }
-        })
-        .catch(() => {
-            labelDeudaManualHint.textContent = '';
-        });
+        }
     };
 
     if (selectClienteCobroManual && typeof TomSelect !== 'undefined' && !selectClienteCobroManual.tomselect) {
@@ -1239,6 +1238,8 @@
         });
     }
 
+    // (Mantén tus funciones filtrarCuentasCobroManualPorMoneda y actualizarDeudaCobroManual intactas arriba de esto)
+
     if (selectMonedaCobroManual && selectCuentaCobroManual) {
         selectMonedaCobroManual.addEventListener('change', () => {
             filtrarCuentasCobroManualPorMoneda();
@@ -1247,17 +1248,35 @@
         filtrarCuentasCobroManualPorMoneda();
     }
 
+    // 👇 REEMPLAZA LA INICIALIZACIÓN CON ESTE BLOQUE 👇
     if (modalCobroManualEl) {
         modalCobroManualEl.addEventListener('shown.bs.modal', function () {
             filtrarCuentasCobroManualPorMoneda();
             if (!selectClienteCobroManual.value && labelDeudaManualHint) {
-                labelDeudaManualHint.textContent = '';
+                labelDeudaManualHint.innerHTML = '';
+            }
+
+            // 🚀 INICIALIZACIÓN SEGURA: Se ejecuta solo cuando el modal ya es visible y las librerías existen
+            if (selectClienteCobroManual && typeof window.AppSelects !== 'undefined' && !selectClienteCobroManual.tomselect) {
+                window.AppSelects.initLocal('#cobroManualCliente', {
+                    placeholder: 'Buscar cliente o distribuidor...',
+                    maxOptions: 150,
+                    dropdownParent: 'body', // VITAL: Evita que el dropdown se corte o se esconda dentro del modal
+                    onChange: function(value) {
+                        actualizarDeudaCobroManual();
+                    }
+                });
             }
         });
         
         modalCobroManualEl.addEventListener('hidden.bs.modal', function () {
-            if (labelDeudaManualHint) labelDeudaManualHint.textContent = '';
+            if (labelDeudaManualHint) labelDeudaManualHint.innerHTML = '';
             if (inputMontoCobroManual) inputMontoCobroManual.classList.remove('is-invalid');
+            
+            // Limpiamos el buscador al cerrar el modal para que esté listo la próxima vez
+            if (selectClienteCobroManual && selectClienteCobroManual.tomselect) {
+                selectClienteCobroManual.tomselect.clear(true);
+            }
         });
     }
 

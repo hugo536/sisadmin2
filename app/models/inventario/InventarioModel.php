@@ -555,10 +555,9 @@ class InventarioModel extends Modelo
 
             if ($esEntrada || $esTransferencia) {
                 if ($esPack) {
-                    $this->ajustarStockPack($db, $idRegistro, $idAlmacenDestino, $cantidad);
+                    $this->ajustarStockPack($db, $idRegistro, $idAlmacenDestino, $cantidad, $createdBy);
                 } else {
-                    $this->ajustarStock($db, $idRegistro, $idAlmacenDestino, $cantidad);
-                    
+                    $this->ajustarStock($db, $idRegistro, $idAlmacenDestino, $cantidad, $createdBy);
                     if ($esTransferencia && $lote !== '' && $fechaVencimiento === '') {
                         $fechaVencimiento = $this->obtenerVencimientoLote($db, $idRegistro, $idAlmacenOrigen, $lote);
                     }
@@ -1115,10 +1114,10 @@ class InventarioModel extends Modelo
         return implode(' | ', $partes);
     }
 
-    private function ajustarStock(PDO $db, int $idItem, int $idAlmacen, float $delta): void
+    private function ajustarStock(PDO $db, int $idItem, int $idAlmacen, float $delta, int $createdBy = 0): void
     {
-        $sql = 'INSERT INTO inventario_stock (id_item, id_almacen, stock_actual)
-                VALUES (:id_item, :id_almacen, :stock_actual)
+        $sql = 'INSERT INTO inventario_stock (id_item, id_almacen, stock_actual, created_by)
+                VALUES (:id_item, :id_almacen, :stock_actual, :created_by)
                 ON DUPLICATE KEY UPDATE stock_actual = stock_actual + VALUES(stock_actual)';
 
         $stmt = $db->prepare($sql);
@@ -1126,13 +1125,14 @@ class InventarioModel extends Modelo
             'id_item' => $idItem,
             'id_almacen' => $idAlmacen,
             'stock_actual' => $delta,
+            'created_by' => $createdBy,
         ]);
     }
 
-    private function ajustarStockPack(PDO $db, int $idPack, int $idAlmacen, float $delta): void
+    private function ajustarStockPack(PDO $db, int $idPack, int $idAlmacen, float $delta, int $createdBy = 0): void
     {
-        $sql = 'INSERT INTO inventario_stock (id_pack, id_almacen, stock_actual)
-                VALUES (:id_pack, :id_almacen, :stock_actual)
+        $sql = 'INSERT INTO inventario_stock (id_pack, id_almacen, stock_actual, created_by)
+                VALUES (:id_pack, :id_almacen, :stock_actual, :created_by)
                 ON DUPLICATE KEY UPDATE stock_actual = stock_actual + VALUES(stock_actual)';
 
         $stmt = $db->prepare($sql);
@@ -1140,6 +1140,7 @@ class InventarioModel extends Modelo
             'id_pack' => $idPack,
             'id_almacen' => $idAlmacen,
             'stock_actual' => $delta,
+            'created_by' => $createdBy,
         ]);
     }
 
@@ -1490,8 +1491,8 @@ class InventarioModel extends Modelo
             $stmtUpd = $db->prepare("UPDATE inventario_stock SET costo_promedio = ? WHERE id_item = ? AND id_almacen = ?");
             $stmtUpd->execute([$nuevoPromedio, $idItem, $idAlmacen]);
         } else {
-            // Si el ítem nunca había estado en este almacén, creamos la fila (el stock se sumará luego en ajustarStock)
-            $stmtIns = $db->prepare("INSERT INTO inventario_stock (id_item, id_almacen, stock_actual, costo_promedio) VALUES (?, ?, 0, ?)");
+            // Pasamos 0 como created_by para evitar el error 1364 (o modifica la firma de procesarCostosIngreso para recibir el ID del usuario real)
+            $stmtIns = $db->prepare("INSERT INTO inventario_stock (id_item, id_almacen, stock_actual, costo_promedio, created_by) VALUES (?, ?, 0, ?, 0)");
             $stmtIns->execute([$idItem, $idAlmacen, $nuevoPromedio]);
         }
 

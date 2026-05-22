@@ -314,14 +314,19 @@ if (!empty($_GET['error'])) {
                 <div class="modal-body p-4 bg-light">
                     <div class="row g-3">
                         <div class="col-md-12">
-                            <label class="form-label small text-muted fw-bold mb-1">Cliente <span class="text-danger">*</span></label>
+                            <div class="d-flex justify-content-between align-items-end mb-1">
+                                <label class="form-label small text-muted fw-bold mb-0">Cliente <span class="text-danger">*</span></label>
+                                <div id="cobroManualDeudaHint" class="small text-end mb-0 fade-in"></div>
+                            </div>
+                            
                             <select name="id_tercero" id="cobroManualCliente" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" selected disabled>Seleccione un cliente...</option>
                                 <?php foreach($clientes as $cli): ?>
-                                    <option value="<?php echo (int) $cli['id']; ?>"><?php echo e((string) $cli['nombre_completo']); ?></option>
+                                    <option value="<?php echo (int) $cli['id']; ?>" data-deuda="<?php echo (float) ($cli['deuda_total'] ?? 0); ?>">
+                                        <?php echo e((string) $cli['nombre_completo']); ?>
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
-                            <small id="cobroManualDeudaHint" class="mt-1 d-block"></small> 
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Moneda <span class="text-danger">*</span></label>
