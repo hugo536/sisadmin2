@@ -81,12 +81,6 @@ if (!empty($_GET['error'])) {
             <p class="text-muted small mb-0 ms-1">Control de saldos por cliente y registro de cobros.</p>
         </div>
         <div class="d-flex gap-2 justify-content-end align-items-center flex-nowrap">
-            <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
-                <i class="bi bi-bank me-2 text-primary"></i>Ir a Cuentas
-            </a>
-            <a href="<?php echo e(route_url('tesoreria/movimientos')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
-                <i class="bi bi-clock-history me-2 text-info"></i>Historial Global
-            </a>
             <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bar-chart-line me-2 text-primary"></i>Reportes
             </a>
