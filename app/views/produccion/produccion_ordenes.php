@@ -493,7 +493,8 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 
 <div class="modal fade" id="modalEjecutarOP" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
+        
+        <form method="post" id="formEjecutarOrden" class="modal-content border-0 shadow-lg">
             
             <div class="modal-header bg-success text-white border-bottom-0">
                 <h5 class="modal-title fw-bold">
@@ -504,14 +505,13 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             
-            <form method="post" id="formEjecutarOrden">
-                <input type="hidden" name="accion" value="ejecutar_orden">
-                <input type="hidden" name="id_orden" id="execIdOrden">
-                <input type="hidden" id="execReqLote">
-                <input type="hidden" id="execReqVenc">
-                <input type="hidden" id="execUnidad">
+            <input type="hidden" name="accion" value="ejecutar_orden">
+            <input type="hidden" name="id_orden" id="execIdOrden">
+            <input type="hidden" id="execReqLote">
+            <input type="hidden" id="execReqVenc">
+            <input type="hidden" id="execUnidad">
 
-                <div class="modal-body p-4 bg-light">
+            <div class="modal-body p-4 bg-light">
                     
                     <div class="card border-0 shadow-sm mb-3">
                         <div class="card-header bg-white border-bottom-0 pt-2 pb-0 d-flex justify-content-between align-items-center">
@@ -662,12 +662,11 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                     </div>
                     </div>
 
-                <div class="modal-footer bg-white border-top shadow-sm">
-                    <button type="button" class="btn btn-light border fw-semibold px-4" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success fw-bold px-5"><i class="bi bi-check-circle-fill me-2 op-modal-icon"></i>Guardar y Ejecutar</button>
-                </div>
-            </form>
-        </div>
+                    <div class="modal-footer bg-white border-top shadow-sm">
+                        <button type="button" class="btn btn-light border fw-semibold px-4" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success fw-bold px-5"><i class="bi bi-check-circle-fill me-2 op-modal-icon"></i>Guardar y Ejecutar</button>
+                    </div>
+            </form> </div>
     </div>
 </div>
 
@@ -766,4 +765,4 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <?php foreach ($almacenes as $a): ?>
         <option value="<?php echo (int) $a['id']; ?>"><?php echo e((string) $a['nombre']); ?></option>
     <?php endforeach; ?>
-</template>
+</template><div class="modal fade" id="modalEjecutarOP" tabindex="-1" aria-hidden
