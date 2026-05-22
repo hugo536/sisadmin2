@@ -81,6 +81,7 @@ if (!empty($_GET['error'])) {
             </h1>
             <p class="text-muted small mb-0 ms-1">Control de saldos por proveedor y registro de pagos.</p>
         </div>
+        <div class="d-flex gap-2 flex-wrap justify-content-end">
         <div class="d-flex gap-2 flex-wrap justify-content-end align-items-center">
             <a href="<?php echo e(route_url('tesoreria/cuentas')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bank me-2 text-warning"></i>Ir a Cuentas
