@@ -7,6 +7,7 @@ require_once BASE_PATH . '/app/models/gastos/GastoConceptoModel.php';
 require_once BASE_PATH . '/app/models/gastos/GastoRegistroModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
 require_once BASE_PATH . '/app/models/gastos/GastoProveedorModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
 
 class GastosController extends Controlador
 {
@@ -148,17 +149,8 @@ class GastosController extends Controlador
             'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
         ];
 
-        // DATOS DE PRUEBA: Luego los cambias por $this->cuentaModel->listarActivos()
-        $cuentas = [
-            ['id' => 1, 'nombre' => 'Caja Principal'],
-            ['id' => 2, 'nombre' => 'BCP - Cuenta Corriente']
-        ]; 
-        
-        $metodos = [
-            ['id' => 1, 'nombre' => 'Efectivo'],
-            ['id' => 2, 'nombre' => 'Transferencia'],
-            ['id' => 3, 'nombre' => 'Yape / Plin']
-        ]; 
+        // 👇 ADIÓS DATOS DE PRUEBA, HOLA DATOS REALES 👇
+        $tesoreriaModel = new TesoreriaCxcModel();
 
         $this->render('gastos/registro_gastos', [
             'ruta_actual' => 'gastos/registros',
@@ -167,8 +159,8 @@ class GastosController extends Controlador
             'conceptos' => $this->conceptoModel->listarActivos(),
             'centrosCosto' => $this->centroCostoModel->listarActivos(),
             'filtros' => $filtros,
-            'cuentas' => $cuentas,
-            'metodos' => $metodos,
+            'cuentas' => $tesoreriaModel->obtenerCuentasActivas(),
+            'metodos' => $tesoreriaModel->obtenerMetodosActivos(),
         ]);
     }
 

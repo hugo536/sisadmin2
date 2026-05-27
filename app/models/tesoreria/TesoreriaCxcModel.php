@@ -230,10 +230,10 @@ class TesoreriaCxcModel extends Modelo
         $this->recalcularEstado($idCxc, $userId);
     }
 
-    // --- FUNCIONES PARA TRAER DATOS AL COBRO INMEDIATO DE VENTAS ---
     public function obtenerCuentasActivas(): array
     {
-        $stmt = $this->db()->query('SELECT id, nombre, moneda FROM tesoreria_cuentas WHERE estado = 1 AND deleted_at IS NULL');
+        // 👇 AQUÍ AGREGAMOS "metodos_pago" AL SELECT 👇
+        $stmt = $this->db()->query('SELECT id, nombre, moneda, metodos_pago FROM tesoreria_cuentas WHERE estado = 1 AND deleted_at IS NULL');
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 

@@ -309,7 +309,7 @@ class TesoreriaCxpModel extends Modelo
 
         // 2. Registrar el Egreso en Tesorería (Salida de dinero de caja/bancos)
         $stmtMov = $db->prepare('INSERT INTO tesoreria_movimientos 
-            (id_cuenta, id_metodo, id_tercero, tipo, monto, moneda, fecha, observacion, estado, created_by, updated_by, created_at, updated_at) 
+            (id_cuenta, id_metodo_pago, id_tercero, tipo, monto, moneda, fecha, observaciones, estado, created_by, updated_by, created_at, updated_at) 
             VALUES 
             (:id_cuenta, :id_metodo, :id_tercero, "EGRESO", :monto, :moneda, :fecha, :observacion, 1, :user, :user, NOW(), NOW())');
             

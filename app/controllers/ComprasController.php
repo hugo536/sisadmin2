@@ -9,6 +9,7 @@ require_once BASE_PATH . '/app/controllers/PermisosController.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxpModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
 require_once BASE_PATH . '/app/models/comercial/ListaPrecioModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
 
 class ComprasController extends Controlador
 {
@@ -146,14 +147,17 @@ class ComprasController extends Controlador
         }
 
         // Renderizar Vista
+        // Renderizar Vista
         $this->render('compras', [
-            'ruta_actual' => 'compras',
-            'ordenes' => $this->ordenModel->listar($filtros), // Carga inicial
-            'filtros' => $filtros,
-            'proveedores' => $this->ordenModel->listarProveedoresActivos(),
-            'items' => $this->ordenModel->listarItemsActivos(),
-            'almacenes' => $this->recepcionModel->listarAlmacenesActivos(),
+            'ruta_actual'   => 'compras',
+            'ordenes'       => $this->ordenModel->listar($filtros), // Carga inicial
+            'filtros'       => $filtros,
+            'proveedores'   => $this->ordenModel->listarProveedoresActivos(),
+            'items'         => $this->ordenModel->listarItemsActivos(),
+            'almacenes'     => $this->recepcionModel->listarAlmacenesActivos(),
             'centros_costo' => $this->centroCostoModel->listar(),
+            'cuentas'       => (new TesoreriaCxcModel())->obtenerCuentasActivas(),
+            'metodos'       => (new TesoreriaCxcModel())->obtenerMetodosActivos(),
         ]);
     }
 

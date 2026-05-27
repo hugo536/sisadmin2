@@ -231,59 +231,92 @@
         if (!selectCuenta || !selectMetodo) return;
 
         const idCuentaSeleccionada = parseInt(selectCuenta.value);
+        const valorPrevio = selectMetodo.value; 
         
-        // Si no hay cuenta, bloqueamos el select o mostramos todo (mejor mostrar todo por defecto)
+        // 1. Limpiamos el select desde cero
+        selectMetodo.innerHTML = '<option value="" selected disabled>Método...</option>';
+
+        // 2. CONVERSIÓN SEGURA: Si PHP envió un Objeto en vez de Array, lo arreglamos
+        const arrayCuentas = Array.isArray(window.TESORERIA_CUENTAS) 
+                             ? window.TESORERIA_CUENTAS 
+                             : Object.values(window.TESORERIA_CUENTAS || {});
+
+        const arrayMetodos = Array.isArray(window.TESORERIA_METODOS)
+                             ? window.TESORERIA_METODOS
+                             : Object.values(window.TESORERIA_METODOS || {});
+
+        // Si no hay cuenta seleccionada, mostramos todos los métodos
         if (!idCuentaSeleccionada) {
-            Array.from(selectMetodo.options).forEach(opt => {
-                opt.hidden = false;
-                opt.disabled = false;
+            arrayMetodos.forEach(m => {
+                selectMetodo.insertAdjacentHTML('beforeend', `<option value="${m.id}">${m.nombre}</option>`);
             });
             return;
         }
 
-        const cuentaObj = window.TESORERIA_CUENTAS.find(c => parseInt(c.id) === idCuentaSeleccionada);
+        const cuentaObj = arrayCuentas.find(c => parseInt(c.id) === idCuentaSeleccionada);
         if (!cuentaObj) return;
 
+        // 3. EXTRACCIÓN SÚPER SEGURA DEL JSON
         let metodosPermitidos = [];
-        try {
-            if (Array.isArray(cuentaObj.metodos_pago)) {
-                metodosPermitidos = cuentaObj.metodos_pago;
-            } else {
-                metodosPermitidos = cuentaObj.metodos_pago ? JSON.parse(cuentaObj.metodos_pago) : [];
+        let tieneFiltro = false; // Bandera para saber si la BD realmente nos mandó métodos
+
+        // Capturamos el valor crudo que viene de la BD
+        let rawMetodos = cuentaObj.metodos_pago;
+
+        // 👇 LA MAGIA: Si el valor es null, vacío o "null", forzamos a que el filtro bloquee todo
+        if (rawMetodos === null || rawMetodos === "" || rawMetodos === "null" || rawMetodos === "[]") {
+            tieneFiltro = true;       // SÍ hay filtro activo
+            metodosPermitidos = [];   // Hay 0 permitidos
+        } 
+        else if (rawMetodos !== undefined) {
+            try {
+                let parsed = rawMetodos;
+                // Si viene como string, lo parseamos. Usamos un while por si viene doblemente escapado (ej: '"[\\"Efectivo\\"]"')
+                while(typeof parsed === 'string') {
+                    parsed = JSON.parse(parsed);
+                }
+                
+                if (Array.isArray(parsed)) {
+                    metodosPermitidos = parsed;
+                    tieneFiltro = true;
+                }
+            } catch (e) {
+                console.error("No se pudo parsear el JSON de métodos:", rawMetodos);
             }
-        } catch (e) {
-            console.error("Error al parsear métodos de pago", e);
         }
 
-        // Pasamos todo a minúsculas para que no falle si en BD está como "EFECTIVO" y aquí "Efectivo"
+        // Pasamos a minúsculas para evitar errores entre "Efectivo" y "EFECTIVO"
         const permitidosNormalizados = metodosPermitidos.map(m => String(m).trim().toLowerCase());
-        let primeraOpcionValida = null;
+        
+        let primerValido = null;
+        let encontroPrevio = false;
 
-        Array.from(selectMetodo.options).forEach(opt => {
-            if (opt.value === "") {
-                opt.hidden = false;
-                opt.disabled = false;
-                return;
-            }
-
-            const nombreMetodoDB = opt.text.trim().toLowerCase();
+        // 4. Reconstruimos SOLO las opciones válidas
+        arrayMetodos.forEach(m => {
+            const nombreDB = String(m.nombre).trim().toLowerCase();
             
-            // Validamos si el nombre del método devuelto por la BD está dentro de nuestro Array JSON permitido
-            const esValido = permitidosNormalizados.some(permitido => 
-                nombreMetodoDB.includes(permitido) || permitido.includes(nombreMetodoDB)
-            );
+            // Si la BD nos mandó filtros (tieneFiltro = true), evaluamos. Si no, lo damos por válido como salvavidas.
+            const esValido = !tieneFiltro || permitidosNormalizados.some(p => nombreDB.includes(p) || p.includes(nombreDB));
 
-            opt.hidden = !esValido;
-            opt.disabled = !esValido;
+            if (esValido) {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                opt.textContent = m.nombre;
+                selectMetodo.appendChild(opt);
 
-            if (esValido && !primeraOpcionValida) {
-                primeraOpcionValida = opt.value;
+                if (!primerValido) primerValido = m.id;
+                if (String(m.id) === String(valorPrevio)) encontroPrevio = true;
             }
         });
 
-        // Autoseleccionar la primera opción válida si la actual se ocultó
-        if (selectMetodo.selectedOptions.length > 0 && selectMetodo.selectedOptions[0].disabled) {
-            selectMetodo.value = primeraOpcionValida || '';
+        // 5. SALVAVIDAS ACTUALIZADO: 
+        // Si el filtro ocultó absolutamente todo, NO restauramos las opciones, avisamos al usuario.
+        if (selectMetodo.options.length <= 1) {
+            selectMetodo.innerHTML = '<option value="" selected disabled>Sin métodos configurados</option>';
+        } else {
+            // Mantenemos la selección o auto-seleccionamos el primero válido
+            if (encontroPrevio) selectMetodo.value = valorPrevio;
+            else if (primerValido) selectMetodo.value = primerValido;
         }
     }
     // ==============================================================
@@ -359,6 +392,10 @@
     function actualizarBloqueoFormularioPorCliente() {
         const bloquearControlesVenta = bloqueoEdicionVenta || !clienteSeleccionado();
         const esDonacion = tipoOperacion && tipoOperacion.value === 'DONACION';
+        
+        // NUEVO: Leemos el total actual para tomar decisiones
+        const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
+        const totalActual = parseFloat(totalTexto) || 0;
 
         const btnAgregarFilaVenta = document.getElementById('btnAgregarFilaVenta');
         const btnGuardarVenta = document.getElementById('btnGuardarVenta');
@@ -371,11 +408,15 @@
         }
 
         if (switchCobroInmediato) {
-            switchCobroInmediato.disabled = bloquearControlesVenta || esDonacion;
-            if (bloquearControlesVenta || esDonacion) switchCobroInmediato.checked = false;
+            // MAGIA UX: El switch se bloquea si no hay cliente, es donación, o el total es 0
+            const bloquearSwitch = bloquearControlesVenta || esDonacion || totalActual <= 0;
+            switchCobroInmediato.disabled = bloquearSwitch;
+            if (bloquearSwitch) {
+                switchCobroInmediato.checked = false;
+            }
         }
 
-        if (seccionCobroInmediato && (bloquearControlesVenta || esDonacion)) {
+        if (seccionCobroInmediato && (bloquearControlesVenta || esDonacion || totalActual <= 0)) {
             seccionCobroInmediato.classList.add('d-none');
             if (esDonacion && contenedorMetodosPago) contenedorMetodosPago.innerHTML = '';
         }
@@ -401,7 +442,9 @@
     function calcularTotalCobroInmediato() {
         if (!contenedorMetodosPago) return;
         let total = 0;
-        contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato').forEach(fila => {
+        const filas = contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato');
+        
+        filas.forEach(fila => {
             const monto = parseFloat(fila.querySelector('.input-monto-inmediato').value) || 0;
             total += monto;
         });
@@ -411,12 +454,22 @@
             const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
             const totalPedido = parseFloat(totalTexto) || 0;
 
-            if (total > totalPedido) {
-                totalPagadoInmediato.className = 'fw-bold fs-5 text-danger'; 
-            } else if (total === totalPedido && total > 0) {
-                totalPagadoInmediato.className = 'fw-bold fs-5 text-success';
+            if (total > totalPedido) totalPagadoInmediato.className = 'fw-bold fs-5 text-danger'; 
+            else if (total === totalPedido && total > 0) totalPagadoInmediato.className = 'fw-bold fs-5 text-success';
+            else totalPagadoInmediato.className = 'fw-bold fs-5 text-dark';
+        }
+
+        // Validación del botón "Añadir otro método"
+        if (btnAgregarPagoInmediato) {
+            if (filas.length === 0) {
+                btnAgregarPagoInmediato.disabled = false;
             } else {
-                totalPagadoInmediato.className = 'fw-bold fs-5 text-dark';
+                const ultimaFila = filas[filas.length - 1];
+                const cuenta = ultimaFila.querySelector('.select-cuenta-inmediato').value;
+                const metodo = ultimaFila.querySelector('.select-metodo-inmediato').value;
+                const monto = parseFloat(ultimaFila.querySelector('.input-monto-inmediato').value) || 0;
+                
+                btnAgregarPagoInmediato.disabled = !(cuenta && metodo && monto > 0);
             }
         }
     }
@@ -427,13 +480,12 @@
         let opcionesCuentas = '<option value="" selected disabled>Cuenta Destino...</option>';
         cuentasDisponibles.forEach(c => { opcionesCuentas += `<option value="${c.id}">${c.nombre} (${c.moneda})</option>`; });
 
-        let opcionesMetodos = '<option value="" selected disabled>Método...</option>';
-        metodosDisponibles.forEach(m => { opcionesMetodos += `<option value="${m.id}">${m.nombre}</option>`; });
-
         const numFilas = contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato').length;
 
         const div = document.createElement('div');
         div.className = 'd-flex flex-column flex-sm-row gap-2 align-items-start align-items-sm-center bg-white p-2 rounded border border-success-subtle fila-pago-inmediato';
+        
+        // Fíjate en los atributos "disabled" y "readonly" iniciales
         div.innerHTML = `
             <div class="w-100">
                 <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-cuenta-inmediato" required>
@@ -441,14 +493,14 @@
                 </select>
             </div>
             <div class="w-100">
-                <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-metodo-inmediato" required>
-                    ${opcionesMetodos}
+                <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-metodo-inmediato" required disabled>
+                    <option value="" selected disabled>Método...</option>
                 </select>
             </div>
             <div class="w-100 d-flex gap-2 align-items-center">
                 <div class="input-group input-group-sm w-100">
                     <span class="input-group-text bg-light text-muted fw-semibold border-secondary-subtle">S/</span>
-                    <input type="number" class="form-control text-end text-success fw-bold border-secondary-subtle input-monto-inmediato" min="0" step="0.01" placeholder="0.00" value="${montoSugerido}" required>
+                    <input type="number" class="form-control text-end text-success fw-bold border-secondary-subtle input-monto-inmediato" min="0" step="0.01" placeholder="0.00" value="${montoSugerido}" required readonly>
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-quitar-pago ${numFilas === 0 ? 'd-none' : ''} px-2" title="Quitar pago"><i class="bi bi-trash"></i></button>
             </div>
@@ -456,21 +508,37 @@
 
         contenedorMetodosPago.appendChild(div);
 
-        div.querySelector('.input-monto-inmediato').addEventListener('input', calcularTotalCobroInmediato);
-        div.querySelector('.btn-quitar-pago').addEventListener('click', () => {
+        const selCuentaInmediato = div.querySelector('.select-cuenta-inmediato');
+        const selMetodoInmediato = div.querySelector('.select-metodo-inmediato');
+        const inputMontoInmediato = div.querySelector('.input-monto-inmediato');
+        const btnQuitar = div.querySelector('.btn-quitar-pago');
+
+        selCuentaInmediato.addEventListener('change', () => {
+            filtrarMetodosPorCuentaVentas(selCuentaInmediato, selMetodoInmediato);
+            selMetodoInmediato.disabled = !selCuentaInmediato.value;
+            selMetodoInmediato.value = '';
+            inputMontoInmediato.readOnly = true;
+            calcularTotalCobroInmediato();
+        });
+
+        selMetodoInmediato.addEventListener('change', () => {
+            inputMontoInmediato.readOnly = !selMetodoInmediato.value;
+            if (selMetodoInmediato.value && !inputMontoInmediato.value) {
+                inputMontoInmediato.focus();
+            }
+            calcularTotalCobroInmediato();
+        });
+
+        inputMontoInmediato.addEventListener('input', calcularTotalCobroInmediato);
+        
+        btnQuitar.addEventListener('click', () => {
             div.remove();
             const filasRestantes = contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato');
             if (filasRestantes.length === 1) filasRestantes[0].querySelector('.btn-quitar-pago').classList.add('d-none');
             calcularTotalCobroInmediato();
         });
+
         calcularTotalCobroInmediato();
-
-        // AQUÍ CONECTAMOS LA MAGIA DE LA OPCIÓN B
-        const selCuentaInmediato = div.querySelector('.select-cuenta-inmediato');
-        const selMetodoInmediato = div.querySelector('.select-metodo-inmediato');
-        selCuentaInmediato.addEventListener('change', () => filtrarMetodosPorCuentaVentas(selCuentaInmediato, selMetodoInmediato));
-        filtrarMetodosPorCuentaVentas(selCuentaInmediato, selMetodoInmediato); // Disparo inicial
-
         return div;
     }
 
@@ -546,11 +614,20 @@
     }
 
     switchCobroInmediato?.addEventListener('change', (e) => {
+        const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
+        const totalNumerico = parseFloat(totalTexto) || 0;
+
+        // DOBLE BLINDAJE: Si lograron hacer click pero el total es 0, apagamos y abortamos.
+        if (e.target.checked && totalNumerico <= 0) {
+            e.target.checked = false;
+            seccionCobroInmediato.classList.add('d-none');
+            contenedorMetodosPago.innerHTML = '';
+            return;
+        }
+
         if (e.target.checked) {
             seccionCobroInmediato.classList.remove('d-none');
             contenedorMetodosPago.innerHTML = '';
-            const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
-            const totalNumerico = parseFloat(totalTexto) || 0;
             agregarFilaPagoInmediato(totalNumerico > 0 ? totalNumerico.toFixed(2) : '');
         } else {
             seccionCobroInmediato.classList.add('d-none');
@@ -581,7 +658,9 @@
     function calcularTotalCobroDespacho() {
         if (!contenedorMetodosPagoDespacho) return;
         let total = 0;
-        contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho').forEach(fila => {
+        const filas = contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho');
+        
+        filas.forEach(fila => {
             const monto = parseFloat(fila.querySelector('.input-monto-despacho').value) || 0;
             total += monto;
         });
@@ -589,12 +668,22 @@
         if (totalPagadoDespacho) {
             totalPagadoDespacho.textContent = `S/ ${total.toFixed(2)}`;
             
-            if (total > totalPendienteDespacho) {
-                totalPagadoDespacho.className = 'fw-bold fs-5 text-danger';
-            } else if (total === totalPendienteDespacho && total > 0) {
-                totalPagadoDespacho.className = 'fw-bold fs-5 text-success';
+            if (total > totalPendienteDespacho) totalPagadoDespacho.className = 'fw-bold fs-5 text-danger';
+            else if (total === totalPendienteDespacho && total > 0) totalPagadoDespacho.className = 'fw-bold fs-5 text-success';
+            else totalPagadoDespacho.className = 'fw-bold fs-5 text-dark';
+        }
+
+        // Validación del botón "Añadir otro método" en despacho
+        if (btnAgregarPagoDespacho) {
+            if (filas.length === 0) {
+                btnAgregarPagoDespacho.disabled = false;
             } else {
-                totalPagadoDespacho.className = 'fw-bold fs-5 text-dark';
+                const ultimaFila = filas[filas.length - 1];
+                const cuenta = ultimaFila.querySelector('.select-cuenta-despacho').value;
+                const metodo = ultimaFila.querySelector('.select-metodo-despacho').value;
+                const monto = parseFloat(ultimaFila.querySelector('.input-monto-despacho').value) || 0;
+                
+                btnAgregarPagoDespacho.disabled = !(cuenta && metodo && monto > 0);
             }
         }
     }
@@ -605,13 +694,11 @@
         let opcionesCuentas = '<option value="" selected disabled>Cuenta Destino...</option>';
         cuentasDisponibles.forEach(c => { opcionesCuentas += `<option value="${c.id}">${c.nombre} (${c.moneda})</option>`; });
 
-        let opcionesMetodos = '<option value="" selected disabled>Método...</option>';
-        metodosDisponibles.forEach(m => { opcionesMetodos += `<option value="${m.id}">${m.nombre}</option>`; });
-
         const numFilas = contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho').length;
 
         const div = document.createElement('div');
         div.className = 'd-flex flex-column flex-sm-row gap-2 align-items-start align-items-sm-center bg-white p-2 rounded border border-success-subtle fila-pago-despacho';
+        
         div.innerHTML = `
             <div class="w-100">
                 <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-cuenta-despacho" required>
@@ -619,14 +706,14 @@
                 </select>
             </div>
             <div class="w-100">
-                <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-metodo-despacho" required>
-                    ${opcionesMetodos}
+                <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-metodo-despacho" required disabled>
+                    <option value="" selected disabled>Método...</option>
                 </select>
             </div>
             <div class="w-100 d-flex gap-2 align-items-center">
                 <div class="input-group input-group-sm w-100">
                     <span class="input-group-text bg-light text-muted fw-semibold border-secondary-subtle">S/</span>
-                    <input type="number" class="form-control text-end text-success fw-bold border-secondary-subtle input-monto-despacho" min="0" step="0.01" placeholder="0.00" value="${montoSugerido}" required>
+                    <input type="number" class="form-control text-end text-success fw-bold border-secondary-subtle input-monto-despacho" min="0" step="0.01" placeholder="0.00" value="${montoSugerido}" required readonly>
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-quitar-pago-despacho ${numFilas === 0 ? 'd-none' : ''} px-2" title="Quitar pago"><i class="bi bi-trash"></i></button>
             </div>
@@ -634,21 +721,37 @@
 
         contenedorMetodosPagoDespacho.appendChild(div);
 
-        div.querySelector('.input-monto-despacho').addEventListener('input', calcularTotalCobroDespacho);
-        div.querySelector('.btn-quitar-pago-despacho').addEventListener('click', () => {
+        const selCuentaDespacho = div.querySelector('.select-cuenta-despacho');
+        const selMetodoDespacho = div.querySelector('.select-metodo-despacho');
+        const inputMontoDespacho = div.querySelector('.input-monto-despacho');
+        const btnQuitar = div.querySelector('.btn-quitar-pago-despacho');
+
+        selCuentaDespacho.addEventListener('change', () => {
+            filtrarMetodosPorCuentaVentas(selCuentaDespacho, selMetodoDespacho);
+            selMetodoDespacho.disabled = !selCuentaDespacho.value;
+            selMetodoDespacho.value = '';
+            inputMontoDespacho.readOnly = true;
+            calcularTotalCobroDespacho();
+        });
+
+        selMetodoDespacho.addEventListener('change', () => {
+            inputMontoDespacho.readOnly = !selMetodoDespacho.value;
+            if (selMetodoDespacho.value && !inputMontoDespacho.value) {
+                inputMontoDespacho.focus();
+            }
+            calcularTotalCobroDespacho();
+        });
+
+        inputMontoDespacho.addEventListener('input', calcularTotalCobroDespacho);
+        
+        btnQuitar.addEventListener('click', () => {
             div.remove();
             const filasRestantes = contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho');
             if (filasRestantes.length === 1) filasRestantes[0].querySelector('.btn-quitar-pago-despacho').classList.add('d-none');
             calcularTotalCobroDespacho();
         });
+
         calcularTotalCobroDespacho();
-
-        // AQUÍ CONECTAMOS LA MAGIA DE LA OPCIÓN B TAMBIÉN EN EL DESPACHO
-        const selCuentaDespacho = div.querySelector('.select-cuenta-despacho');
-        const selMetodoDespacho = div.querySelector('.select-metodo-despacho');
-        selCuentaDespacho.addEventListener('change', () => filtrarMetodosPorCuentaVentas(selCuentaDespacho, selMetodoDespacho));
-        filtrarMetodosPorCuentaVentas(selCuentaDespacho, selMetodoDespacho);
-
         return div;
     }
 
@@ -834,6 +937,25 @@
         if (ventaTotal) ventaTotal.textContent = esDonacion ? 'S/ 0.00 (GRATUITO)' : `S/ ${total.toFixed(2)}`;
         
         if (ventaPesoTotal) ventaPesoTotal.textContent = `${pesoTotalKg.toFixed(3)} kg`;
+
+        // 👇 MAGIA UX: Validación del Switch de Cobro
+        if (switchCobroInmediato) {
+            if (total <= 0) {
+                // Si el total es 0, apagamos y bloqueamos el switch
+                switchCobroInmediato.disabled = true;
+                if (switchCobroInmediato.checked) {
+                    switchCobroInmediato.checked = false;
+                    seccionCobroInmediato.classList.add('d-none');
+                    contenedorMetodosPago.innerHTML = '';
+                    calcularTotalCobroInmediato();
+                }
+            } else {
+                // Si hay total, lo habilitamos (siempre que no esté bloqueado por falta de cliente o por donación)
+                if (!bloqueoEdicionVenta && !esDonacion) {
+                    switchCobroInmediato.disabled = false;
+                }
+            }
+        }
 
         if (switchCobroInmediato && switchCobroInmediato.checked && !esDonacion) {
             const filasPago = contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato');
@@ -1442,6 +1564,7 @@
         }
 
         // --- LÓGICA DE COBRO EN DESPACHO ---
+        // --- LÓGICA DE COBRO EN DESPACHO ---
         const totalVenta = Number(venta.total || 0);
         const montoPagado = Number(venta.monto_pagado || 0);
         totalPendienteDespacho = Math.max(0, totalVenta - montoPagado);
@@ -1449,12 +1572,18 @@
         if (switchCobroDespachoContainer) {
             if (totalPendienteDespacho > 0.001) {
                 switchCobroDespachoContainer.style.display = 'block';
-                if (switchCobroDespacho) switchCobroDespacho.checked = false;
+                if (switchCobroDespacho) {
+                    switchCobroDespacho.disabled = false; // Habilitar switch
+                    switchCobroDespacho.checked = false;
+                }
                 if (seccionCobroDespacho) seccionCobroDespacho.classList.add('d-none');
                 if (contenedorMetodosPagoDespacho) contenedorMetodosPagoDespacho.innerHTML = '';
             } else {
-                switchCobroDespachoContainer.style.display = 'none';
-                if (switchCobroDespacho) switchCobroDespacho.checked = false;
+                switchCobroDespachoContainer.style.display = 'block'; // Lo mostramos pero bloqueado para que se entienda que no hay deuda
+                if (switchCobroDespacho) {
+                    switchCobroDespacho.checked = false;
+                    switchCobroDespacho.disabled = true; // Bloquear switch
+                }
                 if (seccionCobroDespacho) seccionCobroDespacho.classList.add('d-none');
             }
         }

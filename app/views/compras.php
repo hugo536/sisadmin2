@@ -5,6 +5,8 @@
 /** @var array $items */
 /** @var array $almacenes */
 /** @var array $centros_costo */
+/** @var array $cuentas */
+/** @var array $metodos */
 
 $ordenes = $ordenes ?? [];
 $filtros = $filtros ?? [];
@@ -12,6 +14,8 @@ $proveedores = $proveedores ?? [];
 $items = $items ?? [];
 $almacenes = $almacenes ?? [];
 $centros_costo = $centros_costo ?? [];
+$cuentas = $cuentas ?? []; 
+$metodos = $metodos ?? []; 
 
 // Configuración de Estados (Estilo Subtle)
 $estadoLabels = [
@@ -19,7 +23,7 @@ $estadoLabels = [
     1 => ['texto' => 'Pendiente', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'],
     2 => ['texto' => 'Aprobada', 'clase' => 'bg-primary-subtle text-primary border border-primary-subtle'],
     3 => ['texto' => 'Recepcionada', 'clase' => 'bg-success-subtle text-success border border-success-subtle'],
-    4 => ['texto' => 'Cerrada', 'clase' => 'bg-dark-subtle text-dark border border-dark-subtle'], // <-- NUEVO ESTADO
+    4 => ['texto' => 'Cerrada', 'clase' => 'bg-dark-subtle text-dark border border-dark-subtle'],
     9 => ['texto' => 'Anulada', 'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
 ];
 
@@ -38,14 +42,14 @@ $formatearFechaDMY = static function ($fecha): string {
 ?>
 
 <div class="container-fluid p-4" id="comprasApp"
-     data-url-index="<?php echo e(route_url('compras')); ?>"
-     data-url-guardar="<?php echo e(route_url('compras/guardar')); ?>"
-     data-url-aprobar="<?php echo e(route_url('compras/aprobar')); ?>"
-     data-url-revertir-borrador="<?php echo e(route_url('compras/revertirBorrador')); ?>"
-     data-url-anular="<?php echo e(route_url('compras/anular')); ?>"
-     data-url-recepcionar="<?php echo e(route_url('compras/recepcionar')); ?>"
-     data-url-unidades-item="<?php echo e(route_url('compras')); ?>"
-     data-url-precio-sugerido="<?php echo e(route_url('compras')); ?>">
+     data-url-index="<?= e(route_url('compras')) ?>"
+     data-url-guardar="<?= e(route_url('compras/guardar')) ?>"
+     data-url-aprobar="<?= e(route_url('compras/aprobar')) ?>"
+     data-url-revertir-borrador="<?= e(route_url('compras/revertirBorrador')) ?>"
+     data-url-anular="<?= e(route_url('compras/anular')) ?>"
+     data-url-recepcionar="<?= e(route_url('compras/recepcionar')) ?>"
+     data-url-unidades-item="<?= e(route_url('compras')) ?>"
+     data-url-precio-sugerido="<?= e(route_url('compras')) ?>">
 
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
@@ -65,29 +69,29 @@ $formatearFechaDMY = static function ($fecha): string {
                 <div class="col-12 col-md-4">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroBusqueda" placeholder="Buscar código, proveedor..." value="<?php echo e((string) ($filtros['q'] ?? '')); ?>">
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroBusqueda" placeholder="Buscar código, proveedor..." value="<?= e((string) ($filtros['q'] ?? '')) ?>">
                     </div>
                 </div>
                 <div class="col-6 col-md-2">
                     <select class="form-select bg-light" id="filtroEstado">
                         <option value="">Todos los estados</option>
                         <?php foreach ($estadoLabels as $key => $info): ?>
-                            <option value="<?php echo (int) $key; ?>" <?php echo ($filtros['estado'] ?? '') === (string) $key ? 'selected' : ''; ?>>
-                                <?php echo e($info['texto']); ?>
+                            <option value="<?= (int) $key ?>" <?= ($filtros['estado'] ?? '') === (string) $key ? 'selected' : '' ?>>
+                                <?= e($info['texto']) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="col-6 col-md-3">
-                    <input type="date" class="form-control bg-light" id="filtroFechaDesde" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>" title="Fecha Desde">
+                    <input type="date" class="form-control bg-light" id="filtroFechaDesde" value="<?= e((string) ($filtros['fecha_desde'] ?? '')) ?>" title="Fecha Desde">
                 </div>
                 <div class="col-6 col-md-3">
-                    <input type="date" class="form-control bg-light" id="filtroFechaHasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>" title="Fecha Hasta">
+                    <input type="date" class="form-control bg-light" id="filtroFechaHasta" value="<?= e((string) ($filtros['fecha_hasta'] ?? '')) ?>" title="Fecha Hasta">
                 </div>
                 <div class="col-12 col-md-3">
                     <select class="form-select bg-light" id="filtroOrdenFecha" title="Ordenar por fecha">
-                        <option value="orden" <?php echo (($filtros['orden_fecha'] ?? 'orden') === 'orden') ? 'selected' : ''; ?>>Ordenar por fecha de orden</option>
-                        <option value="recepcion" <?php echo (($filtros['orden_fecha'] ?? '') === 'recepcion') ? 'selected' : ''; ?>>Ordenar por fecha de recepción</option>
+                        <option value="orden" <?= (($filtros['orden_fecha'] ?? 'orden') === 'orden') ? 'selected' : '' ?>>Ordenar por fecha de orden</option>
+                        <option value="recepcion" <?= (($filtros['orden_fecha'] ?? '') === 'recepcion') ? 'selected' : '' ?>>Ordenar por fecha de recepción</option>
                     </select>
                 </div>
             </div>
@@ -118,56 +122,50 @@ $formatearFechaDMY = static function ($fecha): string {
                             <?php foreach ($ordenes as $orden): ?>
                                 <?php 
                                     $estado = (int) ($orden['estado'] ?? 0); 
-
-                                    // --- NUEVO CÓDIGO: FILTRO INTELIGENTE ---
-                                    // Si el estado es 9 (Anulada) Y el usuario NO ha filtrado explícitamente por "Anulada", la ignoramos.
                                     if ($estado === 9 && (!isset($filtros['estado']) || $filtros['estado'] !== '9')) {
                                         continue; 
                                     }
-                                    // ----------------------------------------
-
                                     $badge = $estadoLabels[$estado] ?? $estadoLabels[0]; 
                                 ?>
-                                <tr data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>" class="border-bottom" data-search="<?php echo e(mb_strtolower((string) ($orden['codigo'] ?? '') . ' ' . (string) ($orden['proveedor'] ?? ''))); ?>">
-                                    <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($orden['codigo'] ?? '')); ?></td>
+                                <tr data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-estado="<?= $estado ?>" class="border-bottom" data-search="<?= e(mb_strtolower((string) ($orden['codigo'] ?? '') . ' ' . (string) ($orden['proveedor'] ?? ''))) ?>">
+                                    <td class="ps-4 fw-bold text-primary"><?= e((string) ($orden['codigo'] ?? '')) ?></td>
                                     <td>
-                                        <div class="fw-semibold text-dark"><?php echo e((string) ($orden['proveedor'] ?? '')); ?></div>
+                                        <div class="fw-semibold text-dark"><?= e((string) ($orden['proveedor'] ?? '')) ?></div>
                                         <?php if (!empty($orden['observacion_subtitulo'])): ?>
-                                            <div class="small text-muted mt-1"><?php echo e((string) $orden['observacion_subtitulo']); ?></div>
+                                            <div class="small text-muted mt-1"><?= e((string) $orden['observacion_subtitulo']) ?></div>
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <div class="fw-bold text-dark" title="Fecha de Registro: <?php echo isset($orden['created_at']) ? date('d/m/Y H:i', strtotime($orden['created_at'])) : ''; ?>">
-                                            <i class="bi bi-calendar3 me-1 text-muted"></i> <?php echo e($formatearFechaDMY($orden['fecha_orden'] ?? $orden['fecha_documento'] ?? '')); ?>
+                                        <div class="fw-bold text-dark" title="Fecha de Registro: <?= isset($orden['created_at']) ? date('d/m/Y H:i', strtotime($orden['created_at'])) : '' ?>">
+                                            <i class="bi bi-calendar3 me-1 text-muted"></i> <?= e($formatearFechaDMY($orden['fecha_orden'] ?? $orden['fecha_documento'] ?? '')) ?>
                                         </div>
-                                        
                                         <?php if (!empty($orden['fecha_recepcion'])): ?>
                                             <div class="text-info small fw-semibold mt-1" title="Fecha de ingreso a almacén">
-                                                <i class="bi bi-box-arrow-in-down me-1"></i> <?php echo e($formatearFechaDMY($orden['fecha_recepcion'])); ?>
+                                                <i class="bi bi-box-arrow-in-down me-1"></i> <?= e($formatearFechaDMY($orden['fecha_recepcion'])) ?>
                                             </div>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-end fw-bold">S/ <?php echo number_format((float) ($orden['total'] ?? 0), 2); ?></td>
+                                    <td class="text-end fw-bold">S/ <?= number_format((float) ($orden['total'] ?? 0), 2) ?></td>
                                     <td class="text-center">
-                                        <span class="badge px-3 py-2 rounded-pill <?php echo e($badge['clase']); ?>">
-                                            <?php echo e($badge['texto']); ?>
+                                        <span class="badge px-3 py-2 rounded-pill <?= e($badge['clase']) ?>">
+                                            <?= e($badge['texto']) ?>
                                         </span>
                                     </td>
                                     <td class="text-end pe-4">
                                         <div class="d-inline-flex align-items-center gap-1">
                                             <?php if ($estado === 0): ?> 
-                                                <button type="button" class="btn btn-sm btn-light text-primary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Editar Orden"><i class="bi bi-pencil-square fs-5"></i></button>
-                                                <button type="button" class="btn btn-sm btn-light text-success border-0 btn-aprobar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Aprobar Orden"><i class="bi bi-check2-circle fs-5"></i></button>
-                                                <button type="button" class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Anular Orden"><i class="bi bi-trash fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-primary border-0 btn-editar rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Editar Orden"><i class="bi bi-pencil-square fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-success border-0 btn-aprobar rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Aprobar Orden"><i class="bi bi-check2-circle fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Anular Orden"><i class="bi bi-trash fs-5"></i></button>
                                             <?php elseif ($estado === 2): ?> 
-                                                <button type="button" class="btn btn-sm btn-light text-warning border-0 btn-revertir-borrador rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Revertir a Borrador"><i class="bi bi-arrow-counterclockwise fs-5"></i></button>
-                                                <button type="button" class="btn btn-sm btn-light text-info border-0 btn-recepcionar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Recepcionar Mercadería"><i class="bi bi-box-seam fs-5"></i></button>
-                                                <button type="button" class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-warning border-0 btn-revertir-borrador rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Revertir a Borrador"><i class="bi bi-arrow-counterclockwise fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-info border-0 btn-recepcionar rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Recepcionar Mercadería"><i class="bi bi-box-seam fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                             <?php elseif ($estado === 3): ?> 
-                                                <button type="button" class="btn btn-sm btn-light text-warning border-0 btn-devolver rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Registrar Devolución/Ajuste"><i class="bi bi-arrow-return-left fs-5"></i></button>
-                                                <button type="button" class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-warning border-0 btn-devolver rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Registrar Devolución/Ajuste"><i class="bi bi-arrow-return-left fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                             <?php else: ?> 
-                                                <button type="button" class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($orden['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
+                                                <button type="button" class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                             <?php endif; ?>
                                         </div>
                                     </td>
@@ -210,8 +208,8 @@ $formatearFechaDMY = static function ($fecha): string {
                                     <select id="idProveedor" class="form-select" required>
                                         <option value="">Seleccione...</option>
                                         <?php foreach ($proveedores as $proveedor): ?>
-                                            <option value="<?php echo (int) ($proveedor['id'] ?? 0); ?>">
-                                                <?php echo e((string) ($proveedor['nombre_completo'] ?? '')); ?>
+                                            <option value="<?= (int) ($proveedor['id'] ?? 0) ?>">
+                                                <?= e((string) ($proveedor['nombre_completo'] ?? '')) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
@@ -219,7 +217,7 @@ $formatearFechaDMY = static function ($fecha): string {
                                 
                                 <div class="col-md-3">
                                     <label for="fechaEntrega" class="form-label text-muted small fw-bold mb-1">Fecha Emisión <span class="text-danger">*</span></label>
-                                    <input type="date" class="form-control shadow-none" id="fechaEntrega" value="<?php echo date('Y-m-d'); ?>" required>
+                                    <input type="date" class="form-control shadow-none" id="fechaEntrega" value="<?= date('Y-m-d') ?>" required>
                                 </div>
 
                                 <div class="col-md-3">
@@ -293,14 +291,40 @@ $formatearFechaDMY = static function ($fecha): string {
                             </div>
                         </div>
                     </div>
-                    <div class="form-text mt-2 ms-2"><i class="bi bi-info-circle me-1 text-primary"></i> Asegúrese de revisar la configuración de impuestos.</div>
+
+                    <div class="card border-success-subtle shadow-sm mt-4 d-none fade-in" id="seccionCobroInmediatoCompra">
+                        <div class="card-body p-3 bg-success-subtle rounded">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 42px; height: 42px;">
+                                    <i class="bi bi-cash-stack fs-5"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0 fw-bold text-success-emphasis">Registro de Pago Rápido</h6>
+                                    <small class="text-success-emphasis opacity-75">Selecciona cómo estás pagando al proveedor en este momento.</small>
+                                </div>
+                            </div>
+
+                            <div id="contenedorMetodosPagoCompra" class="d-flex flex-column gap-2 mb-2">
+                                </div>
+
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <button type="button" class="btn btn-sm btn-light text-success fw-bold shadow-sm" id="btnAgregarPagoInmediatoCompra">
+                                    <i class="bi bi-plus-circle me-1"></i> Añadir otro método
+                                </button>
+                                <div class="text-end">
+                                    <small class="text-success-emphasis fw-bold d-block lh-1" style="font-size: 0.7rem;">TOTAL PAGADO</small>
+                                    <span class="fw-bold text-dark fs-5" id="totalPagadoInmediatoCompra">S/ 0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="form-check form-switch m-0 ps-5" id="switchCobroContainerCompra">
-                    <input class="form-check-input" type="checkbox" id="switchCobroInmediatoCompra" style="cursor: pointer;">
+                    <input class="form-check-input" type="checkbox" id="switchCobroInmediatoCompra" style="cursor: pointer;" disabled>
                     <label class="form-check-label fw-bold text-primary small" for="switchCobroInmediatoCompra" style="cursor: pointer;">
-                        Cobrar Al Contado (Inmediato)
+                        Pagar Al Contado (Inmediato)
                     </label>
                 </div>
                 <div class="d-flex align-items-center gap-2">
@@ -328,7 +352,7 @@ $formatearFechaDMY = static function ($fecha): string {
                 <select id="recepcionAlmacen" class="d-none">
                     <option value="">Seleccione almacén...</option>
                     <?php foreach ($almacenes as $almacen): ?>
-                        <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
+                        <option value="<?= (int) ($almacen['id'] ?? 0) ?>"><?= e((string) ($almacen['nombre'] ?? '')) ?></option>
                     <?php endforeach; ?>
                 </select>
 
@@ -339,7 +363,7 @@ $formatearFechaDMY = static function ($fecha): string {
                                 <label for="recepcionFecha" class="form-label text-muted small fw-bold mb-1">Fecha de Recepción <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light border-secondary-subtle"><i class="bi bi-calendar-check text-muted"></i></span>
-                                    <input type="date" class="form-control border-secondary-subtle" id="recepcionFecha" value="<?php echo date('Y-m-d'); ?>" required>
+                                    <input type="date" class="form-control border-secondary-subtle" id="recepcionFecha" value="<?= date('Y-m-d') ?>" required>
                                 </div>
                             </div>
                             <div class="col-md-8">
@@ -568,11 +592,11 @@ $formatearFechaDMY = static function ($fecha): string {
                 <select class="form-select detalle-item shadow-none" required>
                     <option value="">Buscar ítem o producto...</option>
                     <?php foreach ($items as $item): ?>
-                        <option value="<?php echo (int) ($item['id'] ?? 0); ?>"
-                                data-unidad-base="<?php echo e((string) ($item['unidad_base'] ?? 'UND')); ?>"
-                                data-requiere-factor-conversion="<?php echo (int) ($item['requiere_factor_conversion'] ?? 0); ?>"
-                                data-costo-referencial="<?php echo (float) ($item['costo_referencial'] ?? 0); ?>">
-                            <?php echo htmlspecialchars((string) ($item['nombre'] ?? '')); ?>
+                        <option value="<?= (int) ($item['id'] ?? 0) ?>"
+                                data-unidad-base="<?= e((string) ($item['unidad_base'] ?? 'UND')) ?>"
+                                data-requiere-factor-conversion="<?= (int) ($item['requiere_factor_conversion'] ?? 0) ?>"
+                                data-costo-referencial="<?= (float) ($item['costo_referencial'] ?? 0) ?>">
+                            <?= htmlspecialchars((string) ($item['nombre'] ?? '')) ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -598,8 +622,8 @@ $formatearFechaDMY = static function ($fecha): string {
             <select class="form-select form-select-sm detalle-centro-costo shadow-none border-secondary-subtle">
                 <option value="">Sin centro de costo</option>
                 <?php foreach ($centros_costo as $centro): ?>
-                    <option value="<?php echo (int) ($centro['id'] ?? 0); ?>">
-                        <?php echo e((string) ($centro['codigo'] ?? '')); ?> - <?php echo e((string) ($centro['nombre'] ?? '')); ?>
+                    <option value="<?= (int) ($centro['id'] ?? 0) ?>">
+                        <?= e((string) ($centro['codigo'] ?? '')) ?> - <?= e((string) ($centro['nombre'] ?? '')) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -612,3 +636,9 @@ $formatearFechaDMY = static function ($fecha): string {
         </td>
     </tr>
 </template>
+
+<script>
+    // Variables globales inyectadas para la lógica de Cobro/Pago Inmediato y filtrado (Opción B)
+    window.TESORERIA_CUENTAS = <?php echo json_encode($cuentas ?? []); ?>;
+    window.TESORERIA_METODOS = <?php echo json_encode($metodos ?? []); ?>;
+</script>

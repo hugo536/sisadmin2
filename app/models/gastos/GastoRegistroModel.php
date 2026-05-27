@@ -126,7 +126,7 @@ class GastoRegistroModel extends Modelo
                     $idMetodo = (int) $pago['id_metodo'];
                     $montoPago = (float) $pago['monto'];
 
-                    // Asumiendo que tu TesoreriaCxpModel tiene una función equivalente a la de ventas
+                    // Registramos el pago en Tesorería
                     $cxpModel->registrarPagoDirecto(
                         $idCxp,
                         $idCuenta,
@@ -281,5 +281,4 @@ class GastoRegistroModel extends Modelo
 
         $this->tablaValidada = true;
     }
-
 }

@@ -1,9 +1,10 @@
 <?php
+/** @var array $ordenes */
 $ordenes = $ordenes ?? [];
 $recetasActivas = $recetas_activas ?? [];
 $almacenes = $almacenes ?? [];
 $almacenesPlanta = $almacenes_planta ?? [];
-$centros = $centros ?? []; // <-- Variable agregada para los centros de costo
+$centros = $centros ?? [];
 $flash = $flash ?? ['tipo' => '', 'texto' => ''];
 ?>
 
@@ -71,14 +72,14 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                         </tr>
                     </thead>
                     <tbody id="opTableBody">
-                        <?php if (empty($ordenes)): ?>
+                        <?php if (empty($ordenes)) { ?>
                             <tr class="empty-msg-row border-bottom-0">
                                 <td colspan="6" class="text-center text-muted py-5">
                                     <i class="bi bi-gear fs-1 d-block mb-2 text-light"></i>
                                     No hay órdenes de producción registradas.
                                 </td>
                             </tr>
-                        <?php else: ?>
+                        <?php } else { ?>
                             <?php foreach ($ordenes as $orden): ?>
                                 <?php 
                                     $estado = (int) ($orden['estado'] ?? 0); 
@@ -232,7 +233,7 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
-                        <?php endif; ?>
+                        <?php } ?>
                     </tbody>
                 </table>
             </div>
@@ -765,4 +766,4 @@ $flash = $flash ?? ['tipo' => '', 'texto' => ''];
     <?php foreach ($almacenes as $a): ?>
         <option value="<?php echo (int) $a['id']; ?>"><?php echo e((string) $a['nombre']); ?></option>
     <?php endforeach; ?>
-</template><div class="modal fade" id="modalEjecutarOP" tabindex="-1" aria-hidden
+</template>

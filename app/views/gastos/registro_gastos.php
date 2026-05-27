@@ -312,8 +312,8 @@ $estadoLabels = [
             <div class="modal-footer bg-white border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="form-check form-switch m-0 ps-5" id="switchPagoGastoContainer">
                     <input class="form-check-input" type="checkbox" id="switchPagoInmediato" name="pago_inmediato" value="1" style="cursor: pointer; transform: scale(1.1);">
-                    <label class="form-check-label fw-bold text-success small ms-2" for="switchPagoInmediato" style="cursor: pointer;">
-                        Efectuar Pago Al Contado
+                    <label class="form-check-label fw-bold text-primary small ms-2" for="switchPagoInmediato" style="cursor: pointer;">
+                        Pagar Al Contado (Inmediato)
                     </label>
                 </div>
                 
