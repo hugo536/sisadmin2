@@ -14,6 +14,7 @@ class TesoreriaCuentaModel extends Modelo
                        c.id_cuenta_contable,
                        c.permite_cobros,
                        c.permite_pagos,
+                       c.metodos_pago, /* <-- NUEVO CAMPO AGREGADO */
                        (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0) + COALESCE(trf.saldo_delta, 0)) AS saldo,
                        (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0) + COALESCE(trf.saldo_delta, 0)) AS saldo_actual
                 FROM tesoreria_cuentas c
@@ -49,6 +50,7 @@ class TesoreriaCuentaModel extends Modelo
 
     public function listarGestion(): array
     {
+        // Al usar c.* ya trae metodos_pago, no hay que agregarlo manualmente
         $sql = 'SELECT c.*, cb.nombre AS banco_nombre,
                        COALESCE(mov.total_movimientos, 0) AS total_movimientos,
                        (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0) + COALESCE(trf.saldo_delta, 0)) AS saldo_actual
@@ -99,6 +101,11 @@ class TesoreriaCuentaModel extends Modelo
     {
         $id = (int) ($payload['id'] ?? 0);
 
+        // --- PROCESAMIENTO DE METODOS DE PAGO ---
+        // Extraemos el array, lo filtramos por si vienen valores nulos, y lo pasamos a JSON.
+        $metodosPagoArray = isset($payload['metodos_pago']) && is_array($payload['metodos_pago']) ? $payload['metodos_pago'] : [];
+        $metodosPagoJson = json_encode($metodosPagoArray);
+
         $data = [
             'codigo' => strtoupper(trim((string) ($payload['codigo'] ?? ''))),
             'nombre' => trim((string) ($payload['nombre'] ?? '')),
@@ -115,6 +122,7 @@ class TesoreriaCuentaModel extends Modelo
             'fecha_saldo_inicial' => trim((string) ($payload['fecha_saldo_inicial'] ?? '')),
             'observaciones' => trim((string) ($payload['observaciones'] ?? '')),
             'estado' => array_key_exists('estado', $payload) ? (int) $payload['estado'] : 1,
+            'metodos_pago' => $metodosPagoJson, // <-- NUEVO DATO EN PROCESO
         ];
 
         if ($data['nombre'] === '') throw new RuntimeException('El nombre es obligatorio.');
@@ -167,6 +175,7 @@ class TesoreriaCuentaModel extends Modelo
 
         try {
             if ($id > 0) {
+                // --- SE AÑADE metodos_pago AL UPDATE ---
                 $sql = 'UPDATE tesoreria_cuentas SET
                         codigo = :codigo, nombre = :nombre, tipo = :tipo, moneda = :moneda,
                         config_banco_id = :config_banco_id,
@@ -174,6 +183,7 @@ class TesoreriaCuentaModel extends Modelo
                         cci = :cci, permite_cobros = :permite_cobros, permite_pagos = :permite_pagos,
                         saldo_inicial = :saldo_inicial, fecha_saldo_inicial = :fecha_saldo_inicial,
                         observaciones = :observaciones, estado = :estado,
+                        metodos_pago = :metodos_pago,
                         updated_by = :user, updated_at = NOW()
                     WHERE id = :id AND deleted_at IS NULL';
 
@@ -183,14 +193,15 @@ class TesoreriaCuentaModel extends Modelo
                 return $id;
             }
 
+            // --- SE AÑADE metodos_pago AL INSERT ---
             $sql = 'INSERT INTO tesoreria_cuentas
                     (codigo, nombre, tipo, moneda, config_banco_id, titular, tipo_cuenta, numero_cuenta, cci,
                      permite_cobros, permite_pagos, saldo_inicial, fecha_saldo_inicial, observaciones,
-                     estado, created_by, updated_by, created_at, updated_at)
+                     estado, metodos_pago, created_by, updated_by, created_at, updated_at)
                 VALUES
                     (:codigo, :nombre, :tipo, :moneda, :config_banco_id, :titular, :tipo_cuenta, :numero_cuenta, :cci,
                      :permite_cobros, :permite_pagos, :saldo_inicial, :fecha_saldo_inicial, :observaciones,
-                     :estado, :created_by, :updated_by, NOW(), NOW())';
+                     :estado, :metodos_pago, :created_by, :updated_by, NOW(), NOW())';
 
             $stmt = $db->prepare($sql);
             $stmt->execute(array_merge($data, ['created_by' => $userId, 'updated_by' => $userId]));
@@ -283,7 +294,6 @@ class TesoreriaCuentaModel extends Modelo
         $stmtMov->execute(['id_cuenta' => $id]);
         $totalMov = (int) $stmtMov->fetchColumn();
 
-        // --- NUEVO: Validar que no tenga transferencias tampoco ---
         $stmtTrf = $this->db()->prepare('SELECT COUNT(*) FROM tesoreria_transferencias WHERE (id_cuenta_origen = :id_origen OR id_cuenta_destino = :id_destino) AND deleted_at IS NULL');
         $stmtTrf->execute([
             'id_origen' => $id,

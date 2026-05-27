@@ -2174,4 +2174,83 @@
     if (selectMonedaPagoManual) {
         selectMonedaPagoManual.addEventListener('change', actualizarDeudaPagoManual);
     }
+
+    // ========================================================================
+    // 10. FILTRADO DINÁMICO DE MÉTODOS DE PAGO SEGÚN LA CUENTA (OPCIÓN B)
+    // ========================================================================
+    
+    // Función universal para leer el JSON y filtrar el select
+    function filtrarMetodosPorCuenta(selectCuenta, selectMetodo) {
+        if (!selectCuenta || !selectMetodo) return;
+
+        const opcionSeleccionada = selectCuenta.options[selectCuenta.selectedIndex];
+        
+        // Si no hay cuenta seleccionada, reseteamos el select de métodos
+        if (!opcionSeleccionada || opcionSeleccionada.value === "") {
+            Array.from(selectMetodo.options).forEach(opt => {
+                opt.hidden = false;
+                opt.disabled = false;
+            });
+            return;
+        }
+
+        // Extraemos el JSON inyectado en la vista (HTML)
+        const metodosData = opcionSeleccionada.getAttribute('data-metodos');
+        let metodosPermitidos = [];
+        
+        try {
+            metodosPermitidos = metodosData ? JSON.parse(metodosData) : [];
+        } catch (e) {
+            console.error("Error al parsear métodos de pago", e);
+        }
+
+        let primeraOpcionValida = null;
+
+        Array.from(selectMetodo.options).forEach(opt => {
+            if (opt.value === "") {
+                opt.hidden = false;
+                opt.disabled = false;
+                return;
+            }
+
+            const esValido = metodosPermitidos.includes(opt.value);
+            opt.hidden = !esValido;
+            opt.disabled = !esValido;
+
+            if (esValido && !primeraOpcionValida) {
+                primeraOpcionValida = opt.value;
+            }
+        });
+
+        // Si el método actual quedó bloqueado, saltamos al primero válido
+        if (selectMetodo.selectedOptions.length > 0 && selectMetodo.selectedOptions[0].disabled) {
+            selectMetodo.value = primeraOpcionValida || '';
+        }
+    }
+
+    // Delegación de eventos para las filas dinámicas de COBROS (CxC)
+    if (cobroDistribucionRows) {
+        cobroDistribucionRows.addEventListener('change', (e) => {
+            if (e.target.matches('.js-cobro-cuenta')) {
+                const row = e.target.closest('.js-cobro-distribucion-row');
+                const selectMetodo = row.querySelector('.js-cobro-metodo');
+                filtrarMetodosPorCuenta(e.target, selectMetodo);
+            }
+        });
+    }
+
+    // Delegación de eventos para las filas dinámicas de PAGOS (CxP)
+    if (pagoDistribucionRows) {
+        pagoDistribucionRows.addEventListener('change', (e) => {
+            if (e.target.matches('.js-pago-cuenta')) {
+                const row = e.target.closest('.js-pago-distribucion-row');
+                const selectMetodo = row.querySelector('.js-pago-metodo');
+                filtrarMetodosPorCuenta(e.target, selectMetodo);
+            }
+        });
+    }
+
+    // Nota: Si tienes un select de cuenta/método en el modal de PAGO MANUAL,
+    // puedes agregar los listeners correspondientes aquí abajo siguiendo la misma lógica.
+    
 })();

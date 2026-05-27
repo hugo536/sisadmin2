@@ -224,6 +224,70 @@
         reembolso_dinero: 'Se registra para reembolso en tesorería (salida de dinero).',
     };
 
+    // ==============================================================
+    // --- MAGIA OPCIÓN B: FILTRADO DINÁMICO DE MÉTODOS POR CUENTA ---
+    // ==============================================================
+    function filtrarMetodosPorCuentaVentas(selectCuenta, selectMetodo) {
+        if (!selectCuenta || !selectMetodo) return;
+
+        const idCuentaSeleccionada = parseInt(selectCuenta.value);
+        
+        // Si no hay cuenta, bloqueamos el select o mostramos todo (mejor mostrar todo por defecto)
+        if (!idCuentaSeleccionada) {
+            Array.from(selectMetodo.options).forEach(opt => {
+                opt.hidden = false;
+                opt.disabled = false;
+            });
+            return;
+        }
+
+        const cuentaObj = window.TESORERIA_CUENTAS.find(c => parseInt(c.id) === idCuentaSeleccionada);
+        if (!cuentaObj) return;
+
+        let metodosPermitidos = [];
+        try {
+            if (Array.isArray(cuentaObj.metodos_pago)) {
+                metodosPermitidos = cuentaObj.metodos_pago;
+            } else {
+                metodosPermitidos = cuentaObj.metodos_pago ? JSON.parse(cuentaObj.metodos_pago) : [];
+            }
+        } catch (e) {
+            console.error("Error al parsear métodos de pago", e);
+        }
+
+        // Pasamos todo a minúsculas para que no falle si en BD está como "EFECTIVO" y aquí "Efectivo"
+        const permitidosNormalizados = metodosPermitidos.map(m => String(m).trim().toLowerCase());
+        let primeraOpcionValida = null;
+
+        Array.from(selectMetodo.options).forEach(opt => {
+            if (opt.value === "") {
+                opt.hidden = false;
+                opt.disabled = false;
+                return;
+            }
+
+            const nombreMetodoDB = opt.text.trim().toLowerCase();
+            
+            // Validamos si el nombre del método devuelto por la BD está dentro de nuestro Array JSON permitido
+            const esValido = permitidosNormalizados.some(permitido => 
+                nombreMetodoDB.includes(permitido) || permitido.includes(nombreMetodoDB)
+            );
+
+            opt.hidden = !esValido;
+            opt.disabled = !esValido;
+
+            if (esValido && !primeraOpcionValida) {
+                primeraOpcionValida = opt.value;
+            }
+        });
+
+        // Autoseleccionar la primera opción válida si la actual se ocultó
+        if (selectMetodo.selectedOptions.length > 0 && selectMetodo.selectedOptions[0].disabled) {
+            selectMetodo.value = primeraOpcionValida || '';
+        }
+    }
+    // ==============================================================
+
     function actualizarHintDevolucionVenta() {
         const motivoActual = devolucionVentaMotivo?.value || '';
         
@@ -401,6 +465,12 @@
         });
         calcularTotalCobroInmediato();
 
+        // AQUÍ CONECTAMOS LA MAGIA DE LA OPCIÓN B
+        const selCuentaInmediato = div.querySelector('.select-cuenta-inmediato');
+        const selMetodoInmediato = div.querySelector('.select-metodo-inmediato');
+        selCuentaInmediato.addEventListener('change', () => filtrarMetodosPorCuentaVentas(selCuentaInmediato, selMetodoInmediato));
+        filtrarMetodosPorCuentaVentas(selCuentaInmediato, selMetodoInmediato); // Disparo inicial
+
         return div;
     }
 
@@ -572,6 +642,12 @@
             calcularTotalCobroDespacho();
         });
         calcularTotalCobroDespacho();
+
+        // AQUÍ CONECTAMOS LA MAGIA DE LA OPCIÓN B TAMBIÉN EN EL DESPACHO
+        const selCuentaDespacho = div.querySelector('.select-cuenta-despacho');
+        const selMetodoDespacho = div.querySelector('.select-metodo-despacho');
+        selCuentaDespacho.addEventListener('change', () => filtrarMetodosPorCuentaVentas(selCuentaDespacho, selMetodoDespacho));
+        filtrarMetodosPorCuentaVentas(selCuentaDespacho, selMetodoDespacho);
 
         return div;
     }
@@ -1377,7 +1453,6 @@
                 if (seccionCobroDespacho) seccionCobroDespacho.classList.add('d-none');
                 if (contenedorMetodosPagoDespacho) contenedorMetodosPagoDespacho.innerHTML = '';
             } else {
-                // Ya pagado, esconder opción
                 switchCobroDespachoContainer.style.display = 'none';
                 if (switchCobroDespacho) switchCobroDespacho.checked = false;
                 if (seccionCobroDespacho) seccionCobroDespacho.classList.add('d-none');
