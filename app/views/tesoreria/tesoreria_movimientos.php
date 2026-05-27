@@ -1,9 +1,21 @@
 <?php
 $movimientos = $movimientos ?? [];
-$resumenCuentas = $resumenCuentas ?? [];
+$resumenCuentas = $resumenCuentas ?? []; // Se usa para llenar el select y obtener el saldo
 $filtros = $filtros ?? [];
-?>
-<?php
+
+// --- LÓGICA: Detectar si estamos viendo una cuenta específica ---
+$idCuentaFiltro = $filtros['id_cuenta'] ?? '';
+$cuentaSeleccionada = null;
+
+if ($idCuentaFiltro !== '') {
+    foreach ($resumenCuentas as $cuenta) {
+        if ((string)($cuenta['id'] ?? '') === (string)$idCuentaFiltro) {
+            $cuentaSeleccionada = $cuenta;
+            break;
+        }
+    }
+}
+
 $swalIcon = null;
 $swalMessage = null;
 
@@ -37,12 +49,11 @@ if (!empty($_GET['error'])) {
             </a>
         </div>
     </div>
+
     <?php if ($swalMessage !== null): ?>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
-                if (typeof Swal === 'undefined') {
-                    return;
-                }
+                if (typeof Swal === 'undefined') return;
                 Swal.fire({
                     icon: <?php echo json_encode($swalIcon); ?>,
                     title: <?php echo json_encode($swalIcon === 'error' ? 'Error' : 'Éxito'); ?>,
@@ -59,85 +70,68 @@ if (!empty($_GET['error'])) {
                 <input type="hidden" name="ruta" value="tesoreria/movimientos">
 
                 <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted fw-bold mb-1">Cuenta / Caja</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="id_cuenta" onchange="this.form.submit()">
+                        <option value="">Todas las cuentas</option>
+                        <?php foreach ($resumenCuentas as $c): ?>
+                            <option value="<?php echo (int)($c['id'] ?? 0); ?>" <?php echo ((string)$idCuentaFiltro === (string)($c['id'] ?? 0)) ? 'selected' : ''; ?>>
+                                <?php echo e((string) ($c['codigo'] ?? '') . ' - ' . (string) ($c['nombre'] ?? '')); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Módulo Origen</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="origen">
-                        <option value="">Todos los orígenes</option>
-                        <option value="CXC" <?php echo (($filtros['origen'] ?? '') === 'CXC') ? 'selected' : ''; ?>>Cuentas por Cobrar (CXC)</option>
-                        <option value="CXP" <?php echo (($filtros['origen'] ?? '') === 'CXP') ? 'selected' : ''; ?>>Cuentas por Pagar (CXP)</option>
-                        <option value="TRANSFERENCIA" <?php echo (($filtros['origen'] ?? '') === 'TRANSFERENCIA') ? 'selected' : ''; ?>>Transferencias Internas</option>
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="origen" onchange="this.form.submit()">
+                        <option value="">Todos</option>
+                        <option value="CXC" <?php echo (($filtros['origen'] ?? '') === 'CXC') ? 'selected' : ''; ?>>Cobros (CXC)</option>
+                        <option value="CXP" <?php echo (($filtros['origen'] ?? '') === 'CXP') ? 'selected' : ''; ?>>Pagos (CXP)</option>
+                        <option value="TRANSFERENCIA" <?php echo (($filtros['origen'] ?? '') === 'TRANSFERENCIA') ? 'selected' : ''; ?>>Transferencias</option>
                     </select>
                 </div>
                 
-                <div class="col-12 col-md-3">
-                    <label class="form-label small text-muted fw-bold mb-1">ID Origen (N° Doc)</label>
-                    <input type="number" min="0" name="id_origen" class="form-control bg-light border-secondary-subtle shadow-sm" placeholder="Ej. 1024" value="<?php echo (int) ($filtros['id_origen'] ?? 0) > 0 ? (int) ($filtros['id_origen']) : ''; ?>">
+                <div class="col-12 col-md-2">
+                    <label class="form-label small text-muted fw-bold mb-1">Desde</label>
+                    <input type="date" name="fecha_desde" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?php echo e($filtros['fecha_desde'] ?? date('Y-m-01')); ?>">
                 </div>
                 
-                <div class="col-12 col-md-3">
-                    <label class="form-label small text-muted fw-bold mb-1">ID Tercero (Cliente/Prov)</label>
-                    <input type="number" min="0" name="id_tercero" class="form-control bg-light border-secondary-subtle shadow-sm" placeholder="Ej. 50" value="<?php echo (int) ($filtros['id_tercero'] ?? 0) > 0 ? (int) ($filtros['id_tercero']) : ''; ?>">
+                <div class="col-12 col-md-2">
+                    <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
+                    <input type="date" name="fecha_hasta" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?php echo e($filtros['fecha_hasta'] ?? date('Y-m-t')); ?>">
                 </div>
                 
-                <div class="col-12 col-md-3 d-flex align-items-end" style="height: 58px;">
+                <div class="col-12 col-md-2 d-flex align-items-end" style="height: 58px;">
                     <button type="submit" class="btn btn-primary shadow-sm w-100 fw-bold h-100">
-                        <i class="bi bi-search me-1"></i> Filtrar Historial
+                        <i class="bi bi-funnel me-1"></i> Aplicar
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4">
-            <h6 class="fw-bold text-dark mb-0">
-                <i class="bi bi-bank me-2 text-primary"></i>Resumen rápido Caja/Banco
-                <span class="text-muted fw-normal small ms-2">(Saldo actual + último movimiento)</span>
-            </h6>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0">
-                    <thead class="bg-light">
-                        <tr>
-                            <th class="ps-4 text-secondary fw-semibold">Cuenta</th>
-                            <th class="text-center text-secondary fw-semibold">Moneda</th>
-                            <th class="text-end text-success fw-semibold">Últ. Ingreso</th>
-                            <th class="text-end text-danger fw-semibold">Últ. Egreso</th>
-                            <th class="text-end text-primary fw-bold">Fecha Últ. Mov.</th>
-                            <th class="text-end pe-4 text-primary fw-bold">Saldo Actual</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($resumenCuentas)): ?>
-                            <tr>
-                                <td colspan="6" class="text-center text-muted py-4">No hay saldos registrados.</td>
-                            </tr>
-                        <?php else: ?>
-                            <?php foreach ($resumenCuentas as $r): ?>
-                                <?php
-                                    $ultimoTipo = strtoupper((string) ($r['ultimo_tipo'] ?? ''));
-                                    $ultimoMonto = (float) ($r['ultimo_monto'] ?? 0);
-                                    $ultimoFecha = (string) ($r['ultimo_fecha'] ?? '');
-                                ?>
-                                <tr class="border-bottom">
-                                    <td class="ps-4 fw-medium text-dark"><?php echo e((string) ($r['codigo'] ?? '') . ' - ' . (string) ($r['nombre'] ?? '')); ?></td>
-                                    <td class="text-center text-muted"><?php echo e((string) ($r['moneda'] ?? '')); ?></td>
-                                    <td class="text-end text-success">
-                                        <?php echo $ultimoTipo === 'COBRO' ? '+ ' . number_format($ultimoMonto, 2) : '—'; ?>
-                                    </td>
-                                    <td class="text-end text-danger">
-                                        <?php echo $ultimoTipo === 'PAGO' ? '- ' . number_format($ultimoMonto, 2) : '—'; ?>
-                                    </td>
-                                    <td class="text-end text-muted small"><?php echo e($ultimoFecha !== '' ? $ultimoFecha : '—'); ?></td>
-                                    <td class="text-end pe-4 fw-bold fs-6"><?php echo number_format((float) ($r['saldo_actual'] ?? 0), 2); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+    <?php if ($cuentaSeleccionada !== null): ?>
+        <div class="card border-0 shadow-sm mb-4 bg-primary text-white overflow-hidden fade-in">
+            <div class="card-body p-4 position-relative">
+                <i class="bi bi-wallet2 position-absolute opacity-25" style="font-size: 8rem; right: -20px; top: -30px;"></i>
+                <div class="row align-items-center position-relative z-1">
+                    <div class="col-md-6 border-md-end border-light border-opacity-25">
+                        <span class="badge bg-white text-primary mb-2 rounded-pill px-3 py-1 fw-bold shadow-sm">
+                            <?php echo e((string) ($cuentaSeleccionada['moneda'] ?? '')); ?>
+                        </span>
+                        <h3 class="fw-bold mb-0 text-white"><?php echo e((string) ($cuentaSeleccionada['nombre'] ?? '')); ?></h3>
+                        <p class="mb-0 text-white-50 small">Código: <?php echo e((string) ($cuentaSeleccionada['codigo'] ?? '')); ?></p>
+                    </div>
+                    <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                        <p class="mb-1 text-white-50 fw-semibold text-uppercase tracking-wide small">Saldo Actual en Cuenta</p>
+                        <h2 class="display-6 fw-bold mb-0 text-white">
+                            <?php echo number_format((float) ($cuentaSeleccionada['saldo_actual'] ?? 0), 2); ?>
+                        </h2>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
+    <?php endif; ?>
 
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -190,7 +184,6 @@ if (!empty($_GET['error'])) {
                                 $tipo = (string) ($m['tipo'] ?? '');
                                 $origen = strtoupper((string) ($m['origen'] ?? ''));
                                 
-                                // NUEVO: Lógica para manejar el "Tercero" en transferencias
                                 if ($origen === 'TRANSFERENCIA') {
                                     $tercero = 'Cuentas Propias (Interno)';
                                 } else {
@@ -199,20 +192,18 @@ if (!empty($_GET['error'])) {
 
                                 $cuenta = (string) ($m['cuenta_codigo'] ?? '') . ' - ' . (string) ($m['cuenta_nombre'] ?? '');
                                 
-                                // String de búsqueda
-                                $searchStr = strtolower($tipo . ' ' . $tercero . ' ' . $origen . ' ' . $cuenta . ' ' . $estado);
+                                // 1. CREAMOS LA VARIABLE AQUÍ ARRIBA PRIMERO
+                                $observacionTercero = trim((string) ($m['observaciones'] ?? '')); 
                                 
-                                // Color del monto (Verde para cobros/ingresos, Rojo para pagos/egresos)
+                                // 2. AHORA SÍ LA USAMOS EN EL BUSCADOR
+                                $searchStr = strtolower($tipo . ' ' . $tercero . ' ' . $origen . ' ' . $cuenta . ' ' . $estado . ' ' . $observacionTercero);
+                                
                                 $montoColor = $tipo === 'COBRO' ? 'text-success' : 'text-danger';
                                 $montoSigno = $tipo === 'COBRO' ? '+' : '-';
                             ?>
                             <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
-                                <td class="ps-4 text-muted fw-medium align-top pt-3">
-                                    #<?php echo (int) ($m['id'] ?? 0); ?>
-                                </td>
-                                <td class="align-top pt-3 text-muted">
-                                    <?php echo e((string) ($m['fecha'] ?? '')); ?>
-                                </td>
+                                <td class="ps-4 text-muted fw-medium align-top pt-3">#<?php echo (int) ($m['id'] ?? 0); ?></td>
+                                <td class="align-top pt-3 text-muted"><?php echo e((string) ($m['fecha'] ?? '')); ?></td>
                                 <td class="align-top pt-3 fw-semibold">
                                     <?php if($tipo === 'COBRO'): ?>
                                         <span class="text-success"><i class="bi bi-arrow-down-left-circle me-1"></i>COBRO</span>
@@ -220,8 +211,13 @@ if (!empty($_GET['error'])) {
                                         <span class="text-danger"><i class="bi bi-arrow-up-right-circle me-1"></i>PAGO</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="align-top pt-3 fw-bold text-dark">
-                                    <?php echo e($tercero); ?>
+                                <td class="align-top pt-3">
+                                    <span class="fw-bold text-dark d-block"><?php echo e($tercero); ?></span>
+                                    <?php if ($observacionTercero !== ''): ?>
+                                        <small class="text-muted fw-normal d-block mt-1" style="font-size: 0.8rem;">
+                                            <?php echo e($observacionTercero); ?>
+                                        </small>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="text-center align-top pt-3">
                                     <?php if($origen === 'TRANSFERENCIA'): ?>
@@ -234,9 +230,7 @@ if (!empty($_GET['error'])) {
                                         </span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="align-top pt-3 text-muted small">
-                                    <?php echo e($cuenta); ?>
-                                </td>
+                                <td class="align-top pt-3 text-muted small"><?php echo e($cuenta); ?></td>
                                 <td class="text-end align-top pt-3 fw-bold <?php echo $montoColor; ?>">
                                     <?php echo $montoSigno; ?> <?php echo number_format((float) ($m['monto'] ?? 0), 2); ?>
                                 </td>

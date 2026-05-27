@@ -76,16 +76,17 @@ if (!empty($_GET['error'])) {
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
-                <i class="bi bi-cash-stack me-2 text-primary"></i> Tesorería - Cuentas por Cobrar
+                <i class="bi bi-shop me-2 text-warning"></i> Tesorería - Cuentas por Pagar
             </h1>
-            <p class="text-muted small mb-0 ms-1">Control de saldos por cliente y registro de cobros.</p>
+            <p class="text-muted small mb-0 ms-1">Control de saldos por proveedor y registro de pagos.</p>
         </div>
-        <div class="d-flex gap-2 justify-content-end align-items-center flex-nowrap">
+        
+        <div class="d-flex gap-2 flex-wrap justify-content-end align-items-center">
             <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bar-chart-line me-2 text-primary"></i>Reportes
             </a>
-            <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalCobroManual">
-                <i class="bi bi-plus-circle me-2"></i>Registrar Cobro Manual
+            <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalPagoManual">
+                <i class="bi bi-plus-circle me-2"></i>Registrar Pago Manual
             </button>
         </div>
     </div>

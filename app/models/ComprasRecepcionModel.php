@@ -131,7 +131,7 @@ class ComprasRecepcionModel extends Modelo
                     'fecha_documento' => $fechaDocumentoConHora,
                 ]);
 
-                $this->actualizarStock($db, $idItem, $idAlmacen, $cantidadBase);
+                $this->actualizarStock($db, $idItem, $idAlmacen, $cantidadBase, $userId);
 
                 $stmtUpdateOrdenDet->execute([
                     'cantidad_base' => $cantidadBase,
@@ -237,17 +237,23 @@ class ComprasRecepcionModel extends Modelo
         return date('Y-m-d');
     }
 
-    private function actualizarStock(PDO $db, int $idItem, int $idAlmacen, float $cantidadBase): void
+    private function actualizarStock(PDO $db, int $idItem, int $idAlmacen, float $cantidadBase, int $userId): void
     {
-        $sql = 'INSERT INTO inventario_stock (id_item, id_almacen, stock_actual, updated_at)
-                VALUES (:id_item, :id_almacen, :cantidad, NOW())
+        // 1. Asignamos nombres diferentes: :created_by y :updated_by
+        $sql = 'INSERT INTO inventario_stock (id_item, id_almacen, stock_actual, created_by, updated_by, created_at, updated_at)
+                VALUES (:id_item, :id_almacen, :cantidad, :created_by, :updated_by, NOW(), NOW())
                 ON DUPLICATE KEY UPDATE
                     stock_actual = stock_actual + VALUES(stock_actual),
+                    updated_by = VALUES(updated_by),
                     updated_at = NOW()';
+        
+        // 2. Pasamos ambos parámetros de forma independiente en el arreglo
         $db->prepare($sql)->execute([
             'id_item' => $idItem,
             'id_almacen' => $idAlmacen,
             'cantidad' => $cantidadBase,
+            'created_by' => $userId,
+            'updated_by' => $userId,
         ]);
     }
 

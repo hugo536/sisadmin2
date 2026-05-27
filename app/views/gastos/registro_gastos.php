@@ -16,13 +16,13 @@ if (!empty($_GET['error'])) {
 }
 // --- FIN BLOQUE DE ALERTAS ---
 
-// Configuración de Estados Operativos (Estilo Ventas)
+
+// Configuración de Estados Operativos
 $estadoLabels = [
     'REGISTRADO' => ['texto' => 'Registrado', 'clase' => 'bg-primary-subtle text-primary border border-primary-subtle'],
     'ANULADO'    => ['texto' => 'Anulado',    'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
-    // Dejamos estos por compatibilidad con los gastos viejos que ya tenías en la base de datos
-    'PENDIENTE'  => ['texto' => 'Migrando...', 'clase' => 'bg-secondary-subtle text-secondary border border-secondary-subtle'],
-    'PAGADO'     => ['texto' => 'Migrando...', 'clase' => 'bg-secondary-subtle text-secondary border border-secondary-subtle'],
+    'PENDIENTE'  => ['texto' => 'Pendiente',  'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'],
+    'PAGADO'     => ['texto' => 'Pagado',     'clase' => 'bg-success-subtle text-success border border-success-subtle'],
 ];
 ?>
 
