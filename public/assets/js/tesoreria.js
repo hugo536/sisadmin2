@@ -233,7 +233,7 @@
     }
 
     // ========================================================================
-    // 1. GESTIÓN DE FORMULARIO DE CUENTAS (UX)
+    // 1. GESTIÓN DE FORMULARIO DE CUENTAS (UX)111
     // ========================================================================
     const tipoCuentaSelect = document.getElementById('cuentaTipo');
     const bankFields = document.querySelectorAll('.js-bank-field');
