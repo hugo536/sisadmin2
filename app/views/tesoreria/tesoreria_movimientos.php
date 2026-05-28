@@ -78,22 +78,17 @@ if (!empty($_GET['error'])) {
                     </select>
                 </div>
                 
-                <div class="col-12 col-md-2">
+                <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Desde</label>
                     <input type="date" name="fecha_desde" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-01')) ?>">
                 </div>
                 
-                <div class="col-12 col-md-2">
+                <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
                     <input type="date" name="fecha_hasta" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>">
                 </div>
                 
-                <div class="col-12 col-md-2 align-self-end">
-                    <button type="submit" class="btn btn-primary shadow-sm w-100 fw-bold">
-                        <i class="bi bi-funnel me-1"></i> Aplicar
-                    </button>
-                </div>
-            </form>
+                </form>
         </div>
     </div>
 

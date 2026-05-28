@@ -96,33 +96,97 @@
         }
     }
 
-    // Filtros auto-enviables
-    const formFiltrosCxc = document.getElementById('formFiltrosCxc');
-    const formFiltrosCxp = document.getElementById('formFiltrosCxp');
-    const formFiltrosTesoreria = formFiltrosCxc || formFiltrosCxp;
-    if (formFiltrosTesoreria) {
+    // ==========================================
+    // FILTROS AUTOMÁTICOS CON AJAX (NIVEL PROFESIONAL)
+    // ==========================================
+    const formFiltrosMovimientos = document.getElementById('formFiltrosMovimientos');
+    
+    if (formFiltrosMovimientos) {
         let filtroTimer = null;
-        const enviarFiltros = () => {
-            if (filtroTimer) {
-                clearTimeout(filtroTimer);
+        
+        const enviarFiltrosAJAX = async () => {
+            // 1. Construimos la URL con los parámetros exactos del formulario
+            const url = new URL(formFiltrosMovimientos.action, window.location.origin);
+            const formData = new FormData(formFiltrosMovimientos);
+            
+            formData.forEach((value, key) => {
+                if(value) url.searchParams.set(key, value);
+            });
+
+            // 2. Actualizamos la URL del navegador sin recargar
+            window.history.replaceState({}, '', url);
+
+            // 3. Efecto UX: Bajamos la opacidad de la tabla
+            const tbody = document.getElementById('movimientosTableBody');
+            if (tbody) tbody.style.opacity = '0.4';
+
+            try {
+                // 4. Petición silenciosa
+                const response = await fetch(url, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                
+                if (!response.ok) throw new Error('Error al consultar datos');
+                
+                const htmlTexto = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlTexto, 'text/html');
+                
+                // 5. Reemplazamos la tabla y paginación
+                const nuevoBody = doc.getElementById('movimientosTableBody');
+                const nuevoInfo = doc.getElementById('movimientosPaginationInfo');
+                const nuevoControls = doc.getElementById('movimientosPaginationControls');
+                
+                if (nuevoBody && tbody) {
+                    tbody.innerHTML = nuevoBody.innerHTML;
+                    tbody.style.opacity = '1';
+                }
+                
+                if (nuevoInfo) {
+                    const infoActual = document.getElementById('movimientosPaginationInfo');
+                    if(infoActual) infoActual.innerHTML = nuevoInfo.innerHTML;
+                }
+                if (nuevoControls) {
+                    const controlsActual = document.getElementById('movimientosPaginationControls');
+                    if(controlsActual) controlsActual.innerHTML = nuevoControls.innerHTML;
+                }
+
+                // 6. Re-inicializamos scripts (Tooltips y Buscador)
+                const tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                tooltips.forEach(el => {
+                    if (typeof bootstrap !== 'undefined') bootstrap.Tooltip.getOrCreateInstance(el);
+                });
+
+                if (window.ERPTable && typeof window.ERPTable.autoInitFromDataset === 'function') {
+                    window.ERPTable.autoInitFromDataset(document.getElementById('tesoreriaMovimientosApp'));
+                }
+                
+            } catch (error) {
+                console.error('Error al filtrar:', error);
+                if (tbody) tbody.style.opacity = '1'; 
             }
-            filtroTimer = setTimeout(() => formFiltrosTesoreria.submit(), 250);
         };
-        const campos = formFiltrosTesoreria.querySelectorAll('select[name="estado"], select[name="tipo_tercero"], input[name="fecha_desde"], input[name="fecha_hasta"]');
-        campos.forEach((campo) => {
-            campo.addEventListener('change', enviarFiltros);
-            if (campo.tagName === 'INPUT') {
-                campo.addEventListener('input', enviarFiltros);
+
+        const dispararFiltro = () => {
+            if (filtroTimer) clearTimeout(filtroTimer);
+            filtroTimer = setTimeout(enviarFiltrosAJAX, 400); 
+        };
+
+        // Escuchamos los cambios en los selects e inputs
+        const camposFiltro = formFiltrosMovimientos.querySelectorAll('select, input');
+        camposFiltro.forEach((campo) => {
+            if (campo.tagName === 'SELECT' || campo.type === 'date') {
+                campo.addEventListener('change', dispararFiltro);
+            } else if (campo.tagName === 'INPUT' && campo.type !== 'date') {
+                campo.addEventListener('input', dispararFiltro);
             }
         });
+        
+        formFiltrosMovimientos.addEventListener('submit', (e) => {
+            e.preventDefault();
+            dispararFiltro();
+        });
     }
-
-    // Función de recarga parcial de tablas
-    async function refrescarTablaTesoreriaParcial() {
-        const esCxc = !!document.getElementById('cxcTable');
-        const prefijo = esCxc ? 'cxc' : 'cxp';
-        const tablaActual = document.getElementById(`${prefijo}Table`);
-        if (!tablaActual) return;
 
         const response = await fetch(window.location.href, {
             method: 'GET',
@@ -2252,5 +2316,5 @@
 
     // Nota: Si tienes un select de cuenta/método en el modal de PAGO MANUAL,
     // puedes agregar los listeners correspondientes aquí abajo siguiendo la misma lógica.
-    
+
 })();
