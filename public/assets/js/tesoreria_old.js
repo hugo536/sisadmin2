@@ -122,6 +122,7 @@
 
             try {
                 // 4. Petición silenciosa
+                // 4. Petición silenciosa
                 const response = await fetch(url, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
@@ -186,8 +187,15 @@
             e.preventDefault();
             dispararFiltro();
         });
-    }
+    } // Fin del if (formFiltrosMovimientos)
 
+    // ========================================================================
+    // 0.2 FUNCIÓN PARA REFRESCAR TABLA PARCIALMENTE
+    // ========================================================================
+    async function refrescarTablaTesoreriaParcial(prefijo = 'movimientos') {
+        // NOTA: He puesto 'movimientos' como valor por defecto para 'prefijo'
+        // para que no te dé error de "undefined", ya que se usa más abajo.
+        
         const response = await fetch(window.location.href, {
             method: 'GET',
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -233,7 +241,7 @@
     }
 
     // ========================================================================
-    // 1. GESTIÓN DE FORMULARIO DE CUENTAS (UX)111
+    // 1. GESTIÓN DE FORMULARIO DE CUENTAS (UX)
     // ========================================================================
     const tipoCuentaSelect = document.getElementById('cuentaTipo');
     const bankFields = document.querySelectorAll('.js-bank-field');
@@ -2316,5 +2324,114 @@
 
     // Nota: Si tienes un select de cuenta/método en el modal de PAGO MANUAL,
     // puedes agregar los listeners correspondientes aquí abajo siguiendo la misma lógica.
+
+    // ========================================================================
+    // FILTROS, PESTAÑAS Y BÚSQUEDA AJAX (ESTILO SPA) - CXC / CXP
+    // ========================================================================
+    const formFiltrosCxc = document.getElementById('formFiltrosCxc');
+    const contenedorTabla = document.getElementById('contenedorTablaCxc'); 
+
+    if (formFiltrosCxc && contenedorTabla) {
+        let timerFiltroCxc = null;
+
+        // Función core que va al servidor y trae el HTML nuevo
+        const cargarDatosAjax = async (urlStr) => {
+            // Efecto visual UX: Bajamos opacidad mientras carga
+            contenedorTabla.style.opacity = '0.4';
+            contenedorTabla.style.pointerEvents = 'none';
+
+            try {
+                // Actualizamos la URL del navegador silenciosamente
+                window.history.replaceState({}, '', urlStr);
+
+                const response = await fetch(urlStr, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                if (!response.ok) throw new Error('Error al obtener datos');
+
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // Extraemos solo la tabla y paginación del HTML que devolvió el servidor
+                const nuevoContenedor = doc.getElementById('contenedorTablaCxc');
+                
+                if (nuevoContenedor) {
+                    contenedorTabla.innerHTML = nuevoContenedor.innerHTML;
+                }
+
+                // Re-inicializamos tooltips de Bootstrap si existen
+                if (typeof bootstrap !== 'undefined') {
+                    const tooltips = [].slice.call(contenedorTabla.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                    tooltips.forEach(el => bootstrap.Tooltip.getOrCreateInstance(el));
+                }
+
+            } catch (error) {
+                console.error('Error AJAX al filtrar:', error);
+            } finally {
+                // Restauramos la vista
+                contenedorTabla.style.opacity = '1';
+                contenedorTabla.style.pointerEvents = 'auto';
+            }
+        };
+
+        // Función que lee el formulario y arma la URL
+        const procesarFiltros = () => {
+            const formData = new FormData(formFiltrosCxc);
+            const url = new URL(formFiltrosCxc.action || window.location.href, window.location.origin);
+            
+            formData.forEach((value, key) => {
+                if (value) url.searchParams.set(key, value);
+            });
+
+            cargarDatosAjax(url.toString());
+        };
+
+        // Debounce: Espera a que el usuario deje de tipear para buscar
+        const dispararFiltroDebounced = () => {
+            clearTimeout(timerFiltroCxc);
+            timerFiltroCxc = setTimeout(procesarFiltros, 400); 
+        };
+
+        // 1. Escuchamos cambios automáticos en Inputs (Buscador, Fechas) y Selects
+        formFiltrosCxc.addEventListener('input', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
+                dispararFiltroDebounced();
+            }
+        });
+
+        // Prevenimos que el formulario recargue la página si dan "Enter"
+        formFiltrosCxc.addEventListener('submit', (e) => {
+            e.preventDefault();
+            procesarFiltros();
+        });
+
+        // 2. Lógica para Pestañas (Tabs) sin recargar
+        document.querySelectorAll('.js-tab-filtro').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.preventDefault();
+                const urlDestino = e.currentTarget.href;
+                
+                // Actualizamos el diseño de la pestaña activa (ajusta estas clases según tu CSS)
+                document.querySelectorAll('.js-tab-filtro').forEach(t => t.classList.remove('active', 'border-primary', 'text-primary'));
+                e.currentTarget.classList.add('active', 'border-primary', 'text-primary');
+
+                // Disparamos la carga de datos
+                if (urlDestino) {
+                    cargarDatosAjax(urlDestino);
+                }
+            });
+        });
+
+        // 3. Lógica para Paginación sin recargar (Delega el evento al contenedor)
+        contenedorTabla.addEventListener('click', (e) => {
+            const linkPaginacion = e.target.closest('.pagination a.page-link');
+            if (linkPaginacion) {
+                e.preventDefault(); // Evita que el navegador salte al link
+                cargarDatosAjax(linkPaginacion.href);
+            }
+        });
+    }
 
 })();

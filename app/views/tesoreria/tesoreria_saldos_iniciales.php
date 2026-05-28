@@ -398,6 +398,3 @@ if ($error !== '') {
         </div>
     </div>
 </div>
-
-<!-- Carga del script específico de la vista (Vital para el funcionamiento de la SPA) -->
-<script src="<?php echo base_url(); ?>/assets/js/tesoreria.js?v=<?php echo time(); ?>"></script>

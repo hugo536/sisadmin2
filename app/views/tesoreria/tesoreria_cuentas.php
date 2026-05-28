@@ -282,23 +282,3 @@ if (is_string($metodosPermitidos)) {
         </div>
     </div>
 </div>
-
-<script src="<?= e(base_url()) ?>/assets/js/tesoreria.js"></script>
-
-<script>
-    if (typeof window.ERPTable !== 'undefined' && window.ERPTable.autoInitFromDataset) {
-        window.ERPTable.autoInitFromDataset(document.getElementById('tesoreriaCuentasApp') || document);
-    }
-</script>
-
-<?php if ($esEdicion): ?>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var modalEl = document.getElementById('modalCuentaTesoreria');
-        if (modalEl) {
-            var myModal = new bootstrap.Modal(modalEl);
-            myModal.show();
-        }
-    });
-</script>
-<?php endif; ?>

@@ -115,7 +115,7 @@ if (!empty($_GET['error'])) {
         </div>
     <?php endif; ?>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm" id="contenedorTablaMovimientos">
         <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div class="d-flex align-items-center">
                 <h2 class="h6 fw-bold text-dark mb-0">Historial Detallado</h2>
@@ -266,5 +266,3 @@ if (!empty($_GET['error'])) {
         });
     </script>
 <?php endif; ?>
-
-<script src="<?= e(base_url()) ?>/assets/js/tesoreria.js"></script>

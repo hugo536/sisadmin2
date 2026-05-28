@@ -197,7 +197,7 @@ class Router
 
     private function resolver_controlador_archivo(string $clase): ?string
     {
-        // Añadida la ruta para la nueva carpeta 'costos'
+        // Añadida la ruta para la nueva carpeta 'costos' y 'tesoreria'
         $rutas_posibles = [
             BASE_PATH . '/app/controllers/' . $clase . '.php',
             BASE_PATH . '/app/controllers/inventario/' . $clase . '.php',
@@ -206,7 +206,8 @@ class Router
             BASE_PATH . '/app/controllers/rrhh/' . $clase . '.php',
             BASE_PATH . '/app/controllers/contabilidad/' . $clase . '.php',
             BASE_PATH . '/app/controllers/produccion/' . $clase . '.php',
-            BASE_PATH . '/app/controllers/costos/' . $clase . '.php', // <-- NUEVA RUTA AQUÍ
+            BASE_PATH . '/app/controllers/costos/' . $clase . '.php', 
+            BASE_PATH . '/app/controllers/tesoreria/' . $clase . '.php', // <-- ¡AGREGA ESTA LÍNEA!
             BASE_PATH . '/app/controladores/' . $clase . '.php',
         ];
 

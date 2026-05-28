@@ -76,17 +76,17 @@ if (!empty($_GET['error'])) {
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
-                <i class="bi bi-shop me-2 text-warning"></i> Tesorería - Cuentas por Pagar
+                <i class="bi bi-cash-stack me-2 text-primary"></i> Tesorería - Cuentas por Cobrar
             </h1>
-            <p class="text-muted small mb-0 ms-1">Control de saldos por proveedor y registro de pagos.</p>
+            <p class="text-muted small mb-0 ms-1">Control de saldos por cliente y registro de cobros.</p>
         </div>
         
         <div class="d-flex gap-2 flex-wrap justify-content-end align-items-center">
             <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bar-chart-line me-2 text-primary"></i>Reportes
             </a>
-            <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalPagoManual">
-                <i class="bi bi-plus-circle me-2"></i>Registrar Pago Manual
+            <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalCobroManual">
+                <i class="bi bi-plus-circle me-2"></i>Registrar Cobro Manual
             </button>
         </div>
     </div>
@@ -136,39 +136,23 @@ if (!empty($_GET['error'])) {
 
     <ul class="nav nav-tabs border-bottom-1 mb-0 px-2" role="tablist">
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $vistaActual === 'pendientes' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('pendientes')">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 js-tab-cxc <?php echo $vistaActual === 'pendientes' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" data-vista="pendientes">
                 <i class="bi bi-exclamation-circle me-2"></i>Por Cobrar
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $vistaActual === 'resueltos' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('resueltos')">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 js-tab-cxc <?php echo $vistaActual === 'resueltos' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" data-vista="resueltos">
                 <i class="bi bi-check2-all me-2"></i>Historial Cobrado
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $vistaActual === 'todos' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('todos')">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 js-tab-cxc <?php echo $vistaActual === 'todos' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" data-vista="todos">
                 <i class="bi bi-border-all me-2"></i>Todas
             </button>
         </li>
     </ul>
 
-    <script>
-        function cambiarPestana(vista) {
-            document.getElementById('inputVistaGlobal').value = vista;
-            document.getElementById('formFiltrosCxc').submit();
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const inputs = document.querySelectorAll('.auto-submit');
-            inputs.forEach(input => {
-                input.addEventListener('change', () => {
-                    document.getElementById('formFiltrosCxc').submit();
-                });
-            });
-        });
-    </script>
-
-    <div class="card border-0 shadow-sm rounded-top-0 border-top border-primary border-3">
+    <div class="card border-0 shadow-sm rounded-top-0 border-top border-primary border-3" id="contenedorTablaCxc">
         <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div class="d-flex align-items-center">
                 <h2 class="h6 fw-bold text-dark mb-0">
@@ -523,4 +507,3 @@ if (!empty($_GET['error'])) {
         </div>
     </div>
 </div>
-<script src="<?php echo e(base_url()); ?>/assets/js/tesoreria.js"></script>

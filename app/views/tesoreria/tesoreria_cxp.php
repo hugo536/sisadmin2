@@ -144,39 +144,23 @@ if (!empty($_GET['error'])) {
 
     <ul class="nav nav-tabs border-bottom-1 mb-0 px-2" role="tablist">
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $vistaActual === 'pendientes' ? 'active text-warning-emphasis border-warning border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('pendientes')">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 js-tab-cxp <?php echo $vistaActual === 'pendientes' ? 'active text-warning-emphasis border-warning border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" data-vista="pendientes">
                 <i class="bi bi-exclamation-circle me-2"></i>Por Pagar
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $vistaActual === 'resueltos' ? 'active text-warning-emphasis border-warning border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('resueltos')">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 js-tab-cxp <?php echo $vistaActual === 'resueltos' ? 'active text-warning-emphasis border-warning border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" data-vista="resueltos">
                 <i class="bi bi-check2-all me-2"></i>Historial Pagado
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link fs-6 fw-semibold py-3 <?php echo $vistaActual === 'todos' ? 'active text-warning-emphasis border-warning border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" onclick="cambiarPestana('todos')">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 js-tab-cxp <?php echo $vistaActual === 'todos' ? 'active text-warning-emphasis border-warning border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" data-vista="todos">
                 <i class="bi bi-border-all me-2"></i>Todas
             </button>
         </li>
     </ul>
 
-    <script>
-        function cambiarPestana(vista) {
-            document.getElementById('inputVistaGlobal').value = vista;
-            document.getElementById('formFiltrosCxp').submit();
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const inputs = document.querySelectorAll('.auto-submit');
-            inputs.forEach(input => {
-                input.addEventListener('change', () => {
-                    document.getElementById('formFiltrosCxp').submit();
-                });
-            });
-        });
-    </script>
-
-    <div class="card border-0 shadow-sm rounded-top-0 border-top border-warning border-3">
+    <div class="card border-0 shadow-sm rounded-top-0 border-top border-warning border-3" id="contenedorTablaCxp">
         <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div class="d-flex align-items-center">
                 <h2 class="h6 fw-bold text-dark mb-0">
@@ -538,4 +522,3 @@ if (!empty($_GET['error'])) {
     </div>
 </div>
 
-<script src="<?php echo e(base_url()); ?>/assets/js/tesoreria.js"></script>
