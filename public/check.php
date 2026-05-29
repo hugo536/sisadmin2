@@ -1,220 +1,203 @@
 <?php
 /**
- * 🔍 SUPER CHECKER V3 - Diagnóstico de Nombres Ocultos (Con MutationObserver)
+ * 🔍 SUPER CHECKER V5 - El Veredicto Final
+ * Diagnóstico de Filtros Tesorería
  */
 declare(strict_types=1);
 error_reporting(E_ALL); ini_set('display_errors', '1');
 
-echo "<!DOCTYPE html><html><head><title>Debugger Inventario Móvil V3</title>";
+echo "<!DOCTYPE html><html><head><title>Debugger Tesorería V5</title>";
 echo '<meta name="viewport" content="width=device-width, initial-scale=1">';
 echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">';
 echo '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">';
 ?>
 <style>
-    /* CSS Base de prueba */
-    @media (max-width: 767.98px) {
-        table#tablaInventarioStock.erp-mobile-cards,
-        table#tablaInventarioStock.erp-mobile-cards tbody,
-        table#tablaInventarioStock.erp-mobile-cards tr,
-        table#tablaInventarioStock.erp-mobile-cards td { display: block !important; width: 100% !important; }
-        table#tablaInventarioStock.erp-mobile-cards thead { display: none !important; }
-        table#tablaInventarioStock.erp-mobile-cards tr {
-            margin-bottom: 1rem !important; border: 1px solid #e0e0e0 !important;
-            border-radius: 10px !important; padding: 16px !important; background-color: #ffffff !important;
-        }
-        table#tablaInventarioStock.erp-mobile-cards td {
-            border: none !important; border-bottom: 1px dashed #e9ecef !important; padding: 10px 0 !important; text-align: left !important;
-        }
-        table#tablaInventarioStock.erp-mobile-cards td::before {
-            content: attr(data-label) !important; display: block !important;
-            font-size: 0.75rem !important; text-transform: uppercase !important; color: #6c757d !important; font-weight: 700 !important; margin-bottom: 6px !important;
-        }
-        table#tablaInventarioStock.erp-mobile-cards td:nth-child(1)::before { display: none !important; }
-        table#tablaInventarioStock.erp-mobile-cards td > div,
-        table#tablaInventarioStock.erp-mobile-cards td > span {
-            visibility: visible !important; opacity: 1 !important; display: flex !important;
-        }
-    }
+    body { background: #f8f9fa; padding: 20px; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .terminal { background-color: #0d1117; color: #58a6ff; font-family: monospace; font-size: 13.5px; padding: 15px; border-radius: 8px; overflow-x: auto; border: 1px solid #30363d; }
+    .terminal-comment { color: #8b949e; font-style: italic; }
+    .terminal-keyword { color: #ff7b72; }
+    .terminal-string { color: #a5d6ff; }
+    .terminal-var { color: #79c0ff; }
 </style>
-</head><body style='background: #f8f9fa; padding: 20px;'>
+</head><body>
 
 <div class="container" style="max-width: 1200px;">
-    <h2 class="text-primary mb-3"><i class="bi bi-radar"></i> DIAGNÓSTICO V3: El Vigilante del DOM</h2>
-    <p class="lead">Si algún script externo (como ERPTable) toca esta tabla, la consola te avisará en tiempo real.</p>
+    <h2 class="text-primary mb-3 fw-bold"><i class="bi bi-radar"></i> DIAGNÓSTICO V5: El Veredicto Final</h2>
+    <p class="lead text-muted">¿Por qué seguía sin funcionar? Aquí está el motivo exacto (Spoiler: el JS estaba enviando la petición al lugar equivocado) y la solución definitiva.</p>
 
     <div class="row g-4 mt-2">
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-0 mb-3">
-                <div class="card-header bg-dark text-white fw-bold">1. Fila Simulada</div>
-                <div class="card-body p-3 bg-light">
-                    <table class="table align-middle mb-0 erp-mobile-cards" id="tablaInventarioStock">
-                        <thead>
-                            <tr>
-                                <th>Producto</th>
-                                <th>Almacén</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr id="filaTest">
-                                <td data-label="Producto" id="tdProducto">
-                                    <div class="d-flex align-items-center gap-2" id="divContenedorNombre">
-                                        <span class="fw-bold text-wrap" id="spanNombre">BOTELLA PET 18 GR - AGUA BELÉN 625ML</span>
-                                        <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold ms-1" style="font-size: 0.65rem;">PACK</span>
-                                    </div>
-                                </td>
-                                <td data-label="Almacén" id="tdAlmacen">Múltiples Almacenes</td>
-                                <td data-label="Acciones">
-                                    <div class="d-inline-flex align-items-center gap-2">
-                                        <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle">Activo</span>
-                                        <button class="btn btn-sm btn-light"><i class="bi bi-eye fs-5"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+        <div class="col-lg-5">
+            <div class="card shadow-sm border-0 border-start border-danger border-4 mb-4">
+                <div class="card-header bg-white fw-bold text-danger"><i class="bi bi-bug"></i> Los 2 Culpables Restantes</div>
+                <div class="card-body p-4 bg-light">
+                    <ol class="mb-0">
+                        <li class="mb-3">
+                            <strong>El Asesino Silencioso de Subcarpetas (JavaScript):</strong> En la versión anterior, el código <code>new URL(action, window.location.origin)</code> ignoraba tu carpeta <code>/sisadmin2/</code>. La petición de filtro se enviaba a <code>http://localhost/tesoreria...</code>, generando un Error 404 invisible. La tabla no se actualizaba porque nunca recibía datos nuevos.<br>
+                            <span class="badge bg-success mt-2">Solución:</span> Usar la propiedad nativa <code>form.action</code>, que el navegador ya resuelve automáticamente con la ruta absoluta correcta.
+                        </li>
+                        <li class="mb-3">
+                            <strong>Sintaxis MySQL Estricta (Modelo):</strong> En algunas versiones de MySQL/MariaDB, envolver subconsultas <code>UNION ALL</code> entre paréntesis <code>($sql) UNION ALL ($sql)</code> arroja un error de sintaxis silencioso al combinarlo con <code>ORDER BY</code>.<br>
+                            <span class="badge bg-success mt-2">Solución:</span> Quitar los paréntesis al concatenar la consulta final.
+                        </li>
+                    </ol>
                 </div>
             </div>
 
-            <div class="card shadow-sm border-0 border-start border-danger border-4">
-                <div class="card-body p-3">
-                    <h6 class="fw-bold text-danger"><i class="bi bi-bug"></i> Simulador de ataques (Prueba el radar)</h6>
-                    <div class="d-flex gap-2 mt-2">
-                        <button id="btnSimularOcultar" class="btn btn-sm btn-outline-danger">Inyectar 'display:none'</button>
-                        <button id="btnSimularDestruir" class="btn btn-sm btn-outline-danger">Destruir DOM interno</button>
-                        <button id="btnRestaurar" class="btn btn-sm btn-success">Restaurar Fila</button>
-                    </div>
-                </div>
+            <div class="alert alert-warning border-0 shadow-sm">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> <strong>Recuerda borrar tu caché (Ctrl + F5)</strong> después de actualizar tu JavaScript.
             </div>
         </div>
 
-        <div class="col-lg-6">
+        <div class="col-lg-7">
             <div class="card shadow border-0 h-100">
                 <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-terminal"></i> Consola del Radar</span>
-                    <button id="btnEscanear" class="btn btn-sm btn-primary fw-bold shadow-sm">ESCANEAR AHORA</button>
+                    <span><i class="bi bi-tools"></i> Código de Solución Definitiva (Copia esto)</span>
                 </div>
-                <div class="card-body bg-black text-light p-3" style="font-family: monospace; font-size: 13px; overflow-y: auto; height: 450px;" id="consolaLog">
-                    <span style="color: #00ff00">> Sistema de monitoreo (MutationObserver) INICIADO.</span><br>
-                    <span style="color: #aaaaaa">> Achica la pantalla o usa los botones de simulación para ver la actividad.</span><br><br>
+                <div class="card-body p-0">
+                    <div class="accordion accordion-flush" id="accordionFixes">
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button bg-light fw-bold text-warning" type="button" data-bs-toggle="collapse" data-bs-target="#fix3">
+                                    1. Actualizar JS (movimientos.js)
+                                </button>
+                            </h2>
+                            <div id="fix3" class="accordion-collapse collapse show" data-bs-parent="#accordionFixes">
+                                <div class="accordion-body">
+                                    <p class="small text-muted mb-2">Reemplaza tu función <code>procesarFiltros</code> por esta versión infalible. Extrae la URL absoluta directamente del DOM:</p>
+                                    <div class="terminal">
+const procesarFiltros = () => {
+    const formData = new FormData(formFiltros);
+    
+    <span class="terminal-comment">// Propiedad DOM nativa: obtiene la ruta ABSOLUTA garantizada</span>
+    <span class="terminal-comment">// (ej: http://localhost/sisadmin2/index.php?ruta=...)</span>
+    const urlObj = new URL(formFiltros.action);
+    
+    formData.forEach((value, key) => {
+        if (value.trim() !== '') {
+            urlObj.searchParams.set(key, value.trim());
+        } else {
+            urlObj.searchParams.delete(key); <span class="terminal-comment">// Limpia filtros vacíos</span>
+        }
+    });
+    
+    const finalUrlStr = urlObj.toString();
+    console.log("📍 AJAX Enviado a:", finalUrlStr);
+    
+    cargarDatosAjax(finalUrlStr);
+};
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed bg-light fw-bold text-success" type="button" data-bs-toggle="collapse" data-bs-target="#fix2">
+                                    2. Actualizar TesoreriaMovimientoModel.php
+                                </button>
+                            </h2>
+                            <div id="fix2" class="accordion-collapse collapse" data-bs-parent="#accordionFixes">
+                                <div class="accordion-body">
+                                    <p class="small text-muted mb-2">Reemplaza la función <code>listarRecientes</code>. Hemos eliminado los paréntesis del UNION ALL para máxima compatibilidad:</p>
+                                    <div class="terminal" style="max-height: 350px;">
+<span class="terminal-keyword">public function</span> listarRecientes(array $filtros = [], int $limite = 50): array
+{
+    $origenFilter = strtoupper(trim((string) ($filtros['origen'] ?? '')));
+    $idOrigenFilter = (int) ($filtros['id_origen'] ?? 0);
+    $idTerceroFilter = (int) ($filtros['id_tercero'] ?? 0);
+    $idCuentaFilter = (int) ($filtros['id_cuenta'] ?? 0);
+    $fechaDesdeFilter = (string) ($filtros['fecha_desde'] ?? '');
+    $fechaHastaFilter = (string) ($filtros['fecha_hasta'] ?? '');
+
+    $paramsFinal = [];
+    $whereMov = ['m.deleted_at IS NULL'];
+    
+    if (in_array($origenFilter, ['CXC', 'CXP'], true)) {
+        $whereMov[] = 'm.origen = :origen_mov';
+        $paramsFinal['origen_mov'] = $origenFilter;
+    }
+    if ($idOrigenFilter > 0) {
+        $whereMov[] = 'm.id_origen = :id_origen_mov';
+        $paramsFinal['id_origen_mov'] = $idOrigenFilter;
+    }
+    if ($idTerceroFilter > 0) {
+        $whereMov[] = 'm.id_tercero = :id_tercero_mov';
+        $paramsFinal['id_tercero_mov'] = $idTerceroFilter;
+    }
+    if ($idCuentaFilter > 0) {
+        $whereMov[] = 'm.id_cuenta = :id_cuenta_mov';
+        $paramsFinal['id_cuenta_mov'] = $idCuentaFilter;
+    }
+    if ($fechaDesdeFilter !== '') {
+        $whereMov[] = 'm.fecha >= :fecha_desde_mov';
+        $paramsFinal['fecha_desde_mov'] = $fechaDesdeFilter . ' 00:00:00';
+    }
+    if ($fechaHastaFilter !== '') {
+        $whereMov[] = 'm.fecha <= :fecha_hasta_mov';
+        $paramsFinal['fecha_hasta_mov'] = $fechaHastaFilter . ' 23:59:59';
+    }
+
+    $sqlMov = 'SELECT m.id, m.fecha, m.tipo, m.origen, m.id_origen, m.monto, m.estado, 
+                      COALESCE(c.codigo, "S/C") AS cuenta_codigo, COALESCE(c.nombre, "Cuenta Eliminada") AS cuenta_nombre, 
+                      COALESCE(t.nombre_completo, "Tercero Eliminado") AS tercero_nombre, m.created_at
+               FROM tesoreria_movimientos m
+               LEFT JOIN tesoreria_cuentas c ON c.id = m.id_cuenta
+               LEFT JOIN terceros t ON t.id = m.id_tercero
+               WHERE ' . implode(' AND ', $whereMov);
+
+    $addTransfers = true;
+    if ($origenFilter !== '' && $origenFilter !== 'TRANSFERENCIA') $addTransfers = false;
+    if ($idTerceroFilter > 0) $addTransfers = false;
+    
+    if ($addTransfers) {
+        $whereTrfOut = ['trf.deleted_at IS NULL'];
+        $whereTrfIn  = ['trf.deleted_at IS NULL'];
+
+        if ($idOrigenFilter > 0) {
+            $whereTrfOut[] = 'trf.id = :id_origen_out'; $paramsFinal['id_origen_out'] = $idOrigenFilter;
+            $whereTrfIn[] = 'trf.id = :id_origen_in'; $paramsFinal['id_origen_in'] = $idOrigenFilter;
+        }
+        if ($idCuentaFilter > 0) {
+            $whereTrfOut[] = 'trf.id_cuenta_origen = :id_cuenta_out'; $paramsFinal['id_cuenta_out'] = $idCuentaFilter;
+            $whereTrfIn[] = 'trf.id_cuenta_destino = :id_cuenta_in'; $paramsFinal['id_cuenta_in'] = $idCuentaFilter;
+        }
+        if ($fechaDesdeFilter !== '') {
+            $whereTrfOut[] = 'trf.fecha >= :fecha_desde_out'; $paramsFinal['fecha_desde_out'] = $fechaDesdeFilter . ' 00:00:00';
+            $whereTrfIn[] = 'trf.fecha >= :fecha_desde_in'; $paramsFinal['fecha_desde_in'] = $fechaDesdeFilter . ' 00:00:00';
+        }
+        if ($fechaHastaFilter !== '') {
+            $whereTrfOut[] = 'trf.fecha <= :fecha_hasta_out'; $paramsFinal['fecha_hasta_out'] = $fechaHastaFilter . ' 23:59:59';
+            $whereTrfIn[] = 'trf.fecha <= :fecha_hasta_in'; $paramsFinal['fecha_hasta_in'] = $fechaHastaFilter . ' 23:59:59';
+        }
+
+        $sqlTrfOut = 'SELECT trf.id, trf.fecha, "PAGO" AS tipo, "TRANSFERENCIA" AS origen, trf.id AS id_origen, trf.monto, trf.estado, COALESCE(co.codigo, "S/C") AS cuenta_codigo, COALESCE(co.nombre, "Cuenta Eliminada") AS cuenta_nombre, "Cuentas Propias" AS tercero_nombre, trf.created_at FROM tesoreria_transferencias trf LEFT JOIN tesoreria_cuentas co ON co.id = trf.id_cuenta_origen WHERE ' . implode(' AND ', $whereTrfOut);
+        $sqlTrfIn = 'SELECT trf.id, trf.fecha, "COBRO" AS tipo, "TRANSFERENCIA" AS origen, trf.id AS id_origen, trf.monto, trf.estado, COALESCE(cd.codigo, "S/C") AS cuenta_codigo, COALESCE(cd.nombre, "Cuenta Eliminada") AS cuenta_nombre, "Cuentas Propias" AS tercero_nombre, trf.created_at FROM tesoreria_transferencias trf LEFT JOIN tesoreria_cuentas cd ON cd.id = trf.id_cuenta_destino WHERE ' . implode(' AND ', $whereTrfIn);
+
+        <span class="terminal-comment">// CORRECCIÓN: Quitamos los paréntesis alrededor de las subconsultas</span>
+        $sqlFinal = $sqlMov . " UNION ALL " . $sqlTrfOut . " UNION ALL " . $sqlTrfIn . " ORDER BY fecha DESC, created_at DESC LIMIT :limite";
+    } else {
+        $sqlFinal = $sqlMov . " ORDER BY fecha DESC, created_at DESC LIMIT :limite";
+    }
+
+    $stmt = $this->db()->prepare($sqlFinal);
+    foreach ($paramsFinal as $k => $v) { $stmt->bindValue(':' . $k, $v); }
+    $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+    $stmt->execute();
+    
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    const consola = document.getElementById('consolaLog');
-    const btnEscanear = document.getElementById('btnEscanear');
-    const tdProducto = document.getElementById('tdProducto');
-    
-    // Función para escribir en la consola virtual
-    function log(msg, color = "#fff") {
-        const time = new Date().toLocaleTimeString();
-        consola.innerHTML += `<span style="color: #666">[${time}]</span> <span style="color: ${color}">${msg}</span><br>`;
-        consola.scrollTop = consola.scrollHeight;
-    }
-
-    // ====================================================================
-    // 1. EL VIGILANTE: MutationObserver (Atrapa cambios en tiempo real)
-    // ====================================================================
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                const displayActual = window.getComputedStyle(mutation.target).display;
-                if (displayActual === 'none') {
-                    log(`🚨 ALERTA ROJA: Un script acaba de inyectar 'display: none' en un elemento!`, "#ff5555");
-                } else {
-                    log(`⚠️ PRECAUCIÓN: Un script modificó el atributo style del elemento.`, "#ffaa00");
-                }
-            }
-            if (mutation.type === 'childList') {
-                if (mutation.removedNodes.length > 0) {
-                    log(`🚨 ALERTA ROJA: Un script acaba de BORRAR contenido (Nodos HTML) dentro del TD!`, "#ff5555");
-                }
-            }
-            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                log(`⚠️ PRECAUCIÓN: Un script modificó las clases de la fila.`, "#ffaa00");
-            }
-        });
-    });
-
-    // Empezamos a vigilar toda la fila y sus hijos
-    const filaTest = document.getElementById('filaTest');
-    if(filaTest) {
-        observer.observe(filaTest, { 
-            attributes: true, 
-            childList: true, 
-            subtree: true 
-        });
-    }
-
-    // ====================================================================
-    // 2. ESCÁNER MANUAL DE ESTADO
-    // ====================================================================
-    btnEscanear.addEventListener('click', function() {
-        log("--- EJECUTANDO ESCÁNER MANUAL ---", "#00ffff");
-        const spanNombre = document.getElementById('spanNombre');
-        
-        if (!document.body.contains(tdProducto)) {
-            log("❌ RESULTADO: El contenedor <td> FUE ELIMINADO DEL DOM.", "#ff5555");
-            return;
-        }
-        
-        if (!spanNombre) {
-            log("❌ RESULTADO: El texto del producto NO EXISTE. Fue limpiado por JS (.innerHTML = '').", "#ff5555");
-            return;
-        }
-
-        const estilosTd = window.getComputedStyle(tdProducto);
-        const estilosSpan = window.getComputedStyle(spanNombre);
-        
-        log(`Estado actual -> <td> display: ${estilosTd.display}, <span> display: ${estilosSpan.display}`);
-
-        if (estilosTd.display === 'none' || estilosSpan.display === 'none') {
-            log("❌ RESULTADO: El producto está ahí, pero oculto mediante CSS agresivo.", "#ff5555");
-        } else {
-            log("✅ RESULTADO: El DOM y el CSS están intactos. El producto es visible.", "#55ff55");
-        }
-    });
-
-    // ====================================================================
-    // 3. SIMULADORES DE ATAQUE (Para probar la herramienta)
-    // ====================================================================
-    document.getElementById('btnSimularOcultar').addEventListener('click', () => {
-        log("Simulando acción de ERPTable: Ocultando vía inline CSS...", "#aaaaaa");
-        document.getElementById('divContenedorNombre').style.display = 'none';
-    });
-
-    document.getElementById('btnSimularDestruir').addEventListener('click', () => {
-        log("Simulando acción de ERPTable: Vaciando el innerHTML...", "#aaaaaa");
-        tdProducto.innerHTML = '<span class="text-muted">Responsive view...</span>';
-    });
-
-    document.getElementById('btnRestaurar').addEventListener('click', () => {
-        log("Restaurando DOM a su estado original...", "#55ff55");
-        tdProducto.innerHTML = `
-            <div class="d-flex align-items-center gap-2" id="divContenedorNombre">
-                <span class="fw-bold text-wrap" id="spanNombre">BOTELLA PET 18 GR - AGUA BELÉN 625ML</span>
-                <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold ms-1" style="font-size: 0.65rem;">PACK</span>
-            </div>`;
-    });
-
-    // ====================================================================
-    // 4. DETECTOR DE REDIMENSIÓN
-    // ====================================================================
-    let lastWidth = window.innerWidth;
-    window.addEventListener('resize', () => {
-        const currentWidth = window.innerWidth;
-        if ((lastWidth > 767 && currentWidth <= 767) || (lastWidth <= 767 && currentWidth > 767)) {
-            log(`[EVENTO] Breakpoint cruzado. Ancho actual: ${currentWidth}px`, "#00ffff");
-        }
-        lastWidth = currentWidth;
-    });
-});
-</script>
-<script src="ruta/a/tu/js/main.js"></script>
-<script src="ruta/a/tu/js/tablas/renderizadores.js"></script>
-<script src="ruta/a/tu/js/tablas/cards_acordeon.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body></html>
