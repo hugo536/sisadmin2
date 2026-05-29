@@ -202,6 +202,23 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
     <script src="<?php echo e(asset_url('js/comercial.js')); ?>?v=<?php echo $getAssetVersion('js/comercial.js'); ?>"></script>
 <?php endif; ?>
 
+<?php if (str_starts_with($currentRoute, 'tesoreria')): ?>
+    <script src="<?php echo e(asset_url('js/tesoreria/tesoreria_core.js')); ?>?v=<?php echo time(); ?>"></script>
+    <?php if ($currentRoute === 'tesoreria/cuentas'): ?>
+        <script src="<?php echo e(asset_url('js/tesoreria/cuentas.js')); ?>?v=<?php echo time(); ?>"></script>
+    <?php elseif ($currentRoute === 'tesoreria/movimientos'): ?>
+        <script src="<?php echo e(asset_url('js/tesoreria/movimientos.js')); ?>?v=<?php echo time(); ?>"></script>
+    <?php elseif ($currentRoute === 'tesoreria/cxc'): ?>
+        <script src="<?php echo e(asset_url('js/tesoreria/cxc.js')); ?>?v=<?php echo time(); ?>"></script>
+    <?php elseif ($currentRoute === 'tesoreria/cxp'): ?>
+        <script src="<?php echo e(asset_url('js/tesoreria/cxp.js')); ?>?v=<?php echo time(); ?>"></script>
+    <?php elseif ($currentRoute === 'tesoreria/saldos_iniciales'): ?>
+        <script src="<?php echo e(asset_url('js/tesoreria/saldos_iniciales.js')); ?>?v=<?php echo time(); ?>"></script>
+    <?php elseif ($currentRoute === 'tesoreria/prestamos'): ?>
+        <script src="<?php echo e(asset_url('js/tesoreria/prestamos.js')); ?>?v=<?php echo time(); ?>"></script>
+    <?php endif; ?>
+<?php endif; ?>
+
 <?php if ($currentRoute === 'gastos/conceptos'): ?>
     <script src="<?php echo e(asset_url('js/gastos/conceptos_gasto.js')); ?>?v=<?php echo $getAssetVersion('js/gastos/conceptos_gasto.js'); ?>"></script>
 <?php endif; ?>

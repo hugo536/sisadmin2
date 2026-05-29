@@ -710,10 +710,14 @@ class TesoreriaController extends Controlador
         AuthMiddleware::handle();
         require_permiso('tesoreria.ver');
 
+        // CAMBIO APLICADO: Ahora capturamos las fechas y la cuenta desde el $_GET
         $filtros = [
-            'origen'     => strtoupper(trim((string) ($_GET['origen'] ?? ''))),
-            'id_origen'  => (int) ($_GET['id_origen'] ?? 0),
-            'id_tercero' => (int) ($_GET['id_tercero'] ?? 0),
+            'origen'      => strtoupper(trim((string) ($_GET['origen'] ?? ''))),
+            'id_origen'   => (int) ($_GET['id_origen'] ?? 0),
+            'id_tercero'  => (int) ($_GET['id_tercero'] ?? 0),
+            'id_cuenta'   => (int) ($_GET['id_cuenta'] ?? 0),
+            'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? date('Y-m-01'))),
+            'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? date('Y-m-t'))),
         ];
 
         $this->render('tesoreria/tesoreria_movimientos', [

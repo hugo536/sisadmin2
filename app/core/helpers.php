@@ -102,25 +102,28 @@ if (!function_exists('require_permiso')) {
 }
 
 // --------------------------------------------------------------------------
-// FUNCIONES DE URL Y REDIRECCIÓN (AQUÍ ESTABA EL FALTANTE)
+// FUNCIONES DE URL Y REDIRECCIÓN (ADAPTADAS PARA TU ESTRUCTURA /public)
 // --------------------------------------------------------------------------
 
 if (!function_exists('base_url')) {
     function base_url(): string
     {
-        // Detecta el protocolo y host para generar URL absoluta (recomendado para redirects)
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+        // 1. Prioridad máxima: Si tienes APP_URL en tu .env, úsalo.
+        $appUrl = $_ENV['APP_URL'] ?? getenv('APP_URL');
+        if (!empty($appUrl)) {
+            return rtrim($appUrl, '/');
+        }
+
+        // 2. Autodetección inteligente
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443)) ? "https://" : "http://";
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
         
         $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
-        $dir = str_replace('\\', '/', dirname($scriptName));
-
-        if ($dir === '/' || $dir === '.' || $dir === '\\') {
-            $path = '';
-        } else {
-            $path = rtrim($dir, '/');
-        }
+        $dir = dirname($scriptName);
         
+        $path = ($dir === '/' || $dir === '.' || $dir === '\\') ? '' : rtrim($dir, '/');
+        
+        // Retornará algo como: http://localhost/sisadmin2/public
         return $protocol . $host . $path;
     }
 }
@@ -128,38 +131,31 @@ if (!function_exists('base_url')) {
 if (!function_exists('route_url')) {
     function route_url(string $ruta): string
     {
-        // Genera: http://localhost/sisadmin2/?ruta=controlador/metodo
-        return base_url() . '/?ruta=' . ltrim($ruta, '/');
+        // Forzamos index.php para que el Router atrape la petición correctamente
+        return base_url() . '/index.php?ruta=' . ltrim($ruta, '/');
     }
 }
 
 if (!function_exists('asset_url')) {
     function asset_url(string $path): string
     {
-        // Ajusta si tu carpeta 'assets' está dentro de 'public' o en la raíz
-        // Según tu estructura parece ser raíz/assets o public/assets. 
-        // Si usas public/index.php, el assets suele estar al nivel de index.php
+        // Como index.php está en /public/, y assets también está en /public/assets/,
+        // la ruta base ya nos deja al lado de la carpeta assets.
         return base_url() . '/assets/' . ltrim($path, '/');
     }
 }
 
-// ESTA ES LA FUNCIÓN QUE FALTABA
 if (!function_exists('redirect')) {
     function redirect(string $ruta): void
     {
-        // Lógica inteligente para manejar parámetros GET
-        // Si pasas 'controlador/metodo?error=1', esto lo convierte correctamente
-        // para que funcione con tu sistema de ?ruta=...
-        
         if (!str_starts_with($ruta, 'http')) {
             $parts = explode('?', $ruta, 2);
             $cleanPath = $parts[0];
             $queryParams = $parts[1] ?? '';
 
-            $url = route_url($cleanPath); // .../?ruta=controlador/metodo
+            $url = route_url($cleanPath);
             
             if ($queryParams !== '') {
-                // Cambiamos el ? del parámetro por & porque ?ruta ya usó el primero
                 $url .= '&' . $queryParams; 
             }
         } else {

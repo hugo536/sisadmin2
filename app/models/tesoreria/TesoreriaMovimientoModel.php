@@ -23,22 +23,41 @@ class TesoreriaMovimientoModel extends Modelo
         $origenFilter = strtoupper(trim((string) ($filtros['origen'] ?? '')));
         $idOrigenFilter = (int) ($filtros['id_origen'] ?? 0);
         $idTerceroFilter = (int) ($filtros['id_tercero'] ?? 0);
+        
+        $idCuentaFilter = (int) ($filtros['id_cuenta'] ?? 0);
+        $fechaDesdeFilter = (string) ($filtros['fecha_desde'] ?? '');
+        $fechaHastaFilter = (string) ($filtros['fecha_hasta'] ?? '');
 
-        $params = [];
+        $paramsFinal = [];
         
         // --- QUERY 1: Movimientos Normales ---
         $whereMov = ['m.deleted_at IS NULL'];
+        
         if (in_array($origenFilter, ['CXC', 'CXP'], true)) {
             $whereMov[] = 'm.origen = :origen_mov';
-            $params['origen_mov'] = $origenFilter;
+            $paramsFinal['origen_mov'] = $origenFilter;
         }
         if ($idOrigenFilter > 0) {
             $whereMov[] = 'm.id_origen = :id_origen_mov';
-            $params['id_origen_mov'] = $idOrigenFilter;
+            $paramsFinal['id_origen_mov'] = $idOrigenFilter;
         }
         if ($idTerceroFilter > 0) {
             $whereMov[] = 'm.id_tercero = :id_tercero_mov';
-            $params['id_tercero_mov'] = $idTerceroFilter;
+            $paramsFinal['id_tercero_mov'] = $idTerceroFilter;
+        }
+        if ($idCuentaFilter > 0) {
+            $whereMov[] = 'm.id_cuenta = :id_cuenta_mov';
+            $paramsFinal['id_cuenta_mov'] = $idCuentaFilter;
+        }
+        
+        // SOLUCIÓN FECHAS: Agregamos horas para abarcar todo el día
+        if ($fechaDesdeFilter !== '') {
+            $whereMov[] = 'm.fecha >= :fecha_desde_mov';
+            $paramsFinal['fecha_desde_mov'] = $fechaDesdeFilter . ' 00:00:00';
+        }
+        if ($fechaHastaFilter !== '') {
+            $whereMov[] = 'm.fecha <= :fecha_hasta_mov';
+            $paramsFinal['fecha_hasta_mov'] = $fechaHastaFilter . ' 23:59:59';
         }
 
         $sqlMov = 'SELECT m.id, m.fecha, m.tipo, m.origen, m.id_origen, m.monto, m.estado, 
@@ -54,23 +73,49 @@ class TesoreriaMovimientoModel extends Modelo
                    WHERE ' . implode(' AND ', $whereMov);
 
         // --- QUERY 2: Transferencias (Salidas y Entradas) ---
-        $whereTrf = ['trf.deleted_at IS NULL'];
         $addTransfers = true;
-        
         if ($origenFilter !== '' && $origenFilter !== 'TRANSFERENCIA') {
-            $addTransfers = false; // Solo quieren ver CXC o CXP
-        }
-        if ($idOrigenFilter > 0) {
-            $whereTrf[] = 'trf.id = :id_origen_trf';
-            $params['id_origen_trf'] = $idOrigenFilter;
+            $addTransfers = false; 
         }
         if ($idTerceroFilter > 0) {
-            $addTransfers = false; // Las transferencias son internas, no tienen tercero
+            $addTransfers = false; 
         }
-
-        $paramsFinal = $params;
+        
         if ($addTransfers) {
-            // Un egreso por la cuenta origen
+            $whereTrfOut = ['trf.deleted_at IS NULL'];
+            $whereTrfIn  = ['trf.deleted_at IS NULL'];
+
+            if ($idOrigenFilter > 0) {
+                $whereTrfOut[] = 'trf.id = :id_origen_out';
+                $paramsFinal['id_origen_out'] = $idOrigenFilter;
+                
+                $whereTrfIn[] = 'trf.id = :id_origen_in';
+                $paramsFinal['id_origen_in'] = $idOrigenFilter;
+            }
+            if ($idCuentaFilter > 0) {
+                $whereTrfOut[] = 'trf.id_cuenta_origen = :id_cuenta_out';
+                $paramsFinal['id_cuenta_out'] = $idCuentaFilter;
+                
+                $whereTrfIn[] = 'trf.id_cuenta_destino = :id_cuenta_in';
+                $paramsFinal['id_cuenta_in'] = $idCuentaFilter;
+            }
+            
+            // SOLUCIÓN FECHAS EN TRANSFERENCIAS: Agregamos horas
+            if ($fechaDesdeFilter !== '') {
+                $whereTrfOut[] = 'trf.fecha >= :fecha_desde_out';
+                $paramsFinal['fecha_desde_out'] = $fechaDesdeFilter . ' 00:00:00';
+                
+                $whereTrfIn[] = 'trf.fecha >= :fecha_desde_in';
+                $paramsFinal['fecha_desde_in'] = $fechaDesdeFilter . ' 00:00:00';
+            }
+            if ($fechaHastaFilter !== '') {
+                $whereTrfOut[] = 'trf.fecha <= :fecha_hasta_out';
+                $paramsFinal['fecha_hasta_out'] = $fechaHastaFilter . ' 23:59:59';
+                
+                $whereTrfIn[] = 'trf.fecha <= :fecha_hasta_in';
+                $paramsFinal['fecha_hasta_in'] = $fechaHastaFilter . ' 23:59:59';
+            }
+
             $sqlTrfOut = 'SELECT trf.id, trf.fecha, "PAGO" AS tipo, "TRANSFERENCIA" AS origen, trf.id AS id_origen, trf.monto, trf.estado,
                                  COALESCE(co.codigo, "S/C") AS cuenta_codigo,
                                  COALESCE(co.nombre, "Cuenta Eliminada") AS cuenta_nombre,
@@ -79,9 +124,8 @@ class TesoreriaMovimientoModel extends Modelo
                                  trf.created_at
                           FROM tesoreria_transferencias trf
                           LEFT JOIN tesoreria_cuentas co ON co.id = trf.id_cuenta_origen
-                          WHERE ' . implode(' AND ', $whereTrf);
+                          WHERE ' . implode(' AND ', $whereTrfOut);
 
-            // Un ingreso por la cuenta destino
             $sqlTrfIn = 'SELECT trf.id, trf.fecha, "COBRO" AS tipo, "TRANSFERENCIA" AS origen, trf.id AS id_origen, trf.monto, trf.estado,
                                  COALESCE(cd.codigo, "S/C") AS cuenta_codigo,
                                  COALESCE(cd.nombre, "Cuenta Eliminada") AS cuenta_nombre,
@@ -90,11 +134,10 @@ class TesoreriaMovimientoModel extends Modelo
                                  trf.created_at
                           FROM tesoreria_transferencias trf
                           LEFT JOIN tesoreria_cuentas cd ON cd.id = trf.id_cuenta_destino
-                          WHERE ' . implode(' AND ', $whereTrf);
+                          WHERE ' . implode(' AND ', $whereTrfIn);
 
             $sqlFinal = "($sqlMov) UNION ALL ($sqlTrfOut) UNION ALL ($sqlTrfIn) ORDER BY fecha DESC, created_at DESC LIMIT :limite";
         } else {
-            unset($paramsFinal['id_origen_trf']);
             $sqlFinal = "$sqlMov ORDER BY fecha DESC, created_at DESC LIMIT :limite";
         }
 
