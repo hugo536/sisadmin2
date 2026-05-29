@@ -243,7 +243,7 @@ $estadoLabels = [
 
                             <div class="col-12">
                                 <label class="form-label small text-muted fw-semibold mb-1">Proveedor <span class="text-danger">*</span></label>
-                                <select id="id_proveedor" class="form-select shadow-none border-secondary-subtle" name="id_proveedor" required>
+                                <select id="id_proveedor" class="form-select shadow-none border-secondary-subtle" name="id_proveedor" required data-tom-placeholder="Buscar proveedor...">
                                     <option value="" selected disabled hidden>Seleccione proveedor...</option>
                                     <?php foreach($proveedores as $p): ?>
                                         <option value="<?php echo (int)$p['id']; ?>"><?php echo e((string)$p['nombre_completo']); ?></option>
