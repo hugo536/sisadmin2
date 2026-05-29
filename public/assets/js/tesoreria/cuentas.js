@@ -213,4 +213,22 @@
         });
     });
 
+    // D. Interceptar el formulario de Transferencia Interna (Solo para mostrar el loader)
+    const formTransferencia = document.querySelector('#modalTransferenciaInterna form');
+    if (formTransferencia) {
+        formTransferencia.addEventListener('submit', function(e) {
+            // No usamos e.preventDefault() porque queremos que se envíe directo,
+            // solo queremos mostrar la pantalla de carga visualmente.
+            Swal.fire({
+                title: 'Procesando transferencia...',
+                text: 'Por favor, espera un momento.',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+        });
+    }
+
 })();

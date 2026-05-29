@@ -60,6 +60,41 @@ if (is_string($metodosPermitidos)) {
         </script>
     <?php endif; ?>
 
+    <?php if ($swalExito): ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof Swal !== 'undefined') {
+                    // Personalizamos el mensaje según la acción que venga en la URL
+                    let mensaje = 'Operación realizada correctamente.';
+                    const accion = '<?= e($accionExito) ?>';
+                    
+                    if (accion === 'transfer') mensaje = 'Transferencia realizada con éxito.';
+                    else if (accion === 'created') mensaje = 'Cuenta creada correctamente.';
+                    else if (accion === 'updated') mensaje = 'Cuenta actualizada correctamente.';
+                    else if (accion === 'deleted') mensaje = 'Cuenta eliminada correctamente.';
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Éxito!',
+                        text: mensaje,
+                        confirmButtonText: 'Aceptar',
+                        confirmButtonColor: '#198754', // Verde Bootstrap
+                        customClass: { popup: 'rounded-4 shadow-lg' }
+                    }).then(() => {
+                        // Limpiamos la URL para que no vuelva a salir si el usuario recarga la página
+                        if (window.history.replaceState) {
+                            const url = new URL(window.location);
+                            url.searchParams.delete('ok');
+                            url.searchParams.delete('action');
+                            url.searchParams.delete('id');
+                            window.history.replaceState({path: url.href}, '', url.href);
+                        }
+                    });
+                }
+            });
+        </script>
+    <?php endif; ?>
+
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex justify-content-between align-items-center">
             <h6 class="fw-bold text-dark mb-0"><i class="bi bi-list-check me-2 text-primary"></i>Listado de cuentas registradas</h6>
@@ -280,6 +315,75 @@ if (is_string($metodosPermitidos)) {
                             <i class="bi bi-save me-2"></i><?= $esEdicion ? 'Actualizar Cuenta' : 'Guardar Cuenta' ?>
                         </button>
                     </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalTransferenciaInterna" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            
+            <div class="modal-header bg-success text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-arrow-left-right me-2"></i>Transferencia Interna
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                <form method="post" action="<?= e(route_url('tesoreria/registrar_transferencia_interna')) ?>" autocomplete="off">
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Cuenta Origen (De donde sale)</label>
+                        <select name="id_cuenta_origen" class="form-select shadow-none" required>
+                            <option value="">Seleccione cuenta origen...</option>
+                            <?php foreach ($cuentasActivas as $cta): ?>
+                                <option value="<?= (int)$cta['id'] ?>">
+                                    <?= e($cta['nombre']) ?> 
+                                    (Disp: <?= e($cta['moneda']) ?> <?= number_format((float)($cta['saldo_actual'] ?? 0), 2) ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Cuenta Destino (A donde entra)</label>
+                        <select name="id_cuenta_destino" class="form-select shadow-none" required>
+                            <option value="">Seleccione cuenta destino...</option>
+                            <?php foreach ($cuentasActivas as $cta): ?>
+                                <option value="<?= (int)$cta['id'] ?>">
+                                    <?= e($cta['nombre']) ?> 
+                                    (Disp: <?= e($cta['moneda']) ?> <?= number_format((float)($cta['saldo_actual'] ?? 0), 2) ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-muted">Monto a Transferir</label>
+                            <input type="number" step="0.01" min="0.01" name="monto" class="form-control shadow-none fw-bold text-success" required placeholder="0.00">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-muted">Fecha</label>
+                            <input type="date" name="fecha" class="form-control shadow-none" value="<?= date('Y-m-d') ?>" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-muted">Observaciones / Referencia (Opcional)</label>
+                        <textarea name="observaciones" class="form-control shadow-none" rows="2" placeholder="Motivo de la transferencia o N° de operación..."></textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-end pt-2 border-top">
+                        <button type="button" class="btn btn-light text-secondary me-2 fw-semibold border" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success px-4 fw-bold shadow-sm">
+                            <i class="bi bi-check-circle me-2"></i>Confirmar Transferencia
+                        </button>
+                    </div>
+
                 </form>
             </div>
         </div>

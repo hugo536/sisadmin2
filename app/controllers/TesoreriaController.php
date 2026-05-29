@@ -72,7 +72,7 @@ class TesoreriaController extends Controlador
     public function registrar_transferencia_interna(): void
     {
         AuthMiddleware::handle();
-        require_permiso('tesoreria.pagos.registrar'); // OJO: Si tienes un permiso específico como 'tesoreria.transferencias.registrar', cámbialo aquí.
+        require_permiso('tesoreria.pagos.registrar'); 
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
             redirect('tesoreria/cuentas');
@@ -83,7 +83,7 @@ class TesoreriaController extends Controlador
             $idDestino = (int) ($_POST['id_cuenta_destino'] ?? 0);
             $monto = round((float) ($_POST['monto'] ?? 0), 4);
 
-            // --- INICIO DE VALIDACIONES BACKEND DE SEGURIDAD ---
+            // --- INICIO DE VALIDACIONES BÁSICAS ---
             if ($idOrigen <= 0 || $idDestino <= 0) {
                 throw new RuntimeException('Debe seleccionar la cuenta origen y destino.');
             }
@@ -93,13 +93,36 @@ class TesoreriaController extends Controlador
             if ($monto <= 0) {
                 throw new RuntimeException('El monto de la transferencia debe ser mayor a cero.');
             }
+
+            // --- INICIO DE VALIDACIONES DE NEGOCIO (SEGURIDAD FINANCIERA) ---
+            $cuentaOrigen = $this->cuentaModel->obtenerPorId($idOrigen);
+            $cuentaDestino = $this->cuentaModel->obtenerPorId($idDestino);
+
+            if (!$cuentaOrigen || !$cuentaDestino) {
+                throw new RuntimeException('Una de las cuentas seleccionadas no existe o está inactiva.');
+            }
+
+            // 1. Validar que las monedas sean iguales
+            $monedaOrigen = strtoupper(trim((string) ($cuentaOrigen['moneda'] ?? '')));
+            $monedaDestino = strtoupper(trim((string) ($cuentaDestino['moneda'] ?? '')));
+            
+            if ($monedaOrigen !== $monedaDestino) {
+                throw new RuntimeException("Incompatibilidad de monedas. No puede transferir de una cuenta en {$monedaOrigen} a una en {$monedaDestino}.");
+            }
+
+            // 2. Validar que la cuenta origen tenga saldo suficiente
+            $saldoDisponible = round((float) ($cuentaOrigen['saldo_actual'] ?? 0), 4);
+            if ($monto > $saldoDisponible) {
+                throw new RuntimeException("Saldo insuficiente. La cuenta de origen solo dispone de {$monedaOrigen} " . number_format($saldoDisponible, 2));
+            }
             // --- FIN DE VALIDACIONES ---
 
+            // Si todo está correcto, registramos la transferencia
             $this->transferenciaModel->registrar([
                 'id_cuenta_origen' => $idOrigen,
                 'id_cuenta_destino' => $idDestino,
                 'fecha' => trim((string) ($_POST['fecha'] ?? '')),
-                'moneda' => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
+                'moneda' => $monedaOrigen, // Forzamos la moneda real de la cuenta
                 'monto' => $monto,
                 'referencia' => trim((string) ($_POST['referencia'] ?? '')),
                 'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),

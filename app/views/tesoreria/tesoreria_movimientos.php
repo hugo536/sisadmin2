@@ -62,13 +62,13 @@ if (!empty($_GET['error'])) {
                         <option value="">Todas las cuentas</option>
                         <?php foreach ($resumenCuentas as $c): ?>
                             <option value="<?= (int)($c['id'] ?? 0) ?>" <?= ((string)$idCuentaFiltro === (string)($c['id'] ?? 0)) ? 'selected' : '' ?>>
-                                <?= e((string) ($c['codigo'] ?? '') . ' - ' . (string) ($c['nombre'] ?? '')) ?>
+                                <?= e((string) ($c['nombre'] ?? '')) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-2">
                     <label class="form-label small text-muted fw-bold mb-1">Módulo Origen</label>
                     <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="origen">
                         <option value="">Todos</option>
@@ -78,12 +78,12 @@ if (!empty($_GET['error'])) {
                     </select>
                 </div>
                 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-2">
                     <label class="form-label small text-muted fw-bold mb-1">Desde</label>
                     <input type="date" name="fecha_desde" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-01')) ?>">
                 </div>
                 
-                <div class="col-12 col-md-3">
+                <div class="col-12 col-md-2">
                     <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
                     <input type="date" name="fecha_hasta" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>">
                 </div>
@@ -107,37 +107,11 @@ if (!empty($_GET['error'])) {
                         <?php endif; ?>
                     </select>
                 </div>
-                </form>
-                
             </form>
         </div>
     </div>
 
     <div id="contenedorDinamicoMovimientos">
-
-        <?php if ($cuentaSeleccionada !== null): ?>
-            <div class="card border-0 shadow-sm mb-4 bg-primary text-white overflow-hidden fade-in">
-                <div class="card-body p-4 position-relative">
-                    <i class="bi bi-wallet2 position-absolute opacity-25" style="font-size: 8rem; right: -20px; top: -30px;"></i>
-                    <div class="row align-items-center position-relative z-1">
-                        <div class="col-md-6 border-md-end border-light border-opacity-25">
-                            <span class="badge bg-white text-primary mb-2 rounded-pill px-3 py-1 fw-bold shadow-sm">
-                                <?= e((string) ($cuentaSeleccionada['moneda'] ?? '')) ?>
-                            </span>
-                            <h3 class="fw-bold mb-0 text-white"><?= e((string) ($cuentaSeleccionada['nombre'] ?? '')) ?></h3>
-                            <p class="mb-0 text-white-50 small">Código: <?= e((string) ($cuentaSeleccionada['codigo'] ?? '')) ?></p>
-                        </div>
-                        <div class="col-md-6 text-md-end mt-3 mt-md-0">
-                            <p class="mb-1 text-white-50 fw-semibold text-uppercase tracking-wide small">Saldo Actual en Cuenta</p>
-                            <h2 class="display-6 fw-bold mb-0 text-white">
-                                <?= number_format((float) ($cuentaSeleccionada['saldo_actual'] ?? 0), 2) ?>
-                            </h2>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        <?php endif; ?>
-
         <div class="card border-0 shadow-sm" id="contenedorTablaMovimientos">
             <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <div class="d-flex align-items-center">
@@ -194,8 +168,18 @@ if (!empty($_GET['error'])) {
                                     } else {
                                         $tercero = (string) ($m['tercero_nombre'] ?? ('#' . (int) ($m['id_tercero'] ?? 0)));
                                     }
+                                    // 1. Obtenemos solo el nombre (ignoramos $m['cuenta_codigo'])
+                                    $nombreCuenta = (string) ($m['cuenta_nombre'] ?? '');
 
-                                    $cuenta = (string) ($m['cuenta_codigo'] ?? '') . ' - ' . (string) ($m['cuenta_nombre'] ?? '');
+                                    // 2. Buscamos el método de pago (según tu BD suele ser 'metodo' o 'metodo_pago')
+                                    $metodoPago = (string) ($m['metodo'] ?? $m['metodo_pago'] ?? '');
+
+                                    // 3. Armamos el texto final
+                                    if ($metodoPago !== '' && $metodoPago !== 'N/D') {
+                                        $cuenta = $nombreCuenta . ' - ' . $metodoPago;
+                                    } else {
+                                        $cuenta = $nombreCuenta;
+                                    }
                                     $observacionTercero = trim((string) ($m['observaciones'] ?? '')); 
                                     
                                     $searchStr = strtolower($tipo . ' ' . $tercero . ' ' . $origen . ' ' . $cuenta . ' ' . $estado . ' ' . $observacionTercero);

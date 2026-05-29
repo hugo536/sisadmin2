@@ -197,6 +197,7 @@
     const totalPagadoDespacho = document.getElementById('totalPagadoDespacho');
     const switchCobroDespachoContainer = document.getElementById('switchCobroDespachoContainer');
     const switchCobroDespacho = document.getElementById('switchCobroDespacho');
+    const mensajePagoCompletoDespacho = document.getElementById('mensajePagoCompletoDespacho'); // <-- AGREGAR ESTA LÍNEA
     let totalPendienteDespacho = 0;
     
     const seccionRetornoEnvases = document.getElementById('seccionRetornoEnvasesDespacho');
@@ -1564,25 +1565,30 @@
         }
 
         // --- LÓGICA DE COBRO EN DESPACHO ---
-        // --- LÓGICA DE COBRO EN DESPACHO ---
         const totalVenta = Number(venta.total || 0);
         const montoPagado = Number(venta.monto_pagado || 0);
         totalPendienteDespacho = Math.max(0, totalVenta - montoPagado);
 
         if (switchCobroDespachoContainer) {
             if (totalPendienteDespacho > 0.001) {
+                // HAY DEUDA: Mostrar switch, ocultar badge
                 switchCobroDespachoContainer.style.display = 'block';
+                if (mensajePagoCompletoDespacho) mensajePagoCompletoDespacho.classList.add('d-none');
+                
                 if (switchCobroDespacho) {
-                    switchCobroDespacho.disabled = false; // Habilitar switch
+                    switchCobroDespacho.disabled = false;
                     switchCobroDespacho.checked = false;
                 }
                 if (seccionCobroDespacho) seccionCobroDespacho.classList.add('d-none');
                 if (contenedorMetodosPagoDespacho) contenedorMetodosPagoDespacho.innerHTML = '';
             } else {
-                switchCobroDespachoContainer.style.display = 'block'; // Lo mostramos pero bloqueado para que se entienda que no hay deuda
+                // PAGADO POR COMPLETO: Ocultar switch, mostrar badge
+                switchCobroDespachoContainer.style.display = 'none'; // <-- Aquí ocultamos el switch
+                if (mensajePagoCompletoDespacho) mensajePagoCompletoDespacho.classList.remove('d-none'); // <-- Aquí mostramos el badge
+                
                 if (switchCobroDespacho) {
                     switchCobroDespacho.checked = false;
-                    switchCobroDespacho.disabled = true; // Bloquear switch
+                    switchCobroDespacho.disabled = true;
                 }
                 if (seccionCobroDespacho) seccionCobroDespacho.classList.add('d-none');
             }
@@ -2038,18 +2044,52 @@
                 if (despachando < pendiente - 0.01) esParcial = true;
             });
 
+            // --- VALIDAR RETORNO DE ENVASES ---
             const envasesDevueltos = [];
+            let advertenciaEnvases = []; 
+
             if (contenedorRetornoEnvases && !seccionRetornoEnvases.classList.contains('d-none')) {
                 contenedorRetornoEnvases.querySelectorAll('.item-envase-retorno').forEach(div => {
-                    const cant = Number(div.querySelector('.input-retorno-vacio').value || 0);
-                    if (cant > 0) {
+                    const nombreEnvase = div.querySelector('.text-truncate').textContent;
+                    const cantEntregada = Number(div.querySelector('.text-center .text-dark').textContent || 0);
+                    const cantDevuelta = Number(div.querySelector('.input-retorno-vacio').value || 0);
+
+                    if (cantDevuelta > 0) {
                         envasesDevueltos.push({
                             id_envase: Number(div.dataset.idEnvase),
-                            cantidad: cant
+                            cantidad: cantDevuelta
                         });
+                    }
+
+                    if (cantEntregada !== cantDevuelta) {
+                        let diferencia = cantEntregada - cantDevuelta;
+                        let tipoDiferencia = diferencia > 0 ? 'faltan' : 'sobran';
+                        advertenciaEnvases.push(`<b>${nombreEnvase}:</b> Se entregan ${cantEntregada}, pero retorna ${cantDevuelta} (<i>${tipoDiferencia} ${Math.abs(diferencia)}</i>)`);
                     }
                 });
             }
+
+            if (advertenciaEnvases.length > 0) {
+                const confirmacionEnvases = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Discrepancia en Envases',
+                    html: `Las cantidades entregadas no coinciden con los retornos vacíos:<br><br>
+                        <div class="text-start bg-light p-3 rounded border text-muted" style="font-size: 0.9rem;">
+                            ${advertenciaEnvases.join('<br>')}
+                        </div><br>
+                        ¿Estás seguro de continuar? Se registrará este saldo a favor o en contra del cliente.`,
+                    showCancelButton: true,
+                    confirmButtonColor: '#ffc107',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="bi bi-check2-circle me-1"></i> Sí, continuar',
+                    cancelButtonText: '<i class="bi bi-pencil me-1"></i> No, corregir'
+                });
+
+                if (!confirmacionEnvases.isConfirmed) {
+                    return; 
+                }
+            }
+            // ---------------------------------
 
             if (esParcial && cerrarForzado && cerrarForzado.checked) {
                 const resp = await Swal.fire({
@@ -2188,188 +2228,217 @@
         }
 
         if (btn.classList.contains('btn-editar')) {
-            try {
-                const payload = await getJson(`${urls.index}&accion=ver&id=${id}`);
-                const venta = payload.data;
-                if (!venta || !venta.id) throw new Error('No se encontró información del pedido seleccionado.');
-                renderAlertaSaldoFavor(venta.saldo_favor_cliente || 0);
+    try {
+        const payload = await getJson(`${urls.index}&accion=ver&id=${id}`);
+        const venta = payload.data;
+        if (!venta || !venta.id) throw new Error('No se encontró información del pedido seleccionado.');
+        renderAlertaSaldoFavor(venta.saldo_favor_cliente || 0);
 
-                const estadoDoc = Number(venta.estado || 0);
+        const estadoDoc = Number(venta.estado || 0);
 
-                if (estadoDoc >= 3) {
-                    const modalResumenEl = document.getElementById('modalResumenVenta');
-                    if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
+        if (estadoDoc >= 3) {
+            const modalResumenEl = document.getElementById('modalResumenVenta');
+            if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
 
-                    const nombreClienteTabla = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente No Especificado';
+            const nombreClienteTabla = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente No Especificado';
 
-                    document.getElementById('resumenVentaCodigo').textContent = venta.codigo || '-';
-                    document.getElementById('resumenVentaCliente').textContent = nombreClienteTabla;
-                    document.getElementById('resumenVentaOperacion').textContent = venta.tipo_operacion || 'VENTA';
-                    
-                    document.getElementById('resumenVentaFechaEmision').textContent = formatearFechaVista(venta.fecha_emision);
-                    document.getElementById('resumenVentaFechaDespacho').textContent = venta.fecha_despacho ? formatearFechaVista(venta.fecha_despacho) : 'Pendiente';
-                    
-                    document.getElementById('resumenVentaObservaciones').textContent = venta.observaciones || 'Sin observaciones.';
+            document.getElementById('resumenVentaCodigo').textContent = venta.codigo || '-';
+            document.getElementById('resumenVentaCliente').textContent = nombreClienteTabla;
+            document.getElementById('resumenVentaOperacion').textContent = venta.tipo_operacion || 'VENTA';
+            
+            document.getElementById('resumenVentaFechaEmision').textContent = formatearFechaVista(venta.fecha_emision);
+            document.getElementById('resumenVentaFechaDespacho').textContent = venta.fecha_despacho ? formatearFechaVista(venta.fecha_despacho) : 'Pendiente';
+            
+            // --- INICIO DE NUEVA LÓGICA: OBSERVACIONES Y ESTADO DE PAGO ---
+            const obsPedido = venta.observaciones ? venta.observaciones.trim() : '';
+            const obsDespacho = venta.observaciones_despacho ? venta.observaciones_despacho.trim() : '';
 
-                    const tbodyResumen = document.querySelector('#tablaResumenProductos tbody');
-                    const pesoTotalResumenEl = document.getElementById('resumenVentaPesoTotal');
-                    let pesoTotalResumen = 0;
-                    
-                    let sumaTotalDespachada = 0;
+            const elObsPedido = document.getElementById('resumenVentaObsPedido');
+            if (elObsPedido) elObsPedido.innerHTML = `<i class="bi bi-file-earmark-text text-primary opacity-75 me-1"></i><strong>Pedido:</strong> <span class="${obsPedido ? 'text-dark' : 'fst-italic opacity-50'}">${obsPedido || 'Sin nota'}</span>`;
+            
+            const elObsDespacho = document.getElementById('resumenVentaObsDespacho');
+            if (elObsDespacho) elObsDespacho.innerHTML = `<i class="bi bi-truck text-info opacity-75 me-1"></i><strong>Despacho:</strong> <span class="${obsDespacho ? 'text-dark' : 'fst-italic opacity-50'}">${obsDespacho || 'Sin guía/nota'}</span>`;
 
-                    tbodyResumen.innerHTML = '';
+            const totalPedido = Number(venta.total || 0);
+            const montoPagado = Number(venta.monto_pagado || 0);
+            const deudaPendiente = Math.max(0, totalPedido - montoPagado);
 
-                    if (venta.detalle && venta.detalle.length > 0) {
-                        venta.detalle.forEach(item => {
-                            const cantSol = Number(item.cantidad || 0);
-                            const cantDesp = Number(item.cantidad_despachada || 0);
-                            const precio = Number(item.precio_unitario || 0);
-                            const pesoUnitario = Number(item.peso_kg || 0);
-                            
-                            const pesoSubtotal = cantDesp * pesoUnitario;
-                            const subtotal = cantDesp * precio;
-                            
-                            pesoTotalResumen += pesoSubtotal;
-                            sumaTotalDespachada += subtotal; 
+            const badgePagoContenedor = document.getElementById('resumenVentaEstadoPagoBadge');
+            const textoDeudaContenedor = document.getElementById('resumenVentaMontoPendiente');
 
-                            const subtituloPeso = pesoUnitario > 0
-                                ? `<small class="text-muted d-block mt-1">Peso total: ${pesoSubtotal.toFixed(3)} kg</small>`
-                                : '<small class="text-muted d-block mt-1">Peso total: 0.000 kg</small>';
-
-                            const trRes = document.createElement('tr');
-                            trRes.innerHTML = `
-                                <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}${subtituloPeso}</td>
-                                <td class="text-center py-2 text-muted">${cantSol.toFixed(2)}</td>
-                                <td class="text-center py-2 fw-bold text-success">${cantDesp.toFixed(2)}</td>
-                                <td class="text-end py-2 text-muted">S/ ${precio.toFixed(2)}</td>
-                                <td class="text-end pe-3 py-2 fw-bold text-dark">S/ ${subtotal.toFixed(2)}</td>
-                            `;
-                            tbodyResumen.appendChild(trRes);
-                        });
-                    } else {
-                        tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
-                    }
-
-                    if (pesoTotalResumenEl) {
-                        pesoTotalResumenEl.textContent = `Peso total: ${pesoTotalResumen.toFixed(3)} kg`;
-                    }
-
-                    const totalFinalReal = Number.isFinite(sumaTotalDespachada) ? sumaTotalDespachada : 0;
-                    document.getElementById('resumenVentaTotalFinal').textContent = `S/ ${totalFinalReal.toFixed(2)}`;
-
-                    const modalResumen = bootstrap.Modal.getOrCreateInstance(modalResumenEl);
-                    modalResumen.show();
-                    return; 
-                }
-
-                limpiarModalVenta();
-                ventaId.value = venta.id;
-                
-                const esBorrador = estadoDoc === 0;
-                bloqueoEdicionVenta = !esBorrador;
-                
-                const nombreCliente = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente';
-                if (tomSelectCliente) {
-                    tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente, saldo_favor: Number(venta.saldo_favor_cliente || 0) });
-                    tomSelectCliente.setValue(venta.id_cliente);
-                    if (!esBorrador) tomSelectCliente.disable();
-                    else tomSelectCliente.enable();
+            if (badgePagoContenedor && textoDeudaContenedor) {
+                if (deudaPendiente <= 0.001) {
+                    badgePagoContenedor.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i>Pagado Total</span>';
+                    textoDeudaContenedor.innerHTML = `Total abonado: <span class="fw-bold text-dark">S/ ${totalPedido.toFixed(2)}</span>`;
+                } else if (montoPagado > 0) {
+                    badgePagoContenedor.innerHTML = '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="bi bi-pie-chart-fill me-1"></i>Pago Parcial</span>';
+                    textoDeudaContenedor.innerHTML = `Abonado: S/ ${montoPagado.toFixed(2)}<br><span class="text-danger fw-bold">Deuda: S/ ${deudaPendiente.toFixed(2)}</span>`;
                 } else {
-                    idCliente.innerHTML = `<option value="${venta.id_cliente}">${nombreCliente}</option>`;
-                    idCliente.value = venta.id_cliente;
-                    idCliente.disabled = !esBorrador;
+                    badgePagoContenedor.innerHTML = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-x-circle-fill me-1"></i>Por Cobrar</span>';
+                    textoDeudaContenedor.innerHTML = `<span class="text-danger fw-bold">Deuda total: S/ ${totalPedido.toFixed(2)}</span>`;
                 }
-                
-                const inputFecha = document.getElementById('fechaEmision');
-                const inputObs = document.getElementById('ventaObservaciones');
-                
-                inputFecha.value = venta.fecha_emision ? venta.fecha_emision.split(' ')[0] : '';
-                inputObs.value = venta.observaciones || '';
-                
-                if (tipoOperacion) {
-                    tipoOperacion.value = venta.tipo_operacion || 'VENTA';
-                    tipoOperacion.disabled = !esBorrador;
-                }
-                if (tipoImpuesto) {
-                    tipoImpuesto.value = venta.tipo_impuesto || 'exonerado';
-                    if (!esBorrador || (tipoOperacion && tipoOperacion.value === 'DONACION')) {
-                        tipoImpuesto.disabled = true;
-                    } else {
-                        tipoImpuesto.disabled = false;
-                    }
-                }
-                
-                inputFecha.readOnly = !esBorrador;
-                inputObs.readOnly = !esBorrador;
+            }
+            // --- FIN DE NUEVA LÓGICA ---
 
-                const btnGlobalAdd = document.getElementById('btnAgregarFilaVenta');
-                if (btnGlobalAdd) btnGlobalAdd.style.display = esBorrador ? 'inline-block' : 'none';
+            const tbodyResumen = document.querySelector('#tablaResumenProductos tbody');
+            const pesoTotalResumenEl = document.getElementById('resumenVentaPesoTotal');
+            let pesoTotalResumen = 0;
+            
+            let sumaTotalDespachada = 0;
 
-                if (venta.detalle && venta.detalle.length) {
-                    for (const linea of venta.detalle) await agregarFilaVenta(linea, esBorrador);
-                } else {
-                    await agregarFilaVenta(null, esBorrador);
-                }
-                
-                const btnGuardar = document.getElementById('btnGuardarVenta');
-                if (esBorrador) {
-                    if (btnGuardar) {
-                        btnGuardar.style.display = 'block';
-                        btnGuardar.textContent = 'Actualizar Pedido';
-                    }
-                    document.getElementById('alertaBorradorContenedor').innerHTML = `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
-                    if (switchCobroContainer) switchCobroContainer.style.display = 'block';
-                } else {
-                    if (btnGuardar) btnGuardar.style.display = 'none';
-                    if (switchCobroContainer) switchCobroContainer.style.display = 'none';
-                }
+            tbodyResumen.innerHTML = '';
 
-                actualizarBloqueoFormularioPorCliente();
-
-                const seccionDevoluciones = document.getElementById('seccionDevolucionesVenta');
-                const tbodyDevHistorico = document.querySelector('#tablaDevolucionesHistorico tbody');
-                
-                if (seccionDevoluciones && tbodyDevHistorico) {
-                    tbodyDevHistorico.innerHTML = ''; 
+            if (venta.detalle && venta.detalle.length > 0) {
+                venta.detalle.forEach(item => {
+                    const cantSol = Number(item.cantidad || 0);
+                    const cantDesp = Number(item.cantidad_despachada || 0);
+                    const precio = Number(item.precio_unitario || 0);
+                    const pesoUnitario = Number(item.peso_kg || 0);
                     
-                    if (venta.devoluciones && venta.devoluciones.length > 0) {
-                        seccionDevoluciones.classList.remove('d-none'); 
-                        
-                        venta.devoluciones.forEach(dev => {
-                            let detallesHTML = '<ul class="mb-0 ps-3 text-muted" style="font-size: 0.85rem;">';
-                            (dev.detalle || []).forEach(item => {
-                                detallesHTML += `<li>${Number(item.cantidad).toFixed(2)}x ${item.item_nombre}</li>`;
-                            });
-                            detallesHTML += '</ul>';
+                    const pesoSubtotal = cantDesp * pesoUnitario;
+                    const subtotal = cantDesp * precio;
+                    
+                    pesoTotalResumen += pesoSubtotal;
+                    sumaTotalDespachada += subtotal; 
 
-                            let resTexto = dev.tipo_resolucion;
-                            if (resTexto === 'descuento_cxc') resTexto = 'Nota de Crédito (CxC)';
-                            else if (resTexto === 'reembolso_dinero') resTexto = 'Reembolso (Caja/Bancos)';
-                            else if (resTexto === 'saldo_favor') resTexto = 'Saldo a Favor';
+                    const subtituloPeso = pesoUnitario > 0
+                        ? `<small class="text-muted d-block mt-1">Peso total: ${pesoSubtotal.toFixed(3)} kg</small>`
+                        : '<small class="text-muted d-block mt-1">Peso total: 0.000 kg</small>';
 
-                            const trDev = document.createElement('tr');
-                            trDev.innerHTML = `
-                                <td class="ps-3 text-dark fw-semibold" style="font-size: 0.9rem;">${dev.created_at.substring(0, 16)}</td>
-                                <td>
-                                    <div class="fw-bold text-dark" style="font-size: 0.9rem;">${dev.motivo}</div>
-                                    <div class="badge bg-secondary-subtle text-secondary mt-1 border border-secondary-subtle">${resTexto}</div>
-                                </td>
-                                <td>${detallesHTML}</td>
-                                <td class="text-end pe-4 fw-bold text-danger">S/ ${Number(dev.total_devuelto).toFixed(2)}</td>
-                            `;
-                            tbodyDevHistorico.appendChild(trDev);
-                        });
-                    } else {
-                        seccionDevoluciones.classList.add('d-none'); 
-                    }
-                }
-                
-                modalVenta.show();
-            } catch (err) {
-                console.error('Error al abrir pedido:', err);
-                Swal.fire('Error', err.message || 'No se pudo cargar', 'error');
+                    const trRes = document.createElement('tr');
+                    trRes.innerHTML = `
+                        <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}${subtituloPeso}</td>
+                        <td class="text-center py-2 text-muted">${cantSol.toFixed(2)}</td>
+                        <td class="text-center py-2 fw-bold text-success">${cantDesp.toFixed(2)}</td>
+                        <td class="text-end py-2 text-muted">S/ ${precio.toFixed(2)}</td>
+                        <td class="text-end pe-3 py-2 fw-bold text-dark">S/ ${subtotal.toFixed(2)}</td>
+                    `;
+                    tbodyResumen.appendChild(trRes);
+                });
+            } else {
+                tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
+            }
+
+            if (pesoTotalResumenEl) {
+                pesoTotalResumenEl.textContent = `Peso total: ${pesoTotalResumen.toFixed(3)} kg`;
+            }
+
+            const totalFinalReal = Number.isFinite(sumaTotalDespachada) ? sumaTotalDespachada : 0;
+            document.getElementById('resumenVentaTotalFinal').textContent = `S/ ${totalFinalReal.toFixed(2)}`;
+
+            const modalResumen = bootstrap.Modal.getOrCreateInstance(modalResumenEl);
+            modalResumen.show();
+            return; 
+        }
+
+        limpiarModalVenta();
+        ventaId.value = venta.id;
+        
+        const esBorrador = estadoDoc === 0;
+        bloqueoEdicionVenta = !esBorrador;
+        
+        const nombreCliente = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente';
+        if (tomSelectCliente) {
+            tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente, saldo_favor: Number(venta.saldo_favor_cliente || 0) });
+            tomSelectCliente.setValue(venta.id_cliente);
+            if (!esBorrador) tomSelectCliente.disable();
+            else tomSelectCliente.enable();
+        } else {
+            idCliente.innerHTML = `<option value="${venta.id_cliente}">${nombreCliente}</option>`;
+            idCliente.value = venta.id_cliente;
+            idCliente.disabled = !esBorrador;
+        }
+        
+        const inputFecha = document.getElementById('fechaEmision');
+        const inputObs = document.getElementById('ventaObservaciones');
+        
+        inputFecha.value = venta.fecha_emision ? venta.fecha_emision.split(' ')[0] : '';
+        inputObs.value = venta.observaciones || '';
+        
+        if (tipoOperacion) {
+            tipoOperacion.value = venta.tipo_operacion || 'VENTA';
+            tipoOperacion.disabled = !esBorrador;
+        }
+        if (tipoImpuesto) {
+            tipoImpuesto.value = venta.tipo_impuesto || 'exonerado';
+            if (!esBorrador || (tipoOperacion && tipoOperacion.value === 'DONACION')) {
+                tipoImpuesto.disabled = true;
+            } else {
+                tipoImpuesto.disabled = false;
             }
         }
+        
+        inputFecha.readOnly = !esBorrador;
+        inputObs.readOnly = !esBorrador;
+
+        const btnGlobalAdd = document.getElementById('btnAgregarFilaVenta');
+        if (btnGlobalAdd) btnGlobalAdd.style.display = esBorrador ? 'inline-block' : 'none';
+
+        if (venta.detalle && venta.detalle.length) {
+            for (const linea of venta.detalle) await agregarFilaVenta(linea, esBorrador);
+        } else {
+            await agregarFilaVenta(null, esBorrador);
+        }
+        
+        const btnGuardar = document.getElementById('btnGuardarVenta');
+        if (esBorrador) {
+            if (btnGuardar) {
+                btnGuardar.style.display = 'block';
+                btnGuardar.textContent = 'Actualizar Pedido';
+            }
+            document.getElementById('alertaBorradorContenedor').innerHTML = `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
+            if (switchCobroContainer) switchCobroContainer.style.display = 'block';
+        } else {
+            if (btnGuardar) btnGuardar.style.display = 'none';
+            if (switchCobroContainer) switchCobroContainer.style.display = 'none';
+        }
+
+        actualizarBloqueoFormularioPorCliente();
+
+        const seccionDevoluciones = document.getElementById('seccionDevolucionesVenta');
+        const tbodyDevHistorico = document.querySelector('#tablaDevolucionesHistorico tbody');
+        
+        if (seccionDevoluciones && tbodyDevHistorico) {
+            tbodyDevHistorico.innerHTML = ''; 
+            
+            if (venta.devoluciones && venta.devoluciones.length > 0) {
+                seccionDevoluciones.classList.remove('d-none'); 
+                
+                venta.devoluciones.forEach(dev => {
+                    let detallesHTML = '<ul class="mb-0 ps-3 text-muted" style="font-size: 0.85rem;">';
+                    (dev.detalle || []).forEach(item => {
+                        detallesHTML += `<li>${Number(item.cantidad).toFixed(2)}x ${item.item_nombre}</li>`;
+                    });
+                    detallesHTML += '</ul>';
+
+                    let resTexto = dev.tipo_resolucion;
+                    if (resTexto === 'descuento_cxc') resTexto = 'Nota de Crédito (CxC)';
+                    else if (resTexto === 'reembolso_dinero') resTexto = 'Reembolso (Caja/Bancos)';
+                    else if (resTexto === 'saldo_favor') resTexto = 'Saldo a Favor';
+
+                    const trDev = document.createElement('tr');
+                    trDev.innerHTML = `
+                        <td class="ps-3 text-dark fw-semibold" style="font-size: 0.9rem;">${dev.created_at.substring(0, 16)}</td>
+                        <td>
+                            <div class="fw-bold text-dark" style="font-size: 0.9rem;">${dev.motivo}</div>
+                            <div class="badge bg-secondary-subtle text-secondary mt-1 border border-secondary-subtle">${resTexto}</div>
+                        </td>
+                        <td>${detallesHTML}</td>
+                        <td class="text-end pe-4 fw-bold text-danger">S/ ${Number(dev.total_devuelto).toFixed(2)}</td>
+                    `;
+                    tbodyDevHistorico.appendChild(trDev);
+                });
+            } else {
+                seccionDevoluciones.classList.add('d-none'); 
+            }
+        }
+        
+        modalVenta.show();
+    } catch (err) {
+        console.error('Error al abrir pedido:', err);
+        Swal.fire('Error', err.message || 'No se pudo cargar', 'error');
+    }
+}
 
         if (btn.classList.contains('btn-revertir')) {
             const ok = await Swal.fire({ 

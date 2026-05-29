@@ -311,7 +311,7 @@ class TesoreriaCxpModel extends Modelo
         $stmtMov = $db->prepare('INSERT INTO tesoreria_movimientos 
             (id_cuenta, id_metodo_pago, id_tercero, tipo, monto, moneda, fecha, observaciones, estado, created_by, updated_by, created_at, updated_at) 
             VALUES 
-            (:id_cuenta, :id_metodo, :id_tercero, "EGRESO", :monto, :moneda, :fecha, :observacion, 1, :user, :user, NOW(), NOW())');
+            (:id_cuenta, :id_metodo, :id_tercero, "EGRESO", :monto, :moneda, :fecha, :observacion, 1, :created_by, :updated_by, NOW(), NOW())');
             
         $stmtMov->execute([
             'id_cuenta'   => $idCuenta,
@@ -321,7 +321,8 @@ class TesoreriaCxpModel extends Modelo
             'moneda'      => $cxp['moneda'],
             'fecha'       => $fecha,
             'observacion' => $observacion,
-            'user'        => $userId
+            'created_by'  => $userId, // <-- Cambio aquí
+            'updated_by'  => $userId  // <-- Cambio aquí
         ]);
 
         $idMovimiento = (int) $db->lastInsertId();
@@ -330,13 +331,14 @@ class TesoreriaCxpModel extends Modelo
         $stmtPago = $db->prepare('INSERT INTO tesoreria_cxp_pagos 
             (id_cxp, id_movimiento, monto_aplicado, created_by, updated_by, created_at, updated_at) 
             VALUES 
-            (:id_cxp, :id_movimiento, :monto_aplicado, :user, :user, NOW(), NOW())');
+            (:id_cxp, :id_movimiento, :monto_aplicado, :created_by, :updated_by, NOW(), NOW())');
             
         $stmtPago->execute([
             'id_cxp'         => $idCxp,
             'id_movimiento'  => $idMovimiento,
             'monto_aplicado' => round($monto, 4),
-            'user'           => $userId
+            'created_by'     => $userId, // <-- Cambio aquí
+            'updated_by'     => $userId  // <-- Cambio aquí
         ]);
 
         // 4. Actualizar Monto Pagado en la tabla Maestra de CxP

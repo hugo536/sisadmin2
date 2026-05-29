@@ -4,18 +4,32 @@
     // ==========================================
     // 1. Inicialización de selectores avanzados (TomSelect)
     // ==========================================
-    if (window.TomSelect) {
+    function inicializarTomSelects() {
+      if (typeof TomSelect === 'undefined') return;
+
       const selectoresAvanzados = ['idConceptoGasto', 'id_proveedor', 'idCentroCostoGasto'];
 
       selectoresAvanzados.forEach(function(id) {
         const elemento = document.getElementById(id);
-        if (elemento) {
+        // Validamos que exista y que NO tenga ya un tomselect creado
+        if (elemento && !elemento.tomselect) {
           new TomSelect(elemento, {
             create: false, 
             sortField: { field: 'text', direction: 'asc' },
             placeholder: elemento.getAttribute('placeholder') || 'Seleccione una opción...'
           });
         }
+      });
+    }
+
+    // Intento 1: Al cargar la página
+    inicializarTomSelects();
+
+    // Intento 2: Cuando el modal termina de aparecer en pantalla
+    const modalTom = document.getElementById('modalNuevoGasto');
+    if (modalTom) {
+      modalTom.addEventListener('shown.bs.modal', function () {
+        inicializarTomSelects();
       });
     }
 

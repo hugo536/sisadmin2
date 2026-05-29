@@ -13,6 +13,12 @@
         return;
     }
 
+    // 1. INICIALIZAR TOOLTIPS (Primera carga)
+    if (typeof bootstrap !== 'undefined') {
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+    }
+
     const formFiltros = document.getElementById('formFiltrosMovimientos');
     const contenedorDinamico = document.getElementById('contenedorDinamicoMovimientos');
     let timerFiltro = null;
@@ -49,6 +55,7 @@
                     console.error("❌ No se encontró la tabla en la respuesta del servidor.");
                 }
 
+                // Recargar tooltips de los nuevos elementos traídos por AJAX
                 if (typeof bootstrap !== 'undefined') {
                     [].slice.call(contenedorDinamico.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(el => bootstrap.Tooltip.getOrCreateInstance(el));
                 }
@@ -102,6 +109,41 @@
             if (linkPaginacion) {
                 e.preventDefault();
                 cargarDatosAjax(linkPaginacion.href);
+            }
+        });
+
+        // 2. INTERCEPTAR BOTONES DE ANULAR (Delegación de eventos para que funcione con AJAX)
+        contenedorDinamico.addEventListener('submit', (e) => {
+            const formConfirm = e.target.closest('.js-form-confirm');
+            
+            if (formConfirm) {
+                e.preventDefault(); // Pausamos el envío al servidor
+
+                Swal.fire({
+                    title: '¿Estás completamente seguro?',
+                    text: "Se anulará este movimiento de tesorería y el saldo de la cuenta se recalculará. Esta acción no se puede deshacer.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="bi bi-slash-circle me-1"></i> Sí, anular',
+                    cancelButtonText: 'Cancelar',
+                    customClass: { popup: 'rounded-4 shadow-lg' }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'Anulando...',
+                            text: 'Por favor espera un momento.',
+                            allowOutsideClick: false,
+                            showConfirmButton: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+                        // Enviamos el formulario específico que activó el evento
+                        formConfirm.submit(); 
+                    }
+                });
             }
         });
     }

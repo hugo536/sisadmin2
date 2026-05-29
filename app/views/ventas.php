@@ -55,15 +55,17 @@ $formatearFechaDMY = static function ($fecha): string {
 
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
-            <div class="row g-2 align-items-center">
-                <div class="col-12 col-md-4">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroBusqueda" placeholder="Buscar código, cliente..." value="<?php echo e((string) ($filtros['q'] ?? '')); ?>">
+            <div class="row g-3 align-items-center">
+                
+                <div class="col-12 col-lg-3">
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="filtroBusqueda" placeholder="Buscar código, cliente..." value="<?php echo e((string) ($filtros['q'] ?? '')); ?>">
                     </div>
                 </div>
-                <div class="col-6 col-md-2">
-                    <select class="form-select bg-light" id="filtroEstado">
+                
+                <div class="col-12 col-lg-2">
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm" id="filtroEstado">
                         <option value="">Todos los estados</option>
                         <?php foreach ($estadoLabels as $key => $info): ?>
                             <option value="<?php echo (int) $key; ?>" <?php echo ($filtros['estado'] ?? '') === (string) $key ? 'selected' : ''; ?>>
@@ -72,18 +74,22 @@ $formatearFechaDMY = static function ($fecha): string {
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-6 col-md-3">
-                    <input type="date" class="form-control bg-light" id="filtroFechaDesde" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>" title="Fecha Desde">
+                
+                <div class="col-12 col-lg-2">
+                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm" id="filtroFechaDesde" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>" title="Fecha Desde">
                 </div>
-                <div class="col-6 col-md-3">
-                    <input type="date" class="form-control bg-light" id="filtroFechaHasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>" title="Fecha Hasta">
+                
+                <div class="col-12 col-lg-2">
+                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm" id="filtroFechaHasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>" title="Fecha Hasta">
                 </div>
-                <div class="col-12 col-md-3">
-                    <select class="form-select bg-light" id="filtroOrdenFecha" title="Ordenar por fecha">
+                
+                <div class="col-12 col-lg-3">
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm" id="filtroOrdenFecha" title="Ordenar por fecha">
                         <option value="pedido" <?php echo (($filtros['orden_fecha'] ?? 'pedido') === 'pedido') ? 'selected' : ''; ?>>Ordenar por fecha de pedido</option>
                         <option value="emision" <?php echo (($filtros['orden_fecha'] ?? '') === 'emision') ? 'selected' : ''; ?>>Ordenar por fecha de emisión</option>
                     </select>
                 </div>
+
             </div>
         </div>
     </div>
@@ -118,8 +124,35 @@ $formatearFechaDMY = static function ($fecha): string {
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($venta['codigo'] ?? '')); ?></td>
                                     <td>
                                         <div class="fw-semibold text-dark"><?php echo e((string) ($venta['cliente'] ?? '')); ?></div>
-                                        <?php if (!empty($venta['observaciones'])): ?>
-                                            <div class="small text-muted mt-1"><?php echo e((string) $venta['observaciones']); ?></div>
+                                        
+                                        <?php 
+                                            $obsVenta = trim((string) ($venta['observaciones'] ?? ''));
+                                            // IMPORTANTE: Ajusta 'observaciones_despacho' al nombre exacto de la columna 
+                                            // o variable que te devuelve tu backend para la nota del despacho.
+                                            $obsDespacho = trim((string) ($venta['observaciones_despacho'] ?? '')); 
+                                        ?>
+
+                                        <?php if ($obsVenta !== '' || $obsDespacho !== ''): ?>
+                                            <div class="small text-muted mt-1 d-flex flex-wrap gap-2 align-items-center">
+                                                
+                                                <!-- Observación del Borrador / Venta -->
+                                                <?php if ($obsVenta !== ''): ?>
+                                                    <span><?php echo e($obsVenta); ?></span>
+                                                <?php endif; ?>
+                                                
+                                                <!-- Separador visual (Solo se muestra si existen AMBAS observaciones) -->
+                                                <?php if ($obsVenta !== '' && $obsDespacho !== ''): ?>
+                                                    <span class="text-secondary opacity-50">|</span>
+                                                <?php endif; ?>
+                                                
+                                                <!-- Observación del Despacho -->
+                                                <?php if ($obsDespacho !== ''): ?>
+                                                    <span title="Nota de guía / despacho">
+                                                        <i class="bi bi-truck text-info me-1"></i><?php echo e($obsDespacho); ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                                
+                                            </div>
                                         <?php endif; ?>
                                     </td>
                                     <td>
@@ -477,14 +510,21 @@ $formatearFechaDMY = static function ($fecha): string {
                         </label>
                     </div>
                     
-                    <div class="form-check form-switch m-0" id="switchCobroDespachoContainer">
-                        <input class="form-check-input border-success" type="checkbox" id="switchCobroDespacho" style="cursor: pointer;">
-                        <label class="form-check-label fw-bold text-success small" for="switchCobroDespacho" style="cursor: pointer;">
-                            Cobrar al entregar
-                        </label>
+                    <div id="contenedorCobroDespacho">
+                        <div class="form-check form-switch m-0" id="switchCobroDespachoContainer">
+                            <input class="form-check-input border-success" type="checkbox" id="switchCobroDespacho" style="cursor: pointer;">
+                            <label class="form-check-label fw-bold text-success small" for="switchCobroDespacho" style="cursor: pointer;">
+                                Cobrar al entregar
+                            </label>
+                        </div>
+
+                        <div id="mensajePagoCompletoDespacho" class="d-none">
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
+                                <i class="bi bi-check-circle-fill me-1"></i> Pago completado en Borrador
+                            </span>
+                        </div>
                     </div>
                 </div>
-
                 <div class="d-flex align-items-center gap-2">
                     <button class="btn btn-light text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
                     <button class="btn btn-info text-white fw-bold px-4" id="btnGuardarDespacho">
@@ -704,14 +744,32 @@ $formatearFechaDMY = static function ($fecha): string {
                                 <small class="text-muted fw-bold d-block mb-1">Tipo de Operación</small>
                                 <div class="fw-semibold text-dark" id="resumenVentaOperacion">-</div>
                             </div>
-                            <div class="col-md-6">
-                                <small class="text-muted fw-bold d-block mb-1">Fechas</small>
-                                <div><i class="bi bi-calendar3 text-muted me-1"></i> Emisión: <span class="fw-semibold" id="resumenVentaFechaEmision">-</span></div>
-                                <div class="mt-1"><i class="bi bi-truck text-success me-1"></i> Despacho: <span class="fw-semibold text-success" id="resumenVentaFechaDespacho">-</span></div>
+                            
+                            <!-- Nueva distribución de 3 columnas para optimizar el espacio -->
+                            <div class="col-md-4 mt-4">
+                                <small class="text-muted fw-bold d-block mb-2">Fechas</small>
+                                <div class="small"><i class="bi bi-calendar3 text-muted me-1"></i> Emisión: <span class="fw-semibold text-dark" id="resumenVentaFechaEmision">-</span></div>
+                                <div class="small mt-1"><i class="bi bi-truck text-success me-1"></i> Despacho: <span class="fw-semibold text-success" id="resumenVentaFechaDespacho">-</span></div>
                             </div>
-                            <div class="col-md-6">
-                                <small class="text-muted fw-bold d-block mb-1">Observaciones</small>
-                                <div class="text-secondary" id="resumenVentaObservaciones">Sin observaciones.</div>
+                            
+                            <div class="col-md-4 mt-4">
+                                <small class="text-muted fw-bold d-block mb-2">Observaciones</small>
+                                <div class="text-secondary small mb-1" id="resumenVentaObsPedido">
+                                    <i class="bi bi-file-earmark-text me-1"></i><strong>Pedido:</strong> <span>-</span>
+                                </div>
+                                <div class="text-secondary small" id="resumenVentaObsDespacho">
+                                    <i class="bi bi-truck me-1"></i><strong>Despacho:</strong> <span>-</span>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 mt-4 border-start ps-3">
+                                <small class="text-muted fw-bold d-block mb-2">Estado de Pago</small>
+                                <div id="resumenVentaEstadoPagoBadge">
+                                    <!-- El badge dinámico irá aquí -->
+                                </div>
+                                <div class="small mt-1 text-muted" id="resumenVentaMontoPendiente" style="line-height: 1.3;">
+                                    <!-- El desglose de deuda irá aquí -->
+                                </div>
                             </div>
                         </div>
                     </div>

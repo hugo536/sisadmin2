@@ -360,12 +360,20 @@ class VentasDespachoModel extends Modelo
                                        fecha_despacho = :fecha_despacho,
                                        updated_by = :user,
                                        updated_at = NOW()';
+                                       
             $paramsUpdateDocumento = [
                 'estado' => $nuevoEstado,
                 'fecha_despacho' => $fechaDespacho,
                 'user' => $userId,
                 'id' => $idDocumento,
             ];
+
+            // 👇 CÓDIGO NUEVO A INSERTAR AQUÍ 👇
+            if (trim($observaciones) !== '') {
+                $sqlUpdateDocumento .= ', observaciones_despacho = :obs_despacho';
+                $paramsUpdateDocumento['obs_despacho'] = trim($observaciones);
+            }
+            // 👆 FIN DEL CÓDIGO NUEVO 👆
 
             if ($cerrarForzado && $pendienteTotal > 0.001) {
                 $notaCierre = sprintf(
