@@ -1,17 +1,17 @@
 <?php
 /**
- * 🔍 SUPER CHECKER V2 - Diagnóstico de Nombres Ocultos en Tabla Inventario
+ * 🔍 SUPER CHECKER V3 - Diagnóstico de Nombres Ocultos (Con MutationObserver)
  */
 declare(strict_types=1);
 error_reporting(E_ALL); ini_set('display_errors', '1');
 
-echo "<!DOCTYPE html><html><head><title>Debugger Inventario Móvil</title>";
+echo "<!DOCTYPE html><html><head><title>Debugger Inventario Móvil V3</title>";
 echo '<meta name="viewport" content="width=device-width, initial-scale=1">';
 echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">';
 echo '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">';
 ?>
 <style>
-    /* Inyectamos el CSS que te di para verificar que funciona perfectamente a nivel de código */
+    /* CSS Base de prueba */
     @media (max-width: 767.98px) {
         table#tablaInventarioStock.erp-mobile-cards,
         table#tablaInventarioStock.erp-mobile-cards tbody,
@@ -38,16 +38,15 @@ echo '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@
 </style>
 </head><body style='background: #f8f9fa; padding: 20px;'>
 
-<div class="container" style="max-width: 1000px;">
-    <h2 class="text-primary mb-3"><i class="bi bi-bug-fill"></i> DIAGNÓSTICO: ¿Dónde está el Producto?</h2>
-    <p class="lead">Este script evalúa el DOM en tiempo real para atrapar al JavaScript culpable que borra tu código.</p>
+<div class="container" style="max-width: 1200px;">
+    <h2 class="text-primary mb-3"><i class="bi bi-radar"></i> DIAGNÓSTICO V3: El Vigilante del DOM</h2>
+    <p class="lead">Si algún script externo (como ERPTable) toca esta tabla, la consola te avisará en tiempo real.</p>
 
     <div class="row g-4 mt-2">
         <div class="col-lg-6">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-dark text-white fw-bold">1. Fila Simulada (Como debería verse)</div>
+            <div class="card shadow-sm border-0 mb-3">
+                <div class="card-header bg-dark text-white fw-bold">1. Fila Simulada</div>
                 <div class="card-body p-3 bg-light">
-                    
                     <table class="table align-middle mb-0 erp-mobile-cards" id="tablaInventarioStock">
                         <thead>
                             <tr>
@@ -57,9 +56,9 @@ echo '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
+                            <tr id="filaTest">
                                 <td data-label="Producto" id="tdProducto">
-                                    <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center gap-2" id="divContenedorNombre">
                                         <span class="fw-bold text-wrap" id="spanNombre">BOTELLA PET 18 GR - AGUA BELÉN 625ML</span>
                                         <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold ms-1" style="font-size: 0.65rem;">PACK</span>
                                     </div>
@@ -74,20 +73,30 @@ echo '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
 
+            <div class="card shadow-sm border-0 border-start border-danger border-4">
+                <div class="card-body p-3">
+                    <h6 class="fw-bold text-danger"><i class="bi bi-bug"></i> Simulador de ataques (Prueba el radar)</h6>
+                    <div class="d-flex gap-2 mt-2">
+                        <button id="btnSimularOcultar" class="btn btn-sm btn-outline-danger">Inyectar 'display:none'</button>
+                        <button id="btnSimularDestruir" class="btn btn-sm btn-outline-danger">Destruir DOM interno</button>
+                        <button id="btnRestaurar" class="btn btn-sm btn-success">Restaurar Fila</button>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="col-lg-6">
             <div class="card shadow border-0 h-100">
-                <div class="card-header bg-danger text-white fw-bold d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-terminal"></i> Consola de DOM</span>
-                    <button id="btnEscanear" class="btn btn-sm btn-light text-danger fw-bold shadow-sm">ESCANEAR AHORA</button>
+                <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-terminal"></i> Consola del Radar</span>
+                    <button id="btnEscanear" class="btn btn-sm btn-primary fw-bold shadow-sm">ESCANEAR AHORA</button>
                 </div>
-                <div class="card-body bg-dark text-light p-3" style="font-family: monospace; font-size: 14px; overflow-y: auto; height: 350px;" id="consolaLog">
-                    > Esperando instrucción... <br>
-                    > Redimensiona tu pantalla simulando un móvil y luego presiona "ESCANEAR AHORA".<br><br>
+                <div class="card-body bg-black text-light p-3" style="font-family: monospace; font-size: 13px; overflow-y: auto; height: 450px;" id="consolaLog">
+                    <span style="color: #00ff00">> Sistema de monitoreo (MutationObserver) INICIADO.</span><br>
+                    <span style="color: #aaaaaa">> Achica la pantalla o usa los botones de simulación para ver la actividad.</span><br><br>
                 </div>
             </div>
         </div>
@@ -98,51 +107,114 @@ echo '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@
 document.addEventListener("DOMContentLoaded", function() {
     const consola = document.getElementById('consolaLog');
     const btnEscanear = document.getElementById('btnEscanear');
+    const tdProducto = document.getElementById('tdProducto');
     
+    // Función para escribir en la consola virtual
     function log(msg, color = "#fff") {
-        consola.innerHTML += `<span style="color: ${color}">> ${msg}</span><br>`;
+        const time = new Date().toLocaleTimeString();
+        consola.innerHTML += `<span style="color: #666">[${time}]</span> <span style="color: ${color}">${msg}</span><br>`;
         consola.scrollTop = consola.scrollHeight;
     }
 
+    // ====================================================================
+    // 1. EL VIGILANTE: MutationObserver (Atrapa cambios en tiempo real)
+    // ====================================================================
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                const displayActual = window.getComputedStyle(mutation.target).display;
+                if (displayActual === 'none') {
+                    log(`🚨 ALERTA ROJA: Un script acaba de inyectar 'display: none' en un elemento!`, "#ff5555");
+                } else {
+                    log(`⚠️ PRECAUCIÓN: Un script modificó el atributo style del elemento.`, "#ffaa00");
+                }
+            }
+            if (mutation.type === 'childList') {
+                if (mutation.removedNodes.length > 0) {
+                    log(`🚨 ALERTA ROJA: Un script acaba de BORRAR contenido (Nodos HTML) dentro del TD!`, "#ff5555");
+                }
+            }
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                log(`⚠️ PRECAUCIÓN: Un script modificó las clases de la fila.`, "#ffaa00");
+            }
+        });
+    });
+
+    // Empezamos a vigilar toda la fila y sus hijos
+    const filaTest = document.getElementById('filaTest');
+    if(filaTest) {
+        observer.observe(filaTest, { 
+            attributes: true, 
+            childList: true, 
+            subtree: true 
+        });
+    }
+
+    // ====================================================================
+    // 2. ESCÁNER MANUAL DE ESTADO
+    // ====================================================================
     btnEscanear.addEventListener('click', function() {
-        log("--- INICIANDO DIAGNÓSTICO MÓVIL ---", "#00ffff");
-        
-        const tdProducto = document.getElementById('tdProducto');
+        log("--- EJECUTANDO ESCÁNER MANUAL ---", "#00ffff");
         const spanNombre = document.getElementById('spanNombre');
-        const tdAlmacen = document.getElementById('tdAlmacen');
         
-        // 1. Verificación de Borrado de Nodos (El mayor sospechoso)
-        if (!tdProducto) {
-            log("❌ ERROR CRÍTICO: El contenedor <td> del Producto HA DESAPARECIDO.", "#ff5555");
-            log("💡 CAUSA: Un JS externo (ERPTable) está redibujando la tabla y destruyó el elemento.", "#ffff55");
+        if (!document.body.contains(tdProducto)) {
+            log("❌ RESULTADO: El contenedor <td> FUE ELIMINADO DEL DOM.", "#ff5555");
             return;
         }
         
         if (!spanNombre) {
-            log("❌ ERROR CRÍTICO: El <span> del nombre existe, pero fue limpiado/borrado por JS.", "#ff5555");
+            log("❌ RESULTADO: El texto del producto NO EXISTE. Fue limpiado por JS (.innerHTML = '').", "#ff5555");
             return;
         }
 
-        log("✅ DOM Intacto: Las etiquetas HTML siguen en su lugar.", "#55ff55");
-
-        // 2. Verificación de CSS Computado
         const estilosTd = window.getComputedStyle(tdProducto);
         const estilosSpan = window.getComputedStyle(spanNombre);
         
-        log(`[INFO] <td> Producto -> display: ${estilosTd.display}, visibility: ${estilosTd.visibility}`);
-        log(`[INFO] <span> Nombre -> display: ${estilosSpan.display}, visibility: ${estilosSpan.visibility}`);
+        log(`Estado actual -> <td> display: ${estilosTd.display}, <span> display: ${estilosSpan.display}`);
 
         if (estilosTd.display === 'none' || estilosSpan.display === 'none') {
-            log("❌ ERROR CSS: Un código externo está inyectando un 'display: none' muy agresivo.", "#ff5555");
-        } else if (parseFloat(estilosTd.width) < 5 || parseFloat(estilosSpan.width) < 5) {
-            log("❌ ERROR DE DIMENSIÓN: El elemento colapsó (Ancho de 0px).", "#ff5555");
+            log("❌ RESULTADO: El producto está ahí, pero oculto mediante CSS agresivo.", "#ff5555");
         } else {
-            log("✅ CSS PERFECTO: Si estuvieras viendo esto en tu sistema real, el nombre SE VERÍA.", "#55ff55");
+            log("✅ RESULTADO: El DOM y el CSS están intactos. El producto es visible.", "#55ff55");
         }
-        
-        log("--- DIAGNÓSTICO FINALIZADO ---", "#00ffff");
-        log("💡 CONCLUSIÓN: Si en esta prueba aislada el diseño se ve perfecto, significa que el archivo base de tu sistema llamado 'ERPTable' está reestructurando la tabla usando Javascript cuando detecta pantallas pequeñas.", "#ffaa00");
+    });
+
+    // ====================================================================
+    // 3. SIMULADORES DE ATAQUE (Para probar la herramienta)
+    // ====================================================================
+    document.getElementById('btnSimularOcultar').addEventListener('click', () => {
+        log("Simulando acción de ERPTable: Ocultando vía inline CSS...", "#aaaaaa");
+        document.getElementById('divContenedorNombre').style.display = 'none';
+    });
+
+    document.getElementById('btnSimularDestruir').addEventListener('click', () => {
+        log("Simulando acción de ERPTable: Vaciando el innerHTML...", "#aaaaaa");
+        tdProducto.innerHTML = '<span class="text-muted">Responsive view...</span>';
+    });
+
+    document.getElementById('btnRestaurar').addEventListener('click', () => {
+        log("Restaurando DOM a su estado original...", "#55ff55");
+        tdProducto.innerHTML = `
+            <div class="d-flex align-items-center gap-2" id="divContenedorNombre">
+                <span class="fw-bold text-wrap" id="spanNombre">BOTELLA PET 18 GR - AGUA BELÉN 625ML</span>
+                <span class="badge bg-info-subtle text-info border border-info-subtle fw-bold ms-1" style="font-size: 0.65rem;">PACK</span>
+            </div>`;
+    });
+
+    // ====================================================================
+    // 4. DETECTOR DE REDIMENSIÓN
+    // ====================================================================
+    let lastWidth = window.innerWidth;
+    window.addEventListener('resize', () => {
+        const currentWidth = window.innerWidth;
+        if ((lastWidth > 767 && currentWidth <= 767) || (lastWidth <= 767 && currentWidth > 767)) {
+            log(`[EVENTO] Breakpoint cruzado. Ancho actual: ${currentWidth}px`, "#00ffff");
+        }
+        lastWidth = currentWidth;
     });
 });
 </script>
+<script src="ruta/a/tu/js/main.js"></script>
+<script src="ruta/a/tu/js/tablas/renderizadores.js"></script>
+<script src="ruta/a/tu/js/tablas/cards_acordeon.js"></script>
 </body></html>
