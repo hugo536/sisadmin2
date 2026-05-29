@@ -1,35 +1,67 @@
 (function(){
-  document.addEventListener('DOMContentLoaded', function(){
+  'use strict';
+
+  const APP_SELECTOR = '#gastosRegistroApp';
+  const TOM_SELECT_IDS = ['idConceptoGasto', 'id_proveedor', 'idCentroCostoGasto'];
+
+  function onReady(callback) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', callback, { once: true });
+      return;
+    }
+
+    callback();
+  }
+
+  function initGastosRegistro(){
+    const app = document.querySelector(APP_SELECTOR);
+    if (!app || app.dataset.gastosRegistroInit === '1') {
+      return;
+    }
+
+    app.dataset.gastosRegistroInit = '1';
     
     // ==========================================
     // 1. Inicialización de selectores avanzados (TomSelect)
     // ==========================================
     function inicializarTomSelects() {
-      if (typeof TomSelect === 'undefined') return;
+      if (typeof window.TomSelect === 'undefined') return false;
 
-      const selectoresAvanzados = ['idConceptoGasto', 'id_proveedor', 'idCentroCostoGasto'];
-
-      selectoresAvanzados.forEach(function(id) {
+      TOM_SELECT_IDS.forEach(function(id) {
         const elemento = document.getElementById(id);
         // Validamos que exista y que NO tenga ya un tomselect creado
         if (elemento && !elemento.tomselect) {
-          new TomSelect(elemento, {
+          new window.TomSelect(elemento, {
             create: false, 
             sortField: { field: 'text', direction: 'asc' },
-            placeholder: elemento.getAttribute('placeholder') || 'Seleccione una opción...'
+            placeholder: elemento.dataset.tomPlaceholder || elemento.getAttribute('placeholder') || 'Seleccione una opción...'
           });
         }
       });
+
+      return true;
     }
 
-    // Intento 1: Al cargar la página
-    inicializarTomSelects();
+    function inicializarTomSelectsConReintentos(intentosRestantes) {
+      if (inicializarTomSelects()) return;
+      if (intentosRestantes <= 0) {
+        console.warn('TomSelect no se pudo cargar para Registro de Gastos. Se mantendrán selectores simples.');
+        return;
+      }
+
+      window.setTimeout(function () {
+        inicializarTomSelectsConReintentos(intentosRestantes - 1);
+      }, 150);
+    }
+
+    // Intento 1: Al cargar/inyectar la página, con reintentos por si la CDN de TomSelect termina después.
+    inicializarTomSelectsConReintentos(20);
 
     // Intento 2: Cuando el modal termina de aparecer en pantalla
     const modalTom = document.getElementById('modalNuevoGasto');
     if (modalTom) {
       modalTom.addEventListener('shown.bs.modal', function () {
-        inicializarTomSelects();
+        inicializarTomSelectsConReintentos(20);
       });
     }
 
@@ -354,8 +386,7 @@
         }
 
         // 2. Limpiar los selectores avanzados (TomSelect)
-        const selectoresAvanzados = ['idConceptoGasto', 'id_proveedor', 'idCentroCostoGasto'];
-        selectoresAvanzados.forEach(function(id) {
+        TOM_SELECT_IDS.forEach(function(id) {
           const elemento = document.getElementById(id);
           if (elemento && elemento.tomselect) {
             elemento.tomselect.clear(true);
@@ -460,5 +491,8 @@
       });
     }
     
-  });
+  }
+
+  onReady(initGastosRegistro);
+  document.addEventListener('sisadmin:route-loaded', initGastosRegistro);
 })();
