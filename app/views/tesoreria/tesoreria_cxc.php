@@ -82,10 +82,10 @@ if (!empty($_GET['error'])) {
         </div>
         
         <div class="d-flex gap-2 flex-wrap justify-content-end align-items-center">
-            <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-sm btn-white border shadow-sm text-secondary fw-semibold">
+            <a href="<?php echo e(route_url('reportes/tesoreria')); ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold d-inline-flex align-items-center" style="height: 38px;">
                 <i class="bi bi-bar-chart-line me-2 text-primary"></i>Reportes
             </a>
-            <button type="button" class="btn btn-primary shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalCobroManual">
+            <button type="button" class="btn btn-primary shadow-sm fw-bold d-inline-flex align-items-center" data-bs-toggle="modal" data-bs-target="#modalCobroManual" style="height: 38px;">
                 <i class="bi bi-plus-circle me-2"></i>Registrar Cobro Manual
             </button>
         </div>

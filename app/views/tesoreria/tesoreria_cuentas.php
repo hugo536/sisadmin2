@@ -5,6 +5,8 @@ $bancos = $bancos ?? [];
 $cuentaEditar = $cuentaEditar ?? null;
 $esEdicion = is_array($cuentaEditar) && !empty($cuentaEditar['id']);
 $swalError = !empty($_GET['error']) ? (string) $_GET['error'] : null;
+$swalExito = !empty($_GET['ok']) && $_GET['ok'] == '1';
+$accionExito = !empty($_GET['action']) ? $_GET['action'] : '';
 $camposBloqueadosEdicion = $esEdicion;
 
 // Mock simulado: Si ya tienes los métodos guardados en BD (ej. en un JSON), los extraemos.
@@ -129,11 +131,12 @@ if (is_string($metodosPermitidos)) {
 
                                             <div class="d-inline-flex align-items-center gap-1">
                                                 <?php $urlEditar = route_url('tesoreria/cuentas'); ?>
-                                                <a href="<?= e($urlEditar . (str_contains($urlEditar, '?') ? '&' : '?') . 'editar=' . (int) $c['id']) ?>" 
-                                                   class="btn btn-sm btn-light border-0 bg-transparent rounded-circle text-primary js-editar-cuenta-link" 
-                                                   data-bs-toggle="tooltip" title="Editar Cuenta">
+                                                <button type="button" 
+                                                class="btn btn-sm btn-light border-0 bg-transparent rounded-circle text-primary js-editar-cuenta-btn" 
+                                                data-bs-toggle="tooltip" title="Editar Cuenta"
+                                                data-cuenta='<?= htmlspecialchars(json_encode($c), ENT_QUOTES, 'UTF-8') ?>'>
                                                     <i class="bi bi-pencil-square fs-5"></i>
-                                                </a>
+                                                </button>
 
                                                 <?php $puedeEliminar = ((int) ($c['total_movimientos'] ?? 0) === 0); ?>
                                                 <?php if ($puedeEliminar): ?>

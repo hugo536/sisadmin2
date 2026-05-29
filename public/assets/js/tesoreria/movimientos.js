@@ -97,4 +97,43 @@
         });
     }
 
+    // ========================================================================
+    // 2. LÓGICA DE CONFIRMACIÓN PARA ANULAR MOVIMIENTO
+    // ========================================================================
+    if (contenedorTabla) {
+        // Usamos delegación de eventos porque la tabla se recarga con AJAX
+        contenedorTabla.addEventListener('submit', (e) => {
+            const formAnular = e.target.closest('form[action*="anular_movimiento"]');
+            
+            if (formAnular) {
+                e.preventDefault(); // Pausamos el envío nativo
+
+                Swal.fire({
+                    title: '¿Estás seguro de anular esta transacción?',
+                    text: "Esta acción marcará el movimiento como anulado y revertirá los saldos. No se puede deshacer.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545', // Rojo peligro
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="bi bi-slash-circle me-1"></i> Sí, anular transacción',
+                    cancelButtonText: 'Cancelar',
+                    customClass: { popup: 'rounded-4 shadow-lg' }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Loader de bloqueo de pantalla
+                        Swal.fire({
+                            title: 'Anulando transacción...',
+                            text: 'Actualizando saldos, por favor espera.',
+                            allowOutsideClick: false,
+                            showConfirmButton: false,
+                            didOpen: () => Swal.showLoading()
+                        });
+                        
+                        formAnular.submit(); // Enviamos la orden al backend
+                    }
+                });
+            }
+        });
+    }
+
 })();

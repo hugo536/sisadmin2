@@ -45,10 +45,12 @@ class TesoreriaMovimientoModel extends Modelo
                           COALESCE(c.codigo, "S/C") AS cuenta_codigo, 
                           COALESCE(c.nombre, "Cuenta Eliminada") AS cuenta_nombre, 
                           COALESCE(t.nombre_completo, "Tercero Eliminado") AS tercero_nombre,
+                          COALESCE(mp.nombre, "") AS metodo_pago,
                           m.created_at
                    FROM tesoreria_movimientos m
                    LEFT JOIN tesoreria_cuentas c ON c.id = m.id_cuenta
                    LEFT JOIN terceros t ON t.id = m.id_tercero
+                   LEFT JOIN tesoreria_metodos_pago mp ON mp.id = m.id_metodo_pago
                    WHERE ' . implode(' AND ', $whereMov);
 
         // --- QUERY 2: Transferencias (Salidas y Entradas) ---
@@ -73,6 +75,7 @@ class TesoreriaMovimientoModel extends Modelo
                                  COALESCE(co.codigo, "S/C") AS cuenta_codigo,
                                  COALESCE(co.nombre, "Cuenta Eliminada") AS cuenta_nombre,
                                  "Cuentas Propias" AS tercero_nombre,
+                                 "" AS metodo_pago,
                                  trf.created_at
                           FROM tesoreria_transferencias trf
                           LEFT JOIN tesoreria_cuentas co ON co.id = trf.id_cuenta_origen
@@ -83,6 +86,7 @@ class TesoreriaMovimientoModel extends Modelo
                                  COALESCE(cd.codigo, "S/C") AS cuenta_codigo,
                                  COALESCE(cd.nombre, "Cuenta Eliminada") AS cuenta_nombre,
                                  "Cuentas Propias" AS tercero_nombre,
+                                 "" AS metodo_pago,
                                  trf.created_at
                           FROM tesoreria_transferencias trf
                           LEFT JOIN tesoreria_cuentas cd ON cd.id = trf.id_cuenta_destino

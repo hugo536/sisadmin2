@@ -87,7 +87,26 @@ if (!empty($_GET['error'])) {
                     <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
                     <input type="date" name="fecha_hasta" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>">
                 </div>
-                
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted fw-bold mb-1">Método de Pago</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="id_metodo_pago">
+                        <option value="">Todos los métodos</option>
+                        <?php if (!empty($metodos)): ?>
+                            <?php foreach ($metodos as $m): ?>
+                                <option value="<?= (int) $m['id'] ?>" <?= (($filtros['id_metodo_pago'] ?? '') == $m['id']) ? 'selected' : '' ?>>
+                                    <?= e((string) $m['nombre']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <option value="Efectivo" <?= (($filtros['id_metodo_pago'] ?? '') === 'Efectivo') ? 'selected' : '' ?>>Efectivo</option>
+                            <option value="Transferencia" <?= (($filtros['id_metodo_pago'] ?? '') === 'Transferencia') ? 'selected' : '' ?>>Transferencia</option>
+                            <option value="Yape/Plin" <?= (($filtros['id_metodo_pago'] ?? '') === 'Yape/Plin') ? 'selected' : '' ?>>Yape/Plin</option>
+                            <option value="Tarjeta" <?= (($filtros['id_metodo_pago'] ?? '') === 'Tarjeta') ? 'selected' : '' ?>>Tarjeta</option>
+                            <option value="Cheque" <?= (($filtros['id_metodo_pago'] ?? '') === 'Cheque') ? 'selected' : '' ?>>Cheque</option>
+                        <?php endif; ?>
+                    </select>
+                </div>
                 </form>
         </div>
     </div>
@@ -160,27 +179,40 @@ if (!empty($_GET['error'])) {
                             </td>
                         </tr>
                     <?php else: ?>
-                        <?php foreach ($movimientos as $m): ?>
-                            <?php 
-                                $estado = (string) ($m['estado'] ?? '');
-                                $tipo = (string) ($m['tipo'] ?? '');
-                                $origen = strtoupper((string) ($m['origen'] ?? ''));
-                                
-                                if ($origen === 'TRANSFERENCIA') {
-                                    $tercero = 'Cuentas Propias (Interno)';
-                                } else {
-                                    $tercero = (string) ($m['tercero_nombre'] ?? ('#' . (int) ($m['id_tercero'] ?? 0)));
-                                }
+                    <?php foreach ($movimientos as $m): ?>
+                                                <?php 
+                                                    $estado = (string) ($m['estado'] ?? '');
+                                                    $tipo = (string) ($m['tipo'] ?? '');
+                                                    $origen = strtoupper((string) ($m['origen'] ?? ''));
+                                                    
+                                                    if ($origen === 'TRANSFERENCIA') {
+                                                        $tercero = 'Cuentas Propias (Interno)';
+                                                    } else {
+                                                        $tercero = (string) ($m['tercero_nombre'] ?? ('#' . (int) ($m['id_tercero'] ?? 0)));
+                                                    }
 
-                                $cuenta = (string) ($m['cuenta_codigo'] ?? '') . ' - ' . (string) ($m['cuenta_nombre'] ?? '');
-                                $observacionTercero = trim((string) ($m['observaciones'] ?? '')); 
-                                
-                                $searchStr = strtolower($tipo . ' ' . $tercero . ' ' . $origen . ' ' . $cuenta . ' ' . $estado . ' ' . $observacionTercero);
-                                
-                                $montoColor = $tipo === 'COBRO' ? 'text-success' : 'text-danger';
-                                $montoSigno = $tipo === 'COBRO' ? '+' : '-';
-                            ?>
-                            <tr class="border-bottom" data-search="<?= htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8') ?>">
+                                                    // -------------------------------------------------------------
+                                                    // AQUÍ ESTÁ EL AJUSTE PARA QUITAR "CJ-001" Y AGREGAR "- Yape"
+                                                    // -------------------------------------------------------------
+                                                    $nombreCuenta = trim((string) ($m['cuenta_nombre'] ?? ''));
+                                                    $nombreMetodo = trim((string) ($m['metodo_pago'] ?? '')); 
+
+                                                    if ($nombreMetodo !== '') {
+                                                        $cuenta = $nombreCuenta . ' - ' . $nombreMetodo;
+                                                    } else {
+                                                        $cuenta = $nombreCuenta;
+                                                    }
+                                                    // -------------------------------------------------------------
+
+                                                    $observacionTercero = trim((string) ($m['observaciones'] ?? '')); 
+                                                    
+                                                    $searchStr = strtolower($tipo . ' ' . $tercero . ' ' . $origen . ' ' . $cuenta . ' ' . $estado . ' ' . $observacionTercero);
+                                                    
+                                                    $montoColor = $tipo === 'COBRO' ? 'text-success' : 'text-danger';
+                                                    $montoSigno = $tipo === 'COBRO' ? '+' : '-';
+                                                ?>
+                                                <tr class="border-bottom" data-search="<?= htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8') ?>">
+
                                 <td class="ps-4 text-muted fw-medium align-top pt-3">#<?= (int) ($m['id'] ?? 0) ?></td>
                                 <td class="align-top pt-3 text-muted"><?= e((string) ($m['fecha'] ?? '')) ?></td>
                                 <td class="align-top pt-3 fw-semibold">
@@ -256,12 +288,24 @@ if (!empty($_GET['error'])) {
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             if (typeof Swal === 'undefined') return;
+
+            // Detectamos si es un mensaje de éxito evaluando el ícono
+            const isSuccess = <?= json_encode($swalIcon === 'success') ?>;
+
             Swal.fire({
                 icon: <?= json_encode($swalIcon) ?>,
-                title: <?= json_encode($swalIcon === 'error' ? 'Error' : 'Éxito') ?>,
+                title: isSuccess ? '¡Éxito!' : 'Error',
                 text: <?= json_encode($swalMessage) ?>,
-                confirmButtonText: 'Entendido',
-                confirmButtonColor: '#0d6efd'
+                confirmButtonText: isSuccess ? 'Aceptar' : 'Entendido',
+                confirmButtonColor: isSuccess ? '#198754' : '#dc3545', // Verde para éxito, Rojo para error
+                customClass: { popup: 'rounded-4 shadow-lg' }
+            }).then(() => {
+                // Limpiar la URL solo si fue un mensaje de éxito
+                if (isSuccess && window.history.replaceState) {
+                    const url = new URL(window.location);
+                    url.searchParams.delete('ok');
+                    window.history.replaceState({path: url.href}, '', url.href);
+                }
             });
         });
     </script>
