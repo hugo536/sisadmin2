@@ -1,5 +1,42 @@
 <?php 
+
+    $filtros = $filtros ?? [];
+    // 1. OBTENCIÓN DE SECCIÓN ACTIVA
     $seccionActiva = $_GET['seccion_activa'] ?? ($filtros['seccion_activa'] ?? 'stock'); 
+
+    // 2. FUNCIONES AUXILIARES (HELPERS) PARA LIMPIAR LA VISTA
+    // Nota: Idealmente, estas funciones deberían estar en un archivo Helper global o en el Controlador.
+    $formatCurrency = function($value, $decimals = 2) {
+        return 'S/ ' . number_format((float)($value ?? 0), $decimals, '.', ',');
+    };
+
+    $formatStock = function($value, $permiteDecimales = false) {
+        $decimals = $permiteDecimales ? 3 : 0;
+        return number_format((float)($value ?? 0), $decimals, '.', ',');
+    };
+
+    $getAlertClassStock = function($alertaTexto, &$esCritico) {
+        $alerta = mb_strtolower((string)$alertaTexto);
+        $esCritico = stripos($alerta, 'bajo') !== false || stripos($alerta, 'crític') !== false || stripos($alerta, 'critico') !== false;
+        return $esCritico ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-light text-secondary border-secondary-subtle';
+    };
+
+    // 3. PRE-PROCESAMIENTO DE FILTROS PARA DROPDOWNS
+    // Categorías
+    $catSeleccionadas = is_array($filtros['id_categoria'] ?? []) ? $filtros['id_categoria'] : (!empty($filtros['id_categoria']) ? [$filtros['id_categoria']] : []);
+    $catCount = count($catSeleccionadas);
+    $txtCat = $catCount === 0 ? 'Todas las categorías' : ($catCount === 1 ? '1 seleccionada' : $catCount . ' seleccionadas');
+
+    // Tipos de Ítem
+    $tiposSeleccionados = is_array($filtros['tipo_item'] ?? []) ? $filtros['tipo_item'] : (is_string($filtros['tipo_item'] ?? '') && $filtros['tipo_item'] !== '' ? [$filtros['tipo_item']] : []);
+    $opcionesTipos = ['producto_terminado' => 'Producto terminado', 'materia_prima' => 'Materia prima', 'insumo' => 'Insumo', 'semielaborado' => 'Semielaborado', 'material_empaque' => 'Material de empaque', 'servicio' => 'Servicio'];
+    $tipoCount = count($tiposSeleccionados);
+    $txtTipo = $tipoCount === 0 ? 'Todos los tipos' : ($tipoCount === 1 ? $opcionesTipos[$tiposSeleccionados[0]] ?? '1 seleccionado' : $tipoCount . ' seleccionados');
+
+    // Almacenes
+    $almSeleccionados = is_array($filtros['id_almacen'] ?? []) ? $filtros['id_almacen'] : (!empty($filtros['id_almacen']) ? [$filtros['id_almacen']] : []);
+    $almCount = count($almSeleccionados);
+    $txtAlm = $almCount === 0 ? 'Todos los almacenes' : ($almCount === 1 ? '1 seleccionado' : $almCount . ' seleccionados');
 ?>
 
 <div class="container-fluid p-4" id="reportesInventarioApp">
@@ -17,41 +54,32 @@
     </div>
 
     <ul class="nav nav-tabs border-bottom-1 mb-0 px-2" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'stock' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="stock">
-                <i class="bi bi-layers-half me-2"></i>Stock Actual
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'historico' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="historico">
-                <i class="bi bi-clock-history me-2"></i>Stock a Fecha
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'kardex' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="kardex">
-                <i class="bi bi-journal-check me-2"></i>Kardex Valorizado
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'vencimientos' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="vencimientos">
-                <i class="bi bi-calendar2-x me-2"></i>Lotes y Vencimientos
-            </button>
-        </li>
+        <?php 
+            $tabs = [
+                'stock' => ['icono' => 'bi-layers-half', 'texto' => 'Stock Actual'],
+                'historico' => ['icono' => 'bi-clock-history', 'texto' => 'Stock a Fecha'],
+                'kardex' => ['icono' => 'bi-journal-check', 'texto' => 'Kardex Valorizado'],
+                'vencimientos' => ['icono' => 'bi-calendar2-x', 'texto' => 'Lotes y Vencimientos']
+            ];
+            foreach($tabs as $key => $tab):
+                $activeClass = $seccionActiva === $key ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0';
+        ?>
+            <li class="nav-item" role="presentation">
+                <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $activeClass; ?>" data-seccion="<?php echo $key; ?>">
+                    <i class="bi <?php echo $tab['icono']; ?> me-2"></i><?php echo $tab['texto']; ?>
+                </button>
+            </li>
+        <?php endforeach; ?>
     </ul>
 
     <div class="card border-0 shadow-sm mb-4 rounded-top-0 border-top border-primary border-3">
         <div class="card-body p-4 bg-white">
-            <form id="formFiltrosInventario" class="row g-3" method="get" action="<?php echo e(route_url('reportes/inventario')); ?>">
+            <form id="formFiltrosInventario" class="row g-3 align-items-end" method="get" action="<?php echo e(route_url('reportes/inventario')); ?>">
                 <input type="hidden" name="ruta" value="reportes/inventario">
                 <input type="hidden" name="seccion_activa" id="input_seccion_activa" value="<?php echo e($seccionActiva); ?>">
                 
                 <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1">Categoría</label>
-                    <?php 
-                        $catSeleccionadas = is_array($filtros['id_categoria'] ?? []) ? $filtros['id_categoria'] : (!empty($filtros['id_categoria']) ? [$filtros['id_categoria']] : []);
-                        $catCount = count($catSeleccionadas);
-                        $txtCat = $catCount === 0 ? 'Todas las categorías' : ($catCount === 1 ? '1 seleccionada' : $catCount . ' seleccionadas');
-                    ?>
                     <div class="dropdown dropdown-multi">
                         <button class="btn bg-light border border-secondary-subtle w-100 text-start d-flex justify-content-between align-items-center shadow-none" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
                             <span class="text-truncate text-dark" style="font-size: 0.95rem;"><?php echo $txtCat; ?></span>
@@ -82,12 +110,6 @@
 
                 <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1">Tipo de Ítem</label>
-                    <?php 
-                        $tiposSeleccionados = is_array($filtros['tipo_item'] ?? []) ? $filtros['tipo_item'] : (is_string($filtros['tipo_item'] ?? '') && $filtros['tipo_item'] !== '' ? [$filtros['tipo_item']] : []);
-                        $opcionesTipos = ['producto_terminado' => 'Producto terminado', 'materia_prima' => 'Materia prima', 'insumo' => 'Insumo', 'semielaborado' => 'Semielaborado', 'material_empaque' => 'Material de empaque', 'servicio' => 'Servicio'];
-                        $tipoCount = count($tiposSeleccionados);
-                        $txtTipo = $tipoCount === 0 ? 'Todos los tipos' : ($tipoCount === 1 ? $opcionesTipos[$tiposSeleccionados[0]] ?? '1 seleccionado' : $tipoCount . ' seleccionados');
-                    ?>
                     <div class="dropdown dropdown-multi">
                         <button class="btn bg-light border border-secondary-subtle w-100 text-start d-flex justify-content-between align-items-center shadow-none" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
                             <span class="text-truncate text-dark" style="font-size: 0.95rem;"><?php echo $txtTipo; ?></span>
@@ -118,11 +140,6 @@
 
                 <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1">Almacén</label>
-                    <?php 
-                        $almSeleccionados = is_array($filtros['id_almacen'] ?? []) ? $filtros['id_almacen'] : (!empty($filtros['id_almacen']) ? [$filtros['id_almacen']] : []);
-                        $almCount = count($almSeleccionados);
-                        $txtAlm = $almCount === 0 ? 'Todos los almacenes' : ($almCount === 1 ? '1 seleccionado' : $almCount . ' seleccionados');
-                    ?>
                     <div class="dropdown dropdown-multi">
                         <button class="btn bg-light border border-secondary-subtle w-100 text-start d-flex justify-content-between align-items-center shadow-none" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
                             <span class="text-truncate text-dark" style="font-size: 0.95rem;"><?php echo $txtAlm; ?></span>
@@ -151,10 +168,9 @@
                     </div>
                 </div>
 
-                <div class="col-12 col-md-3 d-flex flex-column justify-content-end">
-                    
+                <div class="col-12 col-md-3">
                     <?php if ($seccionActiva === 'stock'): ?>
-                        <div class="form-check form-switch p-2 bg-light rounded border d-flex align-items-center w-100" style="height: 38px; margin-bottom: 0;">
+                        <div class="form-check form-switch p-2 bg-light rounded border d-flex align-items-center w-100" style="height: 38px;">
                             <input class="form-check-input mt-0 me-2 auto-submit" type="checkbox" role="switch" id="filtroBajoMinimo" name="solo_bajo_minimo" value="1" <?php echo !empty($filtros['solo_bajo_minimo']) ? 'checked' : ''; ?>>
                             <label class="form-check-label small fw-bold text-danger cursor-pointer mb-0" for="filtroBajoMinimo">Solo bajo mínimo</label>
                         </div>
@@ -253,25 +269,25 @@
                             <?php if(empty($stock['rows'])): ?>
                                 <tr class="empty-msg-row"><td colspan="8" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de stock.</td></tr>
                             <?php else: ?>
-                                <?php foreach (($stock['rows'] ?? []) as $r): ?>
-                                    <?php 
-                                        $alertaTexto = (string)$r['alerta'];
-                                        $esCritico = stripos($alertaTexto, 'bajo') !== false || stripos($alertaTexto, 'crítico') !== false || stripos($alertaTexto, 'critico') !== false;
-                                        $alertaClase = $esCritico ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-light text-secondary border-secondary-subtle';
-                                        $usaDecimales = (int)($r['permite_decimales'] ?? 0) === 1;
-                                        $stockFormateado = number_format((float)($r['stock_actual'] ?? 0), $usaDecimales ? 3 : 0, '.', ',');
-                                        $stockMinimoFormateado = number_format((float)($r['stock_minimo'] ?? 0), $usaDecimales ? 3 : 0, '.', ',');
-                                    ?>
+                                <?php foreach (($stock['rows'] ?? []) as $r): 
+                                    $usaDecimales = (int)($r['permite_decimales'] ?? 0) === 1;
+                                    $esCritico = false;
+                                    $alertaClase = $getAlertClassStock($r['alerta'] ?? '', $esCritico);
+                                ?>
                                     <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['item'] . ' ' . (string)$r['almacen'])); ?>">
                                         <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['item']); ?></td>
                                         <td class="text-muted"><?php echo e((string)$r['almacen']); ?></td>
-                                        <td class="text-end fw-bold <?php echo $esCritico ? 'text-danger' : 'text-success'; ?>"><?php echo e($stockFormateado); ?></td>
-                                        <td class="text-end text-muted">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 4); ?></td>
-                                        <td class="text-end fw-semibold text-dark">S/ <?php echo number_format((float)($r['valor_total'] ?? 0), 2); ?></td>
-                                        <td class="text-end text-muted"><?php echo e($stockMinimoFormateado); ?></td>
+                                        <td class="text-end fw-bold <?php echo $esCritico ? 'text-danger' : 'text-success'; ?>">
+                                            <?php echo $formatStock($r['stock_actual'], $usaDecimales); ?>
+                                        </td>
+                                        <td class="text-end text-muted"><?php echo $formatCurrency($r['costo_unitario'], 4); ?></td>
+                                        <td class="text-end fw-semibold text-dark"><?php echo $formatCurrency($r['valor_total'], 2); ?></td>
+                                        <td class="text-end text-muted"><?php echo $formatStock($r['stock_minimo'], $usaDecimales); ?></td>
                                         <td class="text-center"><span class="badge bg-light text-secondary border"><?php echo e((string)$r['unidad']); ?></span></td>
                                         <td class="text-center pe-4">
-                                            <span class="badge px-2 py-1 rounded border <?php echo $alertaClase; ?>"><?php echo e($alertaTexto !== '' ? $alertaTexto : 'OK'); ?></span>
+                                            <span class="badge px-2 py-1 rounded border <?php echo $alertaClase; ?>">
+                                                <?php echo e(!empty($r['alerta']) ? (string)$r['alerta'] : 'OK'); ?>
+                                            </span>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -284,7 +300,7 @@
                         Cargando...
                         <?php if (!empty($stock['valor_total'])): ?>
                             <span class="ms-2 badge bg-success-subtle text-success border border-success-subtle px-2">
-                                Valor total: S/ <?php echo number_format((float)($stock['valor_total'] ?? 0), 2); ?>
+                                Valor total: <?php echo $formatCurrency($stock['valor_total']); ?>
                             </span>
                         <?php endif; ?>
                     </small>
@@ -325,8 +341,8 @@
                                         <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['item']); ?></td>
                                         <td class="text-muted"><?php echo e((string)$r['almacen']); ?></td>
                                         <td class="text-end fw-bold text-primary"><?php echo number_format((float)($r['stock_actual'] ?? 0), 2, '.', ','); ?></td>
-                                        <td class="text-end text-muted">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 4); ?></td>
-                                        <td class="text-end fw-semibold text-dark">S/ <?php echo number_format((float)($r['valor_total'] ?? 0), 2); ?></td>
+                                        <td class="text-end text-muted"><?php echo $formatCurrency($r['costo_unitario'], 4); ?></td>
+                                        <td class="text-end fw-semibold text-dark"><?php echo $formatCurrency($r['valor_total'], 2); ?></td>
                                         <td class="text-center pe-4"><span class="badge bg-light text-secondary border"><?php echo e((string)$r['unidad']); ?></span></td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -339,7 +355,7 @@
                         Cargando...
                         <?php if (!empty($historico['valor_total'])): ?>
                             <span class="ms-2 badge bg-primary-subtle text-primary border border-primary-subtle px-2">
-                                Valor total a la fecha: S/ <?php echo number_format((float)($historico['valor_total'] ?? 0), 2); ?>
+                                Valor total a la fecha: <?php echo $formatCurrency($historico['valor_total']); ?>
                             </span>
                         <?php endif; ?>
                     </small>
@@ -385,23 +401,20 @@
                             <?php if(empty($kardex['rows'])): ?>
                                 <tr class="empty-msg-row"><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay movimientos en este periodo.</td></tr>
                             <?php else: ?>
-                                <?php foreach (($kardex['rows'] ?? []) as $r): ?>
-                                    <?php 
-                                        $tipo = mb_strtolower((string)$r['tipo']);
-                                        $esIngreso = stripos($tipo, 'ingreso') !== false || stripos($tipo, 'entrada') !== false;
-                                        $badgeTipo = $esIngreso ? 'bg-success-subtle text-success border-success-subtle' : 'bg-danger-subtle text-danger border-danger-subtle';
-                                        $iconoTipo = $esIngreso ? 'bi-arrow-down-left' : 'bi-arrow-up-right';
-                                    ?>
+                                <?php foreach (($kardex['rows'] ?? []) as $r): 
+                                    $tipo = mb_strtolower((string)$r['tipo']);
+                                    $esIngreso = stripos($tipo, 'ingreso') !== false || stripos($tipo, 'entrada') !== false;
+                                ?>
                                     <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['referencia'] . ' ' . (string)$r['tipo'])); ?>">
                                         <td class="ps-4 text-muted small"><?php echo e((string)$r['fecha']); ?></td>
                                         <td class="text-center">
-                                            <span class="badge px-2 py-1 rounded-pill border <?php echo $badgeTipo; ?>">
-                                                <i class="bi <?php echo $iconoTipo; ?> me-1"></i><?php echo e((string)$r['tipo']); ?>
+                                            <span class="badge px-2 py-1 rounded-pill border <?php echo $esIngreso ? 'bg-success-subtle text-success border-success-subtle' : 'bg-danger-subtle text-danger border-danger-subtle'; ?>">
+                                                <i class="bi <?php echo $esIngreso ? 'bi-arrow-down-left' : 'bi-arrow-up-right'; ?> me-1"></i><?php echo e((string)$r['tipo']); ?>
                                             </span>
                                         </td>
                                         <td class="text-end fw-bold"><?php echo e((string)$r['cantidad']); ?></td>
-                                        <td class="text-end text-muted">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 2); ?></td>
-                                        <td class="text-end fw-semibold text-dark">S/ <?php echo number_format((float)($r['costo_total'] ?? 0), 2); ?></td>
+                                        <td class="text-end text-muted"><?php echo $formatCurrency($r['costo_unitario'], 2); ?></td>
+                                        <td class="text-end fw-semibold text-dark"><?php echo $formatCurrency($r['costo_total'], 2); ?></td>
                                         <td class="text-muted small"><?php echo e((string)$r['referencia']); ?></td>
                                         <td class="pe-4 text-muted small"><i class="bi bi-person me-1"></i><?php echo e((string)$r['usuario']); ?></td>
                                     </tr>
@@ -457,12 +470,10 @@
                             <?php if(empty($vencimientos['rows'])): ?>
                                 <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de lotes.</td></tr>
                             <?php else: ?>
-                                <?php foreach (($vencimientos['rows'] ?? []) as $r): ?>
-                                    <?php 
-                                        $alertaVenc = (string)$r['alerta'];
-                                        $esVencido = stripos($alertaVenc, 'vencido') !== false;
-                                        $badgeVenc = $esVencido ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
-                                    ?>
+                                <?php foreach (($vencimientos['rows'] ?? []) as $r): 
+                                    $alertaVenc = (string)$r['alerta'];
+                                    $esVencido = stripos($alertaVenc, 'vencido') !== false;
+                                ?>
                                     <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['item'] . ' ' . (string)$r['lote'])); ?>">
                                         <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['item']); ?></td>
                                         <td class="text-muted"><?php echo e((string)$r['almacen']); ?></td>
@@ -470,7 +481,9 @@
                                         <td class="text-muted"><i class="bi bi-calendar-event me-1"></i><?php echo e((string)$r['fecha_vencimiento']); ?></td>
                                         <td class="text-end fw-semibold text-dark"><?php echo e((string)$r['stock_lote']); ?></td>
                                         <td class="text-center pe-4">
-                                            <span class="badge px-2 py-1 rounded border <?php echo $badgeVenc; ?>"><?php echo e($alertaVenc !== '' ? $alertaVenc : 'Normal'); ?></span>
+                                            <span class="badge px-2 py-1 rounded border <?php echo $esVencido ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-warning-subtle text-warning-emphasis border-warning-subtle'; ?>">
+                                                <?php echo e($alertaVenc !== '' ? $alertaVenc : 'Normal'); ?>
+                                            </span>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -491,6 +504,8 @@
 <script>
     window.datosInventario = {
         graficoDona: <?php echo json_encode($datosGraficoDona ?? []); ?>,
-        graficoBarras: <?php echo json_encode($datosGraficoBarras ?? []); ?>
+        graficoBarras: <?php echo json_encode($datosGraficoBarras ?? []); ?>,
+        graficoKardex: <?php echo json_encode($datosGraficoKardex ?? []); ?>, // NUEVO
+        graficoLotes: <?php echo json_encode($datosGraficoLotes ?? []); ?> // NUEVO
     };
 </script>

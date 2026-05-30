@@ -1,3 +1,9 @@
+<?php
+    $config = $config ?? [];
+    $venta = $venta ?? [];
+    $labelDocumentoCliente = $labelDocumentoCliente ?? 'Documento';
+    $pesoTotal = $pesoTotal ?? 0;
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
