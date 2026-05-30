@@ -144,21 +144,24 @@ class GastosController extends Controlador
         AuthMiddleware::handle();
         require_permiso('compras.ver');
 
+        // 👇 NUEVO: Definir rangos por defecto (El mes actual)
+        $fechaDesdeDefault = date('Y-m-01');
+        $fechaHastaDefault = date('Y-m-t');
+
         $filtros = [
-            'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? '')),
-            'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
+            'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? $fechaDesdeDefault)),
+            'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? $fechaHastaDefault)),
         ];
 
-        // 👇 ADIÓS DATOS DE PRUEBA, HOLA DATOS REALES 👇
         $tesoreriaModel = new TesoreriaCxcModel();
 
         $this->render('gastos/registro_gastos', [
             'ruta_actual' => 'gastos/registros',
-            'registros' => $this->registroModel->listar($filtros),
+            'registros' => $this->registroModel->listar($filtros), // <-- Pasamos las fechas al modelo
             'proveedores' => $this->proveedorModel->listarActivos(),
             'conceptos' => $this->conceptoModel->listarActivos(),
             'centrosCosto' => $this->centroCostoModel->listarActivos(),
-            'filtros' => $filtros,
+            'filtros' => $filtros, // <-- Pasamos los filtros de vuelta a la vista
             'cuentas' => $tesoreriaModel->obtenerCuentasActivas(),
             'metodos' => $tesoreriaModel->obtenerMetodosActivos(),
         ]);
@@ -206,8 +209,7 @@ class GastosController extends Controlador
                 'monto' => (float) ($_POST['monto'] ?? 0),
                 'impuesto_tipo' => trim((string) ($_POST['impuesto_tipo'] ?? 'NINGUNO')),
                 'id_centro_costo' => (int) ($_POST['id_centro_costo'] ?? 0),
-                
-                // 👇 NUEVO: Pasamos la estructura de pago al modelo
+                'observacion' => trim((string) ($_POST['observacion'] ?? '')),
                 'pago_inmediato' => $pagoInmediato,
                 'pagos_detalle'  => $detallesPago
             ];

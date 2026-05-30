@@ -59,29 +59,35 @@ $estadoLabels = [
 
     <div class="card border-0 shadow-sm mb-3 inventario-sticky-filters">
         <div class="card-body p-3">
-            <div class="row g-2 align-items-center">
-                <div class="col-12 col-md-5">
+            <form method="get" action="<?php echo e(route_url('gastos/registros')); ?>" class="row g-2 align-items-center">
+                <input type="hidden" name="ruta" value="gastos/registros">
+
+                <div class="col-12 col-md-4">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-secondary-subtle border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                        <input type="search" id="buscarRegistro" class="form-control bg-light border-secondary-subtle border-start-0 ps-0 shadow-none" placeholder="Buscar por fecha, proveedor o concepto...">
+                        <input type="search" id="buscarRegistro" class="form-control bg-light border-secondary-subtle border-start-0 ps-0 shadow-none" placeholder="Buscar concepto o proveedor...">
                     </div>
                 </div>
-                <div class="col-6 col-md-4">
-                    <select id="filtroProveedor" class="form-select bg-light border-secondary-subtle shadow-none text-secondary">
-                        <option value="">Todos los Proveedores</option>
-                        <?php foreach($proveedores as $p): ?>
-                            <option value="<?php echo (int)$p['id']; ?>"><?php echo e((string)$p['nombre_completo']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
+
+                <div class="col-12 col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-secondary-subtle text-muted fw-semibold" style="font-size: 0.85rem;">Desde</span>
+                        <input type="date" name="fecha_desde" class="form-control shadow-none border-secondary-subtle text-secondary" value="<?php echo htmlspecialchars($filtros['fecha_desde'] ?? date('Y-m-01'), ENT_QUOTES, 'UTF-8'); ?>">
+                        <span class="input-group-text bg-light border-secondary-subtle border-start-0 border-end-0 text-muted fw-semibold" style="font-size: 0.85rem;">Hasta</span>
+                        <input type="date" name="fecha_hasta" class="form-control shadow-none border-secondary-subtle text-secondary" value="<?php echo htmlspecialchars($filtros['fecha_hasta'] ?? date('Y-m-t'), ENT_QUOTES, 'UTF-8'); ?>">
+                        <button type="submit" class="btn btn-secondary shadow-sm"><i class="bi bi-filter"></i></button>
+                    </div>
                 </div>
-                <div class="col-6 col-md-3">
+
+                <div class="col-12 col-md-3">
                     <select id="filtroEstado" class="form-select bg-light border-secondary-subtle shadow-none text-secondary">
                         <option value="">Todos los Estados</option>
-                        <option value="REGISTRADO">Registrado</option>
+                        <option value="PENDIENTE">Pendiente</option>
+                        <option value="PAGADO">Pagado</option>
                         <option value="ANULADO">Anulado</option>
                     </select>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 
@@ -95,7 +101,7 @@ $estadoLabels = [
                        data-search-input="#buscarRegistro" 
                        data-empty-text="No se encontraron registros de gastos."
                        data-info-text-template="Mostrando {start} a {end} de {total} registros"
-                       data-erp-filters='[{"el":"#filtroProveedor", "attr":"data-proveedor"}, {"el":"#filtroEstado", "attr":"data-estado"}]'
+                       data-erp-filters='[{"el":"#filtroEstado", "attr":"data-estado"}]'
                        data-rows-per-page="15"
                        data-pagination-controls="#registrosPaginationControls"
                        data-pagination-info="#registrosPaginationInfo">
@@ -125,8 +131,15 @@ $estadoLabels = [
                             data-proveedor="<?php echo (int)($r['id_proveedor'] ?? 0); ?>"
                             data-estado="<?php echo e($estado); ?>">
                             
-                            <td class="ps-4 text-muted"><i class="bi bi-calendar me-1 opacity-50"></i><?php echo e((string)$r['fecha']); ?></td>
-                            <td class="fw-medium text-dark"><?php echo e((string)$r['proveedor']); ?></td>
+                            <td class="ps-4 text-muted"><i class="bi bi-calendar me-1 opacity-50"></i><?php echo date('d/m/Y', strtotime((string)$r['fecha'])); ?></td>
+                            <td class="fw-medium text-dark">
+                                <div class="d-block"><?php echo e((string)$r['proveedor']); ?></div>
+                                <?php if (!empty(trim((string)$r['observacion']))): ?>
+                                    <small class="text-muted fw-normal d-block mt-1 text-truncate" style="font-size: 0.75rem; max-width: 250px;" title="<?php echo htmlspecialchars((string)$r['observacion'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <?php echo htmlspecialchars((string)$r['observacion'], ENT_QUOTES, 'UTF-8'); ?>
+                                    </small>
+                                <?php endif; ?>
+                            </td>
                             <td class="text-muted"><?php echo e((string)$r['concepto']); ?></td>
                             <td class="text-center"><span class="badge bg-light text-secondary border px-2 py-1"><?php echo e((string)$r['impuesto_tipo']); ?></span></td>
                             <td class="text-end fw-bold text-primary">S/ <?php echo number_format((float)$r['total'], 2); ?></td>
@@ -143,7 +156,7 @@ $estadoLabels = [
                                             class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle js-ver-gasto"
                                             data-bs-toggle="tooltip" title="Ver Detalle"
                                             data-id="<?php echo (int)$r['id']; ?>"
-                                            data-fecha="<?php echo e((string)$r['fecha']); ?>"
+                                            data-fecha="<?php echo date('d/m/Y', strtotime((string)$r['fecha'])); ?>"
                                             data-proveedor="<?php echo e((string)$r['proveedor']); ?>"
                                             data-concepto="<?php echo e((string)$r['concepto']); ?>"
                                             data-impuesto="<?php echo e((string)$r['impuesto_tipo']); ?>"
@@ -195,31 +208,71 @@ $estadoLabels = [
 <div class="modal fade" id="modalDetalleGasto" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-dark text-white py-3">
-                <h5 class="modal-title fw-bold"><i class="bi bi-eye me-2"></i>Detalle del Gasto</h5>
+            
+            <div class="modal-header bg-dark text-white py-3 border-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-receipt me-2"></i>Detalle del Gasto</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body bg-light p-3 p-md-4">
-                <div class="list-group list-group-flush rounded-3 overflow-hidden border border-secondary-subtle shadow-sm">
-                    <div class="list-group-item d-flex justify-content-between"><strong>ID Sistema</strong><span id="detGastoId">-</span></div>
-                    <div class="list-group-item d-flex justify-content-between"><strong>Fecha</strong><span id="detGastoFecha">-</span></div>
-                    <div class="list-group-item d-flex justify-content-between"><strong>Proveedor</strong><span id="detGastoProveedor">-</span></div>
-                    <div class="list-group-item d-flex justify-content-between"><strong>Concepto</strong><span id="detGastoConcepto">-</span></div>
-                    <div class="list-group-item d-flex justify-content-between"><strong>Impuesto</strong><span id="detGastoImpuesto">-</span></div>
-                    <div class="list-group-item d-flex justify-content-between"><strong>Monto Base</strong><span id="detGastoMonto" class="text-primary fw-medium">-</span></div>
-                    <div class="list-group-item d-flex justify-content-between"><strong>Total Gasto</strong><span id="detGastoTotal" class="text-primary fw-bold">-</span></div>
-                    
-                    <div class="list-group-item flex-column align-items-start">
-                        <div class="d-flex w-100 justify-content-between mb-1">
-                            <strong>Observación</strong>
-                        </div>
-                        <span id="detGastoObservacion" class="text-muted small">-</span>
-                    </div>
+            
+            <div class="modal-body p-4 bg-light">
+                
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary-subtle">
+                    <span class="text-muted small fw-semibold">ID Registro Sistema: <span id="detGastoId" class="text-dark fw-bold"></span></span>
+                    <span id="detGastoEstado" class="badge bg-secondary bg-opacity-25 text-dark border border-secondary-subtle rounded-pill px-3">-</span>
+                </div>
 
-                    <div class="list-group-item d-flex justify-content-between bg-light mt-2"><strong>ID CxP Tesorería</strong><span id="detGastoCxp" class="badge bg-warning text-dark border">-</span></div>
-                    <div class="list-group-item d-flex justify-content-between bg-light"><strong>ID Asiento Contable</strong><span id="detGastoAsiento" class="badge bg-info text-dark border">-</span></div>
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6">
+                        <label class="text-muted small fw-bold mb-1 d-block"><i class="bi bi-calendar-event me-1"></i>Fecha</label>
+                        <span id="detGastoFecha" class="fw-medium text-dark">-</span>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small fw-bold mb-1 d-block"><i class="bi bi-building me-1"></i>Proveedor</label>
+                        <span id="detGastoProveedor" class="fw-medium text-dark">-</span>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small fw-bold mb-1 d-block"><i class="bi bi-tags me-1"></i>Concepto</label>
+                        <span id="detGastoConcepto" class="fw-medium text-dark">-</span>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="text-muted small fw-bold mb-1 d-block"><i class="bi bi-percent me-1"></i>Impuesto</label>
+                        <span id="detGastoImpuesto" class="fw-medium text-dark">-</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-3 rounded-3 border border-secondary-subtle mb-4 shadow-sm">
+                    <label class="text-muted small fw-bold d-block mb-2"><i class="bi bi-chat-left-text me-1"></i>Observación</label>
+                    <p id="detGastoObservacion" class="mb-0 text-dark fst-italic text-break" style="font-size: 0.95rem;">-</p>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-6">
+                        <div class="bg-white p-3 rounded-3 border border-secondary-subtle h-100 text-center d-flex flex-column justify-content-center shadow-sm">
+                            <small class="text-muted fw-bold d-block mb-1">Monto Base</small>
+                            <span id="detGastoMonto" class="fs-5 fw-semibold text-secondary">-</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="bg-primary-subtle p-3 rounded-3 border border-primary-subtle h-100 text-center d-flex flex-column justify-content-center shadow-sm">
+                            <small class="text-primary-emphasis fw-bold d-block mb-1">TOTAL GASTO</small>
+                            <span id="detGastoTotal" class="fs-4 fw-bold text-primary">-</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="modal-footer bg-white border-top justify-content-between py-2">
+                <div class="small">
+                    <span class="text-muted fw-semibold me-1"><i class="bi bi-safe me-1"></i>ID CxP:</span>
+                    <span id="detGastoCxp" class="badge bg-warning text-dark border border-warning-subtle">-</span>
+                </div>
+                <div class="small">
+                    <span class="text-muted fw-semibold me-1"><i class="bi bi-journal-bookmark me-1"></i>ID Asiento:</span>
+                    <span id="detGastoAsiento" class="badge bg-info text-dark border border-info-subtle">-</span>
                 </div>
             </div>
+
         </div>
     </div>
 </div>

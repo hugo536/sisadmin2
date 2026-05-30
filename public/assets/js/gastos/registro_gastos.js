@@ -68,24 +68,10 @@
     // ==========================================
     // 2. Autocompletado de Centro de Costo
     // ==========================================
+    // (Desactivado a petición: El usuario seleccionará el Centro de Costo de forma 100% manual)
     const selectConcepto = document.getElementById('idConceptoGasto');
     const selectCentroCosto = document.getElementById('idCentroCostoGasto');
 
-    if (selectConcepto && selectCentroCosto) {
-      const autocompletarCentro = function() {
-        const opt = selectConcepto.options[selectConcepto.selectedIndex];
-        if (!opt) return;
-        const idCentro = Number(opt.dataset.centroCosto || 0);
-        if (idCentro > 0) {
-          selectCentroCosto.value = String(idCentro);
-          if (selectCentroCosto.tomselect) {
-            selectCentroCosto.tomselect.setValue(String(idCentro), true);
-          }
-        }
-      };
-      selectConcepto.addEventListener('change', autocompletarCentro);
-      autocompletarCentro();
-    }
 
     // ==========================================
     // 3. Modal de Detalles de Gasto
@@ -100,7 +86,7 @@
       }
     }
 
-    document.addEventListener('click', function(ev) {
+    app.addEventListener('click', function(ev) {
       const btn = ev.target.closest('.js-ver-gasto');
       if (!btn || !modalDetalle) {
         return;
@@ -116,6 +102,9 @@
       setText('detGastoEstado', btn.dataset.estado || '-');
       setText('detGastoCxp', btn.dataset.cxp && btn.dataset.cxp !== '0' ? btn.dataset.cxp : 'No generado');
       setText('detGastoAsiento', btn.dataset.asiento && btn.dataset.asiento !== '0' ? btn.dataset.asiento : 'No generado');
+      
+      // 👇 NUEVA LÍNEA PARA MOSTRAR LA OBSERVACIÓN 👇
+      setText('detGastoObservacion', btn.dataset.observacion || '-');
 
       modalDetalle.show();
     });
@@ -183,11 +172,20 @@
             }
         });
 
-        if (selectMetodo.options.length <= 1) {
+        let conteoValidos = selectMetodo.options.length - 1; // Restamos la opción por defecto
+        
+        if (conteoValidos <= 0) {
             selectMetodo.innerHTML = '<option value="" selected disabled>Sin métodos configurados</option>';
         } else {
-            if (encontroPrevio) selectMetodo.value = valorPrevio;
-            else if (primerValido) selectMetodo.value = primerValido;
+            if (encontroPrevio) {
+                selectMetodo.value = valorPrevio;
+            } else if (conteoValidos === 1 && primerValido) {
+                // Auto-seleccionar si solo existe 1 opción válida
+                selectMetodo.value = primerValido;
+            } else {
+                // Si hay más de 1, lo dejamos vacío para que el usuario elija
+                selectMetodo.value = '';
+            }
         }
     }
 
@@ -278,8 +276,14 @@
       selCuenta.addEventListener('change', () => {
           filtrarMetodosPorCuentaGastos(selCuenta, selMetodo);
           selMetodo.disabled = !selCuenta.value;
-          selMetodo.value = '';
-          inputMonto.readOnly = true;
+          
+          // Si el método se autoseleccionó (porque solo había uno), liberamos el monto
+          if (selMetodo.value) {
+              inputMonto.readOnly = false;
+          } else {
+              inputMonto.readOnly = true;
+          }
+          
           calcularTotalPagado();
       });
 

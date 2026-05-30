@@ -72,12 +72,10 @@ class ReportesController extends Controlador
 
         $seccionActiva = trim((string)($_GET['seccion_activa'] ?? 'stock'));
         
-        // 1. Agregamos 'historico' a las secciones permitidas
         if (!in_array($seccionActiva, ['stock', 'historico', 'kardex', 'vencimientos'])) {
             $seccionActiva = 'stock';
         }
 
-        // 2. Agregamos 'fecha_corte' a los filtros
         $f = [
             'fecha_desde' => (string) ($_GET['fecha_desde'] ?? date('Y-m-01')),
             'fecha_hasta' => (string) ($_GET['fecha_hasta'] ?? date('Y-m-d')),
@@ -98,10 +96,79 @@ class ReportesController extends Controlador
             require_once BASE_PATH . '/vendor/autoload.php';
 
             $stock = ($seccionActiva === 'stock') ? $this->inventario->stockActual($f, 1, 999999) : [];
-            // 3. Cargamos los datos del histórico si piden PDF
             $historico = ($seccionActiva === 'historico') ? $this->inventario->stockAFecha($f, 1, 999999) : [];
             $kardex = ($seccionActiva === 'kardex') ? $this->inventario->kardex($f, 1, 999999) : [];
             $vencimientos = ($seccionActiva === 'vencimientos') ? $this->inventario->vencimientos($f, 1, 999999) : [];
+
+            // =========================================================================
+            // NUEVO: FILTRADO ESPECIAL PARA QUE EL PDF COINCIDA CON EL BUSCADOR Y ALERTAS
+            // =========================================================================
+            $busqueda = mb_strtolower(trim((string) ($_GET['busqueda'] ?? '')));
+            $rawAlertas = $_GET['alertas'] ?? [];
+            $alertasSeleccionadas = is_array($rawAlertas) ? $rawAlertas : (trim((string)$rawAlertas) !== '' ? [$rawAlertas] : []);
+
+            if ($seccionActiva === 'stock' && !empty($stock['rows']) && ($busqueda !== '' || !empty($alertasSeleccionadas))) {
+                $filtro = [];
+                $nuevoTotal = 0;
+                foreach ($stock['rows'] as $r) {
+                    // Filtrar por buscador
+                    $textoBusqueda = mb_strtolower(($r['item'] ?? '') . ' ' . ($r['almacen'] ?? ''));
+                    if ($busqueda !== '' && mb_strpos($textoBusqueda, $busqueda) === false) {
+                        continue;
+                    }
+                    // Filtrar por alertas múltiples
+                    if (!empty($alertasSeleccionadas)) {
+                        $alertaRaw = mb_strtolower((string)($r['alerta'] ?? ''));
+                        $estado = 'disponible';
+                        if (mb_strpos($alertaRaw, 'bajo') !== false || mb_strpos($alertaRaw, 'crític') !== false) $estado = 'bajo_mínimo';
+                        elseif (mb_strpos($alertaRaw, 'vencido') !== false) $estado = 'vencido';
+                        elseif (mb_strpos($alertaRaw, 'agotado') !== false) $estado = 'agotado';
+                        elseif (mb_strpos($alertaRaw, 'próximo') !== false || mb_strpos($alertaRaw, 'proximo') !== false) $estado = 'próximo_a_vencer';
+                        elseif (mb_strpos($alertaRaw, 'sin mov') !== false) $estado = 'sin_movimientos';
+                        
+                        if (!in_array($estado, $alertasSeleccionadas)) continue;
+                    }
+                    
+                    $filtro[] = $r;
+                    $nuevoTotal += (float)($r['valor_total'] ?? 0);
+                }
+                $stock['rows'] = $filtro;
+                $stock['valor_total'] = $nuevoTotal;
+
+            } elseif ($seccionActiva === 'historico' && !empty($historico['rows']) && $busqueda !== '') {
+                $filtro = [];
+                $nuevoTotal = 0;
+                foreach ($historico['rows'] as $r) {
+                    $textoBusqueda = mb_strtolower(($r['item'] ?? '') . ' ' . ($r['almacen'] ?? ''));
+                    if (mb_strpos($textoBusqueda, $busqueda) !== false) {
+                        $filtro[] = $r;
+                        $nuevoTotal += (float)($r['valor_total'] ?? 0);
+                    }
+                }
+                $historico['rows'] = $filtro;
+                $historico['valor_total'] = $nuevoTotal;
+
+            } elseif ($seccionActiva === 'kardex' && !empty($kardex['rows']) && $busqueda !== '') {
+                $filtro = [];
+                foreach ($kardex['rows'] as $r) {
+                    $textoBusqueda = mb_strtolower(($r['referencia'] ?? '') . ' ' . ($r['tipo'] ?? ''));
+                    if (mb_strpos($textoBusqueda, $busqueda) !== false) {
+                        $filtro[] = $r;
+                    }
+                }
+                $kardex['rows'] = $filtro;
+
+            } elseif ($seccionActiva === 'vencimientos' && !empty($vencimientos['rows']) && $busqueda !== '') {
+                $filtro = [];
+                foreach ($vencimientos['rows'] as $r) {
+                    $textoBusqueda = mb_strtolower(($r['item'] ?? '') . ' ' . ($r['lote'] ?? ''));
+                    if (mb_strpos($textoBusqueda, $busqueda) !== false) {
+                        $filtro[] = $r;
+                    }
+                }
+                $vencimientos['rows'] = $filtro;
+            }
+            // =========================================================================
 
             $almacenNombre = 'TODOS LOS ALMACENES';
             $idsAlmacenSeleccionados = $this->normalizarIdsFiltro($f['id_almacen'] ?? []);
@@ -149,7 +216,7 @@ class ReportesController extends Controlador
             'almacenes' => $this->inventario->listarAlmacenesActivos(),
             'categorias' => $this->inventario->listarCategoriasActivas(),
             'stock' => [],
-            'historico' => [], // Inicializamos la variable para la vista
+            'historico' => [], 
             'kardex' => [],
             'vencimientos' => [],
             'pagina' => $pagina,
@@ -192,7 +259,6 @@ class ReportesController extends Controlador
                 'data' => array_column($topItems, 'valor')
             ];
 
-        // 4. Ejecutamos la consulta si estamos en la pestaña histórico
         } elseif ($seccionActiva === 'historico') {
             $datosVista['historico'] = $this->inventario->stockAFecha($f, $pagina, $tamano);
         } elseif ($seccionActiva === 'kardex') {
@@ -224,9 +290,6 @@ class ReportesController extends Controlador
         ]);
     }
 
-    // =======================================================
-    // FUNCIÓN VENTAS OPTIMIZADA ÚNICA
-    // =======================================================
     public function ventas(): void
     {
         AuthMiddleware::handle();
@@ -251,7 +314,6 @@ class ReportesController extends Controlador
 
         [$pagina, $tamano] = $this->paginacion();
         
-        // 1. Capturamos la pestaña activa
         $seccionActiva = trim((string)($_GET['seccion_activa'] ?? 'tendencias'));
         if (!in_array($seccionActiva, ['tendencias', 'clientes', 'productos', 'pendientes'])) {
             $seccionActiva = 'tendencias';
@@ -259,22 +321,17 @@ class ReportesController extends Controlador
 
         $f = $this->filtrosPeriodo();
         $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
-        $f['tipo_tercero'] = $tipoTercero; // Aseguramos que pase el tipo tercero
+        $f['tipo_tercero'] = $tipoTercero; 
         $f['id_item'] = (int) ($_GET['id_item'] ?? 0);
         $f['estado'] = $_GET['estado'] ?? '';
         $f['agrupacion'] = ($_GET['agrupacion'] ?? 'diaria') === 'semanal' ? 'semanal' : 'diaria';
         $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'barras') === 'linea' ? 'linea' : 'barras';
         $f['seccion_activa'] = $seccionActiva;
 
-        // ==========================================
-        // INTERCEPTAR LA PETICIÓN DE IMPRESIÓN PDF
-        // ==========================================
         if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
             require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
             require_once BASE_PATH . '/vendor/autoload.php';
 
-            // Optimización: Solo cargamos los datos de la pestaña que se está exportando
-            // Pasamos un límite alto (999999) para que el PDF imprima todo, no solo la primera página
             $porPeriodo = ($seccionActiva === 'tendencias') ? $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], 365) : []; 
             $porCliente = ($seccionActiva === 'clientes') ? $this->ventas->ventasPorCliente($f, 1, 999999) : [];
             $topProductos = ($seccionActiva === 'productos') ? $this->ventas->topProductos($f, 100) : []; 
@@ -299,9 +356,7 @@ class ReportesController extends Controlador
             $dompdf->stream($nombreArchivo, ['Attachment' => false]);
             return;
         }
-        // ==========================================
 
-        // Vista Web normal (También optimizada)
         $this->render('reportes/ventas', [
             'ruta_actual' => 'reportes/ventas',
             'filtros' => $f,
@@ -412,7 +467,6 @@ class ReportesController extends Controlador
         require_permiso('reportes.tesoreria.ver');
         $this->registrarAuditoria('tesoreria');
         
-        // 1. Capturamos la pestaña activa (Igual que en ventas)
         $seccionActiva = trim((string)($_GET['seccion_activa'] ?? 'cxc'));
         if (!in_array($seccionActiva, ['cxc', 'cxp', 'flujo', 'depositos'])) {
             $seccionActiva = 'cxc';
@@ -423,14 +477,10 @@ class ReportesController extends Controlador
         $f['id_tercero'] = (int) ($_GET['id_tercero'] ?? 0);
         $f['seccion_activa'] = $seccionActiva;
 
-        // ==========================================
-        // INTERCEPTAR LA PETICIÓN DE IMPRESIÓN PDF
-        // ==========================================
         if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
             require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
             require_once BASE_PATH . '/vendor/autoload.php';
 
-            // Optimización: Solo cargamos los datos de la pestaña que se está exportando
             $agingCxc = ($seccionActiva === 'cxc') ? $this->tesoreria->agingCxc($f, 1, 999999) : [];
             $agingCxp = ($seccionActiva === 'cxp') ? $this->tesoreria->agingCxp($f, 1, 999999) : [];
             $flujo = ($seccionActiva === 'flujo') ? $this->tesoreria->flujoPorCuenta($f, 1, 999999) : [];
@@ -455,9 +505,7 @@ class ReportesController extends Controlador
             $dompdf->stream($nombreArchivo, ['Attachment' => false]);
             return;
         }
-        // ==========================================
 
-        // Vista Web normal
         $this->render('reportes/tesoreria', [
             'ruta_actual' => 'reportes/tesoreria',
             'filtros' => $f,

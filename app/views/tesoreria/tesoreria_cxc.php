@@ -99,28 +99,31 @@ if (!empty($_GET['error'])) {
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3 p-md-4">
-            <form method="get" action="" class="row g-3 align-items-end" id="formFiltrosCxc">
+            <form method="get" action="" class="row g-2 align-items-center" id="formFiltrosCxc">
                 <input type="hidden" name="ruta" value="tesoreria/cxc">
                 <input type="hidden" name="vista" id="inputVistaGlobal" value="<?php echo e($vistaActual); ?>">
 
                 <div class="col-12 col-md-4">
-                    <label class="form-label small text-muted fw-bold mb-1">Tipo de Tercero</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit" name="tipo_tercero">
-                        <option value="">Todos</option>
+                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary auto-submit" name="tipo_tercero">
+                        <option value="">Todos los Tipos de Tercero</option>
                         <option value="cliente_distribuidor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente_distribuidor') ? 'selected' : ''; ?>>Cliente / Distribuidor</option>
-                        <option value="cliente" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente') ? 'selected' : ''; ?>>Cliente</option>
-                        <option value="distribuidor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'distribuidor') ? 'selected' : ''; ?>>Distribuidor</option>
+                        <option value="cliente" <?php echo (($filtros['tipo_tercero'] ?? '') === 'cliente') ? 'selected' : ''; ?>>Solo Clientes</option>
+                        <option value="distribuidor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'distribuidor') ? 'selected' : ''; ?>>Solo Distribuidores</option>
                     </select>
                 </div>
 
-                <div class="col-12 col-md-4">
-                    <label class="form-label small text-muted fw-bold mb-1">Desde (Vencimiento)</label>
-                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit" name="fecha_desde" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>">
-                </div>
-
-                <div class="col-12 col-md-4">
-                    <label class="form-label small text-muted fw-bold mb-1">Hasta (Vencimiento)</label>
-                    <input type="date" class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit" name="fecha_hasta" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>">
+                <div class="col-12 col-md-8">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-secondary-subtle text-muted fw-semibold" style="font-size: 0.85rem;" title="Fecha de Vencimiento">Desde (Venc.)</span>
+                        
+                        <input type="date" name="fecha_desde" class="form-control shadow-none border-secondary-subtle text-secondary auto-submit" value="<?php echo e((string) ($filtros['fecha_desde'] ?? '')); ?>">
+                        
+                        <span class="input-group-text bg-light border-secondary-subtle border-start-0 border-end-0 text-muted fw-semibold" style="font-size: 0.85rem;">Hasta</span>
+                        
+                        <input type="date" name="fecha_hasta" class="form-control shadow-none border-secondary-subtle text-secondary auto-submit" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? '')); ?>">
+                        
+                        <button type="submit" class="btn btn-secondary shadow-sm"><i class="bi bi-filter"></i></button>
+                    </div>
                 </div>
             </form>
         </div>

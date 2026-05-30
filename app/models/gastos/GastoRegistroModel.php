@@ -125,6 +125,10 @@ class GastoRegistroModel extends Modelo
             // 4. LÓGICA DE PAGO INMEDIATO (Si aplica)
             $montoPagadoTotal = 0.0;
             if ($pagoInmediato === 1 && !empty($pagosDetalle)) {
+                
+                // Preparamos la observación para el pago
+                $notaPago = $observacion !== '' ? $observacion : 'Pago Rápido Gasto';
+
                 foreach ($pagosDetalle as $pago) {
                     $idCuenta = (int) $pago['id_cuenta'];
                     $idMetodo = (int) $pago['id_metodo'];
@@ -137,7 +141,7 @@ class GastoRegistroModel extends Modelo
                         $idMetodo,
                         $montoPago,
                         $fecha,
-                        'Pago Rápido Gasto',
+                        $notaPago, // <--- AQUÍ LE PASAMOS LA OBSERVACIÓN REAL
                         $userId
                     );
                     $montoPagadoTotal += $montoPago;
@@ -194,15 +198,24 @@ class GastoRegistroModel extends Modelo
 
             $estadoActual = strtoupper((string) ($row['estado'] ?? ''));
             if ($estadoActual === 'ANULADO') {
-                if ($localTx) {
-                    $db->commit();
-                }
+                if ($localTx) $db->commit();
                 return;
             }
 
-            if ($estadoActual === 'PAGADO') {
-                throw new RuntimeException('No se puede anular un gasto que ya está pagado.');
+            // 👇 NUEVA VALIDACIÓN BLINDADA 👇
+            $idCxp = (int) ($row['id_cxp'] ?? 0);
+            
+            if ($idCxp > 0) {
+                // Verificamos si en Tesorería ya se le ha pagado algo a este gasto
+                $stmtPago = $db->prepare('SELECT monto_pagado FROM tesoreria_cxp WHERE id = :id_cxp LIMIT 1');
+                $stmtPago->execute(['id_cxp' => $idCxp]);
+                $montoPagado = (float) $stmtPago->fetchColumn();
+
+                if ($montoPagado > 0) {
+                    throw new RuntimeException('No se puede anular: Este gasto ya tiene un pago registrado de S/ ' . number_format($montoPagado, 2) . '. Debe anular el pago en Tesorería primero.');
+                }
             }
+            // 👆 FIN DE LA NUEVA VALIDACIÓN 👆
 
             // 1. Anular el registro maestro del gasto
             $db->prepare('UPDATE gastos_registros
@@ -211,7 +224,6 @@ class GastoRegistroModel extends Modelo
                 ->execute(['id' => $id, 'user' => $userId]);
 
             // 2. Anular la Cuenta por Pagar (CXP) en Tesorería
-            $idCxp = (int) ($row['id_cxp'] ?? 0);
             if ($idCxp > 0) {
                 $db->prepare('UPDATE tesoreria_cxp
                     SET estado = "ANULADA", updated_by = :user, updated_at = NOW()
@@ -219,7 +231,7 @@ class GastoRegistroModel extends Modelo
                     ->execute(['id' => $idCxp, 'user' => $userId]);
             }
 
-            // 👇 NUEVA MEJORA: Anular el Asiento Contable (Para evitar descuadres) 👇
+            // 3. Anular el Asiento Contable
             $idAsiento = (int) ($row['id_asiento'] ?? 0);
             if ($idAsiento > 0) {
                 $db->prepare('UPDATE conta_asientos
@@ -227,7 +239,6 @@ class GastoRegistroModel extends Modelo
                     WHERE id = :id')
                     ->execute(['id' => $idAsiento, 'user' => $userId]);
             }
-            // 👆 FIN DE LA MEJORA 👆
 
             if ($localTx) {
                 $db->commit();

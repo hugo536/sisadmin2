@@ -306,12 +306,13 @@ class ReporteInventarioModel extends Modelo
 
         $whereFiltros = ['s.deleted_at IS NULL', 'i.deleted_at IS NULL', 'a.deleted_at IS NULL'];
         
-        // SOLUCIÓN: Creamos 4 parámetros idénticos para satisfacer las reglas de PDO
+        // Necesitamos 5 parámetros independientes para satisfacer las reglas estrictas de PDO en subconsultas
         $params = [
             'fecha_corte1' => $fechaCorte,
             'fecha_corte2' => $fechaCorte,
             'fecha_corte3' => $fechaCorte,
-            'fecha_corte4' => $fechaCorte
+            'fecha_corte4' => $fechaCorte,
+            'fecha_corte5' => $fechaCorte
         ];
 
         $idsAlmacen = $this->normalizarListaIds($f['id_almacen'] ?? []);
@@ -320,12 +321,13 @@ class ReporteInventarioModel extends Modelo
 
         $this->aplicarFiltroIds($whereFiltros, $params, 's.id_almacen', 'id_almacen', $idsAlmacen);
         $this->aplicarFiltroIds($whereFiltros, $params, 'i.id_categoria', 'id_categoria', $idsCategoria);
+        
         if (!empty($f['tipo_item'])) {
             $tipos = is_array($f['tipo_item']) ? $f['tipo_item'] : [$f['tipo_item']];
             $inParams = [];
             foreach ($tipos as $idx => $tipo) {
-                $paramName = ':tipo_item_' . $idx;
-                $inParams[] = $paramName;
+                $paramName = 'tipo_item_' . $idx;
+                $inParams[] = ':' . $paramName;
                 $params[$paramName] = (string) $tipo;
             }
             $whereFiltros[] = 'i.tipo_item IN (' . implode(', ', $inParams) . ')';
@@ -336,7 +338,7 @@ class ReporteInventarioModel extends Modelo
         $selectAlmacen = $isGlobal ? "'TODOS LOS ALMACENES'" : "calc.almacen";
         $groupBy = $isGlobal ? "calc.id_item, calc.item, calc.unidad, calc.costo_unitario" : "calc.id_item, calc.item, calc.almacen, calc.unidad, calc.costo_unitario";
 
-        // Inyectamos las 4 variables independientes
+        // Inyectamos las variables e incorporamos la solución a la TRAMPA DEL COSTO
         $coreSubquery = "
             FROM (
                 SELECT 
@@ -349,9 +351,17 @@ class ReporteInventarioModel extends Modelo
                 FROM (
                     SELECT 
                         s.id_item, s.id_almacen, i.nombre AS item, a.nombre AS almacen, i.unidad_base AS unidad,
-                        ROUND({$costoExpr}, 4) AS costo_unitario,
-                        COALESCE((SELECT sh.stock_cierre FROM inventario_stock_historico sh WHERE sh.id_item = s.id_item AND sh.id_almacen = s.id_almacen AND sh.created_at <= :fecha_corte3 ORDER BY sh.created_at DESC LIMIT 1), 0) AS stock_base,
-                        COALESCE((SELECT sh.created_at FROM inventario_stock_historico sh WHERE sh.id_item = s.id_item AND sh.id_almacen = s.id_almacen AND sh.created_at <= :fecha_corte4 ORDER BY sh.created_at DESC LIMIT 1), '1970-01-01 00:00:00') AS fecha_base
+                        
+                        /* --- SOLUCIÓN TRAMPA CONTABLE --- */
+                        /* Busca el costo unitario del último movimiento del Kardex registrado JUSTO antes de la fecha de corte */
+                        COALESCE(
+                            (SELECT m_cost.costo_unitario FROM inventario_movimientos m_cost WHERE m_cost.id_item = s.id_item AND m_cost.created_at <= :fecha_corte3 ORDER BY m_cost.created_at DESC, m_cost.id DESC LIMIT 1), 
+                            ROUND({$costoExpr}, 4)
+                        ) AS costo_unitario,
+                        /* -------------------------------- */
+
+                        COALESCE((SELECT sh.stock_cierre FROM inventario_stock_historico sh WHERE sh.id_item = s.id_item AND sh.id_almacen = s.id_almacen AND sh.created_at <= :fecha_corte4 ORDER BY sh.created_at DESC LIMIT 1), 0) AS stock_base,
+                        COALESCE((SELECT sh.created_at FROM inventario_stock_historico sh WHERE sh.id_item = s.id_item AND sh.id_almacen = s.id_almacen AND sh.created_at <= :fecha_corte5 ORDER BY sh.created_at DESC LIMIT 1), '1970-01-01 00:00:00') AS fecha_base
                     FROM inventario_stock s
                     INNER JOIN items i ON i.id = s.id_item
                     INNER JOIN almacenes a ON a.id = s.id_almacen
@@ -363,7 +373,9 @@ class ReporteInventarioModel extends Modelo
         // 2. Consulta para obtener el Total de filas (Paginación)
         $countQuery = "SELECT COUNT(*) FROM (SELECT calc.id_item " . $coreSubquery . " GROUP BY {$groupBy} HAVING SUM(calc.stock_calculado) <> 0) AS t";
         $stmtCount = $this->db()->prepare($countQuery);
-        $stmtCount->execute($params);
+        // Vinculación segura de parámetros (evita inyecciones y errores de tipo)
+        foreach ($params as $k => $v) { $stmtCount->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
+        $stmtCount->execute();
         $total = (int) $stmtCount->fetchColumn();
 
         // 3. Consulta Principal (Los datos reales para la tabla y el PDF)
@@ -391,7 +403,8 @@ class ReporteInventarioModel extends Modelo
         // 4. Consulta para sumar todo el dinero del inventario a esa fecha
         $sqlTotales = "SELECT ROUND(SUM(t.valor_total), 4) AS valor_total FROM (SELECT ROUND(SUM(calc.stock_calculado) * calc.costo_unitario, 4) AS valor_total " . $coreSubquery . " GROUP BY {$groupBy} HAVING SUM(calc.stock_calculado) <> 0) AS t";
         $stmtTotales = $this->db()->prepare($sqlTotales);
-        $stmtTotales->execute($params);
+        foreach ($params as $k => $v) { $stmtTotales->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
+        $stmtTotales->execute();
         $valorTotal = (float) $stmtTotales->fetchColumn();
 
         return [

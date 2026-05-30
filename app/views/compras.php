@@ -65,15 +65,18 @@ $formatearFechaDMY = static function ($fecha): string {
 
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
-            <div class="row g-2 align-items-center">
-                <div class="col-12 col-md-4">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroBusqueda" placeholder="Buscar código, proveedor..." value="<?= e((string) ($filtros['q'] ?? '')) ?>">
+            <form method="get" action="" class="row g-2 align-items-center" id="formFiltrosCompras">
+                <input type="hidden" name="ruta" value="compras">
+
+                <div class="col-12 col-lg-3">
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" name="q" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="filtroBusqueda" placeholder="Buscar código, proveedor..." value="<?= e((string) ($filtros['q'] ?? '')) ?>">
                     </div>
                 </div>
-                <div class="col-6 col-md-2">
-                    <select class="form-select bg-light" id="filtroEstado">
+                
+                <div class="col-12 col-lg-2">
+                    <select name="estado" class="form-select bg-light border-secondary-subtle shadow-sm text-secondary" id="filtroEstado">
                         <option value="">Todos los estados</option>
                         <?php foreach ($estadoLabels as $key => $info): ?>
                             <option value="<?= (int) $key ?>" <?= ($filtros['estado'] ?? '') === (string) $key ? 'selected' : '' ?>>
@@ -82,19 +85,26 @@ $formatearFechaDMY = static function ($fecha): string {
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-6 col-md-3">
-                    <input type="date" class="form-control bg-light" id="filtroFechaDesde" value="<?= e((string) ($filtros['fecha_desde'] ?? '')) ?>" title="Fecha Desde">
+                
+                <div class="col-12 col-lg-5">
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-light border-secondary-subtle text-muted fw-semibold" style="font-size: 0.85rem;">Desde</span>
+                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control shadow-none border-secondary-subtle text-secondary" value="<?= e((string) ($filtros['fecha_desde'] ?? date('Y-m-01'))) ?>">
+                        
+                        <span class="input-group-text bg-light border-secondary-subtle border-start-0 border-end-0 text-muted fw-semibold" style="font-size: 0.85rem;">Hasta</span>
+                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control shadow-none border-secondary-subtle text-secondary" value="<?= e((string) ($filtros['fecha_hasta'] ?? date('Y-m-t'))) ?>">
+                        
+                        <button type="submit" class="btn btn-secondary shadow-sm"><i class="bi bi-filter"></i></button>
+                    </div>
                 </div>
-                <div class="col-6 col-md-3">
-                    <input type="date" class="form-control bg-light" id="filtroFechaHasta" value="<?= e((string) ($filtros['fecha_hasta'] ?? '')) ?>" title="Fecha Hasta">
-                </div>
-                <div class="col-12 col-md-3">
-                    <select class="form-select bg-light" id="filtroOrdenFecha" title="Ordenar por fecha">
-                        <option value="orden" <?= (($filtros['orden_fecha'] ?? 'orden') === 'orden') ? 'selected' : '' ?>>Ordenar por fecha de orden</option>
-                        <option value="recepcion" <?= (($filtros['orden_fecha'] ?? '') === 'recepcion') ? 'selected' : '' ?>>Ordenar por fecha de recepción</option>
+                
+                <div class="col-12 col-lg-2">
+                    <select name="orden_fecha" class="form-select bg-light border-secondary-subtle shadow-sm text-secondary" id="filtroOrdenFecha" title="Ordenar por fecha">
+                        <option value="orden" <?= (($filtros['orden_fecha'] ?? 'orden') === 'orden') ? 'selected' : '' ?>>Orden: Pedido</option>
+                        <option value="recepcion" <?= (($filtros['orden_fecha'] ?? '') === 'recepcion') ? 'selected' : '' ?>>Orden: Recepción</option>
                     </select>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 

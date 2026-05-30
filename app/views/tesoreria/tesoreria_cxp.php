@@ -100,35 +100,28 @@ if (!empty($_GET['error'])) {
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3 p-md-4">
-            <form method="get" action="" class="row g-3 align-items-end" id="formFiltrosCxp">
+            <form method="get" action="" class="row g-2 align-items-center" id="formFiltrosCxp">
                 <input type="hidden" name="ruta" value="tesoreria/cxp">
                 <input type="hidden" name="vista" id="inputVistaGlobal" value="<?php echo e($vistaActual); ?>">
 
                 <div class="col-12 col-md-4">
-                    <label class="form-label small text-muted fw-bold mb-1">Tipo de Tercero</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit" name="tipo_tercero">
-                        <option value="">Todos</option>
+                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary auto-submit" name="tipo_tercero">
+                        <option value="">Todos los Tipos de Tercero</option>
                         <option value="proveedor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'proveedor') ? 'selected' : ''; ?>>Proveedor</option>
                         <option value="servicios" <?php echo (($filtros['tipo_tercero'] ?? '') === 'servicios') ? 'selected' : ''; ?>>Servicios</option>
                     </select>
                 </div>
 
-                <div class="col-12 col-md-4">
-                    <label class="form-label small text-muted fw-bold mb-1">Desde (Vencimiento)</label>
-                    <input
-                        type="date"
-                        class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit"
-                        name="fecha_desde"
-                        value="<?php echo e((string) ($filtros['fecha_desde'] ?? date('Y-m-01'))); ?>">
-                </div>
-
-                <div class="col-12 col-md-4">
-                    <label class="form-label small text-muted fw-bold mb-1">Hasta (Vencimiento)</label>
-                    <input
-                        type="date"
-                        class="form-control bg-light border-secondary-subtle shadow-sm text-secondary fw-medium auto-submit"
-                        name="fecha_hasta"
-                        value="<?php echo e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d', strtotime('+30 days')))); ?>">
+                <div class="col-12 col-md-8">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-secondary-subtle text-muted fw-semibold" style="font-size: 0.85rem;" title="Fecha de Vencimiento">Desde (Venc.)</span>
+                        <input type="date" name="fecha_desde" class="form-control shadow-none border-secondary-subtle text-secondary auto-submit" value="<?php echo e((string) ($filtros['fecha_desde'] ?? date('Y-m-01'))); ?>">
+                        
+                        <span class="input-group-text bg-light border-secondary-subtle border-start-0 border-end-0 text-muted fw-semibold" style="font-size: 0.85rem;">Hasta</span>
+                        <input type="date" name="fecha_hasta" class="form-control shadow-none border-secondary-subtle text-secondary auto-submit" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d', strtotime('+30 days')))); ?>">
+                        
+                        <button type="submit" class="btn btn-secondary shadow-sm"><i class="bi bi-filter"></i></button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -217,21 +210,23 @@ if (!empty($_GET['error'])) {
                                             <?php echo e((string) ($r['proveedor'] ?? '')); ?>
                                         </div>
                                         <?php 
-                                            // Agrupar todas las notas de CXP de manera dinámica
+                                            // Agrupar todas las notas de CXP de manera dinámica respetando el origen
                                             $notasConsolidadas = [];
-                                            if (!empty($r['observacion_cxp']))      $notasConsolidadas[] = $r['observacion_cxp'];
-                                            if (!empty($r['observacion_compra']))   $notasConsolidadas[] = $r['observacion_compra'];
+                                            if (!empty($r['observacion_cxp']))       $notasConsolidadas[] = $r['observacion_cxp'];
+                                            if (!empty($r['observacion_compra']))    $notasConsolidadas[] = $r['observacion_compra'];
                                             if (!empty($r['observacion_recepcion'])) $notasConsolidadas[] = $r['observacion_recepcion'];
+                                            if (!empty($r['observacion_gasto']))     $notasConsolidadas[] = $r['observacion_gasto']; // <-- LA NUEVA NOTA DE GASTOS
                                             
-                                            // Fallback por si en CXP todavía usas la columna genérica 'observaciones'
+                                            // Fallback genérico
                                             if (empty($notasConsolidadas) && !empty($r['observaciones'])) {
                                                 $notasConsolidadas[] = $r['observaciones'];
                                             }
                                             
                                             if (!empty($notasConsolidadas)): 
+                                                $textoNota = implode(' - ', $notasConsolidadas);
                                         ?>
-                                            <small class="text-muted fw-normal d-block mt-1" style="font-size: 0.8rem; line-height: 1.3;">
-                                                <?php echo e(implode(' - ', $notasConsolidadas)); ?>
+                                            <small class="text-muted fw-normal d-block mt-1 text-truncate" style="font-size: 0.75rem; max-width: 250px;" title="<?php echo htmlspecialchars($textoNota, ENT_QUOTES, 'UTF-8'); ?>">
+                                                <?php echo e($textoNota); ?>
                                             </small>
                                         <?php endif; ?>
                                     </td>

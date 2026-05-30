@@ -8,17 +8,19 @@ class TesoreriaCxpModel extends Modelo
 
     public function listar(array $filtros = []): array
     {
-        // MEJORA: Jalamos individualmente observaciones de cxp, orden de compra y recepción (guía)
+        // MEJORA: Jalamos individualmente observaciones de cxp, orden de compra, recepción y AHORA DE GASTOS
         $sql = 'SELECT p.*, 
                        COALESCE(t.nombre_completo, "Proveedor Eliminado/Desconocido") AS proveedor,
                        TRIM(COALESCE(p.observaciones, "")) AS observacion_cxp,
                        TRIM(COALESCE(c.observaciones, "")) AS observacion_compra,
-                       TRIM(COALESCE(r.observaciones, "")) AS observacion_recepcion
+                       TRIM(COALESCE(r.observaciones, "")) AS observacion_recepcion,
+                       TRIM(COALESCE(gr.observacion, "")) AS observacion_gasto
                 FROM tesoreria_cxp p
                 LEFT JOIN terceros t ON t.id = p.id_proveedor
                 LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
                 LEFT JOIN compras_recepciones r ON r.id = p.id_recepcion AND r.deleted_at IS NULL
                 LEFT JOIN compras_ordenes c ON c.id = p.id_orden_compra AND c.deleted_at IS NULL
+                LEFT JOIN gastos_registros gr ON gr.id_cxp = p.id AND gr.deleted_at IS NULL
                 WHERE p.deleted_at IS NULL';
 
         $params = [];
@@ -315,9 +317,9 @@ class TesoreriaCxpModel extends Modelo
 
         // 2. Registrar el Egreso en Tesorería (Salida de dinero de caja/bancos)
         $stmtMov = $db->prepare('INSERT INTO tesoreria_movimientos 
-            (id_cuenta, id_metodo_pago, id_tercero, tipo, monto, moneda, fecha, observaciones, estado, created_by, updated_by, created_at, updated_at) 
+            (id_cuenta, id_metodo_pago, id_tercero, tipo, monto, moneda, fecha, observaciones, origen, id_origen, estado, created_by, updated_by, created_at, updated_at) 
             VALUES 
-            (:id_cuenta, :id_metodo, :id_tercero, "EGRESO", :monto, :moneda, :fecha, :observacion, 1, :created_by, :updated_by, NOW(), NOW())');
+            (:id_cuenta, :id_metodo, :id_tercero, "EGRESO", :monto, :moneda, :fecha, :observacion, "CXP", :id_origen, 1, :created_by, :updated_by, NOW(), NOW())');
             
         $stmtMov->execute([
             'id_cuenta'   => $idCuenta,
@@ -327,8 +329,9 @@ class TesoreriaCxpModel extends Modelo
             'moneda'      => $cxp['moneda'],
             'fecha'       => $fecha,
             'observacion' => $observacion,
-            'created_by'  => $userId, // <-- Cambio aquí
-            'updated_by'  => $userId  // <-- Cambio aquí
+            'id_origen'   => $idCxp, // <--- NUEVO: Enlaza el movimiento con la CxP
+            'created_by'  => $userId,
+            'updated_by'  => $userId 
         ]);
 
         $idMovimiento = (int) $db->lastInsertId();

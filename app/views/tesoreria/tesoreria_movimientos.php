@@ -53,12 +53,11 @@ if (!empty($_GET['error'])) {
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3 p-md-4">
-            <form method="get" action="<?= e(route_url('tesoreria/movimientos')) ?>" class="row g-3" id="formFiltrosMovimientos">
+            <form method="get" action="<?= e(route_url('tesoreria/movimientos')) ?>" class="row g-2 align-items-center" id="formFiltrosMovimientos">
                 <input type="hidden" name="ruta" value="tesoreria/movimientos">
 
                 <div class="col-12 col-md-3">
-                    <label class="form-label small text-muted fw-bold mb-1">Cuenta / Caja</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="id_cuenta">
+                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="id_cuenta">
                         <option value="">Todas las cuentas</option>
                         <?php foreach ($resumenCuentas as $c): ?>
                             <option value="<?= (int)($c['id'] ?? 0) ?>" <?= ((string)$idCuentaFiltro === (string)($c['id'] ?? 0)) ? 'selected' : '' ?>>
@@ -68,9 +67,8 @@ if (!empty($_GET['error'])) {
                     </select>
                 </div>
 
-                <div class="col-12 col-md-3">
-                    <label class="form-label small text-muted fw-bold mb-1">Método de Pago</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="id_metodo_pago">
+                <div class="col-12 col-md-2">
+                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="id_metodo_pago">
                         <option value="">Todos los métodos</option>
                         <?php if (!empty($metodos)): ?>
                             <?php foreach ($metodos as $m): ?>
@@ -89,23 +87,22 @@ if (!empty($_GET['error'])) {
                 </div>
 
                 <div class="col-12 col-md-2">
-                    <label class="form-label small text-muted fw-bold mb-1">Módulo Origen</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="origen">
-                        <option value="">Todos</option>
+                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="origen">
+                        <option value="">Todos (Origen)</option>
                         <option value="CXC" <?= (($filtros['origen'] ?? '') === 'CXC') ? 'selected' : '' ?>>Cobros (CXC)</option>
                         <option value="CXP" <?= (($filtros['origen'] ?? '') === 'CXP') ? 'selected' : '' ?>>Pagos (CXP)</option>
                         <option value="TRANSFERENCIA" <?= (($filtros['origen'] ?? '') === 'TRANSFERENCIA') ? 'selected' : '' ?>>Transferencias</option>
                     </select>
                 </div>
                 
-                <div class="col-12 col-md-2">
-                    <label class="form-label small text-muted fw-bold mb-1">Desde</label>
-                    <input type="date" name="fecha_desde" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-01')) ?>">
-                </div>
-                
-                <div class="col-12 col-md-2">
-                    <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
-                    <input type="date" name="fecha_hasta" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>">
+                <div class="col-12 col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-secondary-subtle text-muted fw-semibold" style="font-size: 0.85rem;">Desde</span>
+                        <input type="date" name="fecha_desde" class="form-control shadow-none border-secondary-subtle text-secondary" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-01')) ?>">
+                        <span class="input-group-text bg-light border-secondary-subtle border-start-0 border-end-0 text-muted fw-semibold" style="font-size: 0.85rem;">Hasta</span>
+                        <input type="date" name="fecha_hasta" class="form-control shadow-none border-secondary-subtle text-secondary" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>">
+                        <button type="submit" class="btn btn-secondary shadow-sm"><i class="bi bi-filter"></i></button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -206,9 +203,11 @@ if (!empty($_GET['error'])) {
                                     </td>
                                     <td class="align-top pt-3">
                                         <span class="fw-bold text-dark d-block"><?= e($tercero) ?></span>
-                                        <?php if (!empty($notasConsolidadas)): ?>
-                                            <small class="text-muted fw-normal d-block mt-1" style="font-size: 0.8rem; line-height: 1.3;">
-                                                <?= e(implode(' - ', $notasConsolidadas)) ?>
+                                        <?php if (!empty($notasConsolidadas)): 
+                                            $textoNotaMov = implode(' - ', $notasConsolidadas);
+                                        ?>
+                                            <small class="text-muted fw-normal d-block mt-1 text-truncate" style="font-size: 0.75rem; max-width: 250px;" title="<?= htmlspecialchars($textoNotaMov, ENT_QUOTES, 'UTF-8') ?>">
+                                                <?= e($textoNotaMov) ?>
                                             </small>
                                         <?php endif; ?>
                                     </td>

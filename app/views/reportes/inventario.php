@@ -5,7 +5,6 @@
     $seccionActiva = $_GET['seccion_activa'] ?? ($filtros['seccion_activa'] ?? 'stock'); 
 
     // 2. FUNCIONES AUXILIARES (HELPERS) PARA LIMPIAR LA VISTA
-    // Nota: Idealmente, estas funciones deberían estar en un archivo Helper global o en el Controlador.
     $formatCurrency = function($value, $decimals = 2) {
         return 'S/ ' . number_format((float)($value ?? 0), $decimals, '.', ',');
     };
@@ -17,7 +16,7 @@
 
     $getAlertClassStock = function($alertaTexto, &$esCritico) {
         $alerta = mb_strtolower((string)$alertaTexto);
-        $esCritico = stripos($alerta, 'bajo') !== false || stripos($alerta, 'crític') !== false || stripos($alerta, 'critico') !== false;
+        $esCritico = stripos($alerta, 'bajo') !== false || stripos($alerta, 'crític') !== false || stripos($alerta, 'critico') !== false || stripos($alerta, 'agotado') !== false || stripos($alerta, 'vencido') !== false;
         return $esCritico ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-light text-secondary border-secondary-subtle';
     };
 
@@ -37,6 +36,49 @@
     $almSeleccionados = is_array($filtros['id_almacen'] ?? []) ? $filtros['id_almacen'] : (!empty($filtros['id_almacen']) ? [$filtros['id_almacen']] : []);
     $almCount = count($almSeleccionados);
     $txtAlm = $almCount === 0 ? 'Todos los almacenes' : ($almCount === 1 ? '1 seleccionado' : $almCount . ' seleccionados');
+
+    // Alertas (Filtro múltiple)
+    $rawAlertas = $filtros['alertas'] ?? [];
+    $alertasSeleccionadas = is_array($rawAlertas) ? $rawAlertas : (trim((string)$rawAlertas) !== '' ? [$rawAlertas] : []);
+    $opcionesAlertas = [
+        'disponible' => 'Disponible (Verde)',
+        'próximo_a_vencer' => 'Próximo a Vencer (Amarillo)',
+        'bajo_mínimo' => 'Bajo Mínimo (Amarillo)',
+        'agotado' => 'Agotado (Rojo)',
+        'vencido' => 'Vencido (Rojo)',
+        'sin_movimientos' => 'Sin Movimientos (Gris)'
+    ];
+    $alertasCount = count($alertasSeleccionadas);
+    $txtAlerta = $alertasCount === 0 ? 'Todas las alertas' : ($alertasCount === 1 ? $opcionesAlertas[$alertasSeleccionadas[0]] ?? '1 seleccionada' : $alertasCount . ' seleccionadas');
+
+    // 4. FILTRADO INTERNO DE ALERTAS EN LA VISTA
+    if ($seccionActiva === 'stock' && !empty($alertasSeleccionadas) && !empty($stock['rows'])) {
+        $filtroResult = [];
+        $nuevoValorTotal = 0;
+        foreach ($stock['rows'] as $r) {
+            $alertaRaw = mb_strtolower((string)($r['alerta'] ?? ''));
+            $estado = 'disponible'; 
+            
+            if (stripos($alertaRaw, 'bajo') !== false || stripos($alertaRaw, 'crític') !== false) {
+                $estado = 'bajo_mínimo';
+            } elseif (stripos($alertaRaw, 'vencido') !== false) {
+                $estado = 'vencido';
+            } elseif (stripos($alertaRaw, 'agotado') !== false) {
+                $estado = 'agotado';
+            } elseif (stripos($alertaRaw, 'próximo') !== false || stripos($alertaRaw, 'proximo') !== false) {
+                $estado = 'próximo_a_vencer';
+            } elseif (stripos($alertaRaw, 'sin mov') !== false) {
+                $estado = 'sin_movimientos';
+            }
+            
+            if (in_array($estado, $alertasSeleccionadas)) {
+                $filtroResult[] = $r;
+                $nuevoValorTotal += (float)($r['valor_total'] ?? 0);
+            }
+        }
+        $stock['rows'] = $filtroResult;
+        $stock['valor_total'] = $nuevoValorTotal;
+    }
 ?>
 
 <div class="container-fluid p-4" id="reportesInventarioApp">
@@ -53,31 +95,18 @@
         </a>
     </div>
 
-    <ul class="nav nav-tabs border-bottom-1 mb-0 px-2" role="tablist">
-        <?php 
-            $tabs = [
-                'stock' => ['icono' => 'bi-layers-half', 'texto' => 'Stock Actual'],
-                'historico' => ['icono' => 'bi-clock-history', 'texto' => 'Stock a Fecha'],
-                'kardex' => ['icono' => 'bi-journal-check', 'texto' => 'Kardex Valorizado'],
-                'vencimientos' => ['icono' => 'bi-calendar2-x', 'texto' => 'Lotes y Vencimientos']
-            ];
-            foreach($tabs as $key => $tab):
-                $activeClass = $seccionActiva === $key ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0';
-        ?>
-            <li class="nav-item" role="presentation">
-                <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $activeClass; ?>" data-seccion="<?php echo $key; ?>">
-                    <i class="bi <?php echo $tab['icono']; ?> me-2"></i><?php echo $tab['texto']; ?>
-                </button>
-            </li>
-        <?php endforeach; ?>
-    </ul>
-
-    <div class="card border-0 shadow-sm mb-4 rounded-top-0 border-top border-primary border-3">
+    <div class="card border-0 shadow-sm mb-4 rounded">
         <div class="card-body p-4 bg-white">
             <form id="formFiltrosInventario" class="row g-3 align-items-end" method="get" action="<?php echo e(route_url('reportes/inventario')); ?>">
                 <input type="hidden" name="ruta" value="reportes/inventario">
                 <input type="hidden" name="seccion_activa" id="input_seccion_activa" value="<?php echo e($seccionActiva); ?>">
                 
+                <input type="hidden" name="busqueda" id="hidden_busqueda" value="<?php echo e($_GET['busqueda'] ?? ''); ?>">
+
+                <?php if (in_array('bajo_mínimo', $alertasSeleccionadas)): ?>
+                    <input type="hidden" name="solo_bajo_minimo" value="1">
+                <?php endif; ?>
+
                 <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1">Categoría</label>
                     <div class="dropdown dropdown-multi">
@@ -170,9 +199,32 @@
 
                 <div class="col-12 col-md-3">
                     <?php if ($seccionActiva === 'stock'): ?>
-                        <div class="form-check form-switch p-2 bg-light rounded border d-flex align-items-center w-100" style="height: 38px;">
-                            <input class="form-check-input mt-0 me-2 auto-submit" type="checkbox" role="switch" id="filtroBajoMinimo" name="solo_bajo_minimo" value="1" <?php echo !empty($filtros['solo_bajo_minimo']) ? 'checked' : ''; ?>>
-                            <label class="form-check-label small fw-bold text-danger cursor-pointer mb-0" for="filtroBajoMinimo">Solo bajo mínimo</label>
+                        <label class="form-label text-muted small fw-bold mb-1">Estado / Alerta</label>
+                        <div class="dropdown dropdown-multi">
+                            <button class="btn bg-light border border-secondary-subtle w-100 text-start d-flex justify-content-between align-items-center shadow-none" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
+                                <span class="text-truncate text-dark" style="font-size: 0.95rem;"><?php echo $txtAlerta; ?></span>
+                                <i class="bi bi-chevron-down text-muted small"></i>
+                            </button>
+                            <ul class="dropdown-menu w-100 shadow p-2" style="max-height: 300px; overflow-y: auto;">
+                                <li>
+                                    <div class="form-check mb-2 pb-2 border-bottom">
+                                        <input class="form-check-input cursor-pointer shadow-none border-primary chk-todos" type="checkbox" id="chk_todos_alertas">
+                                        <label class="form-check-label w-100 cursor-pointer text-primary fw-bold" for="chk_todos_alertas" style="font-size: 0.9rem;">Seleccionar Todas</label>
+                                    </div>
+                                </li>
+                                <?php foreach($opcionesAlertas as $valor => $etiqueta): ?>
+                                <li>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input cursor-pointer shadow-none border-secondary-subtle chk-item" type="checkbox" name="alertas[]" value="<?php echo $valor; ?>" id="chk_alerta_<?php echo $valor; ?>" <?php echo in_array($valor, $alertasSeleccionadas) ? 'checked' : ''; ?>>
+                                        <label class="form-check-label w-100 cursor-pointer text-dark" for="chk_alerta_<?php echo $valor; ?>" style="font-size: 0.9rem;">
+                                            <?php echo $etiqueta; ?>
+                                        </label>
+                                    </div>
+                                </li>
+                                <?php endforeach; ?>
+                                <li><hr class="dropdown-divider mt-1 mb-2"></li>
+                                <li><button type="button" class="btn btn-primary btn-sm w-100 fw-bold" onclick="document.getElementById('formFiltrosInventario').submit();">Aplicar Filtro</button></li>
+                            </ul>
                         </div>
                     <?php endif; ?>
 
@@ -208,46 +260,41 @@
                         </div>
                     <?php endif; ?>
                 </div>
-
-                <div class="col-12 d-flex justify-content-end mt-4 pt-3 border-top">
-                    <button type="submit" name="exportar_pdf" value="1" class="btn btn-danger shadow-sm fw-bold px-4" formtarget="_blank">
-                        <i class="bi bi-file-pdf-fill me-2"></i>Exportar <?php echo ucfirst($seccionActiva); ?> a PDF
-                    </button>
-                </div>
             </form>
         </div>
     </div>
 
-    <?php if ($seccionActiva === 'stock'): ?>
-        <div class="row mb-4">
-            <div class="col-12 col-md-4">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body text-center">
-                        <h6 class="text-muted fw-bold mb-3">Distribución del Valor</h6>
-                        <div style="position: relative; height: 250px; width: 100%;">
-                            <canvas id="chartStockDona"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-md-8">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body">
-                        <h6 class="text-muted fw-bold mb-3">Top 5 Artículos de Mayor Valor</h6>
-                        <div style="position: relative; height: 250px; width: 100%;">
-                            <canvas id="chartStockBarras"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <ul class="nav nav-tabs border-bottom-1 mb-4 px-2" role="tablist">
+        <?php 
+            $tabs = [
+                'stock' => ['icono' => 'bi-layers-half', 'texto' => 'Stock Actual'],
+                'historico' => ['icono' => 'bi-clock-history', 'texto' => 'Stock a Fecha'],
+                'kardex' => ['icono' => 'bi-journal-check', 'texto' => 'Kardex Valorizado'],
+                'vencimientos' => ['icono' => 'bi-calendar2-x', 'texto' => 'Lotes y Vencimientos']
+            ];
+            foreach($tabs as $key => $tab):
+                $activeClass = $seccionActiva === $key ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0';
+        ?>
+            <li class="nav-item" role="presentation">
+                <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $activeClass; ?>" data-seccion="<?php echo $key; ?>">
+                    <i class="bi <?php echo $tab['icono']; ?> me-2"></i><?php echo $tab['texto']; ?>
+                </button>
+            </li>
+        <?php endforeach; ?>
+    </ul>
 
+    <?php if ($seccionActiva === 'stock'): ?>
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-layers-half me-2 text-info"></i>Detalle de Inventario</h5>
-                <div class="input-group input-group-sm w-auto" style="max-width: 250px;">
-                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepStock" placeholder="Buscar ítem o almacén...">
+            <div class="card-header bg-white border-bottom px-4 py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
+                <h5 class="mb-0 fw-bold text-dark text-nowrap"><i class="bi bi-layers-half me-2 text-info"></i>Detalle de Inventario</h5>
+                <div class="d-flex gap-2 align-items-center w-100" style="max-width: 450px;">
+                    <button type="submit" form="formFiltrosInventario" name="exportar_pdf" value="1" class="btn btn-sm btn-danger shadow-sm fw-bold px-3 d-flex align-items-center text-nowrap" formtarget="_blank" title="Exportar a PDF" onclick="document.getElementById('hidden_busqueda').value = document.getElementById('filtroRepStock').value;">
+                        <i class="bi bi-file-pdf-fill"></i><span class="ms-1 d-none d-sm-inline">PDF</span>
+                    </button>
+                    <div class="input-group input-group-sm flex-grow-1">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepStock" placeholder="Buscar ítem o almacén..." value="<?php echo e($_GET['busqueda'] ?? ''); ?>">
+                    </div>
                 </div>
             </div>
             <div class="card-body p-0">
@@ -312,11 +359,16 @@
 
     <?php if ($seccionActiva === 'historico'): ?>
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-clock-history me-2 text-primary"></i>Stock a la Fecha Seleccionada</h5>
-                <div class="input-group input-group-sm w-auto" style="max-width: 250px;">
-                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepHistorico" placeholder="Buscar ítem...">
+            <div class="card-header bg-white border-bottom px-4 py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
+                <h5 class="mb-0 fw-bold text-dark text-nowrap"><i class="bi bi-clock-history me-2 text-primary"></i>Stock a la Fecha Seleccionada</h5>
+                <div class="d-flex gap-2 align-items-center w-100" style="max-width: 450px;">
+                    <button type="submit" form="formFiltrosInventario" name="exportar_pdf" value="1" class="btn btn-sm btn-danger shadow-sm fw-bold px-3 d-flex align-items-center text-nowrap" formtarget="_blank" title="Exportar a PDF" onclick="document.getElementById('hidden_busqueda').value = document.getElementById('filtroRepHistorico').value;">
+                        <i class="bi bi-file-pdf-fill"></i><span class="ms-1 d-none d-sm-inline">PDF</span>
+                    </button>
+                    <div class="input-group input-group-sm flex-grow-1">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepHistorico" placeholder="Buscar ítem..." value="<?php echo e($_GET['busqueda'] ?? ''); ?>">
+                    </div>
                 </div>
             </div>
             <div class="card-body p-0">
@@ -367,20 +419,16 @@
 
     <?php if ($seccionActiva === 'kardex'): ?>
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-body">
-                <h6 class="text-muted fw-bold mb-3">Entradas vs Salidas (Periodo Seleccionado)</h6>
-                <div style="position: relative; height: 300px; width: 100%;">
-                    <canvas id="chartKardexLineas"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-journal-check me-2 text-primary"></i>Movimientos Detallados</h5>
-                <div class="input-group input-group-sm w-auto" style="max-width: 250px;">
-                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepKardex" placeholder="Buscar ref o tipo...">
+            <div class="card-header bg-white border-bottom px-4 py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
+                <h5 class="mb-0 fw-bold text-dark text-nowrap"><i class="bi bi-journal-check me-2 text-primary"></i>Movimientos Detallados</h5>
+                <div class="d-flex gap-2 align-items-center w-100" style="max-width: 450px;">
+                    <button type="submit" form="formFiltrosInventario" name="exportar_pdf" value="1" class="btn btn-sm btn-danger shadow-sm fw-bold px-3 d-flex align-items-center text-nowrap" formtarget="_blank" title="Exportar a PDF" onclick="document.getElementById('hidden_busqueda').value = document.getElementById('filtroRepKardex').value;">
+                        <i class="bi bi-file-pdf-fill"></i><span class="ms-1 d-none d-sm-inline">PDF</span>
+                    </button>
+                    <div class="input-group input-group-sm flex-grow-1">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepKardex" placeholder="Buscar ref o tipo..." value="<?php echo e($_GET['busqueda'] ?? ''); ?>">
+                    </div>
                 </div>
             </div>
             <div class="card-body p-0">
@@ -432,25 +480,17 @@
     <?php endif; ?>
 
     <?php if ($seccionActiva === 'vencimientos'): ?>
-        <div class="row mb-4 justify-content-center">
-            <div class="col-12 col-md-6">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-body text-center">
-                        <h6 class="text-muted fw-bold mb-3">Estado de Salud de Lotes</h6>
-                        <div style="position: relative; height: 250px; width: 100%;">
-                            <canvas id="chartLotesPie"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-calendar2-x me-2 text-warning"></i>Detalle de Lotes</h5>
-                <div class="input-group input-group-sm w-auto" style="max-width: 250px;">
-                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepVencimientos" placeholder="Buscar ítem o lote...">
+            <div class="card-header bg-white border-bottom px-4 py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
+                <h5 class="mb-0 fw-bold text-dark text-nowrap"><i class="bi bi-calendar2-x me-2 text-warning"></i>Detalle de Lotes</h5>
+                <div class="d-flex gap-2 align-items-center w-100" style="max-width: 450px;">
+                    <button type="submit" form="formFiltrosInventario" name="exportar_pdf" value="1" class="btn btn-sm btn-danger shadow-sm fw-bold px-3 d-flex align-items-center text-nowrap" formtarget="_blank" title="Exportar a PDF" onclick="document.getElementById('hidden_busqueda').value = document.getElementById('filtroRepVencimientos').value;">
+                        <i class="bi bi-file-pdf-fill"></i><span class="ms-1 d-none d-sm-inline">PDF</span>
+                    </button>
+                    <div class="input-group input-group-sm flex-grow-1">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepVencimientos" placeholder="Buscar ítem o lote..." value="<?php echo e($_GET['busqueda'] ?? ''); ?>">
+                    </div>
                 </div>
             </div>
             <div class="card-body p-0">
@@ -503,9 +543,7 @@
 
 <script>
     window.datosInventario = {
-        graficoDona: <?php echo json_encode($datosGraficoDona ?? []); ?>,
-        graficoBarras: <?php echo json_encode($datosGraficoBarras ?? []); ?>,
-        graficoKardex: <?php echo json_encode($datosGraficoKardex ?? []); ?>, // NUEVO
-        graficoLotes: <?php echo json_encode($datosGraficoLotes ?? []); ?> // NUEVO
+        graficoKardex: <?php echo json_encode($datosGraficoKardex ?? []); ?>,
+        graficoLotes: <?php echo json_encode($datosGraficoLotes ?? []); ?> 
     };
 </script>
