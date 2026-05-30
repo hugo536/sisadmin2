@@ -8,11 +8,17 @@ class TesoreriaCxpModel extends Modelo
 
     public function listar(array $filtros = []): array
     {
-        // MEJORA: Usamos LEFT JOIN para evitar perder el registro si el proveedor fue eliminado (soft-delete)
-        $sql = 'SELECT p.*, COALESCE(t.nombre_completo, "Proveedor Eliminado/Desconocido") AS proveedor
+        // MEJORA: Jalamos individualmente observaciones de cxp, orden de compra y recepción (guía)
+        $sql = 'SELECT p.*, 
+                       COALESCE(t.nombre_completo, "Proveedor Eliminado/Desconocido") AS proveedor,
+                       TRIM(COALESCE(p.observaciones, "")) AS observacion_cxp,
+                       TRIM(COALESCE(c.observaciones, "")) AS observacion_compra,
+                       TRIM(COALESCE(r.observaciones, "")) AS observacion_recepcion
                 FROM tesoreria_cxp p
                 LEFT JOIN terceros t ON t.id = p.id_proveedor
                 LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
+                LEFT JOIN compras_recepciones r ON r.id = p.id_recepcion AND r.deleted_at IS NULL
+                LEFT JOIN compras_ordenes c ON c.id = p.id_orden_compra AND c.deleted_at IS NULL
                 WHERE p.deleted_at IS NULL';
 
         $params = [];

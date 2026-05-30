@@ -13,15 +13,40 @@
         return;
     }
 
+    const formFiltros = document.getElementById('formFiltrosMovimientos');
+    const contenedorDinamico = document.getElementById('contenedorDinamicoMovimientos');
+    let timerFiltro = null;
+
+    // ========================================================================
+    // NUEVO: DETECTAR REDIRECCIONES DIRECTAS (EJ: DESDE CxC o CxP)
+    // ========================================================================
+    if (formFiltros) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tieneOrigen = urlParams.has('origen') && urlParams.has('id_origen');
+        
+        // Si venimos de un enlace de "Ver Historial", las fechas por defecto del mes actual
+        // pueden ocultar pagos antiguos. Si es el caso, limpiamos las fechas para ver TODO.
+        if (tieneOrigen) {
+            console.log("📍 Redirección detectada. Limpiando filtros de fecha predeterminados para asegurar visibilidad...");
+            const inputDesde = formFiltros.querySelector('input[name="fecha_desde"]');
+            const inputHasta = formFiltros.querySelector('input[name="fecha_hasta"]');
+            const selectOrigen = formFiltros.querySelector('select[name="origen"]');
+
+            if (inputDesde) inputDesde.value = '';
+            if (inputHasta) inputHasta.value = '';
+            
+            // Si el origen viene en la URL, nos aseguramos que el Select lo refleje visualmente
+            if (selectOrigen && urlParams.get('origen')) {
+                selectOrigen.value = urlParams.get('origen').toUpperCase();
+            }
+        }
+    }
+
     // 1. INICIALIZAR TOOLTIPS (Primera carga)
     if (typeof bootstrap !== 'undefined') {
         const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
         [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
     }
-
-    const formFiltros = document.getElementById('formFiltrosMovimientos');
-    const contenedorDinamico = document.getElementById('contenedorDinamicoMovimientos');
-    let timerFiltro = null;
 
     // --- DIAGNÓSTICO EN CONSOLA ---
     if (!formFiltros) console.error("❌ ERROR FATAL: No se encuentra el ID 'formFiltrosMovimientos' en la vista PHP.");
@@ -82,6 +107,14 @@
                 else urlObj.searchParams.delete(key);
             });
             
+            // Si el usuario cambia los filtros manualmente, nos aseguramos de borrar el id_origen
+            // de la URL para que no se quede pegado buscando eternamente esa factura.
+            const currentUrlParams = new URLSearchParams(window.location.search);
+            if (currentUrlParams.has('id_origen')) {
+                 urlObj.searchParams.delete('id_origen');
+                 urlObj.searchParams.delete('id_tercero');
+            }
+
             console.log("📍 AJAX Enviado a:", urlObj.toString());
             cargarDatosAjax(urlObj.toString());
         };

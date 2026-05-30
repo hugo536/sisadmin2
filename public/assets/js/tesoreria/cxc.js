@@ -175,117 +175,227 @@
         }
     }
 
-    // ========================================================================
+// ========================================================================
     // 3. LÓGICA DE COBRO REGULAR (MODAL DE DESGLOSE)
     // ========================================================================
     const modalCobro = document.getElementById('modalCobro');
     const formCobro = document.getElementById('formCobro');
-    const distribucionRows = document.getElementById('cobroDistribucionRows');
-    const btnAddDistribucion = document.getElementById('btnAddCobroDistribucion');
-    const hintDistribucion = document.getElementById('cobroDistribucionHint');
-    
-    const inputTotal = document.getElementById('cobroMonto');
     const naturalezaSelect = document.getElementById('cobroNaturaleza');
     const inputCapital = document.getElementById('cobroMontoCapital');
     const inputInteres = document.getElementById('cobroMontoInteres');
 
-    // Función Global de redondeo seguro
     const roundTo = (val, dec) => Math.round((Number(val) + Number.EPSILON) * Math.pow(10, dec)) / Math.pow(10, dec);
 
-    const getDistribucionRows = () => Array.from(distribucionRows?.querySelectorAll('.js-cobro-distribucion-row') || []);
+    // --- FUNCIÓN TOTALIZADORA AUTOMÁTICA ---
+    window.recalcularModalCobro = function() {
+        const inputTotal = document.getElementById('cobroMonto');
+        const hintDistribucion = document.getElementById('cobroDistribucionHint');
+        const filas = document.querySelectorAll('.js-cobro-distribucion-row');
+        
+        if (!inputTotal) return;
 
-    const actualizarBotonesRemove = () => {
-        const rows = getDistribucionRows();
-        rows.forEach((row, i) => {
-            const btn = row.querySelector('.js-remove-cobro-row');
-            if (btn) btn.classList.toggle('d-none', rows.length <= 1 || i === 0);
+        // Sumar todos los inputs de distribución
+        let suma = 0;
+        document.querySelectorAll('.js-cobro-monto-distribucion').forEach(inp => {
+            suma += parseFloat(inp.value) || 0;
         });
-    };
 
-    const recalcularDistribucion = () => {
-        if (!inputTotal || !hintDistribucion) return;
-        const suma = getDistribucionRows().reduce((acc, row) => {
-            const val = parseFloat(row.querySelector('.js-cobro-monto-distribucion')?.value || 0);
-            return acc + val;
-        }, 0);
-
+        // Actualizar el campo Total (readonly)
         inputTotal.value = suma > 0 ? suma.toFixed(2) : '';
-        const saldo = parseFloat(document.getElementById('cobroSaldo')?.value || 0);
-        const diff = saldo - suma;
 
-        if (suma === 0) hintDistribucion.textContent = '';
-        else if (Math.abs(diff) < 0.01) hintDistribucion.innerHTML = `<i class="bi bi-check2-all text-success"></i> Deuda cubierta`;
-        else if (diff > 0) hintDistribucion.innerHTML = `<span class="text-warning-emphasis">Quedará debiendo: ${diff.toFixed(2)}</span>`;
-        else hintDistribucion.innerHTML = `<span class="text-danger">Supera deuda por: ${Math.abs(diff).toFixed(2)}</span>`;
+        // Ocultar/Mostrar botones de basurero (solo mostrar si hay más de 1 fila)
+        filas.forEach(fila => {
+            const btnQuitar = fila.querySelector('.js-remove-cobro-row');
+            if (btnQuitar) {
+                if (filas.length > 1) btnQuitar.classList.remove('d-none');
+                else btnQuitar.classList.add('d-none');
+            }
+        });
+
+        // Actualizar el texto de ayuda
+        if (hintDistribucion) {
+            const saldoStr = document.getElementById('cobroSaldo')?.value || '0';
+            const saldoTotal = parseFloat(saldoStr);
+            const diff = saldoTotal - suma;
+
+            if (suma === 0) hintDistribucion.textContent = '';
+            else if (Math.abs(diff) < 0.01) hintDistribucion.innerHTML = `<i class="bi bi-check2-all text-success"></i> Deuda cubierta`;
+            else if (diff > 0) hintDistribucion.innerHTML = `<span class="text-warning-emphasis">Quedará debiendo: ${diff.toFixed(2)}</span>`;
+            else hintDistribucion.innerHTML = `<span class="text-danger">Supera deuda por: ${Math.abs(diff).toFixed(2)}</span>`;
+        }
         
         validarNaturaleza();
     };
 
-    if (distribucionRows) {
-        distribucionRows.addEventListener('click', (e) => {
-            if (e.target.closest('.js-remove-cobro-row')) {
-                const row = e.target.closest('.js-cobro-distribucion-row');
-                if (getDistribucionRows().length > 1 && row) row.remove();
-                actualizarBotonesRemove();
-                recalcularDistribucion();
+    // --- FUNCIÓN PARA AGREGAR FILA ---
+    window.agregarFilaDistribucion = function() {
+        const container = document.getElementById('cobroDistribucionRows');
+        const filas = container.querySelectorAll('.js-cobro-distribucion-row');
+        if (filas.length === 0) return;
+
+        const nuevaFila = filas[0].cloneNode(true);
+        
+        nuevaFila.querySelector('.js-cobro-cuenta').value = '';
+        
+        // Limpiamos y bloqueamos el método
+        const selectMetodo = nuevaFila.querySelector('.js-cobro-metodo');
+        selectMetodo.value = '';
+        selectMetodo.disabled = true; 
+        
+        nuevaFila.querySelector('.js-cobro-monto-distribucion').value = '';
+
+        container.appendChild(nuevaFila);
+        window.recalcularModalCobro();
+    };
+
+    // --- FUNCIÓN MAGIA: FILTRADO DE MÉTODOS (CORREGIDA) ---
+    window.filtrarMetodosPorCuenta = function(selectCuenta, selectMetodo) {
+        if (!selectCuenta || !selectMetodo) return;
+
+        const optSeleccionada = selectCuenta.options[selectCuenta.selectedIndex];
+        
+        // Si no hay cuenta seleccionada, bloqueamos el método
+        if (!optSeleccionada || !optSeleccionada.value) {
+            selectMetodo.value = '';
+            selectMetodo.disabled = true;
+            return;
+        }
+
+        let rawMetodos = optSeleccionada.getAttribute('data-metodos');
+        let permitidos = [];
+
+        // Extraer los métodos permitidos (si los hay)
+        if (rawMetodos && rawMetodos !== 'null' && rawMetodos !== '') {
+            try {
+                let parsed = rawMetodos;
+                // Si viene como string escapado, lo parseamos hasta que sea un Array
+                while(typeof parsed === 'string') parsed = JSON.parse(parsed);
+                
+                if (Array.isArray(parsed)) {
+                    permitidos = parsed.map(m => String(m).trim().toLowerCase());
+                }
+            } catch(e) { console.error("Error parseando JSON de métodos", e); }
+        }
+
+        let primerValido = null;
+        let seleccionActualValida = false;
+        const valorActual = selectMetodo.value;
+        let opcionesValidasCount = 0;
+
+        // Ocultar/Mostrar opciones según la configuración estricta
+        Array.from(selectMetodo.options).forEach(opt => {
+            if (!opt.value) return; // Ignorar el placeholder "Método..."
+            
+            const nombreMetodo = opt.textContent.trim().toLowerCase();
+            
+            // LA CLAVE: Si "permitidos" está vacío, NINGÚN método es válido.
+            const esValido = permitidos.some(p => nombreMetodo.includes(p) || p.includes(nombreMetodo));
+            
+            opt.hidden = !esValido;
+            opt.disabled = !esValido;
+
+            if (esValido) {
+                opcionesValidasCount++;
+                if (!primerValido) primerValido = opt.value;
+                if (opt.value === valorActual) seleccionActualValida = true;
             }
         });
 
-        distribucionRows.addEventListener('input', (e) => {
-            if (e.target.matches('.js-cobro-monto-distribucion')) recalcularDistribucion();
-        });
-    }
-
-    if (btnAddDistribucion) {
-        btnAddDistribucion.addEventListener('click', () => {
-            const rows = getDistribucionRows();
-            if (!rows.length) return;
+        // Qué hacer con el select según la cantidad de métodos válidos
+        if (opcionesValidasCount === 0) {
+            // Si la cuenta tiene 0 métodos vinculados, se bloquea la cajita
+            selectMetodo.value = '';
+            selectMetodo.disabled = true;
             
-            const nuevaFila = rows[0].cloneNode(true);
-            nuevaFila.querySelector('.js-cobro-cuenta').value = '';
-            nuevaFila.querySelector('.js-cobro-metodo').value = '';
-            
-            const inputMonto = nuevaFila.querySelector('.js-cobro-monto-distribucion');
-            const total = parseFloat(inputTotal.value || 0);
-            const sumaActual = rows.reduce((acc, r) => acc + (parseFloat(r.querySelector('.js-cobro-monto-distribucion')?.value || 0)), 0);
-            inputMonto.value = (total - sumaActual > 0) ? (total - sumaActual).toFixed(2) : '';
-
-            distribucionRows.appendChild(nuevaFila);
-            actualizarBotonesRemove();
-            recalcularDistribucion();
-        });
-    }
-
-    // Interceptar la apertura del modal para cargar datos
-    document.addEventListener('click', (e) => {
-        const btn = e.target.closest('.js-open-cobro');
-        if (!btn) return;
-
-        document.getElementById('cobroIdOrigen').value = btn.dataset.idOrigen;
-        document.getElementById('cobroMoneda').value = btn.dataset.moneda;
-        document.getElementById('cobroSaldo').value = parseFloat(btn.dataset.saldo).toFixed(2);
-        
-        if (inputTotal) {
-            inputTotal.value = btn.dataset.saldo;
-            inputTotal.setAttribute('max', btn.dataset.saldo);
+            // Opcional: mostrar una alerta si quieres que el cajero sepa el por qué
+            // console.warn("La cuenta seleccionada no tiene métodos de pago configurados.");
+        } else {
+            // Si tiene métodos, la habilitamos y seleccionamos el primero válido si es necesario
+            selectMetodo.disabled = false;
+            if (!seleccionActualValida) {
+                selectMetodo.value = primerValido || '';
+            }
         }
+    };
 
-        const rows = getDistribucionRows();
-        if (rows.length === 1) rows[0].querySelector('.js-cobro-monto-distribucion').value = btn.dataset.saldo;
+    if (!window.cxcEventosGlobalesAtachados) {
+        window.cxcEventosGlobalesAtachados = true; // Candado activado
 
-        filtrarCuentasPorMoneda({ value: btn.dataset.moneda }, document.querySelector('.js-cobro-cuenta'));
-        recalcularDistribucion();
-        if (naturalezaSelect) naturalezaSelect.dispatchEvent(new Event('change'));
-    });
+        document.addEventListener('input', (e) => {
+            if (e.target.matches('.js-cobro-monto-distribucion')) {
+                window.recalcularModalCobro();
+            }
+        });
 
+        // Escuchar cuando el usuario cambia de Cuenta
+        document.addEventListener('change', (e) => {
+            // Modal múltiple (filas clonables)
+            if (e.target.matches('.js-cobro-cuenta')) {
+                const fila = e.target.closest('.js-cobro-distribucion-row');
+                if (fila) {
+                    const selectMetodo = fila.querySelector('.js-cobro-metodo');
+                    window.filtrarMetodosPorCuenta(e.target, selectMetodo);
+                }
+            }
+            // Modal Manual
+            else if (e.target.id === 'cobroManualCuentaDestino') {
+                // Asegúrate de que el select de métodos en el modal manual tenga este id o ajusta el selector
+                const selectMetodo = document.getElementById('cobroManualMetodoDestino') 
+                                  || document.querySelector('#modalCobroManual select[name="id_metodo_pago"]');
+                window.filtrarMetodosPorCuenta(e.target, selectMetodo);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            // 1. Clic en Dividir Pago
+            if (e.target.closest('#btnAddCobroDistribucion')) {
+                window.agregarFilaDistribucion();
+            } 
+            // 2. Clic en Quitar Fila
+            else if (e.target.closest('.js-remove-cobro-row')) {
+                const fila = e.target.closest('.js-cobro-distribucion-row');
+                if (document.querySelectorAll('.js-cobro-distribucion-row').length > 1 && fila) {
+                    fila.remove();
+                    window.recalcularModalCobro();
+                }
+            }
+            // 3. Clic al abrir el modal (Botón $)
+            else if (e.target.closest('.js-open-cobro')) {
+                const btn = e.target.closest('.js-open-cobro');
+                document.getElementById('cobroIdOrigen').value = btn.dataset.idOrigen;
+                document.getElementById('cobroMoneda').value = btn.dataset.moneda;
+                document.getElementById('cobroSaldo').value = parseFloat(btn.dataset.saldo).toFixed(2);
+                
+                // Limpiar exceso de filas antiguas y reiniciar la primera
+                const filas = document.querySelectorAll('.js-cobro-distribucion-row');
+                filas.forEach((r, i) => {
+                    if (i === 0) {
+                        r.querySelectorAll('input, select').forEach(inpt => inpt.value = '');
+                        // BUG FIX: Nace vacío para que el usuario escriba desde cero
+                        r.querySelector('.js-cobro-monto-distribucion').value = ''; 
+                    } else {
+                        r.remove();
+                    }
+                });
+
+                window.recalcularModalCobro();
+                const natSelect = document.getElementById('cobroNaturaleza');
+                if (natSelect) natSelect.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+
+    // --- VALIDACIONES DE FORMULARIO ---
     const validarNaturaleza = () => {
+        const inputTotal = document.getElementById('cobroMonto');
         if (!naturalezaSelect || !inputTotal) return;
+        
         const val = naturalezaSelect.value;
         const capital = parseFloat(inputCapital?.value || 0);
         const interes = parseFloat(inputInteres?.value || 0);
         const total = parseFloat(inputTotal.value || 0);
 
-        if (val === 'MIXTO' && (capital + interes).toFixed(2) !== total.toFixed(2)) {
+        if (val === 'MIXTO' && roundTo(capital + interes, 2) !== roundTo(total, 2)) {
             inputCapital?.classList.add('is-invalid');
             inputInteres?.classList.add('is-invalid');
         } else {
@@ -302,50 +412,40 @@
             
             capGroup?.classList.toggle('d-none', val !== 'CAPITAL' && val !== 'MIXTO');
             intGroup?.classList.toggle('d-none', val !== 'INTERES' && val !== 'MIXTO');
-
-            if (val !== 'MIXTO' && val !== 'INTERES') {
-                inputTotal.setAttribute('max', document.getElementById('cobroSaldo')?.value || 0);
-            } else {
-                inputTotal.removeAttribute('max');
-            }
+            
             validarNaturaleza();
         });
     }
 
-    [inputTotal, inputCapital, inputInteres].forEach(el => el?.addEventListener('input', validarNaturaleza));
+    [inputCapital, inputInteres].forEach(el => el?.addEventListener('input', validarNaturaleza));
 
-    // Validación final antes de enviar
     if (formCobro) {
-        formCobro.addEventListener('submit', (e) => {
-            const total = parseFloat(inputTotal.value || 0);
+        // Prevenir múltiples validaciones apiladas
+        formCobro.removeEventListener('submit', window.submitCobroHandler);
+        window.submitCobroHandler = (e) => {
+            const inputTotal = document.getElementById('cobroMonto');
+            const total = parseFloat(inputTotal?.value || 0);
             
             if (naturalezaSelect?.value === 'MIXTO') {
-                const cap = parseFloat(inputCapital.value || 0);
-                const int = parseFloat(inputInteres.value || 0);
+                const cap = parseFloat(inputCapital?.value || 0);
+                const int = parseFloat(inputInteres?.value || 0);
                 if (roundTo(cap + int, 2) !== roundTo(total, 2)) {
                     e.preventDefault(); e.stopImmediatePropagation();
                     return Swal.fire('Error', 'Capital + Mora debe ser igual al Monto Total.', 'error');
                 }
             }
-
-            const sumaDist = getDistribucionRows().reduce((acc, row) => acc + (parseFloat(row.querySelector('.js-cobro-monto-distribucion')?.value || 0)), 0);
-            if (Math.abs(roundTo(sumaDist, 2) - roundTo(total, 2)) > 0.009) {
-                e.preventDefault(); e.stopImmediatePropagation();
-                return Swal.fire('Error', 'La suma de las cuentas debe ser igual al monto total.', 'error');
-            }
-        });
+        };
+        formCobro.addEventListener('submit', window.submitCobroHandler);
     }
 
-    // Resetear modal regular al cerrar
     if (modalCobro) {
         modalCobro.addEventListener('hidden.bs.modal', () => {
             formCobro.reset();
-            getDistribucionRows().forEach((r, i) => i === 0 ? r.querySelectorAll('input, select').forEach(inpt => inpt.value = '') : r.remove());
-            actualizarBotonesRemove();
-            if (hintDistribucion) hintDistribucion.textContent = '';
-            [inputTotal, inputCapital, inputInteres].forEach(el => el?.classList.remove('is-invalid'));
+            const filas = document.querySelectorAll('.js-cobro-distribucion-row');
+            filas.forEach((r, i) => i === 0 ? r.querySelectorAll('input, select').forEach(inpt => inpt.value = '') : r.remove());
+            window.recalcularModalCobro();
+            [inputCapital, inputInteres].forEach(el => el?.classList.remove('is-invalid'));
             if (naturalezaSelect) naturalezaSelect.dispatchEvent(new Event('change'));
         });
     }
-
 })();

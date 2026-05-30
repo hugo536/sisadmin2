@@ -4,6 +4,27 @@
  * - Tarifa General por Volumen
  */
 
+// Función global para alertas de éxito centrales
+const showSuccessAlert = (title, text = '') => {
+    return Swal.fire({
+        icon: 'success',
+        title: title,
+        text: text,
+        timer: 2500,
+        timerProgressBar: true,
+        showConfirmButton: true,
+        confirmButtonText: 'Aceptar'
+    });
+};
+
+// Helper clave: Evita que los eventos se dupliquen al recargar el DOM en arquitecturas SPA
+const bindEvent = (element, eventType, handler, useCapture = false) => {
+    if (element && !element.dataset[`bound${eventType}`]) {
+        element.addEventListener(eventType, handler, useCapture);
+        element.dataset[`bound${eventType}`] = 'true';
+    }
+};
+
 function initComercialApp() {
     const appAcuerdos = document.getElementById('acuerdosComercialesApp');
     if (!appAcuerdos) return;
@@ -56,21 +77,18 @@ function initComercialApp() {
     const btnEliminar = document.getElementById('btnEliminarAcuerdo');
     const btnImprimirCliente = document.getElementById('btnImprimirAcuerdoCliente');
 
-    const modalVincular = modalVincularEl ? new bootstrap.Modal(modalVincularEl) : null;
-    const modalAgregar = modalAgregarEl ? new bootstrap.Modal(modalAgregarEl) : null;
-    const modalVolumen = modalVolumenEl ? new bootstrap.Modal(modalVolumenEl) : null;
+    // Usamos window. bootstrap instances para no perderlas entre recargas parciales
+    const modalVincular = modalVincularEl ? bootstrap.Modal.getOrCreateInstance(modalVincularEl) : null;
+    const modalAgregar = modalAgregarEl ? bootstrap.Modal.getOrCreateInstance(modalAgregarEl) : null;
+    const modalVolumen = modalVolumenEl ? bootstrap.Modal.getOrCreateInstance(modalVolumenEl) : null;
 
     let tsCliente = null;
     let tsPresentacion = null;
     let tsItemVolumen = null;
 
     const softReloadSPA = (newUrlString = null) => {
-        if (typeof window.navigateWithoutReload === 'function') {
-            const urlTarget = newUrlString ? new URL(newUrlString, window.location.origin) : new URL(window.location.href);
-            window.navigateWithoutReload(urlTarget, false);
-        } else {
-            window.location.href = newUrlString || window.location.href;
-        }
+        const urlTarget = newUrlString ? new URL(newUrlString, window.location.href) : window.location.href;
+        window.location.href = urlTarget.toString();
     };
 
     const postForm = async (url, payload) => {
@@ -89,7 +107,6 @@ function initComercialApp() {
     };
 
     const getAcuerdoId = () => (tabla ? parseInt(tabla.dataset.idAcuerdo || '0', 10) || 0 : 0);
-    const withParam = (url, key, value) => `${url}${url.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
     const getModo = () => (tabla ? (tabla.dataset.modo || 'acuerdo') : 'acuerdo');
 
     const renderEmptyRow = (modo) => {
@@ -137,24 +154,18 @@ function initComercialApp() {
         return `
             <tr data-id-detalle="${item.id}" class="mobile-expandable-row">
                 <td class="ps-4 col-mobile-hide"><span class="badge bg-light text-dark border">${item.codigo_presentacion || 'N/A'}</span></td>
-                
-                <td class="fw-semibold text-dark">
-                    <span>${item.producto_nombre}</span>
-                </td>
-                
+                <td class="fw-semibold text-dark"><span>${item.producto_nombre}</span></td>
                 <td>
                     <div class="input-group input-group-sm" style="max-width: 130px;">
                         <span class="input-group-text bg-light border-end-0">S/</span>
                         <input type="number" min="0" step="0.0001" class="form-control text-primary fw-bold border-start-0 px-1 js-precio-pactado" value="${parseFloat(item.precio_pactado).toFixed(4)}" data-original="${parseFloat(item.precio_pactado).toFixed(4)}">
                     </div>
                 </td>
-                
                 <td class="text-center col-mobile-hide">
                     <div class="form-check form-switch d-flex justify-content-center mb-0">
                         <input class="form-check-input js-estado-precio" type="checkbox" ${parseInt(item.estado, 10) === 1 ? 'checked' : ''}>
                     </div>
                 </td>
-                
                 <td class="text-end pe-4 col-mobile-hide">
                     <button class="btn btn-sm btn-outline-danger border-0 js-eliminar-producto" type="button" title="Eliminar producto">
                         <i class="bi bi-trash"></i>
@@ -290,113 +301,107 @@ function initComercialApp() {
         return (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     };
 
-    if (filtroClientes && sidebarList) {
-        filtroClientes.addEventListener('input', () => {
-            const terminosBusqueda = normalizarTexto(filtroClientes.value).split(' ').filter(t => t.length > 0);
-            const items = sidebarList.querySelectorAll('.acuerdo-sidebar-item');
-            let visibles = 0;
+    bindEvent(filtroClientes, 'input', () => {
+        const terminosBusqueda = normalizarTexto(filtroClientes.value).split(' ').filter(t => t.length > 0);
+        const items = sidebarList.querySelectorAll('.acuerdo-sidebar-item');
+        let visibles = 0;
 
-            items.forEach(item => {
-                const textoItem = normalizarTexto(item.dataset.search || '');
-                const coincide = terminosBusqueda.every(termino => textoItem.includes(termino));
-                const mostrar = terminosBusqueda.length === 0 || coincide;
+        items.forEach(item => {
+            const textoItem = normalizarTexto(item.dataset.search || '');
+            const coincide = terminosBusqueda.every(termino => textoItem.includes(termino));
+            const mostrar = terminosBusqueda.length === 0 || coincide;
 
-                item.removeAttribute('style'); 
+            item.removeAttribute('style'); 
 
-                if (mostrar) {
-                    item.classList.remove('d-none');
-                    item.classList.add('d-flex');
-                    visibles += 1;
-                } else {
-                    item.classList.remove('d-flex');
-                    item.classList.add('d-none');
+            if (mostrar) {
+                item.classList.remove('d-none');
+                item.classList.add('d-flex');
+                visibles += 1;
+            } else {
+                item.classList.remove('d-flex');
+                item.classList.add('d-none');
+            }
+        });
+
+        const empty = document.getElementById('sidebarNoResults');
+        if (empty) {
+            if (visibles === 0) {
+                empty.classList.remove('d-none');
+                empty.classList.add('d-block');
+            } else {
+                empty.classList.remove('d-block');
+                empty.classList.add('d-none');
+            }
+        }
+    });
+
+    bindEvent(sidebarList, 'click', (e) => {
+        const btnDeleteSidebar = e.target.closest('.js-eliminar-acuerdo-sidebar');
+        if (btnDeleteSidebar) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const itemDelete = btnDeleteSidebar.closest('.acuerdo-sidebar-item');
+            const idAcuerdoEliminar = parseInt(itemDelete?.dataset.idAcuerdo || '0', 10);
+            if (!idAcuerdoEliminar) return;
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Romper acuerdo',
+                text: 'Esta acción eliminará el acuerdo y su matriz permanentemente.',
+                showCancelButton: true,
+                confirmButtonText: 'Eliminar acuerdo',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc3545'
+            }).then(async (confirm) => {
+                if (!confirm.isConfirmed) return;
+                try {
+                    await postForm(urls.eliminarAcuerdo, { id_acuerdo: idAcuerdoEliminar });
+                    showSuccessAlert('Acuerdo eliminado correctamente');
+
+                    const acuerdoActual = getAcuerdoId();
+                    if (acuerdoActual === idAcuerdoEliminar) {
+                        softReloadSPA('?ruta=comercial/listas');
+                        return;
+                    }
+                    itemDelete.remove();
+                    const empty = document.getElementById('sidebarNoResults');
+                    const totalItems = sidebarList.querySelectorAll('.acuerdo-sidebar-item').length;
+                    if (empty && totalItems === 0) {
+                        empty.textContent = 'No hay clientes vinculados.';
+                        empty.classList.remove('d-none');
+                        empty.classList.add('d-block');
+                    }
+                } catch (err) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: err.message });
                 }
             });
+            return;
+        }
 
-            const empty = document.getElementById('sidebarNoResults');
-            if (empty) {
-                if (visibles === 0) {
-                    empty.classList.remove('d-none');
-                    empty.classList.add('d-block');
-                } else {
-                    empty.classList.remove('d-block');
-                    empty.classList.add('d-none');
-                }
-            }
-        });
-    }
+        const item = e.target.closest('.acuerdo-sidebar-item');
+        if (!item) return;
+        e.preventDefault();
+        
+        const idAcuerdo = parseInt(item.dataset.idAcuerdo || '0', 10);
+        
+        document.querySelectorAll('.acuerdo-sidebar-item').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
 
-    if (sidebarList) {
-        sidebarList.addEventListener('click', (e) => {
-            const btnDeleteSidebar = e.target.closest('.js-eliminar-acuerdo-sidebar');
-            if (btnDeleteSidebar) {
-                e.preventDefault();
-                e.stopPropagation();
+        const url = new URL(window.location.href);
+        url.searchParams.set('id', idAcuerdo);
+        window.history.pushState({ sisadminPartial: true }, '', url.toString());
 
-                const itemDelete = btnDeleteSidebar.closest('.acuerdo-sidebar-item');
-                const idAcuerdoEliminar = parseInt(itemDelete?.dataset.idAcuerdo || '0', 10);
-                if (!idAcuerdoEliminar) return;
+        cargarMatriz(idAcuerdo);
 
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Romper acuerdo',
-                    text: 'Esta acción eliminará el acuerdo y su matriz.',
-                    showCancelButton: true,
-                    confirmButtonText: 'Eliminar acuerdo',
-                    cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#dc3545'
-                }).then(async (confirm) => {
-                    if (!confirm.isConfirmed) return;
-                    try {
-                        await postForm(urls.eliminarAcuerdo, { id_acuerdo: idAcuerdoEliminar });
-                        const acuerdoActual = getAcuerdoId();
-                        if (acuerdoActual === idAcuerdoEliminar) {
-                            softReloadSPA('?ruta=comercial/listas');
-                            return;
-                        }
-                        itemDelete.remove();
-                        const empty = document.getElementById('sidebarNoResults');
-                        const totalItems = sidebarList.querySelectorAll('.acuerdo-sidebar-item').length;
-                        if (empty && totalItems === 0) {
-                            empty.textContent = 'No hay clientes vinculados.';
-                            empty.classList.remove('d-none');
-                            empty.classList.add('d-block');
-                        }
-                    } catch (err) {
-                        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
-                    }
-                });
-                return;
-            }
+        const offcanvasEl = document.getElementById('sidebarClientesMenu');
+        if (offcanvasEl) {
+            const offcanvasInst = bootstrap.Offcanvas.getInstance(offcanvasEl);
+            if (offcanvasInst) offcanvasInst.hide();
+        }
+    });
 
-            const item = e.target.closest('.acuerdo-sidebar-item');
-            if (!item) return;
-            e.preventDefault();
-            
-            const idAcuerdo = parseInt(item.dataset.idAcuerdo || '0', 10);
-            
-            document.querySelectorAll('.acuerdo-sidebar-item').forEach(el => el.classList.remove('active'));
-            item.classList.add('active');
-
-            const url = new URL(window.location.href);
-            url.searchParams.set('id', idAcuerdo);
-            window.history.pushState({ sisadminPartial: true }, '', url.toString());
-
-            cargarMatriz(idAcuerdo);
-
-            const offcanvasEl = document.getElementById('sidebarClientesMenu');
-            if (offcanvasEl) {
-                const offcanvasInst = bootstrap.Offcanvas.getInstance(offcanvasEl);
-                if (offcanvasInst) {
-                    offcanvasInst.hide();
-                }
-            }
-        });
-    }
-
-    if (filtroMatriz) {
-        filtroMatriz.addEventListener('input', aplicarFiltroMatriz);
-    }
+    bindEvent(filtroMatriz, 'input', aplicarFiltroMatriz);
 
     const loadClientesDisponibles = async () => {
         const res = await fetch(urls.clientesDisponibles, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
@@ -408,12 +413,7 @@ function initComercialApp() {
         if (selectCliente) {
             selectCliente.innerHTML = '';
             tsCliente = new TomSelect(selectCliente, {
-                options,
-                maxItems: 1, 
-                create: false,
-                valueField: 'value',
-                labelField: 'text',
-                searchField: ['text'],
+                options, maxItems: 1, create: false, valueField: 'value', labelField: 'text', searchField: ['text'],
                 placeholder: options.length ? 'Seleccione un cliente...' : 'Sin clientes disponibles'
             });
         }
@@ -430,12 +430,7 @@ function initComercialApp() {
         if (selectPresentacion) {
             selectPresentacion.innerHTML = '';
             tsPresentacion = new TomSelect(selectPresentacion, {
-                options,
-                maxItems: 1, 
-                create: false,
-                valueField: 'value',
-                labelField: 'text',
-                searchField: ['text'],
+                options, maxItems: 1, create: false, valueField: 'value', labelField: 'text', searchField: ['text'],
                 placeholder: options.length ? 'Seleccione un producto...' : 'Sin productos disponibles'
             });
         }
@@ -451,238 +446,191 @@ function initComercialApp() {
         if (selectItemVolumen) {
             selectItemVolumen.innerHTML = '';
             tsItemVolumen = new TomSelect(selectItemVolumen, {
-                options,
-                maxItems: 1, 
-                create: false,
-                valueField: 'value',
-                labelField: 'text',
-                searchField: ['text'],
+                options, maxItems: 1, create: false, valueField: 'value', labelField: 'text', searchField: ['text'],
                 placeholder: options.length ? 'Seleccione un producto...' : 'Sin productos disponibles'
             });
         }
     };
 
-    if (modalVincularEl) {
-        modalVincularEl.addEventListener('show.bs.modal', async () => {
-            try { await loadClientesDisponibles(); } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
-        });
-    }
+    bindEvent(modalVincularEl, 'show.bs.modal', async () => {
+        try { await loadClientesDisponibles(); } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
+    });
 
-    if (formVincular) {
-        formVincular.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const idTercero = tsCliente ? tsCliente.getValue() : '';
-            if (!idTercero) return Swal.fire({ icon: 'warning', title: 'Seleccione un cliente' });
-            try {
-                const resp = await postForm(urls.crearAcuerdo, { id_tercero: idTercero, observaciones: inputObs ? inputObs.value : '' });
-                if (modalVincular) modalVincular.hide();
-                softReloadSPA(`?ruta=comercial/listas&id=${resp.id}`);
-            } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
-        });
-    }
+    bindEvent(formVincular, 'submit', async (e) => {
+        e.preventDefault();
+        const idTercero = tsCliente ? tsCliente.getValue() : '';
+        if (!idTercero) return Swal.fire({ icon: 'warning', title: 'Seleccione un cliente' });
+        try {
+            const resp = await postForm(urls.crearAcuerdo, { id_tercero: idTercero, observaciones: inputObs ? inputObs.value : '' });
+            if (modalVincular) modalVincular.hide();
+            await showSuccessAlert('¡Acuerdo Creado!', 'El cliente fue vinculado correctamente.');
+            softReloadSPA(`?ruta=comercial/listas&id=${resp.id}`);
+        } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
+    });
 
-    if (btnAgregarProducto) {
-        btnAgregarProducto.addEventListener('click', async () => {
-            try {
-                if (getModo() === 'volumen') {
-                    await loadItemsVolumen();
-                    if (inputCantidadMinimaVolumen) inputCantidadMinimaVolumen.value = '';
-                    if (inputPrecioUnitarioVolumen) inputPrecioUnitarioVolumen.value = '';
-                    if (modalVolumen) modalVolumen.show();
-                } else {
-                    await loadPresentacionesDisponibles();
-                    if (inputPrecioInicial) inputPrecioInicial.value = '';
-                    if (modalAgregar) modalAgregar.show();
-                }
-            } catch (err) {
-                Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+    bindEvent(btnAgregarProducto, 'click', async () => {
+        try {
+            if (getModo() === 'volumen') {
+                await loadItemsVolumen();
+                if (inputCantidadMinimaVolumen) inputCantidadMinimaVolumen.value = '';
+                if (inputPrecioUnitarioVolumen) inputPrecioUnitarioVolumen.value = '';
+                if (modalVolumen) modalVolumen.show();
+            } else {
+                await loadPresentacionesDisponibles();
+                if (inputPrecioInicial) inputPrecioInicial.value = '';
+                if (modalAgregar) modalAgregar.show();
             }
-        });
-    }
+        } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
+    });
 
-    if (formAgregar) {
-        formAgregar.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const idAcuerdo = getAcuerdoId();
-            const idPresentacion = tsPresentacion ? tsPresentacion.getValue() : '';
-            const precio = inputPrecioInicial ? parseFloat(inputPrecioInicial.value || '0') : 0;
-            if (!idAcuerdo || !idPresentacion || precio <= 0) return Swal.fire({ icon: 'warning', title: 'Datos incompletos' });
-            try {
-                await postForm(urls.agregarProducto, { id_acuerdo: idAcuerdo, id_presentacion: idPresentacion, precio_pactado: precio });
-                if (modalAgregar) modalAgregar.hide();
-                cargarMatriz(idAcuerdo); 
-            } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
-        });
-    }
+    bindEvent(formAgregar, 'submit', async (e) => {
+        e.preventDefault();
+        const idAcuerdo = getAcuerdoId();
+        const idPresentacion = tsPresentacion ? tsPresentacion.getValue() : '';
+        const precio = inputPrecioInicial ? parseFloat(inputPrecioInicial.value || '0') : 0;
+        if (!idAcuerdo || !idPresentacion || precio <= 0) return Swal.fire({ icon: 'warning', title: 'Datos incompletos' });
+        try {
+            await postForm(urls.agregarProducto, { id_acuerdo: idAcuerdo, id_presentacion: idPresentacion, precio_pactado: precio });
+            if (modalAgregar) modalAgregar.hide();
+            showSuccessAlert('Producto agregado a la lista');
+            cargarMatriz(idAcuerdo); 
+        } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
+    });
 
-    if (formVolumen) {
-        formVolumen.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const idItem = tsItemVolumen ? tsItemVolumen.getValue() : '';
-            const cantidad = inputCantidadMinimaVolumen ? parseFloat(inputCantidadMinimaVolumen.value || '0') : 0;
-            const precio = inputPrecioUnitarioVolumen ? parseFloat(inputPrecioUnitarioVolumen.value || '0') : 0;
-            if (!idItem || cantidad <= 0 || precio <= 0) return Swal.fire({ icon: 'warning', title: 'Datos incompletos' });
-            try {
-                await postForm(urls.agregarVolumen, { id_item: idItem, cantidad_minima: cantidad, precio_unitario: precio });
-                if (modalVolumen) modalVolumen.hide();
-                cargarMatriz(getAcuerdoId()); 
-            } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
-        });
-    }
+    bindEvent(formVolumen, 'submit', async (e) => {
+        e.preventDefault();
+        const idItem = tsItemVolumen ? tsItemVolumen.getValue() : '';
+        const cantidad = inputCantidadMinimaVolumen ? parseFloat(inputCantidadMinimaVolumen.value || '0') : 0;
+        const precio = inputPrecioUnitarioVolumen ? parseFloat(inputPrecioUnitarioVolumen.value || '0') : 0;
+        if (!idItem || cantidad <= 0 || precio <= 0) return Swal.fire({ icon: 'warning', title: 'Datos incompletos' });
+        try {
+            await postForm(urls.agregarVolumen, { id_item: idItem, cantidad_minima: cantidad, precio_unitario: precio });
+            if (modalVolumen) modalVolumen.hide();
+            showSuccessAlert('Escala por volumen agregada');
+            cargarMatriz(getAcuerdoId()); 
+        } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
+    });
 
-    if (tbody) {
-        // Blur general para edición Inline (Ambos Modos)
-        tbody.addEventListener('blur', async (e) => {
-            const tr = e.target.closest('tr');
-            if (!tr) return;
-            const idDetalle = parseInt(tr.dataset.idDetalle || '0', 10);
-            if (!idDetalle) return;
+    bindEvent(tbody, 'blur', async (e) => {
+        const tr = e.target.closest('tr');
+        if (!tr) return;
+        const idDetalle = parseInt(tr.dataset.idDetalle || '0', 10);
+        if (!idDetalle) return;
 
-            try {
-                if (e.target.classList.contains('js-precio-pactado')) {
-                    const precio = parseFloat(e.target.value || '0');
-                    if (precio < 0) return;
-                    await postForm(urls.actualizarPrecio, { id_detalle: idDetalle, precio_pactado: precio });
-                    e.target.value = precio.toFixed(4); 
-                    e.target.setAttribute('data-original', e.target.value);
-                }
-                
-                if (e.target.classList.contains('js-cantidad-minima') || e.target.classList.contains('js-precio-volumen')) {
-                    const cantInput = tr.querySelector('.js-cantidad-minima');
-                    const precInput = tr.querySelector('.js-precio-volumen');
-                    
-                    const cantidad = parseFloat(cantInput.value || '0');
-                    const precioVol = parseFloat(precInput.value || '0');
-                    
-                    if (cantidad <= 0 || precioVol < 0) return;
-                    
-                    await postForm(urls.actualizarVolumen, { id_detalle: idDetalle, cantidad_minima: cantidad, precio_unitario: precioVol });
-                    
-                    cantInput.value = cantidad.toFixed(2);
-                    precInput.value = precioVol.toFixed(4);
-                    cantInput.setAttribute('data-original', cantInput.value);
-                    precInput.setAttribute('data-original', precInput.value);
-                }
-                
-                e.target.classList.add('is-valid');
-                setTimeout(() => e.target.classList.remove('is-valid'), 900);
-            } catch (_err) {
-                e.target.value = e.target.getAttribute('data-original');
-                e.target.classList.add('is-invalid');
-                setTimeout(() => e.target.classList.remove('is-invalid'), 1400);
+        try {
+            let actualizado = false;
+
+            if (e.target.classList.contains('js-precio-pactado')) {
+                const precio = parseFloat(e.target.value || '0');
+                if (precio < 0) return;
+                await postForm(urls.actualizarPrecio, { id_detalle: idDetalle, precio_pactado: precio });
+                e.target.value = precio.toFixed(4); 
+                e.target.setAttribute('data-original', e.target.value);
+                actualizado = true;
             }
-        }, true);
-
-        tbody.addEventListener('change', async (e) => {
-            if (!e.target.classList.contains('js-estado-precio')) return;
-            const tr = e.target.closest('tr');
-            const idDetalle = parseInt((tr?.dataset.idDetalle) || '0', 10);
-            try { await postForm(urls.togglePrecio, { id_detalle: idDetalle, estado: e.target.checked ? 1 : 0 }); }
-            catch (err) { e.target.checked = !e.target.checked; Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
-        });
-
-        // Manejo de botones de eliminación
-        tbody.addEventListener('click', async (e) => {
-            const btnDeleteAcuerdo = e.target.closest('.js-eliminar-producto');
-            const btnDeleteVolumen = e.target.closest('.js-eliminar-volumen');
-            if (!btnDeleteAcuerdo && !btnDeleteVolumen) return;
             
-            const tr = e.target.closest('tr');
-            const idDetalle = parseInt((tr?.dataset.idDetalle) || '0', 10);
-            const idAcuerdo = getAcuerdoId();
-
-            const confirm = await Swal.fire({
-                icon: 'warning',
-                title: 'Eliminar registro',
-                text: '¿Deseas retirar esta tarifa de la matriz?',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#dc3545'
-            });
-            if (!confirm.isConfirmed) return;
-
-            try {
-                if (btnDeleteVolumen) await postForm(urls.eliminarVolumen, { id_detalle: idDetalle });
-                else await postForm(urls.eliminarProducto, { id_detalle: idDetalle });
-                cargarMatriz(idAcuerdo); 
-            } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
-        });
-    }
-
-    if (btnSuspender) {
-        btnSuspender.addEventListener('click', async () => {
-            const idAcuerdo = getAcuerdoId();
-            if (!idAcuerdo) return;
-            const confirm = await Swal.fire({ icon: 'question', title: 'Suspender acuerdo', text: 'Se dejarán de aplicar estas tarifas.', showCancelButton: true, confirmButtonText: 'Suspender' });
-            if (!confirm.isConfirmed) return;
-            try { 
-                await postForm(urls.suspenderAcuerdo, { id_acuerdo: idAcuerdo }); 
-                cargarMatriz(idAcuerdo); 
+            if (e.target.classList.contains('js-cantidad-minima') || e.target.classList.contains('js-precio-volumen')) {
+                const cantInput = tr.querySelector('.js-cantidad-minima');
+                const precInput = tr.querySelector('.js-precio-volumen');
+                
+                const cantidad = parseFloat(cantInput.value || '0');
+                const precioVol = parseFloat(precInput.value || '0');
+                
+                if (cantidad <= 0 || precioVol < 0) return;
+                
+                await postForm(urls.actualizarVolumen, { id_detalle: idDetalle, cantidad_minima: cantidad, precio_unitario: precioVol });
+                
+                cantInput.value = cantidad.toFixed(2);
+                precInput.value = precioVol.toFixed(4);
+                cantInput.setAttribute('data-original', cantInput.value);
+                precInput.setAttribute('data-original', precInput.value);
+                actualizado = true;
             }
-            catch (err) { Swal.fire({ icon: 'warning', title: 'No se pudo suspender', text: err.message }); }
-        });
-    }
-
-    if (btnActivar) {
-        btnActivar.addEventListener('click', async () => {
-            const idAcuerdo = getAcuerdoId();
-            if (!idAcuerdo) return;
-            try { 
-                await postForm(urls.activarAcuerdo, { id_acuerdo: idAcuerdo }); 
-                cargarMatriz(idAcuerdo); 
-            }
-            catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
-        });
-    }
-
-    if (btnEliminar) {
-        btnEliminar.addEventListener('click', async () => {
-            const idAcuerdo = getAcuerdoId();
-            if (!idAcuerdo) return;
-            const confirm = await Swal.fire({ icon: 'warning', title: 'Romper acuerdo', text: 'Esta acción eliminará el acuerdo y su matriz.', showCancelButton: true, confirmButtonText: 'Eliminar acuerdo', confirmButtonColor: '#dc3545' });
-            if (!confirm.isConfirmed) return;
-            try { 
-                await postForm(urls.eliminarAcuerdo, { id_acuerdo: idAcuerdo }); 
-                softReloadSPA('?ruta=comercial/listas'); 
-            }
-            catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
-        });
-    }
-
-    window.toggleAcordeonVolumen = function(grupoId, headerRow) {
-        document.querySelectorAll('tr[class*="escala-grupo-"]').forEach(fila => {
-            if (!fila.classList.contains('escala-' + grupoId)) {
-                fila.style.display = 'none';
-            }
-        });
-
-        document.querySelectorAll('.js-chevron').forEach(icono => {
-            if (icono !== headerRow.querySelector('.js-chevron')) {
-                icono.classList.remove('bi-chevron-up');
-                icono.classList.add('bi-chevron-down');
-            }
-        });
-
-        const filas = document.querySelectorAll('.escala-' + grupoId);
-        const chevron = headerRow.querySelector('.js-chevron');
-
-        if (filas.length === 0) return;
-
-        const estanOcultas = filas[0].style.display === 'none';
-
-        filas.forEach(fila => {
-            fila.style.display = estanOcultas ? 'table-row' : 'none';
-        });
-
-        if (estanOcultas) {
-            chevron.classList.remove('bi-chevron-down');
-            chevron.classList.add('bi-chevron-up'); 
-        } else {
-            chevron.classList.remove('bi-chevron-up');
-            chevron.classList.add('bi-chevron-down'); 
+            
+            if(actualizado) showSuccessAlert('Registro actualizado');
+            
+            e.target.classList.add('is-valid');
+            setTimeout(() => e.target.classList.remove('is-valid'), 900);
+        } catch (_err) {
+            e.target.value = e.target.getAttribute('data-original');
+            e.target.classList.add('is-invalid');
+            setTimeout(() => e.target.classList.remove('is-invalid'), 1400);
         }
-    };
+    }, true);
+
+    bindEvent(tbody, 'change', async (e) => {
+        if (!e.target.classList.contains('js-estado-precio')) return;
+        const tr = e.target.closest('tr');
+        const idDetalle = parseInt((tr?.dataset.idDetalle) || '0', 10);
+        const estadoNuevo = e.target.checked ? 1 : 0;
+        try { 
+            await postForm(urls.togglePrecio, { id_detalle: idDetalle, estado: estadoNuevo }); 
+            showSuccessAlert(estadoNuevo ? 'Precio activado' : 'Precio desactivado');
+        }
+        catch (err) { e.target.checked = !e.target.checked; Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
+    });
+
+    bindEvent(tbody, 'click', async (e) => {
+        const btnDeleteAcuerdo = e.target.closest('.js-eliminar-producto');
+        const btnDeleteVolumen = e.target.closest('.js-eliminar-volumen');
+        if (!btnDeleteAcuerdo && !btnDeleteVolumen) return;
+        
+        const tr = e.target.closest('tr');
+        const idDetalle = parseInt((tr?.dataset.idDetalle) || '0', 10);
+        const idAcuerdo = getAcuerdoId();
+
+        const confirm = await Swal.fire({
+            icon: 'warning', title: 'Eliminar registro', text: '¿Deseas retirar esta tarifa de la matriz?',
+            showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', confirmButtonColor: '#dc3545'
+        });
+        if (!confirm.isConfirmed) return;
+
+        try {
+            if (btnDeleteVolumen) await postForm(urls.eliminarVolumen, { id_detalle: idDetalle });
+            else await postForm(urls.eliminarProducto, { id_detalle: idDetalle });
+            showSuccessAlert('Tarifa eliminada correctamente');
+            cargarMatriz(idAcuerdo); 
+        } catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
+    });
+
+    bindEvent(btnSuspender, 'click', async () => {
+        const idAcuerdo = getAcuerdoId();
+        if (!idAcuerdo) return;
+        const confirm = await Swal.fire({ icon: 'question', title: 'Suspender acuerdo', text: 'Se dejarán de aplicar estas tarifas temporalmente.', showCancelButton: true, confirmButtonText: 'Suspender' });
+        if (!confirm.isConfirmed) return;
+        try { 
+            await postForm(urls.suspenderAcuerdo, { id_acuerdo: idAcuerdo }); 
+            showSuccessAlert('Acuerdo suspendido');
+            cargarMatriz(idAcuerdo); 
+        }
+        catch (err) { Swal.fire({ icon: 'warning', title: 'No se pudo suspender', text: err.message }); }
+    });
+
+    bindEvent(btnActivar, 'click', async () => {
+        const idAcuerdo = getAcuerdoId();
+        if (!idAcuerdo) return;
+        const confirm = await Swal.fire({ icon: 'question', title: 'Activar acuerdo', text: 'Las tarifas volverán a aplicarse a este cliente.', showCancelButton: true, confirmButtonText: 'Activar' });
+        if (!confirm.isConfirmed) return;
+        try { 
+            await postForm(urls.activarAcuerdo, { id_acuerdo: idAcuerdo }); 
+            showSuccessAlert('Acuerdo activado');
+            cargarMatriz(idAcuerdo); 
+        }
+        catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
+    });
+
+    bindEvent(btnEliminar, 'click', async () => {
+        const idAcuerdo = getAcuerdoId();
+        if (!idAcuerdo) return;
+        const confirm = await Swal.fire({ icon: 'warning', title: 'Romper acuerdo', text: 'Esta acción eliminará el acuerdo y su matriz permanentemente.', showCancelButton: true, confirmButtonText: 'Eliminar acuerdo', confirmButtonColor: '#dc3545' });
+        if (!confirm.isConfirmed) return;
+        try { 
+            await postForm(urls.eliminarAcuerdo, { id_acuerdo: idAcuerdo }); 
+            await showSuccessAlert('Acuerdo eliminado');
+            softReloadSPA('?ruta=comercial/listas'); 
+        }
+        catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.message }); }
+    });
 }
 
 function initComercialProveedorApp() {
@@ -720,8 +668,8 @@ function initComercialProveedorApp() {
     const btnImprimirProveedor = document.getElementById('btnImprimirAcuerdoProveedor');
     const selectUnidad = document.getElementById('selectUnidadProveedor');
 
-    const modalVincular = modalVincularEl ? new bootstrap.Modal(modalVincularEl) : null;
-    const modalAgregar = modalAgregarEl ? new bootstrap.Modal(modalAgregarEl) : null;
+    const modalVincular = modalVincularEl ? bootstrap.Modal.getOrCreateInstance(modalVincularEl) : null;
+    const modalAgregar = modalAgregarEl ? bootstrap.Modal.getOrCreateInstance(modalAgregarEl) : null;
 
     const cacheUnidades = new Map();
     const getAcuerdoId = () => (tabla ? parseInt(tabla.dataset.idAcuerdo || '0', 10) || 0 : 0);
@@ -737,12 +685,8 @@ function initComercialProveedorApp() {
     };
 
     const softReloadSPA = (newUrlString = null) => {
-        if (typeof window.navigateWithoutReload === 'function') {
-            const urlTarget = newUrlString ? new URL(newUrlString, window.location.origin) : new URL(window.location.href);
-            window.navigateWithoutReload(urlTarget, false);
-        } else {
-            window.location.href = newUrlString || window.location.href;
-        }
+        const urlTarget = newUrlString ? new URL(newUrlString, window.location.href) : window.location.href;
+        window.location.href = urlTarget.toString();
     };
 
     const obtenerUnidadesItem = async (idItem) => {
@@ -782,22 +726,12 @@ function initComercialProveedorApp() {
 
     const aplicarFiltroMatriz = () => {
         if (!tbody || !filtroMatriz) return;
-        const terminosBusqueda = (filtroMatriz.value || '')
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .toLowerCase()
-            .trim()
-            .split(' ')
-            .filter(Boolean);
-
+        const terminosBusqueda = (filtroMatriz.value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().split(' ').filter(Boolean);
         const filas = Array.from(tbody.querySelectorAll('tr[data-id-detalle]'));
         let visibles = 0;
 
         filas.forEach((fila) => {
-            const textoFila = (fila.textContent || '')
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '')
-                .toLowerCase();
+            const textoFila = (fila.textContent || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
             const coincide = terminosBusqueda.every((termino) => textoFila.includes(termino));
             const mostrar = terminosBusqueda.length === 0 || coincide;
             fila.classList.toggle('d-none', !mostrar);
@@ -808,21 +742,10 @@ function initComercialProveedorApp() {
         if (filaVacia) {
             const sinDatosOriginales = filas.length === 0;
             filaVacia.classList.toggle('d-none', !sinDatosOriginales && visibles > 0);
-            if (!sinDatosOriginales) {
-                filaVacia.querySelector('td').innerHTML = `
-                    <i class="bi bi-search text-muted fs-1 d-block mb-2"></i>
-                    No hay coincidencias para la búsqueda.
-                `;
-            }
         } else if (filas.length > 0 && visibles === 0) {
             const nuevaFilaVacia = document.createElement('tr');
             nuevaFilaVacia.id = 'emptyMatrizProveedorRow';
-            nuevaFilaVacia.innerHTML = `
-                <td colspan="5" class="text-center text-muted py-5">
-                    <i class="bi bi-search text-muted fs-1 d-block mb-2"></i>
-                    No hay coincidencias para la búsqueda.
-                </td>
-            `;
+            nuevaFilaVacia.innerHTML = `<td colspan="5" class="text-center text-muted py-5"><i class="bi bi-search text-muted fs-1 d-block mb-2"></i>No hay coincidencias para la búsqueda.</td>`;
             tbody.appendChild(nuevaFilaVacia);
         }
     };
@@ -835,9 +758,7 @@ function initComercialProveedorApp() {
             const idItem = parseInt(fila.dataset.idItem || '0', 10);
             if (!select || !idItem) return;
             const unidades = await obtenerUnidadesItem(idItem);
-            const opciones = ['<option value="">Unidad Base (x 1)</option>']
-                .concat(unidades.map((u) => `<option value="${u.id}">${u.nombre} (x ${parseFloat(u.factor_conversion || 1)})</option>`))
-                .join('');
+            const opciones = ['<option value="">Unidad Base (x 1)</option>'].concat(unidades.map((u) => `<option value="${u.id}">${u.nombre} (x ${parseFloat(u.factor_conversion || 1)})</option>`)).join('');
             select.innerHTML = opciones;
             select.value = select.dataset.original === '0' ? '' : (select.dataset.original || '');
         }));
@@ -850,9 +771,7 @@ function initComercialProveedorApp() {
         const totalProductos = (json.matriz || []).length;
         if (tabla) tabla.dataset.idAcuerdo = String(idAcuerdo);
         if (titulo) titulo.textContent = json.acuerdo.proveedor_nombre;
-        if (btnImprimirProveedor) {
-            btnImprimirProveedor.href = `?ruta=comercial/imprimirAcuerdoPdf&tipo=proveedores&id=${encodeURIComponent(String(idAcuerdo))}`;
-        }
+        if (btnImprimirProveedor) btnImprimirProveedor.href = `?ruta=comercial/imprimirAcuerdoPdf&tipo=proveedores&id=${encodeURIComponent(String(idAcuerdo))}`;
         if (resumen) resumen.textContent = `${totalProductos} productos configurados`;
         renderRows(json.matriz || []);
         await hidratarUnidadesTabla();
@@ -864,158 +783,152 @@ function initComercialProveedorApp() {
             if (counterText) counterText.textContent = `${totalProductos} productos`;
             const dotEl = sidebarItem.querySelector('.rounded-circle');
             if (dotEl && json.acuerdo) {
-                const isActive = parseInt(json.acuerdo.estado, 10) === 1;
-                dotEl.style.background = isActive ? '#22c55e' : '#9ca3af';
+                dotEl.style.background = parseInt(json.acuerdo.estado, 10) === 1 ? '#22c55e' : '#9ca3af';
             }
         }
     };
 
-    if (sidebarList) {
-        sidebarList.addEventListener('click', async (e) => {
-            const item = e.target.closest('.proveedor-sidebar-item');
-            if (!item) return;
-            const idAcuerdo = parseInt(item.dataset.idAcuerdo || '0', 10);
-            document.querySelectorAll('.proveedor-sidebar-item').forEach(el => el.classList.remove('active'));
-            item.classList.add('active');
-            try { await cargarMatriz(idAcuerdo); } catch (err) { Swal.fire('Error', err.message, 'error'); }
+    bindEvent(sidebarList, 'click', async (e) => {
+        const item = e.target.closest('.proveedor-sidebar-item');
+        if (!item) return;
+        const idAcuerdo = parseInt(item.dataset.idAcuerdo || '0', 10);
+        document.querySelectorAll('.proveedor-sidebar-item').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+        try { await cargarMatriz(idAcuerdo); } catch (err) { Swal.fire('Error', err.message, 'error'); }
+    });
+
+    bindEvent(filtro, 'input', () => {
+        const term = (filtro.value || '').trim().toLowerCase();
+        let visible = 0;
+        sidebarList.querySelectorAll('.proveedor-sidebar-item').forEach((row) => {
+            const ok = row.dataset.search.includes(term);
+            row.classList.toggle('d-none', !ok);
+            if (ok) visible++;
         });
-    }
+        const noResults = document.getElementById('sidebarProveedorNoResults');
+        if (noResults) noResults.classList.toggle('d-none', visible > 0);
+    });
 
-    if (filtro && sidebarList) {
-        filtro.addEventListener('input', () => {
-            const term = (filtro.value || '').trim().toLowerCase();
-            let visible = 0;
-            sidebarList.querySelectorAll('.proveedor-sidebar-item').forEach((row) => {
-                const ok = row.dataset.search.includes(term);
-                row.classList.toggle('d-none', !ok);
-                if (ok) visible++;
-            });
-            const noResults = document.getElementById('sidebarProveedorNoResults');
-            if (noResults) noResults.classList.toggle('d-none', visible > 0);
-        });
-    }
+    bindEvent(filtroMatriz, 'input', aplicarFiltroMatriz);
 
-    if (filtroMatriz) {
-        filtroMatriz.addEventListener('input', aplicarFiltroMatriz);
-    }
+    bindEvent(modalVincularEl, 'show.bs.modal', async () => {
+        const res = await fetch(urls.proveedoresDisponibles, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const json = await res.json();
+        const opciones = (json.data || []).map(p => `<option value="${p.id}">${p.proveedor_nombre}</option>`).join('');
+        selectProveedor.innerHTML = `<option value="">Seleccione...</option>${opciones}`;
+    });
 
-    if (formVincular) {
-        modalVincularEl?.addEventListener('show.bs.modal', async () => {
-            const res = await fetch(urls.proveedoresDisponibles, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+    bindEvent(formVincular, 'submit', async (e) => {
+        e.preventDefault();
+        try {
+            const resp = await postForm(urls.crearAcuerdo, { id_tercero: selectProveedor.value });
+            modalVincular?.hide();
+            await showSuccessAlert('Proveedor Vinculado', 'Se ha creado la configuración de matriz.');
+            softReloadSPA(`?ruta=comercial/proveedores&id=${resp.id}`);
+        } catch (err) { Swal.fire('Error', err.message, 'error'); }
+    });
+
+    bindEvent(btnAgregar, 'click', async () => {
+        const idAcuerdo = getAcuerdoId();
+        if (!idAcuerdo) return;
+        try {
+            const res = await fetch(withParam(urls.itemsDisponibles, 'id_acuerdo', idAcuerdo), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             const json = await res.json();
-            const opciones = (json.data || []).map(p => `<option value="${p.id}">${p.proveedor_nombre}</option>`).join('');
-            selectProveedor.innerHTML = `<option value="">Seleccione...</option>${opciones}`;
-        });
-        formVincular.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            try {
-                const resp = await postForm(urls.crearAcuerdo, { id_tercero: selectProveedor.value });
-                modalVincular?.hide();
-                softReloadSPA(`?ruta=comercial/proveedores&id=${resp.id}`);
-            } catch (err) { Swal.fire('Error', err.message, 'error'); }
-        });
-    }
-
-    if (btnAgregar) {
-        btnAgregar.addEventListener('click', async () => {
-            const idAcuerdo = getAcuerdoId();
-            if (!idAcuerdo) return;
-            try {
-                const res = await fetch(withParam(urls.itemsDisponibles, 'id_acuerdo', idAcuerdo), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                const json = await res.json();
-                selectProducto.innerHTML = `<option value="">Seleccione...</option>${(json.data || []).map(i => `<option value="${i.id}">${i.producto_nombre}</option>`).join('')}`;
-                inputPrecio.value = '';
-                selectUnidad.innerHTML = '<option value="">Unidad Base (x 1)</option>';
-                modalAgregar?.show();
-            } catch (err) { Swal.fire('Error', err.message, 'error'); }
-        });
-    }
-
-    if (selectProducto && selectUnidad) {
-        selectProducto.addEventListener('change', async () => {
-            const idItem = parseInt(selectProducto.value || '0', 10);
+            selectProducto.innerHTML = `<option value="">Seleccione...</option>${(json.data || []).map(i => `<option value="${i.id}">${i.producto_nombre}</option>`).join('')}`;
+            inputPrecio.value = '';
             selectUnidad.innerHTML = '<option value="">Unidad Base (x 1)</option>';
-            if (!idItem) return;
+            modalAgregar?.show();
+        } catch (err) { Swal.fire('Error', err.message, 'error'); }
+    });
+
+    bindEvent(selectProducto, 'change', async () => {
+        const idItem = parseInt(selectProducto.value || '0', 10);
+        selectUnidad.innerHTML = '<option value="">Unidad Base (x 1)</option>';
+        if (!idItem) return;
+        try {
+            const unidades = await obtenerUnidadesItem(idItem);
+            if (unidades.length > 0) {
+                selectUnidad.innerHTML += unidades.map((u) => `<option value="${u.id}">${u.nombre} (x ${parseFloat(u.factor_conversion || 1)})</option>`).join('');
+            }
+        } catch (err) { console.error('Error buscando unidades:', err); }
+    });
+
+    bindEvent(formAgregar, 'submit', async (e) => {
+        e.preventDefault();
+        const idAcuerdo = getAcuerdoId();
+        try {
+            await postForm(urls.agregarProducto, {
+                id_acuerdo: idAcuerdo, id_item: selectProducto.value, id_unidad: selectUnidad?.value || '', precio_recomendado: inputPrecio.value,
+            });
+            modalAgregar?.hide();
+            showSuccessAlert('Recomendación guardada');
+            await cargarMatriz(idAcuerdo);
+        } catch (err) { Swal.fire('Error', err.message, 'error'); }
+    });
+
+    bindEvent(tbody, 'change', async (e) => {
+        const fila = e.target.closest('tr');
+        const idDetalle = parseInt(fila?.dataset.idDetalle || '0', 10);
+        if (!idDetalle) return;
+
+        if (e.target.classList.contains('js-precio-proveedor')) {
             try {
-                const unidades = await obtenerUnidadesItem(idItem);
-                if (unidades.length > 0) {
-                    selectUnidad.innerHTML += unidades.map((u) => `<option value="${u.id}">${u.nombre} (x ${parseFloat(u.factor_conversion || 1)})</option>`).join('');
-                }
+                await postForm(urls.actualizarPrecio, { id_detalle: idDetalle, precio_recomendado: e.target.value });
+                e.target.dataset.original = e.target.value;
+                showSuccessAlert('Precio actualizado');
             } catch (err) {
-                console.error('Error buscando las unidades:', err);
+                e.target.value = e.target.dataset.original || '0.0000';
+                Swal.fire('Error', err.message, 'error');
             }
-        });
-    }
+            return;
+        }
 
-    if (formAgregar) {
-        formAgregar.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const idAcuerdo = getAcuerdoId();
+        if (e.target.classList.contains('js-unidad-proveedor')) {
             try {
-                await postForm(urls.agregarProducto, {
-                    id_acuerdo: idAcuerdo,
-                    id_item: selectProducto.value,
-                    id_unidad: selectUnidad?.value || '',
-                    precio_recomendado: inputPrecio.value,
-                });
-                modalAgregar?.hide();
-                await cargarMatriz(idAcuerdo);
-            } catch (err) { Swal.fire('Error', err.message, 'error'); }
-        });
-    }
-
-    if (tbody) {
-        tbody.addEventListener('change', async (e) => {
-            const fila = e.target.closest('tr');
-            const idDetalle = parseInt(fila?.dataset.idDetalle || '0', 10);
-            if (!idDetalle) return;
-
-            if (e.target.classList.contains('js-precio-proveedor')) {
-                try {
-                    await postForm(urls.actualizarPrecio, { id_detalle: idDetalle, precio_recomendado: e.target.value });
-                    e.target.dataset.original = e.target.value;
-                } catch (err) {
-                    e.target.value = e.target.dataset.original || '0.0000';
-                    Swal.fire('Error', err.message, 'error');
-                }
-                return;
+                await postForm(urls.actualizarPrecio, { id_detalle: idDetalle, id_unidad: e.target.value });
+                e.target.dataset.original = e.target.value || '0';
+                showSuccessAlert('Unidad de compra actualizada');
+            } catch (err) {
+                e.target.value = e.target.dataset.original === '0' ? '' : e.target.dataset.original;
+                Swal.fire('Error', err.message, 'error');
             }
+        }
+    });
 
-            if (e.target.classList.contains('js-unidad-proveedor')) {
-                try {
-                    await postForm(urls.actualizarPrecio, { id_detalle: idDetalle, id_unidad: e.target.value });
-                    e.target.dataset.original = e.target.value || '0';
-                } catch (err) {
-                    e.target.value = e.target.dataset.original === '0' ? '' : e.target.dataset.original;
-                    Swal.fire('Error', err.message, 'error');
-                }
-            }
-        });
-
-        tbody.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.js-eliminar-precio-proveedor');
-            if (!btn) return;
-            const fila = btn.closest('tr');
-            const idDetalle = parseInt(fila?.dataset.idDetalle || '0', 10);
-            if (!idDetalle) return;
-            const conf = await Swal.fire({ icon: 'warning', title: 'Eliminar producto', text: 'Se quitará la recomendación de precio.', showCancelButton: true });
-            if (!conf.isConfirmed) return;
-            try {
-                await postForm(urls.eliminarPrecio, { id_detalle: idDetalle });
-                await cargarMatriz(getAcuerdoId());
-            } catch (err) { Swal.fire('Error', err.message, 'error'); }
-        });
-    }
+    bindEvent(tbody, 'click', async (e) => {
+        const btn = e.target.closest('.js-eliminar-precio-proveedor');
+        if (!btn) return;
+        const fila = btn.closest('tr');
+        const idDetalle = parseInt(fila?.dataset.idDetalle || '0', 10);
+        if (!idDetalle) return;
+        const conf = await Swal.fire({ icon: 'warning', title: 'Eliminar producto', text: 'Se quitará la recomendación de precio.', showCancelButton: true, confirmButtonText: 'Sí, eliminar', confirmButtonColor: '#dc3545' });
+        if (!conf.isConfirmed) return;
+        try {
+            await postForm(urls.eliminarPrecio, { id_detalle: idDetalle });
+            showSuccessAlert('Recomendación eliminada');
+            await cargarMatriz(getAcuerdoId());
+        } catch (err) { Swal.fire('Error', err.message, 'error'); }
+    });
 
     hidratarUnidadesTabla().catch(() => null);
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        initComercialApp();
-        initComercialProveedorApp();
-    });
-} else {
+// ---------------------------------------------------------
+// INICIALIZADOR GLOBAL (LA CLAVE DE LA SOLUCIÓN)
+// ---------------------------------------------------------
+const arrancarModulosComerciales = () => {
     initComercialApp();
     initComercialProveedorApp();
+};
+
+// 1. Carga inicial tradicional
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', arrancarModulosComerciales);
+} else {
+    arrancarModulosComerciales();
 }
+
+// 2. Integración silenciosa para navegaciones SPA (Livewire / Filament / Turbo)
+document.addEventListener('livewire:navigated', arrancarModulosComerciales);
+document.addEventListener('livewire:load', arrancarModulosComerciales);
+document.addEventListener('turbo:load', arrancarModulosComerciales);

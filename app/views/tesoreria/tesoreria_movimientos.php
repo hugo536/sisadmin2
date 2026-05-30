@@ -68,26 +68,6 @@ if (!empty($_GET['error'])) {
                     </select>
                 </div>
 
-                <div class="col-12 col-md-2">
-                    <label class="form-label small text-muted fw-bold mb-1">Módulo Origen</label>
-                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="origen">
-                        <option value="">Todos</option>
-                        <option value="CXC" <?= (($filtros['origen'] ?? '') === 'CXC') ? 'selected' : '' ?>>Cobros (CXC)</option>
-                        <option value="CXP" <?= (($filtros['origen'] ?? '') === 'CXP') ? 'selected' : '' ?>>Pagos (CXP)</option>
-                        <option value="TRANSFERENCIA" <?= (($filtros['origen'] ?? '') === 'TRANSFERENCIA') ? 'selected' : '' ?>>Transferencias</option>
-                    </select>
-                </div>
-                
-                <div class="col-12 col-md-2">
-                    <label class="form-label small text-muted fw-bold mb-1">Desde</label>
-                    <input type="date" name="fecha_desde" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-01')) ?>">
-                </div>
-                
-                <div class="col-12 col-md-2">
-                    <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
-                    <input type="date" name="fecha_hasta" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>">
-                </div>
-
                 <div class="col-12 col-md-3">
                     <label class="form-label small text-muted fw-bold mb-1">Método de Pago</label>
                     <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="id_metodo_pago">
@@ -106,6 +86,26 @@ if (!empty($_GET['error'])) {
                             <option value="Cheque" <?= (($filtros['id_metodo_pago'] ?? '') === 'Cheque') ? 'selected' : '' ?>>Cheque</option>
                         <?php endif; ?>
                     </select>
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <label class="form-label small text-muted fw-bold mb-1">Módulo Origen</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-medium" name="origen">
+                        <option value="">Todos</option>
+                        <option value="CXC" <?= (($filtros['origen'] ?? '') === 'CXC') ? 'selected' : '' ?>>Cobros (CXC)</option>
+                        <option value="CXP" <?= (($filtros['origen'] ?? '') === 'CXP') ? 'selected' : '' ?>>Pagos (CXP)</option>
+                        <option value="TRANSFERENCIA" <?= (($filtros['origen'] ?? '') === 'TRANSFERENCIA') ? 'selected' : '' ?>>Transferencias</option>
+                    </select>
+                </div>
+                
+                <div class="col-12 col-md-2">
+                    <label class="form-label small text-muted fw-bold mb-1">Desde</label>
+                    <input type="date" name="fecha_desde" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-01')) ?>">
+                </div>
+                
+                <div class="col-12 col-md-2">
+                    <label class="form-label small text-muted fw-bold mb-1">Hasta</label>
+                    <input type="date" name="fecha_hasta" class="form-control bg-light border-secondary-subtle shadow-sm" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>">
                 </div>
             </form>
         </div>
@@ -137,21 +137,20 @@ if (!empty($_GET['error'])) {
                            data-pagination-info="#movimientosPaginationInfo">
                         <thead class="bg-light border-bottom">
                             <tr>
-                                <th class="ps-4 text-secondary fw-semibold">ID</th>
-                                <th class="text-secondary fw-semibold">Fecha</th>
-                                <th class="text-secondary fw-semibold">Tipo</th>
+                                <th class="ps-4 text-secondary fw-semibold text-nowrap">Fecha</th>
+                                <th class="text-secondary fw-semibold text-nowrap">Tipo</th>
                                 <th class="text-secondary fw-semibold">Tercero</th>
-                                <th class="text-center text-secondary fw-semibold">Origen</th>
+                                <th class="text-center text-secondary fw-semibold text-nowrap">Origen</th>
                                 <th class="text-secondary fw-semibold">Cuenta</th>
-                                <th class="text-end text-dark fw-bold">Monto</th>
-                                <th class="text-center text-secondary fw-semibold">Estado</th>
-                                <th class="text-center pe-4 text-secondary fw-semibold">Acciones</th>
+                                <th class="text-end text-dark fw-bold text-nowrap">Monto</th>
+                                <th class="text-center text-secondary fw-semibold text-nowrap">Estado</th>
+                                <th class="text-center pe-4 text-secondary fw-semibold text-nowrap">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="movimientosTableBody">
                         <?php if (empty($movimientos)): ?>
                             <tr class="empty-msg-row border-bottom-0">
-                                <td colspan="9" class="text-center text-muted py-5">
+                                <td colspan="8" class="text-center text-muted py-5">
                                     <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
                                     No se encontraron transacciones con los filtros actuales.
                                 </td>
@@ -168,10 +167,11 @@ if (!empty($_GET['error'])) {
                                     } else {
                                         $tercero = (string) ($m['tercero_nombre'] ?? ('#' . (int) ($m['id_tercero'] ?? 0)));
                                     }
-                                    // 1. Obtenemos solo el nombre (ignoramos $m['cuenta_codigo'])
+                                    
+                                    // 1. Obtenemos solo el nombre
                                     $nombreCuenta = (string) ($m['cuenta_nombre'] ?? '');
 
-                                    // 2. Buscamos el método de pago (según tu BD suele ser 'metodo' o 'metodo_pago')
+                                    // 2. Buscamos el método de pago
                                     $metodoPago = (string) ($m['metodo'] ?? $m['metodo_pago'] ?? '');
 
                                     // 3. Armamos el texto final
@@ -186,11 +186,13 @@ if (!empty($_GET['error'])) {
                                     
                                     $montoColor = $tipo === 'COBRO' ? 'text-success' : 'text-danger';
                                     $montoSigno = $tipo === 'COBRO' ? '+' : '-';
+                                    
+                                    // 4. Formatear Fecha (Día/Mes/Año)
+                                    $fechaFormateada = !empty($m['fecha']) ? date('d/m/Y', strtotime($m['fecha'])) : '';
                                 ?>
                                 <tr class="border-bottom" data-search="<?= htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8') ?>">
-                                    <td class="ps-4 text-muted fw-medium align-top pt-3">#<?= (int) ($m['id'] ?? 0) ?></td>
-                                    <td class="align-top pt-3 text-muted"><?= e((string) ($m['fecha'] ?? '')) ?></td>
-                                    <td class="align-top pt-3 fw-semibold">
+                                    <td class="ps-4 align-top pt-3 text-muted text-nowrap"><?= e($fechaFormateada) ?></td>
+                                    <td class="align-top pt-3 fw-semibold text-nowrap">
                                         <?php if($tipo === 'COBRO'): ?>
                                             <span class="text-success"><i class="bi bi-arrow-down-left-circle me-1"></i>COBRO</span>
                                         <?php else: ?>
@@ -205,7 +207,7 @@ if (!empty($_GET['error'])) {
                                             </small>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-center align-top pt-3">
+                                    <td class="text-center align-top pt-3 text-nowrap">
                                         <?php if($origen === 'TRANSFERENCIA'): ?>
                                             <span class="badge bg-info-subtle text-info border border-info-subtle" title="ID Transferencia: <?= (int) ($m['id_origen'] ?? 0) ?>">
                                                 <i class="bi bi-arrow-left-right me-1"></i> TRF #<?= (int) ($m['id_origen'] ?? 0) ?>
@@ -217,17 +219,17 @@ if (!empty($_GET['error'])) {
                                         <?php endif; ?>
                                     </td>
                                     <td class="align-top pt-3 text-muted small"><?= e($cuenta) ?></td>
-                                    <td class="text-end align-top pt-3 fw-bold <?= $montoColor ?>">
+                                    <td class="text-end align-top pt-3 fw-bold <?= $montoColor ?> text-nowrap">
                                         <?= $montoSigno ?> <?= number_format((float) ($m['monto'] ?? 0), 2) ?>
                                     </td>
-                                    <td class="text-center align-top pt-3">
+                                    <td class="text-center align-top pt-3 text-nowrap">
                                         <?php if($estado === 'CONFIRMADO'): ?>
                                             <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">CONFIRMADO</span>
                                         <?php else: ?>
                                             <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill"><?= e($estado) ?></span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-center pe-4 align-top pt-3">
+                                    <td class="text-center pe-4 align-top pt-3 text-nowrap">
                                         <?php if ($estado === 'CONFIRMADO' && tiene_permiso('tesoreria.movimientos.anular')): ?>
                                             <form method="post" action="<?= e(route_url('tesoreria/anular_movimiento')) ?>" class="d-inline js-form-confirm">
                                                 <input type="hidden" name="id_movimiento" value="<?= (int) $m['id'] ?>">

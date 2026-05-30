@@ -19,7 +19,7 @@ $registrosFiltrados = array_filter($registros, function($r) use ($vistaActual) {
     return true; // 'todos'
 });
 
-// 3. ORDENAMIENTO INTELIGENTE
+// 3. ORDENAMIENTO INTELIGENTE (Actualizado: Siempre lo más reciente primero)
 usort($registrosFiltrados, function($a, $b) {
     $estadosDeuda = ['PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA']; 
     
@@ -37,19 +37,11 @@ usort($registrosFiltrados, function($a, $b) {
     $fechaA = strtotime((string) ($a['fecha_vencimiento'] ?? '')) ?: 0;
     $fechaB = strtotime((string) ($b['fecha_vencimiento'] ?? '')) ?: 0;
     
-    if ($esDeudaA === 1) {
-        // AMBAS SON DEUDAS: Lo más ANTIGUO va primero (Ascendente)
-        if ($fechaA === $fechaB) {
-            return (int)($a['id_recepcion'] ?? 0) <=> (int)($b['id_recepcion'] ?? 0);
-        }
-        return $fechaA <=> $fechaB;
-    } else {
-        // AMBAS ESTÁN RESUELTAS: Lo más RECIENTE va primero (Descendente)
-        if ($fechaA === $fechaB) {
-            return (int)($b['id_recepcion'] ?? 0) <=> (int)($a['id_recepcion'] ?? 0);
-        }
-        return $fechaB <=> $fechaA;
+    // AMBAS ESTÁN EN EL MISMO ESTADO: Lo más RECIENTE va primero (Descendente)
+    if ($fechaA === $fechaB) {
+        return (int)($b['id_recepcion'] ?? 0) <=> (int)($a['id_recepcion'] ?? 0);
     }
+    return $fechaB <=> $fechaA;
 });
 
 $badge = static function (string $estado): string {
@@ -220,14 +212,33 @@ if (!empty($_GET['error'])) {
                                     $searchStr = strtolower(($r['proveedor'] ?? '') . ' ' . ($r['id_recepcion'] ?? '') . ' ' . ($r['documento_referencia'] ?? '') . ' ' . $estadoStr . ' ' . $fechaVencimientoFormateada);
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
-                                    <td class="ps-4 fw-bold text-dark align-top pt-3">
-                                        <?php echo e((string) ($r['proveedor'] ?? '')); ?>
+                                    <td class="ps-4 align-top pt-3">
+                                        <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">
+                                            <?php echo e((string) ($r['proveedor'] ?? '')); ?>
+                                        </div>
+                                        <?php 
+                                            // Agrupar todas las notas de CXP de manera dinámica
+                                            $notasConsolidadas = [];
+                                            if (!empty($r['observacion_cxp']))      $notasConsolidadas[] = $r['observacion_cxp'];
+                                            if (!empty($r['observacion_compra']))   $notasConsolidadas[] = $r['observacion_compra'];
+                                            if (!empty($r['observacion_recepcion'])) $notasConsolidadas[] = $r['observacion_recepcion'];
+                                            
+                                            // Fallback por si en CXP todavía usas la columna genérica 'observaciones'
+                                            if (empty($notasConsolidadas) && !empty($r['observaciones'])) {
+                                                $notasConsolidadas[] = $r['observaciones'];
+                                            }
+                                            
+                                            if (!empty($notasConsolidadas)): 
+                                        ?>
+                                            <small class="text-muted fw-normal d-block mt-1" style="font-size: 0.8rem; line-height: 1.3;">
+                                                <?php echo e(implode(' - ', $notasConsolidadas)); ?>
+                                            </small>
+                                        <?php endif; ?>
                                     </td>
                                     <td class="align-top pt-3 text-muted fw-medium">
                                         <?php if (($r['origen'] ?? 'SISTEMA') === 'MIGRACION'): ?>
                                             <span class="badge bg-info-subtle text-info border border-info-subtle mb-1"><i class="bi bi-clock-history"></i> Saldo Inicial</span><br>
                                             <small class="text-dark fw-bold"><?php echo e((string) ($r['documento_referencia'] ?? '')); ?></small>
-                                            <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" title="<?php echo e((string) ($r['observaciones'] ?? '')); ?>"></i>
                                         <?php else: ?>
                                             #<?php echo str_pad((string) ($r['id_recepcion'] ?? 0), 6, '0', STR_PAD_LEFT); ?>
                                         <?php endif; ?>
@@ -326,7 +337,7 @@ if (!empty($_GET['error'])) {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Monto a Pagar <span class="text-danger">*</span></label>
-                           <input type="number" step="0.01" min="0.01" name="monto" id="pagoManualMontoInput" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis" required>
+                            <input type="number" step="0.01" min="0.01" name="monto" id="pagoManualMontoInput" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis" required>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Cuenta Origen <span class="text-danger">*</span></label>
@@ -338,8 +349,9 @@ if (!empty($_GET['error'])) {
                                         <option 
                                             value="<?php echo $cta['id']; ?>" 
                                             data-saldo="<?php echo $cta['saldo'] ?? 0; ?>"
-                                            data-moneda="<?php echo e(strtoupper((string) $cta['moneda'])); ?>">
-                                            <?php echo htmlspecialchars(($cta['codigo'] ?? '') . ' - ' . $cta['nombre']); ?>
+                                            data-moneda="<?php echo e(strtoupper((string) $cta['moneda'])); ?>"
+                                            data-metodos="<?php echo htmlspecialchars((string)($cta['metodos_pago'] ?? '[]'), ENT_QUOTES, 'UTF-8'); ?>">
+                                            <?php echo htmlspecialchars($cta['nombre']); ?>
                                         </option>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
@@ -348,7 +360,7 @@ if (!empty($_GET['error'])) {
                         </div>
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Método de Pago <span class="text-danger">*</span></label>
-                            <select name="id_metodo_pago" class="form-select shadow-sm border-secondary-subtle" required>
+                            <select name="id_metodo_pago" id="pagoManualMetodoOrigen" class="form-select shadow-sm border-secondary-subtle" required disabled>
                                 <option value="" selected disabled>Seleccione un método...</option>
                                 <?php foreach($metodos as $m): ?>
                                     <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
@@ -399,7 +411,7 @@ if (!empty($_GET['error'])) {
                                     <input type="text" id="pagoSaldo" class="form-control-plaintext text-warning-emphasis p-0 fw-bold" data-saldo-target="1" style="width: 65px; pointer-events: none;" readonly>
                                 </div>
                             </div>
-                            <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis bg-white" required>
+                            <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis bg-light" readonly required>
                         </div>
                         
                         <div class="col-12">
@@ -417,15 +429,16 @@ if (!empty($_GET['error'])) {
                                                         data-saldo="<?php echo $cta['saldo'] ?? 0; ?>"
                                                         data-tipo="<?php echo e($cta['tipo']); ?>"
                                                         data-moneda="<?php echo e(strtoupper((string) $cta['moneda'])); ?>"
+                                                        data-metodos="<?php echo htmlspecialchars((string)($cta['metodos_pago'] ?? '[]'), ENT_QUOTES, 'UTF-8'); ?>"
                                                         data-tiene-advertencia="0">
-                                                        <?php echo htmlspecialchars(($cta['codigo'] ?? '') . ' - ' . $cta['nombre'] . ' (' . ($cta['moneda'] ?? '') . ')'); ?>
+                                                        <?php echo htmlspecialchars($cta['nombre'] . ' (' . ($cta['moneda'] ?? '') . ')'); ?>
                                                     </option>
                                                 <?php endif; ?>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
                                     <div class="col-6 col-md-4">
-                                        <select name="metodo_pago_ids[]" class="form-select shadow-sm border-secondary-subtle js-pago-metodo" required>
+                                        <select name="metodo_pago_ids[]" class="form-select shadow-sm border-secondary-subtle js-pago-metodo" required disabled>
                                             <option value="" selected disabled>Método...</option>
                                             <?php foreach($metodos as $m): ?>
                                                 <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
@@ -443,7 +456,7 @@ if (!empty($_GET['error'])) {
                             
                             <div class="d-flex justify-content-between align-items-center mt-3">
                                 <button type="button" id="btnAddPagoDistribucion" class="btn btn-sm btn-outline-secondary px-3">
-                                    <i class="bi bi-plus-circle me-1"></i>Dividir pago
+                                    <i class="bi bi-plus-circle me-1"></i>Añadir otro pago
                                 </button>
                                 <small id="pagoDistribucionHint" class="text-muted fw-medium"></small>
                             </div>
@@ -521,4 +534,3 @@ if (!empty($_GET['error'])) {
         </div>
     </div>
 </div>
-

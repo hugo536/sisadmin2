@@ -102,6 +102,71 @@
     }
 
     // ========================================================================
+    // --- FUNCIÓN MAGIA: FILTRADO DE MÉTODOS ESTRICTO (GLOBAL) ---
+    // ========================================================================
+    window.filtrarMetodosPorCuentaCxp = function(selectCuenta, selectMetodo) {
+        if (!selectCuenta || !selectMetodo) return;
+
+        const optSeleccionada = selectCuenta.options[selectCuenta.selectedIndex];
+        
+        // Si no hay cuenta seleccionada, bloqueamos el método
+        if (!optSeleccionada || !optSeleccionada.value) {
+            selectMetodo.value = '';
+            selectMetodo.disabled = true;
+            return;
+        }
+
+        let rawMetodos = optSeleccionada.getAttribute('data-metodos');
+        let permitidos = [];
+
+        // Extraer los métodos permitidos (si los hay)
+        if (rawMetodos && rawMetodos !== 'null' && rawMetodos !== '') {
+            try {
+                let parsed = rawMetodos;
+                // Parsear recursivamente si viene doble string
+                while(typeof parsed === 'string') parsed = JSON.parse(parsed);
+                
+                if (Array.isArray(parsed)) {
+                    permitidos = parsed.map(m => String(m).trim().toLowerCase());
+                }
+            } catch(e) { console.error("Error parseando JSON de métodos", e); }
+        }
+
+        let primerValido = null;
+        let seleccionActualValida = false;
+        const valorActual = selectMetodo.value;
+        let opcionesValidasCount = 0;
+
+        // Ocultar/Mostrar opciones
+        Array.from(selectMetodo.options).forEach(opt => {
+            if (!opt.value) return; // Ignorar el placeholder "Método..."
+            
+            const nombreMetodo = opt.textContent.trim().toLowerCase();
+            const esValido = permitidos.some(p => nombreMetodo.includes(p) || p.includes(nombreMetodo));
+            
+            opt.hidden = !esValido;
+            opt.disabled = !esValido;
+
+            if (esValido) {
+                opcionesValidasCount++;
+                if (!primerValido) primerValido = opt.value;
+                if (opt.value === valorActual) seleccionActualValida = true;
+            }
+        });
+
+        if (opcionesValidasCount === 0) {
+            selectMetodo.value = '';
+            selectMetodo.disabled = true;
+        } else {
+            selectMetodo.disabled = false;
+            if (!seleccionActualValida) {
+                selectMetodo.value = primerValido || '';
+            }
+        }
+    };
+
+
+    // ========================================================================
     // 2. LÓGICA DE PAGO MANUAL
     // ========================================================================
     const modalPagoManual = document.getElementById('modalPagoManual');
@@ -127,7 +192,7 @@
             if (esValida && !primeraValida) primeraValida = opt.value;
         });
         selectCuenta.value = primeraValida || '';
-        selectCuenta.dispatchEvent(new Event('change')); // Disparar change para actualizar hint de saldo
+        selectCuenta.dispatchEvent(new Event('change')); // Disparar change para actualizar hint de saldo y métodos
     };
 
     const actualizarDeudaManual = () => {
@@ -190,36 +255,21 @@
                 const saldoCuenta = parseFloat(opt.getAttribute('data-saldo')) || 0;
                 hintSaldoManual.innerHTML = `<i class="bi bi-wallet2"></i> Saldo en banco: $${saldoCuenta.toFixed(2)}`;
                 
-                const maximo = saldoCuenta > 0 ? saldoCuenta : 0;
-                inputMontoManual.setAttribute('max', maximo);
-                
-                if(parseFloat(inputMontoManual.value) > maximo) {
-                    inputMontoManual.value = maximo.toFixed(2);
-                }
-            });
-
-            inputMontoManual.addEventListener('input', function() {
-                const maxVal = parseFloat(this.getAttribute('max'));
-                if(!isNaN(maxVal) && parseFloat(this.value) > maxVal) {
-                    this.value = maxVal.toFixed(2);
-                    this.classList.add('is-invalid');
-                } else {
-                    this.classList.remove('is-invalid');
-                }
+                // Nota: A diferencia de CxC, en CxP NO restringimos el 'max' si quieres permitir giros en sobregiro, 
+                // pero si quieres restringirlo descomenta estas líneas:
+                // const maximo = saldoCuenta > 0 ? saldoCuenta : 0;
+                // inputMontoManual.setAttribute('max', maximo);
+                // if(parseFloat(inputMontoManual.value) > maximo) inputMontoManual.value = maximo.toFixed(2);
             });
         }
     }
 
+
     // ========================================================================
-    // 3. LÓGICA DE PAGO REGULAR (MODAL DE DESGLOSE)
+    // 3. LÓGICA DE PAGO REGULAR (MODAL DE DESGLOSE) BLINDADO SPA
     // ========================================================================
     const modalPago = document.getElementById('modalPago');
     const formPago = document.getElementById('formPago');
-    const distribucionRows = document.getElementById('pagoDistribucionRows');
-    const btnAddDistribucion = document.getElementById('btnAddPagoDistribucion');
-    const hintDistribucion = document.getElementById('pagoDistribucionHint');
-    
-    const inputTotal = document.getElementById('pagoMonto');
     const naturalezaSelect = document.getElementById('pagoNaturaleza');
     const inputCapital = document.getElementById('pagoMontoCapital');
     const inputInteres = document.getElementById('pagoMontoInteres');
@@ -227,100 +277,142 @@
     const inputCentroCosto = document.getElementById('pagoCentroCosto');
 
     const roundTo = (val, dec) => Math.round((Number(val) + Number.EPSILON) * Math.pow(10, dec)) / Math.pow(10, dec);
-    const getDistribucionRows = () => Array.from(distribucionRows?.querySelectorAll('.js-pago-distribucion-row') || []);
 
-    const actualizarBotonesRemove = () => {
-        const rows = getDistribucionRows();
-        rows.forEach((row, i) => {
-            const btn = row.querySelector('.js-remove-pago-row');
-            if (btn) btn.classList.toggle('d-none', rows.length <= 1 || i === 0);
+    // --- FUNCIÓN TOTALIZADORA AUTOMÁTICA ---
+    window.recalcularModalPago = function() {
+        const inputTotal = document.getElementById('pagoMonto');
+        const hintDistribucion = document.getElementById('pagoDistribucionHint');
+        const filas = document.querySelectorAll('.js-pago-distribucion-row');
+        
+        if (!inputTotal) return;
+
+        let suma = 0;
+        document.querySelectorAll('.js-pago-monto-distribucion').forEach(inp => {
+            suma += parseFloat(inp.value) || 0;
         });
-    };
 
-    const recalcularDistribucion = () => {
-        if (!inputTotal || !hintDistribucion) return;
-        const suma = getDistribucionRows().reduce((acc, row) => {
-            const val = parseFloat(row.querySelector('.js-pago-monto-distribucion')?.value || 0);
-            return acc + val;
-        }, 0);
-
+        // Actualizar el campo Total (readonly)
         inputTotal.value = suma > 0 ? suma.toFixed(2) : '';
-        const saldo = parseFloat(document.getElementById('pagoSaldo')?.value || 0);
-        const diff = saldo - suma;
 
-        if (suma === 0) hintDistribucion.textContent = '';
-        else if (Math.abs(diff) < 0.01) hintDistribucion.innerHTML = `<i class="bi bi-check2-all text-success"></i> Deuda cubierta`;
-        else if (diff > 0) hintDistribucion.innerHTML = `<span class="text-warning-emphasis">Quedará debiendo: ${diff.toFixed(2)}</span>`;
-        else hintDistribucion.innerHTML = `<span class="text-danger">Supera deuda por: ${Math.abs(diff).toFixed(2)}</span>`;
+        // Ocultar/Mostrar botones de basurero
+        filas.forEach(fila => {
+            const btnQuitar = fila.querySelector('.js-remove-pago-row');
+            if (btnQuitar) {
+                if (filas.length > 1) btnQuitar.classList.remove('d-none');
+                else btnQuitar.classList.add('d-none');
+            }
+        });
+
+        if (hintDistribucion) {
+            const saldoStr = document.getElementById('pagoSaldo')?.value || '0';
+            const saldoTotal = parseFloat(saldoStr);
+            const diff = saldoTotal - suma;
+
+            if (suma === 0) hintDistribucion.textContent = '';
+            else if (Math.abs(diff) < 0.01) hintDistribucion.innerHTML = `<i class="bi bi-check2-all text-success"></i> Deuda cubierta`;
+            else if (diff > 0) hintDistribucion.innerHTML = `<span class="text-warning-emphasis">Quedará debiendo: ${diff.toFixed(2)}</span>`;
+            else hintDistribucion.innerHTML = `<span class="text-danger">Supera deuda por: ${Math.abs(diff).toFixed(2)}</span>`;
+        }
         
         validarNaturaleza();
     };
 
-    if (distribucionRows) {
-        distribucionRows.addEventListener('click', (e) => {
-            if (e.target.closest('.js-remove-pago-row')) {
-                const row = e.target.closest('.js-pago-distribucion-row');
-                if (getDistribucionRows().length > 1 && row) row.remove();
-                actualizarBotonesRemove();
-                recalcularDistribucion();
+    // --- FUNCIÓN PARA AGREGAR FILA LIMPIA ---
+    window.agregarFilaDistribucionCxp = function() {
+        const container = document.getElementById('pagoDistribucionRows');
+        const filas = container.querySelectorAll('.js-pago-distribucion-row');
+        if (filas.length === 0) return;
+
+        const nuevaFila = filas[0].cloneNode(true);
+        
+        nuevaFila.querySelector('.js-pago-cuenta').value = '';
+        
+        // Limpiamos y bloqueamos el método
+        const selectMetodo = nuevaFila.querySelector('.js-pago-metodo');
+        selectMetodo.value = '';
+        selectMetodo.disabled = true;
+
+        nuevaFila.querySelector('.js-pago-monto-distribucion').value = '';
+
+        container.appendChild(nuevaFila);
+        window.recalcularModalPago();
+    };
+
+    // --- EVENTOS GLOBALES BLINDADOS (EVITAN DUPLICADOS EN SPA) ---
+    if (!window.cxpEventosGlobalesAtachados) {
+        window.cxpEventosGlobalesAtachados = true;
+
+        document.addEventListener('input', (e) => {
+            if (e.target.matches('.js-pago-monto-distribucion')) {
+                window.recalcularModalPago();
             }
         });
 
-        distribucionRows.addEventListener('input', (e) => {
-            if (e.target.matches('.js-pago-monto-distribucion')) recalcularDistribucion();
+        document.addEventListener('change', (e) => {
+            // Filtrado Mágico en Modal de Desglose
+            if (e.target.matches('.js-pago-cuenta')) {
+                const fila = e.target.closest('.js-pago-distribucion-row');
+                if (fila) {
+                    const selectMetodo = fila.querySelector('.js-pago-metodo');
+                    window.filtrarMetodosPorCuentaCxp(e.target, selectMetodo);
+                }
+            }
+            // Filtrado Mágico en Modal Manual
+            else if (e.target.id === 'selectCuentaOrigenManual') {
+                const selectMetodoManual = document.getElementById('pagoManualMetodoOrigen');
+                window.filtrarMetodosPorCuentaCxp(e.target, selectMetodoManual);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            // Clic en Añadir Otro Pago
+            if (e.target.closest('#btnAddPagoDistribucion')) {
+                window.agregarFilaDistribucionCxp();
+            } 
+            // Clic en Quitar Fila
+            else if (e.target.closest('.js-remove-pago-row')) {
+                const fila = e.target.closest('.js-pago-distribucion-row');
+                if (document.querySelectorAll('.js-pago-distribucion-row').length > 1 && fila) {
+                    fila.remove();
+                    window.recalcularModalPago();
+                }
+            }
+            // Clic al Abrir el Modal de Pago Regular (Botón del símbolo de moneda)
+            else if (e.target.closest('.js-open-pago')) {
+                const btn = e.target.closest('.js-open-pago');
+                document.getElementById('pagoIdOrigen').value = btn.dataset.idOrigen;
+                document.getElementById('pagoMoneda').value = btn.dataset.moneda;
+                document.getElementById('pagoSaldo').value = parseFloat(btn.dataset.saldo).toFixed(2);
+                
+                // Limpiar todo para que nazca en blanco
+                const filas = document.querySelectorAll('.js-pago-distribucion-row');
+                filas.forEach((r, i) => {
+                    if (i === 0) {
+                        r.querySelectorAll('input, select').forEach(inpt => inpt.value = '');
+                        r.querySelector('.js-pago-monto-distribucion').value = '';
+                    } else {
+                        r.remove();
+                    }
+                });
+
+                window.recalcularModalPago();
+                const natSelect = document.getElementById('pagoNaturaleza');
+                if (natSelect) natSelect.dispatchEvent(new Event('change'));
+            }
         });
     }
 
-    if (btnAddDistribucion) {
-        btnAddDistribucion.addEventListener('click', () => {
-            const rows = getDistribucionRows();
-            if (!rows.length) return;
-            
-            const nuevaFila = rows[0].cloneNode(true);
-            nuevaFila.querySelector('.js-pago-cuenta').value = '';
-            nuevaFila.querySelector('.js-pago-metodo').value = '';
-            
-            const inputMonto = nuevaFila.querySelector('.js-pago-monto-distribucion');
-            const total = parseFloat(inputTotal.value || 0);
-            const sumaActual = rows.reduce((acc, r) => acc + (parseFloat(r.querySelector('.js-pago-monto-distribucion')?.value || 0)), 0);
-            inputMonto.value = (total - sumaActual > 0) ? (total - sumaActual).toFixed(2) : '';
-
-            distribucionRows.appendChild(nuevaFila);
-            actualizarBotonesRemove();
-            recalcularDistribucion();
-        });
-    }
-
-    // Interceptar apertura del modal para cargar datos
-    document.addEventListener('click', (e) => {
-        const btn = e.target.closest('.js-open-pago');
-        if (!btn) return;
-
-        document.getElementById('pagoIdOrigen').value = btn.dataset.idOrigen;
-        document.getElementById('pagoMoneda').value = btn.dataset.moneda;
-        document.getElementById('pagoSaldo').value = parseFloat(btn.dataset.saldo).toFixed(2);
-        
-        if (inputTotal) {
-            inputTotal.value = btn.dataset.saldo;
-            inputTotal.setAttribute('max', btn.dataset.saldo);
-        }
-
-        const rows = getDistribucionRows();
-        if (rows.length === 1) rows[0].querySelector('.js-pago-monto-distribucion').value = btn.dataset.saldo;
-
-        filtrarCuentasPorMoneda({ value: btn.dataset.moneda }, document.querySelector('.js-pago-cuenta'));
-        recalcularDistribucion();
-        if (naturalezaSelect) naturalezaSelect.dispatchEvent(new Event('change'));
-    });
-
+    // --- VALIDACIONES DE NATURALEZA (CON CENTRO DE COSTO PARA INTERESES) ---
     const validarNaturaleza = () => {
+        const inputTotal = document.getElementById('pagoMonto');
         if (!naturalezaSelect || !inputTotal) return;
+        
         const val = naturalezaSelect.value;
         const capital = parseFloat(inputCapital?.value || 0);
         const interes = parseFloat(inputInteres?.value || 0);
         const total = parseFloat(inputTotal.value || 0);
 
-        if (val === 'MIXTO' && (capital + interes).toFixed(2) !== total.toFixed(2)) {
+        if (val === 'MIXTO' && roundTo(capital + interes, 2) !== roundTo(total, 2)) {
             inputCapital?.classList.add('is-invalid');
             inputInteres?.classList.add('is-invalid');
         } else {
@@ -345,49 +437,39 @@
                 if (inputCentroCosto) inputCentroCosto.required = mostrarInteres;
             }
 
-            if (val !== 'MIXTO' && val !== 'INTERES') {
-                inputTotal.setAttribute('max', document.getElementById('pagoSaldo')?.value || 0);
-            } else {
-                inputTotal.removeAttribute('max');
-            }
             validarNaturaleza();
         });
     }
 
-    [inputTotal, inputCapital, inputInteres].forEach(el => el?.addEventListener('input', validarNaturaleza));
+    [inputCapital, inputInteres].forEach(el => el?.addEventListener('input', validarNaturaleza));
 
-    // Validación final antes de enviar
     if (formPago) {
-        formPago.addEventListener('submit', (e) => {
-            const total = parseFloat(inputTotal.value || 0);
+        // Prevenir validaciones apiladas
+        formPago.removeEventListener('submit', window.submitPagoHandler);
+        window.submitPagoHandler = (e) => {
+            const inputTotal = document.getElementById('pagoMonto');
+            const total = parseFloat(inputTotal?.value || 0);
             
             if (naturalezaSelect?.value === 'MIXTO') {
-                const cap = parseFloat(inputCapital.value || 0);
-                const int = parseFloat(inputInteres.value || 0);
+                const cap = parseFloat(inputCapital?.value || 0);
+                const int = parseFloat(inputInteres?.value || 0);
                 if (roundTo(cap + int, 2) !== roundTo(total, 2)) {
                     e.preventDefault(); e.stopImmediatePropagation();
                     return Swal.fire('Error', 'Capital + Interés debe ser igual al Monto Total.', 'error');
                 }
             }
-
-            const sumaDist = getDistribucionRows().reduce((acc, row) => acc + (parseFloat(row.querySelector('.js-pago-monto-distribucion')?.value || 0)), 0);
-            if (Math.abs(roundTo(sumaDist, 2) - roundTo(total, 2)) > 0.009) {
-                e.preventDefault(); e.stopImmediatePropagation();
-                return Swal.fire('Error', 'La suma de las cuentas debe ser igual al monto total.', 'error');
-            }
-        });
+        };
+        formPago.addEventListener('submit', window.submitPagoHandler);
     }
 
-    // Resetear modal regular al cerrar
     if (modalPago) {
         modalPago.addEventListener('hidden.bs.modal', () => {
             formPago.reset();
-            getDistribucionRows().forEach((r, i) => i === 0 ? r.querySelectorAll('input, select').forEach(inpt => inpt.value = '') : r.remove());
-            actualizarBotonesRemove();
-            if (hintDistribucion) hintDistribucion.textContent = '';
-            [inputTotal, inputCapital, inputInteres].forEach(el => el?.classList.remove('is-invalid'));
+            const filas = document.querySelectorAll('.js-pago-distribucion-row');
+            filas.forEach((r, i) => i === 0 ? r.querySelectorAll('input, select').forEach(inpt => inpt.value = '') : r.remove());
+            window.recalcularModalPago();
+            [inputCapital, inputInteres].forEach(el => el?.classList.remove('is-invalid'));
             if (naturalezaSelect) naturalezaSelect.dispatchEvent(new Event('change'));
         });
     }
-
 })();
