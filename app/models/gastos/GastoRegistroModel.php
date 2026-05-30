@@ -58,6 +58,9 @@ class GastoRegistroModel extends Modelo
             $monto = round((float) ($data['monto'] ?? 0), 4);
             $impuestoTipo = strtoupper(trim((string) ($data['impuesto_tipo'] ?? 'NINGUNO')));
             $idCentroCosto = (int) ($data['id_centro_costo'] ?? 0);
+            
+            // Nuevo campo de observación
+            $observacion = trim((string) ($data['observacion'] ?? ''));
 
             // Nuevos datos del pago inmediato
             $pagoInmediato = (int) ($data['pago_inmediato'] ?? 0);
@@ -78,11 +81,11 @@ class GastoRegistroModel extends Modelo
                 throw new RuntimeException('Concepto de gasto inválido.');
             }
 
-            // 1. Guardar Gasto (Inicia como PENDIENTE)
+            // 1. Guardar Gasto (Inicia como PENDIENTE) - Se añade el campo observacion
             $stmt = $db->prepare('INSERT INTO gastos_registros
-                (fecha, id_proveedor, id_concepto, id_centro_costo, monto, impuesto_tipo, impuesto_monto, total, estado, created_by, updated_by, created_at, updated_at)
+                (fecha, id_proveedor, id_concepto, id_centro_costo, monto, impuesto_tipo, impuesto_monto, total, observacion, estado, created_by, updated_by, created_at, updated_at)
                 VALUES
-                (:fecha, :id_proveedor, :id_concepto, :id_centro_costo, :monto, :impuesto_tipo, :impuesto_monto, :total, "PENDIENTE", :created_by, :updated_by, NOW(), NOW())');
+                (:fecha, :id_proveedor, :id_concepto, :id_centro_costo, :monto, :impuesto_tipo, :impuesto_monto, :total, :observacion, "PENDIENTE", :created_by, :updated_by, NOW(), NOW())');
             $stmt->execute([
                 'fecha' => $fecha,
                 'id_proveedor' => $idProveedor,
@@ -92,6 +95,7 @@ class GastoRegistroModel extends Modelo
                 'impuesto_tipo' => $impuestoTipo,
                 'impuesto_monto' => $impuestoMonto,
                 'total' => $total,
+                'observacion' => $observacion,
                 'created_by' => $userId,
                 'updated_by' => $userId,
             ]);
@@ -247,6 +251,7 @@ class GastoRegistroModel extends Modelo
         $existe = (int) $stmt->fetchColumn() > 0;
 
         if (!$existe) {
+            // Se añadió la columna observacion en la sentencia de creación
             $this->db()->exec('CREATE TABLE IF NOT EXISTS gastos_registros (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 fecha DATE NOT NULL,
@@ -257,6 +262,7 @@ class GastoRegistroModel extends Modelo
                 impuesto_tipo VARCHAR(10) NOT NULL DEFAULT "NINGUNO",
                 impuesto_monto DECIMAL(14,4) NOT NULL DEFAULT 0,
                 total DECIMAL(14,4) NOT NULL DEFAULT 0,
+                observacion TEXT NULL,
                 estado VARCHAR(20) NOT NULL DEFAULT "PENDIENTE",
                 id_cxp INT NULL,
                 id_asiento INT NULL,

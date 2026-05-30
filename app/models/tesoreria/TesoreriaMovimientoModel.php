@@ -60,16 +60,36 @@ class TesoreriaMovimientoModel extends Modelo
             $paramsFinal['fecha_hasta_mov'] = $fechaHastaFilter . ' 23:59:59';
         }
 
+        // --- QUERY 1: Movimientos Normales ---
+        // SOLUCIÓN OBSERVACIONES: Viajamos hasta las tablas de Ventas y Compras para heredar todas las notas
         $sqlMov = 'SELECT m.id, m.fecha, m.tipo, m.origen, m.id_origen, m.monto, m.estado, 
                           COALESCE(c.codigo, "S/C") AS cuenta_codigo, 
                           COALESCE(c.nombre, "Cuenta Eliminada") AS cuenta_nombre, 
                           COALESCE(t.nombre_completo, "Tercero Eliminado") AS tercero_nombre,
                           COALESCE(mp.nombre, "") AS metodo_pago,
+                          m.observaciones,
+                          CASE 
+                              WHEN m.origen = "CXC" THEN 
+                                  CONCAT_WS(" - ", NULLIF(TRIM(cxc.observaciones), ""), NULLIF(TRIM(v.observaciones), ""), NULLIF(TRIM(v.observaciones_despacho), ""))
+                              WHEN m.origen = "CXP" THEN 
+                                  CONCAT_WS(" - ", NULLIF(TRIM(cxp.observaciones), ""), NULLIF(TRIM(co.observaciones), ""), NULLIF(TRIM(cr.observaciones), ""))
+                              ELSE ""
+                          END AS observacion_origen,
                           m.created_at
                    FROM tesoreria_movimientos m
                    LEFT JOIN tesoreria_cuentas c ON c.id = m.id_cuenta
                    LEFT JOIN terceros t ON t.id = m.id_tercero
                    LEFT JOIN tesoreria_metodos_pago mp ON mp.id = m.id_metodo_pago
+                   
+                   /* Joins para extraer notas de Cuentas por Cobrar y sus Ventas */
+                   LEFT JOIN tesoreria_cxc cxc ON cxc.id = m.id_origen AND m.origen = "CXC"
+                   LEFT JOIN ventas_documentos v ON v.id = cxc.id_documento_venta
+                   
+                   /* Joins para extraer notas de Cuentas por Pagar y sus Compras */
+                   LEFT JOIN tesoreria_cxp cxp ON cxp.id = m.id_origen AND m.origen = "CXP"
+                   LEFT JOIN compras_ordenes co ON co.id = cxp.id_orden_compra
+                   LEFT JOIN compras_recepciones cr ON cr.id = cxp.id_recepcion
+                   
                    WHERE ' . implode(' AND ', $whereMov);
 
         // --- QUERY 2: Transferencias (Salidas y Entradas) ---
@@ -121,6 +141,8 @@ class TesoreriaMovimientoModel extends Modelo
                                  COALESCE(co.nombre, "Cuenta Eliminada") AS cuenta_nombre,
                                  "Cuentas Propias" AS tercero_nombre,
                                  "" AS metodo_pago,
+                                 trf.observaciones,
+                                 "" AS observacion_origen,
                                  trf.created_at
                           FROM tesoreria_transferencias trf
                           LEFT JOIN tesoreria_cuentas co ON co.id = trf.id_cuenta_origen
@@ -131,6 +153,8 @@ class TesoreriaMovimientoModel extends Modelo
                                  COALESCE(cd.nombre, "Cuenta Eliminada") AS cuenta_nombre,
                                  "Cuentas Propias" AS tercero_nombre,
                                  "" AS metodo_pago,
+                                 trf.observaciones,
+                                 "" AS observacion_origen,
                                  trf.created_at
                           FROM tesoreria_transferencias trf
                           LEFT JOIN tesoreria_cuentas cd ON cd.id = trf.id_cuenta_destino

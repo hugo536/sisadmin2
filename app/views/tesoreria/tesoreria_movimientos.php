@@ -137,14 +137,14 @@ if (!empty($_GET['error'])) {
                            data-pagination-info="#movimientosPaginationInfo">
                         <thead class="bg-light border-bottom">
                             <tr>
-                                <th class="ps-4 text-secondary fw-semibold text-nowrap">Fecha</th>
-                                <th class="text-secondary fw-semibold text-nowrap">Tipo</th>
-                                <th class="text-secondary fw-semibold">Tercero</th>
-                                <th class="text-center text-secondary fw-semibold text-nowrap">Origen</th>
-                                <th class="text-secondary fw-semibold">Cuenta</th>
-                                <th class="text-end text-dark fw-bold text-nowrap">Monto</th>
-                                <th class="text-center text-secondary fw-semibold text-nowrap">Estado</th>
-                                <th class="text-center pe-4 text-secondary fw-semibold text-nowrap">Acciones</th>
+                                <th class="ps-4 text-secondary fw-semibold text-nowrap" style="width: 10%;">Fecha</th>
+                                <th class="text-secondary fw-semibold text-nowrap" style="width: 10%;">Tipo</th>
+                                <th class="text-secondary fw-semibold" style="width: 35%; min-width: 250px;">Tercero</th>
+                                <th class="text-center text-secondary fw-semibold text-nowrap" style="width: 10%;">Origen</th>
+                                <th class="text-secondary fw-semibold" style="width: 15%; min-width: 150px;">Cuenta</th>
+                                <th class="text-end text-dark fw-bold text-nowrap" style="width: 10%;">Monto</th>
+                                <th class="text-center text-secondary fw-semibold text-nowrap" style="width: 10%;">Estado</th>
+                                <th class="text-center pe-4 text-secondary fw-semibold text-nowrap" style="width: 10%;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="movimientosTableBody">
@@ -168,26 +168,31 @@ if (!empty($_GET['error'])) {
                                         $tercero = (string) ($m['tercero_nombre'] ?? ('#' . (int) ($m['id_tercero'] ?? 0)));
                                     }
                                     
-                                    // 1. Obtenemos solo el nombre
+                                    // 1. Obtenemos solo el nombre de la cuenta
                                     $nombreCuenta = (string) ($m['cuenta_nombre'] ?? '');
 
                                     // 2. Buscamos el método de pago
                                     $metodoPago = (string) ($m['metodo'] ?? $m['metodo_pago'] ?? '');
 
-                                    // 3. Armamos el texto final
+                                    // 3. Armamos el texto final de la cuenta
                                     if ($metodoPago !== '' && $metodoPago !== 'N/D') {
                                         $cuenta = $nombreCuenta . ' - ' . $metodoPago;
                                     } else {
                                         $cuenta = $nombreCuenta;
                                     }
-                                    $observacionTercero = trim((string) ($m['observaciones'] ?? '')); 
+
+                                    // 4. NUEVO: Agrupar todas las notas (del movimiento local y de su origen en CxC/CxP)
+                                    $notasConsolidadas = [];
+                                    if (!empty($m['observacion_origen'])) $notasConsolidadas[] = trim((string) $m['observacion_origen']);
+                                    if (!empty($m['observaciones']))      $notasConsolidadas[] = trim((string) $m['observaciones']);
                                     
-                                    $searchStr = strtolower($tipo . ' ' . $tercero . ' ' . $origen . ' ' . $cuenta . ' ' . $estado . ' ' . $observacionTercero);
+                                    // El buscador oculto incluye todas las notas
+                                    $searchStr = strtolower($tipo . ' ' . $tercero . ' ' . $origen . ' ' . $cuenta . ' ' . $estado . ' ' . implode(' ', $notasConsolidadas));
                                     
                                     $montoColor = $tipo === 'COBRO' ? 'text-success' : 'text-danger';
                                     $montoSigno = $tipo === 'COBRO' ? '+' : '-';
                                     
-                                    // 4. Formatear Fecha (Día/Mes/Año)
+                                    // 5. Formatear Fecha (Día/Mes/Año)
                                     $fechaFormateada = !empty($m['fecha']) ? date('d/m/Y', strtotime($m['fecha'])) : '';
                                 ?>
                                 <tr class="border-bottom" data-search="<?= htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8') ?>">
@@ -201,9 +206,9 @@ if (!empty($_GET['error'])) {
                                     </td>
                                     <td class="align-top pt-3">
                                         <span class="fw-bold text-dark d-block"><?= e($tercero) ?></span>
-                                        <?php if ($observacionTercero !== ''): ?>
-                                            <small class="text-muted fw-normal d-block mt-1" style="font-size: 0.8rem;">
-                                                <?= e($observacionTercero) ?>
+                                        <?php if (!empty($notasConsolidadas)): ?>
+                                            <small class="text-muted fw-normal d-block mt-1" style="font-size: 0.8rem; line-height: 1.3;">
+                                                <?= e(implode(' - ', $notasConsolidadas)) ?>
                                             </small>
                                         <?php endif; ?>
                                     </td>

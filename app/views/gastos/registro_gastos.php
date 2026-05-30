@@ -151,7 +151,8 @@ $estadoLabels = [
                                             data-total="<?php echo number_format((float)$r['total'], 2); ?>"
                                             data-estado="<?php echo e($estado); ?>"
                                             data-cxp="<?php echo (int)($r['id_cxp'] ?? 0); ?>"
-                                            data-asiento="<?php echo (int)($r['id_asiento'] ?? 0); ?>">
+                                            data-asiento="<?php echo (int)($r['id_asiento'] ?? 0); ?>"
+                                            data-observacion="<?php echo htmlspecialchars((string)($r['observacion'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
                                         <i class="bi bi-eye fs-5"></i>
                                     </button>
 
@@ -207,6 +208,14 @@ $estadoLabels = [
                     <div class="list-group-item d-flex justify-content-between"><strong>Impuesto</strong><span id="detGastoImpuesto">-</span></div>
                     <div class="list-group-item d-flex justify-content-between"><strong>Monto Base</strong><span id="detGastoMonto" class="text-primary fw-medium">-</span></div>
                     <div class="list-group-item d-flex justify-content-between"><strong>Total Gasto</strong><span id="detGastoTotal" class="text-primary fw-bold">-</span></div>
+                    
+                    <div class="list-group-item flex-column align-items-start">
+                        <div class="d-flex w-100 justify-content-between mb-1">
+                            <strong>Observación</strong>
+                        </div>
+                        <span id="detGastoObservacion" class="text-muted small">-</span>
+                    </div>
+
                     <div class="list-group-item d-flex justify-content-between bg-light mt-2"><strong>ID CxP Tesorería</strong><span id="detGastoCxp" class="badge bg-warning text-dark border">-</span></div>
                     <div class="list-group-item d-flex justify-content-between bg-light"><strong>ID Asiento Contable</strong><span id="detGastoAsiento" class="badge bg-info text-dark border">-</span></div>
                 </div>
@@ -269,6 +278,11 @@ $estadoLabels = [
                                         <option value="<?php echo (int)$cc['id']; ?>"><?php echo e((string)$cc['codigo'].' - '.$cc['nombre']); ?></option>
                                     <?php endforeach; ?>
                                 </select>
+                            </div>
+                            
+                            <div class="col-12">
+                                <label class="form-label small text-muted fw-semibold mb-1">Observación (Opcional)</label>
+                                <textarea class="form-control shadow-none border-secondary-subtle" name="observacion" rows="2" placeholder="Detalles adicionales o justificación del gasto..."></textarea>
                             </div>
 
                             <div class="col-12 mt-4 pt-3 border-top">
