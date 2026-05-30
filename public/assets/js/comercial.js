@@ -1,3 +1,6 @@
+(function () {
+'use strict';
+
 /**
  * GESTIÓN COMERCIAL
  * - Acuerdos comerciales (matriz de tarifas)
@@ -932,3 +935,6 @@ if (document.readyState === 'loading') {
 document.addEventListener('livewire:navigated', arrancarModulosComerciales);
 document.addEventListener('livewire:load', arrancarModulosComerciales);
 document.addEventListener('turbo:load', arrancarModulosComerciales);
+
+document.addEventListener('sisadmin:route-loaded', arrancarModulosComerciales);
+})();

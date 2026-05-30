@@ -1,5 +1,21 @@
 (function(){
-  document.addEventListener('DOMContentLoaded', function(){
+  'use strict';
+
+  const bindOnce = function(element, eventName, handler) {
+    if (!element) return;
+    const key = `conceptosBound${eventName}`;
+    if (element.dataset[key] === '1') return;
+    element.addEventListener(eventName, handler);
+    element.dataset[key] = '1';
+  };
+
+  const initConceptosGasto = function(){
+    const app = document.getElementById('gastosConceptosApp');
+    if (!app || app.dataset.conceptosInitialized === '1') {
+      return;
+    }
+    app.dataset.conceptosInitialized = '1';
+
     const sw = document.getElementById('esRecurrente');
     const bloque = document.getElementById('bloqueRecurrente');
     const editarSw = document.getElementById('editarEsRecurrente');
@@ -7,13 +23,13 @@
 
     if (sw && bloque) {
       const sync = () => bloque.classList.toggle('d-none', !sw.checked);
-      sw.addEventListener('change', sync);
+      bindOnce(sw, 'change', sync);
       sync();
     }
 
     if (editarSw && editarBloque) {
       const syncEdit = () => editarBloque.classList.toggle('d-none', !editarSw.checked);
-      editarSw.addEventListener('change', syncEdit);
+      bindOnce(editarSw, 'change', syncEdit);
       syncEdit();
     }
 
@@ -22,6 +38,11 @@
       ['id_centro_costo', 'editar_id_centro_costo'].forEach(function(id) {
         const elemento = document.getElementById(id);
         if (!elemento) {
+          return;
+        }
+
+        if (elemento.tomselect) {
+          tomSelects[id] = elemento.tomselect;
           return;
         }
 
@@ -34,7 +55,7 @@
     }
 
     const modalEditarEl = document.getElementById('modalEditarConcepto');
-    const modalEditar = (window.bootstrap && modalEditarEl) ? new bootstrap.Modal(modalEditarEl) : null;
+    const modalEditar = (window.bootstrap && modalEditarEl) ? bootstrap.Modal.getOrCreateInstance(modalEditarEl) : null;
 
     const campoId = document.getElementById('editarConceptoId');
     const campoCodigo = document.getElementById('editarConceptoCodigo');
@@ -44,18 +65,18 @@
     const campoDiasAnt = document.getElementById('editarDiasAnticipacion');
 
     document.querySelectorAll('.js-editar-concepto').forEach(function(btn){
-      btn.addEventListener('click', function(){
+      bindOnce(btn, 'click', function(){
         if (btn.disabled || !modalEditar) {
           return;
         }
 
         const esRecurrente = String(btn.dataset.esRecurrente || '0') === '1';
-        campoId.value = btn.dataset.id || '';
-        campoCodigo.value = btn.dataset.codigo || '';
-        campoNombre.value = btn.dataset.nombre || '';
-        editarSw.checked = esRecurrente;
-        campoDiaVenc.value = btn.dataset.diaVencimiento || '';
-        campoDiasAnt.value = btn.dataset.diasAnticipacion || '0';
+        if (campoId) campoId.value = btn.dataset.id || '';
+        if (campoCodigo) campoCodigo.value = btn.dataset.codigo || '';
+        if (campoNombre) campoNombre.value = btn.dataset.nombre || '';
+        if (editarSw) editarSw.checked = esRecurrente;
+        if (campoDiaVenc) campoDiaVenc.value = btn.dataset.diaVencimiento || '';
+        if (campoDiasAnt) campoDiasAnt.value = btn.dataset.diasAnticipacion || '0';
 
         if (tomSelects.editar_id_centro_costo) {
           tomSelects.editar_id_centro_costo.setValue(btn.dataset.idCentro || '', true);
@@ -70,5 +91,13 @@
         modalEditar.show();
       });
     });
-  });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initConceptosGasto);
+  } else {
+    initConceptosGasto();
+  }
+
+  document.addEventListener('sisadmin:route-loaded', initConceptosGasto);
 })();
