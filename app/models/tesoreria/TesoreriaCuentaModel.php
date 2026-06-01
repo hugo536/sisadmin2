@@ -239,9 +239,41 @@ class TesoreriaCuentaModel extends Modelo
 
     public function obtenerPorId(int $id): ?array
     {
-        $sql = 'SELECT * FROM tesoreria_cuentas WHERE id = :id AND deleted_at IS NULL LIMIT 1';
+        $sql = 'SELECT c.*,
+                       (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0) + COALESCE(trf.saldo_delta, 0)) AS saldo_actual
+                FROM tesoreria_cuentas c
+                LEFT JOIN (
+                    SELECT id_cuenta,
+                           SUM(CASE WHEN estado = "CONFIRMADO" AND tipo = "COBRO" THEN monto
+                                    WHEN estado = "CONFIRMADO" AND tipo = "PAGO" THEN -monto
+                                    ELSE 0 END) AS saldo_delta
+                    FROM tesoreria_movimientos
+                    WHERE deleted_at IS NULL AND id_cuenta = :id_mov
+                    GROUP BY id_cuenta
+                ) mov ON mov.id_cuenta = c.id
+                LEFT JOIN (
+                    SELECT cuenta_id, SUM(delta) AS saldo_delta
+                    FROM (
+                        SELECT id_cuenta_destino AS cuenta_id, monto AS delta
+                        FROM tesoreria_transferencias
+                        WHERE deleted_at IS NULL AND estado = "CONFIRMADA" AND id_cuenta_destino = :id_trf_dest
+                        UNION ALL
+                        SELECT id_cuenta_origen AS cuenta_id, -monto AS delta
+                        FROM tesoreria_transferencias
+                        WHERE deleted_at IS NULL AND estado = "CONFIRMADA" AND id_cuenta_origen = :id_trf_orig
+                    ) x
+                    GROUP BY cuenta_id
+                ) trf ON trf.cuenta_id = c.id
+                WHERE c.id = :id AND c.deleted_at IS NULL LIMIT 1';
+
         $stmt = $this->db()->prepare($sql);
-        $stmt->execute(['id' => $id]);
+        $stmt->execute([
+            'id' => $id,
+            'id_mov' => $id,
+            'id_trf_dest' => $id,
+            'id_trf_orig' => $id
+        ]);
+        
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
     }

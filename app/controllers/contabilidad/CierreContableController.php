@@ -235,9 +235,12 @@ class CierreContableController extends Controlador
             $lineas[] = ['id_cuenta' => (int)$map['CTA_RESULTADO_EJERCICIO'], 'debe' => 0, 'haber' => $monto, 'referencia' => 'CIERRE-' . $anio];
         }
 
+        // Verificamos si $periodo es un arreglo o directamente el ID numérico
+        $idPeriodo = is_array($periodo) ? (int)$periodo['id'] : (int)$periodo;
+
         $this->asientoModel->crearManual([
             'fecha' => $anio . '-12-31',
-            'id_periodo' => (int)$periodo['id'],
+            'id_periodo' => $idPeriodo,
             'glosa' => 'Traslado de resultado del ejercicio ' . $anio . ' a patrimonio',
             'origen_modulo' => 'MANUAL',
             'estado' => 'REGISTRADO',
