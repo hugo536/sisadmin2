@@ -541,7 +541,7 @@ class ReportesController extends Controlador
             $movimientosPdf = $resultadoPdf['rows'] ?? [];
 
             ob_start();
-            require BASE_PATH . '/app/views/reportes/pdf_tesoreria_movimientos.php';
+            require BASE_PATH . '/app/views/reportes/pdf_tesoreria_movimiento.php';
             $html = ob_get_clean();
 
             $dompdf = new \Dompdf\Dompdf();
@@ -560,7 +560,7 @@ class ReportesController extends Controlador
 
         $resultado = $this->reporteTesoreriaMov->listarMovimientos($f, $pagina, $tamano);
 
-        $this->render('reportes/tesoreria_movimientos', [
+        $this->render('reportes/tesoreria_movimiento', [
             'ruta_actual' => 'reportes/tesoreria_movimientos',
             'filtros' => $f,
             'resumenCuentas' => $resumenCuentas,
