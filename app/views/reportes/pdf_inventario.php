@@ -47,10 +47,24 @@
     </footer>
 
     <?php 
+        /** @var array $filtros */
+        /** @var array $stock */
+        /** @var array $historico */
+        /** @var array $kardex */
+        /** @var array $vencimientos */
+        
         $seccionActiva = $filtros['seccion_activa'] ?? 'stock';
+        
+        // 👇 EVALUAMOS SI SE DEBEN OCULTAR LOS VALORES 👇
+        $ocultarValores = isset($filtros['ocultar_valores']) && (int)$filtros['ocultar_valores'] === 1;
+
         $tituloReporte = '';
-        if ($seccionActiva === 'stock') $tituloReporte = 'REPORTE DE STOCK ACTUAL VALORIZADO';
-        if ($seccionActiva === 'historico') $tituloReporte = 'REPORTE DE STOCK A FECHA DE CORTE (HISTÓRICO)';
+        if ($seccionActiva === 'stock') {
+            $tituloReporte = $ocultarValores ? 'FORMATO DE CONTEO FÍSICO DE STOCK' : 'REPORTE DE STOCK ACTUAL VALORIZADO';
+        }
+        if ($seccionActiva === 'historico') {
+            $tituloReporte = $ocultarValores ? 'FORMATO DE CONTEO FÍSICO A FECHA DE CORTE' : 'REPORTE DE STOCK A FECHA DE CORTE (HISTÓRICO)';
+        }
         if ($seccionActiva === 'kardex') $tituloReporte = 'REPORTE DE KARDEX (MOVIMIENTOS)';
         if ($seccionActiva === 'vencimientos') $tituloReporte = 'REPORTE DE LOTES Y VENCIMIENTOS';
     ?>
@@ -118,17 +132,21 @@
         <table class="detalle-tabla">
             <thead>
                 <tr>
-                    <th style="width: 30%;">ÍTEM</th>
-                    <th style="width: 15%;">ALMACÉN</th>
-                    <th style="width: 10%;" class="text-right">STOCK</th>
-                    <th style="width: 10%;" class="text-right">C/U</th>
-                    <th style="width: 15%;" class="text-right">VALOR TOTAL</th>
-                    <th style="width: 20%;" class="text-center">ESTADO</th>
+                    <th style="width: <?php echo $ocultarValores ? '45%' : '30%'; ?>;">ÍTEM</th>
+                    <th style="width: <?php echo $ocultarValores ? '25%' : '15%'; ?>;">ALMACÉN</th>
+                    <th style="width: <?php echo $ocultarValores ? '15%' : '10%'; ?>;" class="text-right">STOCK</th>
+                    
+                    <?php if (!$ocultarValores): ?>
+                        <th style="width: 10%;" class="text-right">C/U</th>
+                        <th style="width: 15%;" class="text-right">VALOR TOTAL</th>
+                    <?php endif; ?>
+                    
+                    <th style="width: <?php echo $ocultarValores ? '15%' : '20%'; ?>;" class="text-center">ESTADO</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if(empty($stock['rows'])): ?>
-                    <tr><td colspan="6" class="text-center">No hay registros de stock.</td></tr>
+                    <tr><td colspan="<?php echo $ocultarValores ? '4' : '6'; ?>" class="text-center">No hay registros de stock.</td></tr>
                 <?php else: ?>
                     <?php foreach (($stock['rows'] ?? []) as $r): 
                         $alertaTexto = (string)($r['alerta'] ?? '');
@@ -140,13 +158,19 @@
                         <td><?php echo htmlspecialchars((string)$r['item']); ?></td>
                         <td><?php echo htmlspecialchars((string)$r['almacen']); ?></td>
                         <td class="text-right fw-bold <?php echo $esCritico ? 'critico' : 'normal'; ?>"><?php echo htmlspecialchars($stockFormateado); ?> <?php echo htmlspecialchars((string)($r['unidad'] ?? '')); ?></td>
-                        <td class="text-right">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 2); ?></td>
-                        <td class="text-right fw-bold">S/ <?php echo number_format((float)($r['valor_total'] ?? 0), 2); ?></td>
+                        
+                        <?php if (!$ocultarValores): ?>
+                            <td class="text-right">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 2); ?></td>
+                            <td class="text-right fw-bold">S/ <?php echo number_format((float)($r['valor_total'] ?? 0), 2); ?></td>
+                        <?php endif; ?>
+                        
                         <td class="text-center <?php echo $esCritico ? 'critico' : 'normal'; ?>">
                             <?php echo htmlspecialchars($alertaTexto !== '' ? $alertaTexto : 'OK'); ?>
                         </td>
                     </tr>
                     <?php endforeach; ?>
+                    
+                    <?php if (!$ocultarValores): ?>
                     <tr>
                         <td colspan="4" class="text-right fw-bold">VALOR TOTAL DE INVENTARIO:</td>
                         <td class="text-right fw-bold" style="background-color: #eee;">
@@ -154,6 +178,7 @@
                         </td>
                         <td></td>
                     </tr>
+                    <?php endif; ?>
                 <?php endif; ?>
             </tbody>
         </table>
@@ -163,17 +188,20 @@
         <table class="detalle-tabla">
             <thead>
                 <tr>
-                    <th style="width: 35%;">ÍTEM</th>
-                    <th style="width: 20%;">ALMACÉN</th>
-                    <th style="width: 10%;" class="text-right">STOCK</th>
-                    <th style="width: 10%;" class="text-center">UNIDAD</th>
-                    <th style="width: 10%;" class="text-right">C/U</th>
-                    <th style="width: 15%;" class="text-right">VALOR TOTAL</th>
+                    <th style="width: <?php echo $ocultarValores ? '45%' : '35%'; ?>;">ÍTEM</th>
+                    <th style="width: <?php echo $ocultarValores ? '25%' : '20%'; ?>;">ALMACÉN</th>
+                    <th style="width: <?php echo $ocultarValores ? '15%' : '10%'; ?>;" class="text-right">STOCK</th>
+                    <th style="width: <?php echo $ocultarValores ? '15%' : '10%'; ?>;" class="text-center">UNIDAD</th>
+                    
+                    <?php if (!$ocultarValores): ?>
+                        <th style="width: 10%;" class="text-right">C/U</th>
+                        <th style="width: 15%;" class="text-right">VALOR TOTAL</th>
+                    <?php endif; ?>
                 </tr>
             </thead>
             <tbody>
                 <?php if(empty($historico['rows'])): ?>
-                    <tr><td colspan="6" class="text-center">No hay registros para la fecha solicitada.</td></tr>
+                    <tr><td colspan="<?php echo $ocultarValores ? '4' : '6'; ?>" class="text-center">No hay registros para la fecha solicitada.</td></tr>
                 <?php else: ?>
                     <?php foreach (($historico['rows'] ?? []) as $r): ?>
                     <tr>
@@ -181,16 +209,22 @@
                         <td><?php echo htmlspecialchars((string)$r['almacen']); ?></td>
                         <td class="text-right fw-bold" style="color: #0056b3;"><?php echo number_format((float)($r['stock_actual'] ?? 0), 2, '.', ','); ?></td>
                         <td class="text-center"><?php echo htmlspecialchars((string)($r['unidad'] ?? '')); ?></td>
-                        <td class="text-right">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 4); ?></td>
-                        <td class="text-right fw-bold">S/ <?php echo number_format((float)($r['valor_total'] ?? 0), 2); ?></td>
+                        
+                        <?php if (!$ocultarValores): ?>
+                            <td class="text-right">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 4); ?></td>
+                            <td class="text-right fw-bold">S/ <?php echo number_format((float)($r['valor_total'] ?? 0), 2); ?></td>
+                        <?php endif; ?>
                     </tr>
                     <?php endforeach; ?>
+                    
+                    <?php if (!$ocultarValores): ?>
                     <tr>
                         <td colspan="4" class="text-right fw-bold">VALOR TOTAL A LA FECHA DE CORTE:</td>
                         <td colspan="2" class="text-right fw-bold" style="background-color: #eee; color: #0056b3;">
                             S/ <?php echo number_format((float)($historico['valor_total'] ?? 0), 2); ?>
                         </td>
                     </tr>
+                    <?php endif; ?>
                 <?php endif; ?>
             </tbody>
         </table>
@@ -200,18 +234,22 @@
         <table class="detalle-tabla">
             <thead>
                 <tr>
-                    <th style="width: 12%;" class="text-center">FECHA</th>
-                    <th style="width: 13%;" class="text-center">TIPO</th>
-                    <th style="width: 25%;">REFERENCIA</th>
-                    <th style="width: 10%;" class="text-right">CANTIDAD</th>
-                    <th style="width: 15%;" class="text-right">C/U</th>
-                    <th style="width: 15%;" class="text-right">TOTAL</th>
-                    <th style="width: 10%;" class="text-center">USUARIO</th>
+                    <th style="width: <?php echo $ocultarValores ? '15%' : '12%'; ?>;" class="text-center">FECHA</th>
+                    <th style="width: <?php echo $ocultarValores ? '15%' : '13%'; ?>;" class="text-center">TIPO</th>
+                    <th style="width: <?php echo $ocultarValores ? '40%' : '25%'; ?>;">REFERENCIA</th>
+                    <th style="width: <?php echo $ocultarValores ? '15%' : '10%'; ?>;" class="text-right">CANTIDAD</th>
+                    
+                    <?php if (!$ocultarValores): ?>
+                        <th style="width: 15%;" class="text-right">C/U</th>
+                        <th style="width: 15%;" class="text-right">TOTAL</th>
+                    <?php endif; ?>
+                    
+                    <th style="width: <?php echo $ocultarValores ? '15%' : '10%'; ?>;" class="text-center">USUARIO</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if(empty($kardex['rows'])): ?>
-                    <tr><td colspan="7" class="text-center">No hay movimientos en este periodo.</td></tr>
+                    <tr><td colspan="<?php echo $ocultarValores ? '5' : '7'; ?>" class="text-center">No hay movimientos en este periodo.</td></tr>
                 <?php else: ?>
                     <?php foreach (($kardex['rows'] ?? []) as $r): 
                         $tipoStr = (string)($r['tipo'] ?? '');
@@ -224,8 +262,12 @@
                         <td class="text-right fw-bold">
                             <?php echo $esIngreso ? '+' : '-'; ?> <?php echo htmlspecialchars((string)$r['cantidad']); ?>
                         </td>
-                        <td class="text-right">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 2); ?></td>
-                        <td class="text-right">S/ <?php echo number_format((float)($r['costo_total'] ?? 0), 2); ?></td>
+                        
+                        <?php if (!$ocultarValores): ?>
+                            <td class="text-right">S/ <?php echo number_format((float)($r['costo_unitario'] ?? 0), 2); ?></td>
+                            <td class="text-right">S/ <?php echo number_format((float)($r['costo_total'] ?? 0), 2); ?></td>
+                        <?php endif; ?>
+                        
                         <td class="text-center"><?php echo htmlspecialchars((string)($r['usuario'] ?? '')); ?></td>
                     </tr>
                     <?php endforeach; ?>

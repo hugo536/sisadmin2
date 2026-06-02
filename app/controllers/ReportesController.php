@@ -91,7 +91,8 @@ class ReportesController extends Controlador
             'tipo_movimiento' => trim((string) ($_GET['tipo_movimiento'] ?? '')),
             'dias' => (int) ($_GET['dias'] ?? 30),
             'situacion_alerta' => trim((string) ($_GET['situacion_alerta'] ?? '')),
-            'seccion_activa' => $seccionActiva 
+            'seccion_activa' => $seccionActiva,
+            'ocultar_valores' => (int) ($_GET['ocultar_valores'] ?? 0) // <-- AQUÍ ESTÁ LA MAGIA
         ];
 
         if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
