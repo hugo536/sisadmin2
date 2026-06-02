@@ -59,8 +59,8 @@
 
     <div class="card border-0 shadow-sm mb-4 rounded">
         <div class="card-body p-4 bg-white">
-            <form id="formFiltrosMovimientos" class="row g-3 align-items-end" method="get" action="<?= e(route_url('reportes/tesoreria_movimiento')) ?>">
-                <input type="hidden" name="ruta" value="reportes/tesoreria_movimiento">
+            <form id="formFiltrosMovimientos" class="row g-3 align-items-end" method="get" action="<?= e(route_url('reportes/tesoreria_movimientos')) ?>">
+                <input type="hidden" name="ruta" value="reportes/tesoreria_movimientos">
                 <input type="hidden" name="busqueda" id="hidden_busqueda" value="<?= e($_GET['busqueda'] ?? '') ?>">
 
                 <div class="col-12 col-md-3">
