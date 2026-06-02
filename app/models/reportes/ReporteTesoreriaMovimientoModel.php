@@ -48,22 +48,40 @@ class ReporteTesoreriaMovimientoModel extends Modelo
             $params['fecha_hasta'] = $f['fecha_hasta'];
         }
 
-        // 2. Filtro por Cuenta (Caja/Banco)
+        // 2. Filtro por Cuenta (Soporte para Selección Múltiple)
         if (!empty($f['id_cuenta'])) {
-            $where[] = 'm.id_cuenta = :id_cuenta';
-            $params['id_cuenta'] = (int) $f['id_cuenta'];
+            $cuentas = is_array($f['id_cuenta']) ? $f['id_cuenta'] : [$f['id_cuenta']];
+            $inParams = [];
+            foreach ($cuentas as $i => $id) {
+                $key = 'cuenta_' . $i;
+                $inParams[] = ':' . $key;
+                $params[$key] = (int) $id;
+            }
+            $where[] = 'm.id_cuenta IN (' . implode(',', $inParams) . ')';
         }
 
-        // 3. Filtro por Método de Pago
+        // 3. Filtro por Método de Pago (Soporte para Selección Múltiple)
         if (!empty($f['id_metodo_pago'])) {
-            $where[] = 'm.id_metodo_pago = :id_metodo_pago'; 
-            $params['id_metodo_pago'] = (int) $f['id_metodo_pago'];
+            $metodos = is_array($f['id_metodo_pago']) ? $f['id_metodo_pago'] : [$f['id_metodo_pago']];
+            $inParams = [];
+            foreach ($metodos as $i => $id) {
+                $key = 'metodo_' . $i;
+                $inParams[] = ':' . $key;
+                $params[$key] = (int) $id;
+            }
+            $where[] = 'm.id_metodo_pago IN (' . implode(',', $inParams) . ')';
         }
 
-        // 4. Filtro por Origen (CXC, CXP, TRANSFERENCIA)
+        // 4. Filtro por Origen (Soporte para Selección Múltiple)
         if (!empty($f['origen'])) {
-            $where[] = 'm.origen = :origen';
-            $params['origen'] = $f['origen'];
+            $origenes = is_array($f['origen']) ? $f['origen'] : [$f['origen']];
+            $inParams = [];
+            foreach ($origenes as $i => $origen) {
+                $key = 'origen_' . $i;
+                $inParams[] = ':' . $key;
+                $params[$key] = (string) $origen;
+            }
+            $where[] = 'm.origen IN (' . implode(',', $inParams) . ')';
         }
 
         // 5. Filtro de Búsqueda Global (Input text)

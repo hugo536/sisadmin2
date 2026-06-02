@@ -1085,6 +1085,73 @@
         if (errorCentroCosto) return Swal.fire('Falta Centro de Costo', 'Debe seleccionar un Centro de Costo para todos los ítems de la orden.', 'warning');
         if (errorDetalle) return Swal.fire('Verifique cantidades', 'Hay líneas con conversión o cantidad inválida.', 'warning');
 
+        // 👇 NUEVO: Validación estricta de Pagos Inmediatos 👇
+        let pagosInmediatos = [];
+        if (switchCobroInmediatoCompra && switchCobroInmediatoCompra.checked && !modalSoloLecturaActiva) {
+            const filasPago = contenedorMetodosPagoCompra.querySelectorAll('.fila-pago-inmediato');
+            let montosPorCuenta = {};
+            let saldosPorCuenta = {};
+            let nombresCuentas = {};
+            let sumaTotalPagos = 0;
+            let errorPagos = false;
+
+            filasPago.forEach(fila => {
+                const selCuenta = fila.querySelector('.select-cuenta-inmediato');
+                const selMetodo = fila.querySelector('.select-metodo-inmediato');
+                const inputMonto = fila.querySelector('.input-monto-inmediato');
+
+                if (!selCuenta.value || !selMetodo.value || !inputMonto.value) {
+                    errorPagos = true;
+                    return;
+                }
+
+                const idCuenta = selCuenta.value;
+                const monto = parseFloat(inputMonto.value) || 0;
+                const optCuenta = selCuenta.options[selCuenta.selectedIndex];
+                const saldoDisp = parseFloat(optCuenta.getAttribute('data-saldo')) || 0;
+                const nombreCuenta = optCuenta.text.split('(')[0].trim();
+
+                if (monto <= 0) errorPagos = true;
+
+                if (!montosPorCuenta[idCuenta]) {
+                    montosPorCuenta[idCuenta] = 0;
+                    saldosPorCuenta[idCuenta] = saldoDisp;
+                    nombresCuentas[idCuenta] = nombreCuenta;
+                }
+                montosPorCuenta[idCuenta] += monto;
+                sumaTotalPagos += monto;
+
+                pagosInmediatos.push({
+                    id_cuenta: Number(idCuenta),
+                    id_metodo_pago: Number(selMetodo.value),
+                    monto: monto
+                });
+            });
+
+            if (errorPagos) {
+                return Swal.fire('Error en Pagos', 'Complete la cuenta, el método y un monto mayor a cero en el pago rápido.', 'warning');
+            }
+
+            // Validar fondos insuficientes
+            let erroresSaldo = [];
+            for (const idC in montosPorCuenta) {
+                if (montosPorCuenta[idC] > saldosPorCuenta[idC]) {
+                    erroresSaldo.push(`La cuenta <b>${nombresCuentas[idC]}</b> no tiene fondos suficientes. Intentas retirar S/ ${montosPorCuenta[idC].toFixed(2)} pero solo dispone de S/ ${saldosPorCuenta[idC].toFixed(2)}.`);
+                }
+            }
+
+            if (erroresSaldo.length > 0) {
+                return Swal.fire({ icon: 'error', title: 'Fondos insuficientes', html: erroresSaldo.join('<br><br>') });
+            }
+
+            // Validar que no se pague de más
+            const totalTexto = ordenTotal ? ordenTotal.textContent.replace(/[^\d.-]/g, '') : '0';
+            const totalPedido = parseFloat(totalTexto) || 0;
+            if (sumaTotalPagos > totalPedido) {
+                return Swal.fire('Aviso', 'El total pagado no puede superar el total de la orden de compra.', 'warning');
+            }
+        }
+
         try {
             const payload = {
                 id: Number(ordenEnEdicionId || 0),
@@ -1093,6 +1160,8 @@
                 observaciones: observaciones.value,
                 tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'incluido',
                 detalle,
+                // NUEVO: Agregamos los pagos para que PHP los procese
+                pagos_inmediatos: pagosInmediatos 
             };
 
             const res = await postJson(urls.guardar, payload, btnGuardarOrden);
@@ -1583,7 +1652,11 @@
         if (!contenedorMetodosPagoCompra) return;
         
         let opcionesCuentas = '<option value="" selected disabled>Cuenta Origen...</option>';
-        cuentasDisponibles.forEach(c => { opcionesCuentas += `<option value="${c.id}">${c.nombre} (${c.moneda})</option>`; });
+        cuentasDisponibles.forEach(c => { 
+            // NUEVO: Capturamos el saldo y lo mostramos visualmente
+            const saldo = parseFloat(c.saldo_actual || c.saldo || 0);
+            opcionesCuentas += `<option value="${c.id}" data-saldo="${saldo}">${c.nombre} (Disp: ${c.moneda} ${saldo.toFixed(2)})</option>`; 
+        });
 
         const numFilas = contenedorMetodosPagoCompra.querySelectorAll('.fila-pago-inmediato').length;
 
@@ -1604,7 +1677,7 @@
             <div class="w-100 d-flex gap-2 align-items-center">
                 <div class="input-group input-group-sm w-100">
                     <span class="input-group-text bg-light text-muted fw-semibold border-secondary-subtle">S/</span>
-                    <input type="number" class="form-control text-end text-success fw-bold border-secondary-subtle input-monto-inmediato" min="0" step="0.01" placeholder="0.00" value="${montoSugerido}" required readonly>
+                    <input type="number" class="form-control text-end text-success fw-bold border-secondary-subtle input-monto-inmediato" min="0.01" step="0.01" placeholder="0.00" value="${montoSugerido}" required readonly>
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-quitar-pago ${numFilas === 0 ? 'd-none' : ''} px-2" title="Quitar pago"><i class="bi bi-trash"></i></button>
             </div>
@@ -1622,6 +1695,29 @@
             selMetodoInmediato.disabled = !selCuentaInmediato.value;
             selMetodoInmediato.value = '';
             inputMontoInmediato.readOnly = true;
+
+            // NUEVO: Validación de saldo al cambiar la cuenta
+            const opt = selCuentaInmediato.options[selCuentaInmediato.selectedIndex];
+            if(opt && opt.value) {
+                const saldoDisp = parseFloat(opt.getAttribute('data-saldo')) || 0;
+                inputMontoInmediato.setAttribute('max', saldoDisp > 0 ? saldoDisp : 0);
+                
+                if(parseFloat(inputMontoInmediato.value) > saldoDisp) {
+                    inputMontoInmediato.value = saldoDisp > 0 ? saldoDisp.toFixed(2) : '';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Monto reajustado',
+                            text: 'El monto supera el saldo disponible de esta cuenta.',
+                            timer: 2500,
+                            showConfirmButton: false
+                        });
+                    }
+                }
+            } else {
+                inputMontoInmediato.removeAttribute('max');
+            }
+
             calcularTotalPagoInmediatoCompra();
         });
 

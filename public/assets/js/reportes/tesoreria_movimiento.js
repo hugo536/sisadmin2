@@ -110,8 +110,14 @@
             const urlObj = new URL(formFiltros.action);
             
             formData.forEach((value, key) => {
-                if (value.trim() !== '') urlObj.searchParams.set(key, value.trim());
-                else urlObj.searchParams.delete(key);
+                if (value.trim() !== '') {
+                    // Si la clave ya existe (ej. select múltiple), añadimos el nuevo valor sin sobreescribir
+                    if (urlObj.searchParams.has(key)) {
+                        urlObj.searchParams.append(key, value.trim());
+                    } else {
+                        urlObj.searchParams.set(key, value.trim());
+                    }
+                }
             });
             
             // Si el usuario cambia los filtros manualmente, nos aseguramos de borrar 
@@ -124,6 +130,57 @@
 
             cargarDatosAjax(urlObj.toString());
         };
+
+        // ========================================================================
+        // 4. LÓGICA DE SELECCIONAR TODOS (MENÚS MÚLTIPLES CON BOTÓN)
+        // ========================================================================
+        document.querySelectorAll('.dropdown-multi').forEach(dropdown => {
+            const chkTodos = dropdown.querySelector('.chk-todos');
+            const chkItems = dropdown.querySelectorAll('.chk-item');
+            const btnAplicar = dropdown.querySelector('.btn-aplicar-filtro');
+            
+            if(chkTodos && chkItems.length > 0) {
+                
+                // Solo actualiza la parte visual (casilla padre), NO hace AJAX
+                const updateTodos = () => {
+                    const todosMarcados = Array.from(chkItems).every(c => c.checked);
+                    chkTodos.checked = todosMarcados;
+                };
+                
+                // Evento para "Seleccionar Todas"
+                chkTodos.addEventListener('change', function() {
+                    const estadoFiltro = this.checked;
+                    chkItems.forEach(c => c.checked = estadoFiltro);
+                });
+                
+                // Evento para cada casilla individual
+                chkItems.forEach(c => {
+                    c.addEventListener('change', updateTodos);
+                });
+
+                // Iniciar estado visual
+                updateTodos();
+
+                // EVENTO MÁGICO: Botón "Aplicar Filtro"
+                if (btnAplicar) {
+                    btnAplicar.addEventListener('click', () => {
+                        // 1. Cerrar el menú desplegable automáticamente
+                        if (typeof bootstrap !== 'undefined') {
+                            const btnToggle = dropdown.querySelector('.dropdown-toggle');
+                            const bsDropdown = bootstrap.Dropdown.getInstance(btnToggle) || new bootstrap.Dropdown(btnToggle);
+                            bsDropdown.hide();
+                        }
+                        
+                        // 2. Disparar la recarga AJAX
+                        if (formFiltros.checkValidity()) {
+                            procesarFiltros(); 
+                        } else {
+                            formFiltros.reportValidity();
+                        }
+                    });
+                }
+            }
+        });
 
         // Escuchar elementos que tengan la clase auto-submit (los selects y fechas en la vista)
         formFiltros.querySelectorAll('.auto-submit').forEach(input => {
@@ -146,7 +203,7 @@
         });
 
         // ========================================================================
-        // 4. INTERCEPTAR EVENTOS DENTRO DE LA TABLA (Delegación)
+        // 5. INTERCEPTAR EVENTOS DENTRO DE LA TABLA (Delegación)
         // ========================================================================
         
         // A) Paginación vía AJAX

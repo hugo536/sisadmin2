@@ -128,6 +128,7 @@ class TesoreriaCuentaModel extends Modelo
         if ($data['nombre'] === '') throw new RuntimeException('El nombre es obligatorio.');
         if (!in_array($data['tipo'], ['CAJA', 'BANCO', 'BILLETERA'], true)) throw new RuntimeException('Tipo de cuenta inválido.');
         if (!in_array($data['moneda'], ['PEN', 'USD'], true)) throw new RuntimeException('Moneda inválida.');
+        if ($data['saldo_inicial'] < 0) throw new RuntimeException('El saldo inicial no puede ser negativo.');
 
         $cuentaActual = null;
         if ($id > 0) {

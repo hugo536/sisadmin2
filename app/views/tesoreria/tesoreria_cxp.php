@@ -343,10 +343,10 @@ if (!empty($_GET['error'])) {
                                     <?php if (!$tieneAdvertenciaContable): ?>
                                         <option 
                                             value="<?php echo $cta['id']; ?>" 
-                                            data-saldo="<?php echo $cta['saldo'] ?? 0; ?>"
+                                            data-saldo="<?php echo $cta['saldo_actual'] ?? 0; ?>" 
                                             data-moneda="<?php echo e(strtoupper((string) $cta['moneda'])); ?>"
                                             data-metodos="<?php echo htmlspecialchars((string)($cta['metodos_pago'] ?? '[]'), ENT_QUOTES, 'UTF-8'); ?>">
-                                            <?php echo htmlspecialchars($cta['nombre']); ?>
+                                            <?php echo htmlspecialchars($cta['nombre']); ?> (Disp: <?php echo e($cta['moneda']); ?> <?php echo number_format((float)($cta['saldo_actual'] ?? 0), 2); ?>)
                                         </option>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
@@ -421,12 +421,12 @@ if (!empty($_GET['error'])) {
                                                 <?php if (!$tieneAdvertenciaContable): ?>
                                                     <option 
                                                         value="<?php echo $cta['id']; ?>" 
-                                                        data-saldo="<?php echo $cta['saldo'] ?? 0; ?>"
+                                                        data-saldo="<?php echo $cta['saldo_actual'] ?? 0; ?>" 
                                                         data-tipo="<?php echo e($cta['tipo']); ?>"
                                                         data-moneda="<?php echo e(strtoupper((string) $cta['moneda'])); ?>"
                                                         data-metodos="<?php echo htmlspecialchars((string)($cta['metodos_pago'] ?? '[]'), ENT_QUOTES, 'UTF-8'); ?>"
                                                         data-tiene-advertencia="0">
-                                                        <?php echo htmlspecialchars($cta['nombre'] . ' (' . ($cta['moneda'] ?? '') . ')'); ?>
+                                                        <?php echo htmlspecialchars($cta['nombre']); ?> (Disp: <?php echo e($cta['moneda']); ?> <?php echo number_format((float)($cta['saldo_actual'] ?? 0), 2); ?>)
                                                     </option>
                                                 <?php endif; ?>
                                             <?php endforeach; ?>

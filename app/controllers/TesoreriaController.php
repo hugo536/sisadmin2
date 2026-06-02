@@ -894,14 +894,27 @@ class TesoreriaController extends Controlador
                 ];
             }
 
-            $cuentasValidadas = [];
-            foreach ($distribucion as $itemDistribucion) {
-                $idCuentaDistribucion = (int) ($itemDistribucion['id_cuenta'] ?? 0);
-                if ($idCuentaDistribucion <= 0 || isset($cuentasValidadas[$idCuentaDistribucion])) {
-                    continue;
+            // Agrupar montos requeridos por cuenta para validar saldo correctamente
+            $montosPorCuenta = [];
+            foreach ($distribucion as $item) {
+                $idC = (int) ($item['id_cuenta'] ?? 0);
+                $m = round((float) ($item['monto'] ?? 0), 4);
+                if ($idC > 0) {
+                    $montosPorCuenta[$idC] = ($montosPorCuenta[$idC] ?? 0) + $m;
                 }
-                $this->validarPermisoOperacionCuenta($idCuentaDistribucion, $origen);
-                $cuentasValidadas[$idCuentaDistribucion] = true;
+            }
+
+            foreach ($montosPorCuenta as $idCuentaDist => $montoRequerido) {
+                $this->validarPermisoOperacionCuenta($idCuentaDist, $origen);
+                
+                // VALIDACIÓN: Evitar saldos negativos en salidas de dinero (PAGOS)
+                if ($tipo === 'PAGO') {
+                    $cuentaInfo = $this->cuentaModel->obtenerPorId($idCuentaDist);
+                    $saldoDisp = round((float) ($cuentaInfo['saldo_actual'] ?? 0), 4);
+                    if ($montoRequerido > $saldoDisp) {
+                        throw new RuntimeException("Saldo insuficiente en la cuenta '{$cuentaInfo['nombre']}'. Dispone de " . number_format($saldoDisp, 2) . " pero intenta pagar " . number_format($montoRequerido, 2));
+                    }
+                }
             }
 
             $userId = $this->obtenerUsuarioId();
@@ -1001,6 +1014,15 @@ class TesoreriaController extends Controlador
 
             $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
             $this->validarPermisoOperacionCuenta($idCuenta, $origen);
+
+            // VALIDACIÓN: Evitar saldos negativos en salidas de dinero
+            if ($tipo === 'PAGO') {
+                $cuentaInfo = $this->cuentaModel->obtenerPorId($idCuenta);
+                $saldoDisp = round((float) ($cuentaInfo['saldo_actual'] ?? 0), 4);
+                if ($monto > $saldoDisp) {
+                    throw new RuntimeException("Saldo insuficiente en la cuenta '{$cuentaInfo['nombre']}'. Dispone de " . number_format($saldoDisp, 2) . " pero intenta pagar " . number_format($monto, 2));
+                }
+            }
 
             // 1. Guardamos el resultado del FIFO (qué facturas se afectaron)
             $resultado = $this->movModel->registrarDistribuido([

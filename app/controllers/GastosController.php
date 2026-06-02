@@ -8,6 +8,7 @@ require_once BASE_PATH . '/app/models/gastos/GastoRegistroModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
 require_once BASE_PATH . '/app/models/gastos/GastoProveedorModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
 
 class GastosController extends Controlador
 {
@@ -154,15 +155,16 @@ class GastosController extends Controlador
         ];
 
         $tesoreriaModel = new TesoreriaCxcModel();
+        $cuentaModel = new TesoreriaCuentaModel(); // <--- INSTANCIAMOS EL MODELO CORRECTO
 
         $this->render('gastos/registro_gastos', [
             'ruta_actual' => 'gastos/registros',
-            'registros' => $this->registroModel->listar($filtros), // <-- Pasamos las fechas al modelo
+            'registros' => $this->registroModel->listar($filtros),
             'proveedores' => $this->proveedorModel->listarActivos(),
             'conceptos' => $this->conceptoModel->listarActivos(),
             'centrosCosto' => $this->centroCostoModel->listarActivos(),
-            'filtros' => $filtros, // <-- Pasamos los filtros de vuelta a la vista
-            'cuentas' => $tesoreriaModel->obtenerCuentasActivas(),
+            'filtros' => $filtros,
+            'cuentas' => $cuentaModel->listarActivas(), // <--- AHORA TRAE EL SALDO CALCULADO
             'metodos' => $tesoreriaModel->obtenerMetodosActivos(),
         ]);
     }

@@ -1,16 +1,7 @@
 /**
  * public/assets/js/tablas/renderizadores.js
  * =========================================================
- * Renderizadores reutilizables para tablas:
- * - Tooltips bootstrap
- * - Filtros + paginación (client-side)
- *
- * Uso:
- * ERPTable.initTooltips();
- * ERPTable.createTableManager({...}).init();
- *
- * Requisitos:
- * - Bootstrap 5 JS cargado (window.bootstrap)
+ * Renderizadores reutilizables para tablas
  * =========================================================
  */
 
@@ -41,10 +32,7 @@
     // Responsive cards (móvil) para tablas .table-pro
     // ---------------------------------------------------------
     function normalizeHeaderText(value) {
-      return (value || '')
-        .toString()
-        .replace(/\s+/g, ' ')
-        .trim();
+      return (value || '').toString().replace(/\s+/g, ' ').trim();
     }
 
     function isMobileViewport() {
@@ -119,43 +107,31 @@
     ERPTable.createTableManager = function createTableManager(config) {
       const cfg = Object.assign(
         {
-          tableSelector: null,          // ej: '#usuariosTable'
+          tableSelector: null,
           rowsSelector: 'tbody tr:not(.empty-msg-row)',
-  
-          // Inputs
-          searchInput: null,            // '#usuarioSearch'
-          filters: [],                  // [{ el:'#filtroRol', attr:'data-rol', match:'equals|includes' }, { el:'#filtroEstado', attr:'data-estado' }]
-  
-          searchAttr: 'data-search',    // atributo donde buscar texto
+          searchInput: null,
+          filters: [],
+          searchAttr: 'data-search',
           normalizeSearchText: (value) => (value || '').toString().toLowerCase().trim(),
-          rowsPerPage: 25,              // REGLA GENERAL: 25 filas por defecto
-  
-          paginationControls: null,     // '#paginationControls'
-          paginationInfo: null,         // '#paginationInfo'
-  
-          // Texto UI
+          rowsPerPage: 25,
+          paginationControls: null,
+          paginationInfo: null,
           infoText: ({ start, end, total }) => `Mostrando ${start}-${end} de ${total}`,
           emptyText: 'Sin resultados',
-  
-          // Mejoras UX
-          refreshOnUpdate: false,       // si el tbody se re-renderiza por JS, ponlo en true
+          refreshOnUpdate: false,
           scrollToTopOnPageChange: true,
-          scrollTarget: null,           // selector o elemento (si null usa tableSelector)
-  
+          scrollTarget: null,
           onUpdate: null
         },
         config || {}
       );
   
       let currentPage = 1;
-  
       let tableEl = null;
       let allRows = [];
-  
       let searchEl = null;
       let paginationControlsEl = null;
       let paginationInfoEl = null;
-  
       const filterEls = [];
   
       function q(selectorOrEl) {
@@ -188,72 +164,62 @@
   
         const actives = filterEls.map((f) => ({
           attr: f.attr,
-          value: normalizar((f.el.value ?? '').toString()), // Normalizamos aquí
+          value: normalizar((f.el.value ?? '').toString()),
           match: f.match
         }));
   
         return allRows.filter((row) => {
-          // 1. Filtro de Búsqueda de Texto
           const haystack = normalizar((row.getAttribute(cfg.searchAttr) || '') + '');
           const coincideTexto = texto === '' || haystack.includes(texto);
           if (!coincideTexto) return false;
   
-          // 2. Filtros Adicionales (Selects, etc.)
           for (const f of actives) {
-            if (f.value === '') continue; // Si el select está en "Todos", ignora.
-            
-            // Obtenemos el valor de la fila y lo normalizamos (minúsculas, sin espacios extra)
+            if (f.value === '') continue; 
             const rowVal = normalizar((row.getAttribute(f.attr) || '').toString());
   
             if (f.match === 'includes') {
-              // Simplemente verificamos si el valor del select está contenido en el atributo de la fila.
-              // Como ambos están normalizados (minúsculas), siempre coincidirán.
               if (!rowVal.includes(f.value)) return false;
               continue;
             }
   
-            // Modo 'equals' (por defecto)
             if (rowVal !== f.value) return false;
           }
-          
-          return true; // Si pasa todas las pruebas, se muestra
+          return true; 
         });
       }
   
       function updatePaginationUI(startIndex, endIndex, totalRows, totalPages) {
         if (paginationInfoEl) {
+          // CORRECCIÓN: Rescatamos el badge verde de "Valor Total" para no borrarlo
+          const badgeEl = paginationInfoEl.querySelector('.badge');
+          const badgeHtml = badgeEl ? badgeEl.outerHTML : '';
+
+          let newText = '';
           if (totalRows === 0) {
-            // AQUÍ: Si no hay filas, dibujamos el texto de tabla vacía que configuramos
-            paginationInfoEl.textContent = cfg.emptyText;
+            newText = cfg.emptyText;
           } else {
             const startHuman = startIndex + 1;
             const endHuman = Math.min(endIndex, totalRows);
-            paginationInfoEl.textContent = cfg.infoText({
+            newText = cfg.infoText({
               start: startHuman,
               end: endHuman,
               total: totalRows
             });
           }
+          
+          // Inyectamos el texto más el badge rescatado
+          paginationInfoEl.innerHTML = `<span class="fw-semibold text-muted">${newText}</span> ${badgeHtml}`;
         }
         if (paginationControlsEl) renderPaginationControls(totalPages);
       }
   
-      // ================================================================
-      // AQUÍ ESTÁ LA MAGIA DEL DISEÑO DE PAGINACIÓN
-      // ================================================================
       function renderPaginationControls(totalPages) {
         paginationControlsEl.innerHTML = '';
-        
-        // Aseguramos que no tenga tamaño pequeño (DataTables usa el tamaño normal)
         if (paginationControlsEl.classList.contains('pagination-sm')) {
           paginationControlsEl.classList.remove('pagination-sm');
         }
-  
-        // Si no hay páginas (0 registros), limpiamos la botonera y salimos
         if (totalPages === 0) return;
   
-        // ELIMINAMOS EL "if (totalPages <= 1) return;" 
-        // Ahora siempre dibujaremos la botonera, incluso si hay solo 1 página.
         const safeTotalPages = totalPages < 1 ? 1 : totalPages;
   
         const createItem = (text, page, isActive = false, isDisabled = false) => {
@@ -261,7 +227,7 @@
           li.className = `page-item ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`;
   
           const a = document.createElement('a');
-          a.className = 'page-link'; // Esto da el color nativo azul de Bootstrap
+          a.className = 'page-link'; 
           a.href = '#';
           a.textContent = String(text);
   
@@ -309,16 +275,13 @@
           return tokens;
         };
   
-        // 1. Dibujamos botón Anterior
         paginationControlsEl.appendChild(createItem('Anterior', currentPage - 1, false, currentPage === 1));
   
-        // 2. Dibujamos los números (1, 2, 3...)
         buildPages().forEach((token) => {
           if (token === 'dots') paginationControlsEl.appendChild(createDots());
           else paginationControlsEl.appendChild(createItem(token, token, token === currentPage));
         });
   
-        // 3. Dibujamos botón Siguiente
         paginationControlsEl.appendChild(createItem('Siguiente', currentPage + 1, false, currentPage === safeTotalPages));
       }
   
@@ -364,18 +327,17 @@
           paginationControlsEl = q(cfg.paginationControls);
           paginationInfoEl = q(cfg.paginationInfo);
   
+          // CORRECCIÓN: Aseguramos que los eventos se peguen aunque la tabla inicie vacía
+          buildFilterRefs();
+          bindEvents();
+          
           allRows = readRows();
           
-          // SOLUCIÓN AL BUG "Calculando...":
-          // Si al iniciar no hay filas, en lugar de abortar y dejar todo colgado,
-          // forzamos la actualización de la UI con ceros.
           if (!allRows.length) {
               updatePaginationUI(0, 0, 0, 0);
               return api;
           }
   
-          buildFilterRefs();
-          bindEvents();
           ERPTable.applyResponsiveCards();
           api.update();
           return api;
@@ -384,16 +346,12 @@
         update() {
           if (cfg.refreshOnUpdate) {
             allRows = readRows();
-            
-            // SOLUCIÓN AL BUG "Calculando...":
-            // Si después de refrescar por AJAX nos quedamos sin filas, actualizamos UI
             if (!allRows.length) {
               updatePaginationUI(0, 0, 0, 0);
               return;
             }
           }
   
-          // SOLUCIÓN AL BUG "Calculando...":
           if (!allRows.length) {
               updatePaginationUI(0, 0, 0, 0);
               return;
@@ -420,11 +378,9 @@
           return { currentPage, rowsPerPage: cfg.rowsPerPage, totalRows: allRows.length };
         },
   
-        // --- NUEVOS PODERES GLOBALES: Spinner de carga ---
         showLoading() {
           const container = tableEl.closest('.table-responsive') || tableEl.parentElement;
           if (!container) return;
-          
           if (container.querySelector('.erp-table-loader')) return;
   
           container.style.position = 'relative'; 
@@ -452,7 +408,6 @@
               overlay.remove(); 
           }
         }
-        // -------------------------------------------------
       };
   
       return api;
@@ -466,7 +421,6 @@
       const managers = [];
   
       tables.forEach((tableEl) => {
-        // --- MEJORA GLOBAL: Autodescubrimiento de Paginación ---
         let autoPagControls = null;
         let autoPagInfo = null;
   
@@ -480,16 +434,40 @@
                 autoPagInfo = `#${prefix}PaginationInfo`;
             }
         }
-        // -------------------------------------------------------
+
+        // --- NUEVO: Respaldo inteligente si no se encontró por ID ---
+        if (!autoPagInfo) {
+            const wrapper = tableEl.closest('.card, .table-responsive, [class*="container"]');
+            if (wrapper) {
+                // 1. Buscamos por ID parcial o clase
+                let fallbackInfo = wrapper.querySelector('[id*="PaginationInfo"], .texto-paginacion');
+                
+                // 2. Si no lo encuentra con selectores, buscamos manualmente el texto "Cargando"
+                if (!fallbackInfo) {
+                    const elementos = wrapper.querySelectorAll('span, div');
+                    for (let el of elementos) {
+                        if (el.textContent.trim().includes('Cargando')) {
+                            fallbackInfo = el;
+                            break; // Detenemos la búsqueda al encontrarlo
+                        }
+                    }
+                }
+
+                if (fallbackInfo) {
+                    // Si no tiene ID, le asignamos uno temporal
+                    if (!fallbackInfo.id) fallbackInfo.id = 'pagInfo_' + Math.random().toString(36).substring(2, 9);
+                    autoPagInfo = `#${fallbackInfo.id}`;
+                }
+            }
+        }
+        // -------------------------------------------------------------
   
         const cfg = {
           tableSelector: tableEl,
           rowsSelector: tableEl.dataset.rowsSelector || 'tbody tr:not(.empty-msg-row)',
           searchInput: tableEl.dataset.searchInput || null,
-          
           paginationControls: tableEl.dataset.paginationControls || autoPagControls,
           paginationInfo: tableEl.dataset.paginationInfo || autoPagInfo,
-          
           searchAttr: tableEl.dataset.searchAttr || 'data-search',
           emptyText: tableEl.dataset.emptyText || 'Sin resultados'
         };

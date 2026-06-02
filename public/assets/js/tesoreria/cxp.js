@@ -243,6 +243,7 @@
         }
         
         // Controlar saldo disponible al cambiar cuenta manual
+        // Controlar saldo disponible al cambiar cuenta manual
         if (selectCuentaManual && inputMontoManual && hintSaldoManual) {
             selectCuentaManual.addEventListener('change', function() {
                 const opt = this.options[this.selectedIndex];
@@ -253,14 +254,37 @@
                 }
                 
                 const saldoCuenta = parseFloat(opt.getAttribute('data-saldo')) || 0;
-                hintSaldoManual.innerHTML = `<i class="bi bi-wallet2"></i> Saldo en banco: $${saldoCuenta.toFixed(2)}`;
+                hintSaldoManual.innerHTML = `<i class="bi bi-wallet2"></i> Saldo en banco: S/ ${saldoCuenta.toFixed(2)}`;
                 
-                // Nota: A diferencia de CxC, en CxP NO restringimos el 'max' si quieres permitir giros en sobregiro, 
-                // pero si quieres restringirlo descomenta estas líneas:
-                // const maximo = saldoCuenta > 0 ? saldoCuenta : 0;
-                // inputMontoManual.setAttribute('max', maximo);
-                // if(parseFloat(inputMontoManual.value) > maximo) inputMontoManual.value = maximo.toFixed(2);
+                // ACTIVAMOS LA RESTRICCIÓN DE SALDO
+                const maximo = saldoCuenta > 0 ? saldoCuenta : 0;
+                inputMontoManual.setAttribute('max', maximo);
+                
+                if(parseFloat(inputMontoManual.value) > maximo) {
+                    inputMontoManual.value = maximo.toFixed(2);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Monto reajustado',
+                            text: 'El monto superaba el saldo de la cuenta seleccionada.',
+                            timer: 2500,
+                            showConfirmButton: false
+                        });
+                    }
+                }
             });
+            
+            // Validar monto cero al intentar guardar
+            const formManual = selectCuentaManual.closest('form');
+            if (formManual) {
+                formManual.addEventListener('submit', function(e) {
+                    const monto = parseFloat(inputMontoManual.value) || 0;
+                    if (monto <= 0) {
+                        e.preventDefault();
+                        Swal.fire({ icon: 'warning', title: 'Atención', text: 'El monto debe ser mayor a 0.' });
+                    }
+                });
+            }
         }
     }
 
@@ -444,12 +468,18 @@
     [inputCapital, inputInteres].forEach(el => el?.addEventListener('input', validarNaturaleza));
 
     if (formPago) {
-        // Prevenir validaciones apiladas
         formPago.removeEventListener('submit', window.submitPagoHandler);
         window.submitPagoHandler = (e) => {
             const inputTotal = document.getElementById('pagoMonto');
             const total = parseFloat(inputTotal?.value || 0);
             
+            // 1. Validar que no sea cero o negativo
+            if (total <= 0) {
+                e.preventDefault(); e.stopImmediatePropagation();
+                return Swal.fire('Atención', 'El monto a pagar debe ser mayor a 0.', 'warning');
+            }
+            
+            // 2. Validar naturaleza MIXTO
             if (naturalezaSelect?.value === 'MIXTO') {
                 const cap = parseFloat(inputCapital?.value || 0);
                 const int = parseFloat(inputInteres?.value || 0);
@@ -457,6 +487,48 @@
                     e.preventDefault(); e.stopImmediatePropagation();
                     return Swal.fire('Error', 'Capital + Interés debe ser igual al Monto Total.', 'error');
                 }
+            }
+
+            // 3. Validar que ninguna cuenta quede en negativo sumando todas las filas
+            let montosPorCuenta = {};
+            let saldosPorCuenta = {};
+            let nombresCuentas = {};
+
+            const filas = document.querySelectorAll('.js-pago-distribucion-row');
+            filas.forEach(fila => {
+                const selectCuenta = fila.querySelector('.js-pago-cuenta');
+                const montoInput = fila.querySelector('.js-pago-monto-distribucion');
+                
+                if (selectCuenta && selectCuenta.value && montoInput) {
+                    const idC = selectCuenta.value;
+                    const opt = selectCuenta.options[selectCuenta.selectedIndex];
+                    const saldo = parseFloat(opt.getAttribute('data-saldo')) || 0;
+                    const montoFila = parseFloat(montoInput.value) || 0;
+
+                    if (!montosPorCuenta[idC]) {
+                        montosPorCuenta[idC] = 0;
+                        saldosPorCuenta[idC] = saldo;
+                        // Extraemos el nombre de la cuenta ignorando el texto "(Disp:...)"
+                        nombresCuentas[idC] = opt.text.split('(')[0].trim(); 
+                    }
+                    montosPorCuenta[idC] += montoFila;
+                }
+            });
+
+            let erroresSaldo = [];
+            for (const idC in montosPorCuenta) {
+                if (montosPorCuenta[idC] > saldosPorCuenta[idC]) {
+                    erroresSaldo.push(`La cuenta <b>${nombresCuentas[idC]}</b> no tiene saldo suficiente.<br>Intenta usar ${montosPorCuenta[idC].toFixed(2)} pero solo dispone de ${saldosPorCuenta[idC].toFixed(2)}.`);
+                }
+            }
+
+            if (erroresSaldo.length > 0) {
+                e.preventDefault(); e.stopImmediatePropagation();
+                return Swal.fire({
+                    icon: 'error',
+                    title: 'Saldo insuficiente',
+                    html: erroresSaldo.join('<br><br>')
+                });
             }
         };
         formPago.addEventListener('submit', window.submitPagoHandler);

@@ -525,10 +525,13 @@ class ReportesController extends Controlador
         [$pagina, $tamano] = $this->paginacion();
         $f = $this->filtrosPeriodo();
 
-        $f['id_cuenta'] = trim((string) ($_GET['id_cuenta'] ?? ''));
-        $f['id_metodo_pago'] = trim((string) ($_GET['id_metodo_pago'] ?? ''));
-        $f['origen'] = strtoupper(trim((string) ($_GET['origen'] ?? '')));
+        // --- CORRECCIÓN AQUÍ: Usamos los métodos normalizadores que ya existen en tu controlador ---
+        $f['id_cuenta'] = $this->normalizarIdsFiltro($_GET['id_cuenta'] ?? []);
+        $f['id_metodo_pago'] = $this->normalizarTextoFiltro($_GET['id_metodo_pago'] ?? []);
+        $f['origen'] = array_map('strtoupper', $this->normalizarTextoFiltro($_GET['origen'] ?? []));
+        
         $f['busqueda'] = mb_strtolower(trim((string) ($_GET['busqueda'] ?? '')));
+        // ------------------------------------------------------------------------------------------
 
         $resumenCuentas = $this->reporteTesoreriaMov->listarCuentas(); 
         $metodos = $this->reporteTesoreriaMov->listarMetodosPago();

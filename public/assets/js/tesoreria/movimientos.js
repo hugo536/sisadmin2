@@ -180,4 +180,63 @@
             }
         });
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+    const selectOrigen = document.getElementById('selectCuentaOrigenTransferencia');
+    const inputMonto = document.getElementById('inputMontoTransferencia');
+
+    if (selectOrigen && inputMonto) {
+        const formTransferencia = selectOrigen.closest('form');
+
+        // 1. Lógica dinámica: Ajustar el monto máximo cuando el usuario cambia de cuenta
+        selectOrigen.addEventListener('change', function() {
+            const opcionSeleccionada = this.options[this.selectedIndex];
+            const saldoDisponible = parseFloat(opcionSeleccionada.getAttribute('data-saldo')) || 0;
+            
+            // Le ponemos el límite al input en tiempo real
+            inputMonto.setAttribute('max', saldoDisponible);
+            
+            // Si el usuario ya había escrito un monto y cambia a una cuenta con menos plata, 
+            // le borramos el monto para que no haya errores
+            if (parseFloat(inputMonto.value) > saldoDisponible) {
+                inputMonto.value = ''; 
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Monto reajustado',
+                        text: 'El monto ingresado superaba el saldo de la nueva cuenta seleccionada.',
+                        timer: 2500,
+                        showConfirmButton: false
+                    });
+                }
+            }
+        });
+
+        // 2. Lógica de envío: Validar por última vez antes de mandar al servidor
+        if (formTransferencia) {
+            formTransferencia.addEventListener('submit', function(e) {
+                const opcionSeleccionada = selectOrigen.options[selectOrigen.selectedIndex];
+                const saldoDisponible = parseFloat(opcionSeleccionada.getAttribute('data-saldo')) || 0;
+                const montoIngresado = parseFloat(inputMonto.value) || 0;
+
+                // Bloqueo: Monto cero o negativo
+                if (montoIngresado <= 0) {
+                    e.preventDefault();
+                    Swal.fire({ icon: 'warning', title: 'Atención', text: 'El monto debe ser mayor a 0.' });
+                    return;
+                }
+
+                // Bloqueo: Monto superior al saldo (Evita cuenta en negativo)
+                if (montoIngresado > saldoDisponible) {
+                    e.preventDefault();
+                    Swal.fire({ 
+                        icon: 'error', 
+                        title: 'Saldo insuficiente', 
+                        text: `La cuenta de origen solo dispone de ${saldoDisponible.toFixed(2)}. No puedes transferir ${montoIngresado.toFixed(2)}.` 
+                    });
+                }
+            });
+        }
+    }
+});
 })();

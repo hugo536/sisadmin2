@@ -314,8 +314,7 @@ $formatearFechaDMY = static function ($fecha): string {
                                 </div>
                             </div>
 
-                            <div id="contenedorMetodosPagoCompra" class="d-flex flex-column gap-2 mb-2">
-                                </div>
+                            <div id="contenedorMetodosPagoCompra" class="d-flex flex-column gap-2 mb-2"></div>
 
                             <div class="d-flex justify-content-between align-items-center mt-3">
                                 <button type="button" class="btn btn-sm btn-light text-success fw-bold shadow-sm" id="btnAgregarPagoInmediatoCompra">

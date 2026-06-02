@@ -102,6 +102,9 @@
                 <input type="hidden" name="seccion_activa" id="input_seccion_activa" value="<?php echo e($seccionActiva); ?>">
                 
                 <input type="hidden" name="busqueda" id="hidden_busqueda" value="<?php echo e($_GET['busqueda'] ?? ''); ?>">
+                
+                <!-- 👇 CAMPO OCULTO PARA EL MODAL DE EXPORTACIÓN 👇 -->
+                <input type="hidden" name="ocultar_valores" id="hidden_ocultar_valores" value="0">
 
                 <?php if (in_array('bajo_mínimo', $alertasSeleccionadas)): ?>
                     <input type="hidden" name="solo_bajo_minimo" value="1">
@@ -288,8 +291,9 @@
             <div class="card-header bg-white border-bottom px-4 py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
                 <h5 class="mb-0 fw-bold text-dark text-nowrap"><i class="bi bi-layers-half me-2 text-info"></i>Detalle de Inventario</h5>
                 <div class="d-flex gap-2 align-items-center w-100" style="max-width: 450px;">
-                    <button type="submit" form="formFiltrosInventario" name="exportar_pdf" value="1" class="btn btn-sm btn-danger shadow-sm fw-bold px-3 d-flex align-items-center text-nowrap" formtarget="_blank" title="Exportar a PDF" onclick="document.getElementById('hidden_busqueda').value = document.getElementById('filtroRepStock').value;">
-                        <i class="bi bi-file-pdf-fill"></i><span class="ms-1 d-none d-sm-inline">PDF</span>
+                    <!-- 👇 CAMBIADO: AHORA ABRE EL MODAL DE EXPORTACIÓN 👇 -->
+                    <button type="button" class="btn btn-sm btn-danger shadow-sm fw-bold px-3 d-flex align-items-center text-nowrap" data-bs-toggle="modal" data-bs-target="#modalExportarInventario" title="Opciones de Exportación">
+                        <i class="bi bi-file-pdf-fill"></i><span class="ms-1 d-none d-sm-inline">Exportar</span>
                     </button>
                     <div class="input-group input-group-sm flex-grow-1">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
@@ -539,6 +543,36 @@
         </div>
     <?php endif; ?>
 
+</div>
+
+<!-- 👇 MODAL EXPORTAR PDF INVENTARIO 👇 -->
+<div class="modal fade" id="modalExportarInventario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold"><i class="bi bi-printer me-2"></i>Imprimir Documento</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-dark small">Tipo de Documento</label>
+                    <select id="tipoReporteInventario" class="form-select shadow-sm border-secondary-subtle">
+                        <option value="0" selected>Reporte Valorizado (Completo)</option>
+                        <option value="1">Formato de Conteo Físico (Sin precios/Saldos)</option>
+                    </select>
+                    <div class="form-text text-muted mt-2" style="font-size: 0.8rem;">
+                        <i class="bi bi-info-circle me-1"></i>El formato de conteo físico oculta datos financieros, ideal para el personal de almacén o auditores externos.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top justify-content-center justify-content-sm-end">
+                <button type="button" class="btn btn-white border border-secondary-subtle text-secondary fw-semibold px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary fw-bold shadow-sm px-4" id="btnGenerarPdfInventario">
+                    <i class="bi bi-file-pdf-fill me-2"></i>Generar PDF
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>

@@ -109,9 +109,62 @@ function inicializarEventosInventario() {
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
+
+    // --- 5. LÓGICA DEL MODAL DE EXPORTACIÓN A PDF ---
+    const btnGenerarPdf = document.getElementById('btnGenerarPdfInventario');
+    
+    if (btnGenerarPdf) {
+        // Prevenir múltiples listeners si la vista se recarga por partes
+        const nuevoBtnGenerarPdf = btnGenerarPdf.cloneNode(true);
+        btnGenerarPdf.parentNode.replaceChild(nuevoBtnGenerarPdf, btnGenerarPdf);
+
+        nuevoBtnGenerarPdf.addEventListener('click', function() {
+            const formObj = document.getElementById('formFiltrosInventario');
+            if (!formObj) return;
+
+            // 1. Leemos qué opción eligió el usuario (Completo o Ciego)
+            const selectTipo = document.getElementById('tipoReporteInventario');
+            const ocultarValores = selectTipo ? selectTipo.value : '0';
+            
+            // 2. Colocamos ese valor en el input oculto
+            const hiddenOcultar = document.getElementById('hidden_ocultar_valores');
+            if (hiddenOcultar) hiddenOcultar.value = ocultarValores;
+            
+            // 3. Capturamos el término de búsqueda según la pestaña activa
+            const seccion = inputSeccion ? inputSeccion.value : 'stock';
+            let searchInputId = 'filtroRepStock';
+            if (seccion === 'historico') searchInputId = 'filtroRepHistorico';
+            if (seccion === 'kardex') searchInputId = 'filtroRepKardex';
+            if (seccion === 'vencimientos') searchInputId = 'filtroRepVencimientos';
+            
+            const searchInput = document.getElementById(searchInputId);
+            const hiddenSearch = document.getElementById('hidden_busqueda');
+            if (searchInput && hiddenSearch) hiddenSearch.value = searchInput.value;
+            
+            // 4. Creamos un input temporal simulando el clic del botón exportar original
+            const inputExportar = document.createElement('input');
+            inputExportar.type = 'hidden';
+            inputExportar.name = 'exportar_pdf';
+            inputExportar.value = '1';
+            formObj.appendChild(inputExportar);
+
+            // 5. Enviamos el formulario abriendo una pestaña nueva
+            formObj.target = '_blank';
+            formObj.submit();
+            
+            // 6. Restauramos todo a la normalidad y cerramos el modal
+            formObj.target = ''; 
+            inputExportar.remove();
+            
+            const modalEl = document.getElementById('modalExportarInventario');
+            if(typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getInstance(modalEl)?.hide();
+            }
+        });
+    }
 }
 
-// --- 5. FUNCIÓN MÁGICA: RECARGA EN SEGUNDO PLANO (AJAX) ---
+// --- 6. FUNCIÓN MÁGICA: RECARGA EN SEGUNDO PLANO (AJAX) ---
 async function cargarVistaSinParpadeo(form) {
     const contenedor = document.getElementById('reportesInventarioApp');
     if (!contenedor) return form.submit(); // Salvavidas: Si falla, hace recarga normal
@@ -122,6 +175,9 @@ async function cargarVistaSinParpadeo(form) {
 
     // 2. Preparamos la URL con los filtros
     const formData = new FormData(form);
+    // Eliminamos la orden de exportar por si quedó pegada
+    formData.delete('exportar_pdf'); 
+    
     const params = new URLSearchParams(formData);
     const url = form.action + '&' + params.toString();
 
@@ -141,7 +197,7 @@ async function cargarVistaSinParpadeo(form) {
             // 5. Cambiamos la URL arriba en el navegador para que funcione el botón "Atrás"
             window.history.pushState({}, '', url);
 
-            // 6. TRUCO VITAL: Ejecutar los <script> que vinieron en el nuevo HTML (ej. window.datosInventario)
+            // 6. TRUCO VITAL: Ejecutar los <script> que vinieron en el nuevo HTML
             contenedor.querySelectorAll('script').forEach(oldScript => {
                 const newScript = document.createElement('script');
                 newScript.textContent = oldScript.textContent;
@@ -151,8 +207,10 @@ async function cargarVistaSinParpadeo(form) {
             // 7. Reinicializamos los eventos y gráficos en los elementos nuevos
             inicializarEventosInventario();
             
-            // 8. Reinicializar herramienta de tablas (Explicado abajo)
-            if (typeof initProTables === 'function') initProTables(); 
+            // 8. Reinicializar herramienta de tablas (limitado al contenedor actual)
+            if (window.ERPTable && typeof window.ERPTable.autoInitFromDataset === 'function') {
+                window.ERPTable.autoInitFromDataset(contenedor);
+            }
 
         } else {
             form.submit(); // Fallback

@@ -226,11 +226,16 @@
     }
 
     // Función para crear una nueva fila dinámica de pago (Estilo Flex Compacto)
+    // Función para crear una nueva fila dinámica de pago (Estilo Flex Compacto)
     function agregarFilaPago() {
       const cuentas = window.TESORERIA_CUENTAS || [];
       
       let opcionesCuentas = '<option value="" selected disabled>Seleccionar Cuenta...</option>';
-      cuentas.forEach(c => { opcionesCuentas += `<option value="${c.id}">${c.nombre} (${c.moneda})</option>`; });
+      cuentas.forEach(c => { 
+          // NUEVO: Capturamos el saldo y lo mostramos visualmente
+          const saldo = parseFloat(c.saldo_actual || c.saldo || 0);
+          opcionesCuentas += `<option value="${c.id}" data-saldo="${saldo}">${c.nombre} (Disp: ${c.moneda} ${saldo.toFixed(2)})</option>`; 
+      });
       
       // Autocompletar el monto restante por defecto
       let totalGasto = parseFloat(inputMontoTotalGasto.value) || 0;
@@ -241,7 +246,6 @@
       const numFilas = contenedorPagos.querySelectorAll('.fila-pago-gasto').length;
 
       const div = document.createElement('div');
-      // Aplicamos exactamente las mismas clases de Ventas (bg-white, bordes verdes, flex)
       div.className = 'd-flex flex-column flex-sm-row gap-2 align-items-start align-items-sm-center bg-white p-2 rounded border border-success-subtle mb-2 fila-pago-gasto animate__animated animate__fadeIn';
       
       div.innerHTML = `
@@ -272,18 +276,39 @@
       const selMetodo = div.querySelector('.select-metodo-pago');
       const inputMonto = div.querySelector('.input-monto-pago');
       
-      // Evento: Al cambiar la cuenta, filtra los métodos
+      // Evento: Al cambiar la cuenta, filtra los métodos y valida saldo
       selCuenta.addEventListener('change', () => {
           filtrarMetodosPorCuentaGastos(selCuenta, selMetodo);
           selMetodo.disabled = !selCuenta.value;
           
-          // Si el método se autoseleccionó (porque solo había uno), liberamos el monto
           if (selMetodo.value) {
               inputMonto.readOnly = false;
           } else {
               inputMonto.readOnly = true;
           }
           
+          // NUEVO: Validación de saldo al instante
+          const opt = selCuenta.options[selCuenta.selectedIndex];
+          if(opt && opt.value) {
+              const saldoDisp = parseFloat(opt.getAttribute('data-saldo')) || 0;
+              inputMonto.setAttribute('max', saldoDisp > 0 ? saldoDisp : 0);
+              
+              if(parseFloat(inputMonto.value) > saldoDisp) {
+                  inputMonto.value = saldoDisp > 0 ? saldoDisp.toFixed(2) : '';
+                  if (typeof Swal !== 'undefined') {
+                      Swal.fire({
+                          icon: 'info',
+                          title: 'Monto reajustado',
+                          text: 'El monto supera el saldo disponible de esta cuenta.',
+                          timer: 2500,
+                          showConfirmButton: false
+                      });
+                  }
+              }
+          } else {
+              inputMonto.removeAttribute('max');
+          }
+
           calcularTotalPagado();
       });
 
@@ -299,7 +324,6 @@
       // Lógica al eliminar una fila
       div.querySelector('.btn-quitar-pago').addEventListener('click', function() {
         div.remove();
-        // Si solo queda 1 fila, ocultamos su basurero
         const filasRestantes = contenedorPagos.querySelectorAll('.fila-pago-gasto');
         if (filasRestantes.length === 1) {
             filasRestantes[0].querySelector('.btn-quitar-pago').classList.add('d-none');
@@ -437,15 +461,36 @@
           let totalPagado = 0;
           let faltanDatos = false;
 
+          // NUEVAS VARIABLES PARA VALIDAR SALDOS
+          let montosPorCuenta = {};
+          let saldosPorCuenta = {};
+          let nombresCuentas = {};
+
           if (contenedorMetodos) {
               contenedorMetodos.querySelectorAll('.fila-pago-gasto').forEach(fila => {
-                const cuenta = fila.querySelector('.select-cuenta-pago').value;
+                const selCuenta = fila.querySelector('.select-cuenta-pago');
+                const cuenta = selCuenta.value;
                 const metodo = fila.querySelector('.select-metodo-pago').value;
                 const monto = parseFloat(fila.querySelector('.input-monto-pago').value) || 0;
                 
                 if (!cuenta || !metodo || monto <= 0) {
                     faltanDatos = true;
                 }
+
+                // ACUMULAMOS PARA VALIDAR SALDO
+                if (cuenta && monto > 0) {
+                    const opt = selCuenta.options[selCuenta.selectedIndex];
+                    const saldo = parseFloat(opt.getAttribute('data-saldo')) || 0;
+                    const nombreStr = opt.text.split('(')[0].trim();
+
+                    if (!montosPorCuenta[cuenta]) {
+                        montosPorCuenta[cuenta] = 0;
+                        saldosPorCuenta[cuenta] = saldo;
+                        nombresCuentas[cuenta] = nombreStr;
+                    }
+                    montosPorCuenta[cuenta] += monto;
+                }
+
                 totalPagado += monto;
               });
           }
@@ -454,6 +499,24 @@
             e.preventDefault();
             Swal.fire('Faltan Datos', 'Debe seleccionar la Cuenta y el Método en todas las filas de pago.', 'warning');
             return;
+          }
+
+          // NUEVA VALIDACIÓN: FONDOS INSUFICIENTES
+          let erroresSaldo = [];
+          for (const idC in montosPorCuenta) {
+              if (montosPorCuenta[idC] > saldosPorCuenta[idC]) {
+                  erroresSaldo.push(`La cuenta <b>${nombresCuentas[idC]}</b> no tiene saldo suficiente. Intentas pagar S/ ${montosPorCuenta[idC].toFixed(2)} pero solo dispone de S/ ${saldosPorCuenta[idC].toFixed(2)}.`);
+              }
+          }
+
+          if (erroresSaldo.length > 0) {
+              e.preventDefault();
+              Swal.fire({
+                  icon: 'error',
+                  title: 'Fondos insuficientes',
+                  html: erroresSaldo.join('<br><br>')
+              });
+              return;
           }
 
           const totalGasto = parseFloat(inputMontoGasto ? inputMontoGasto.value : 0) || 0;

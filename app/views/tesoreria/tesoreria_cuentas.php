@@ -337,10 +337,10 @@ if (is_string($metodosPermitidos)) {
                     
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-muted">Cuenta Origen (De donde sale)</label>
-                        <select name="id_cuenta_origen" class="form-select shadow-none" required>
-                            <option value="">Seleccione cuenta origen...</option>
+                        <select name="id_cuenta_origen" id="selectCuentaOrigenTransferencia" class="form-select shadow-none" required>
+                            <option value="" data-saldo="0">Seleccione cuenta origen...</option>
                             <?php foreach ($cuentasActivas as $cta): ?>
-                                <option value="<?= (int)$cta['id'] ?>">
+                                <option value="<?= (int)$cta['id'] ?>" data-saldo="<?= (float)($cta['saldo_actual'] ?? 0) ?>">
                                     <?= e($cta['nombre']) ?> 
                                     (Disp: <?= e($cta['moneda']) ?> <?= number_format((float)($cta['saldo_actual'] ?? 0), 2) ?>)
                                 </option>
@@ -364,7 +364,7 @@ if (is_string($metodosPermitidos)) {
                     <div class="row mb-3">
                         <div class="col-6">
                             <label class="form-label fw-bold small text-muted">Monto a Transferir</label>
-                            <input type="number" step="0.01" min="0.01" name="monto" class="form-control shadow-none fw-bold text-success" required placeholder="0.00">
+                            <input type="number" id="inputMontoTransferencia" step="0.01" min="0.01" name="monto" class="form-control shadow-none fw-bold text-success" required placeholder="0.00">
                         </div>
                         <div class="col-6">
                             <label class="form-label fw-bold small text-muted">Fecha</label>

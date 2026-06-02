@@ -4,25 +4,45 @@
     $metodos = $metodos ?? [];
     $filtros = $filtros ?? [];
 
-    // 1. OBTENCIÓN DE FILTROS ACTUALES
-    $idCuentaFiltro = $filtros['id_cuenta'] ?? '';
-    $cuentaSeleccionada = null;
+    // ========================================================================
+    // 1. OBTENCIÓN DE FILTROS ACTUALES (Adaptados para Arrays / Selección Múltiple)
+    // ========================================================================
+    
+    // Filtro Cuentas
+    $idCuentaFiltro = $filtros['id_cuenta'] ?? [];
+    if (!is_array($idCuentaFiltro) && $idCuentaFiltro !== '') $idCuentaFiltro = [$idCuentaFiltro];
+    elseif ($idCuentaFiltro === '') $idCuentaFiltro = [];
 
-    if ($idCuentaFiltro !== '') {
+    // Filtro Métodos de Pago
+    $metodoFiltro = $filtros['id_metodo_pago'] ?? [];
+    if (!is_array($metodoFiltro) && $metodoFiltro !== '') $metodoFiltro = [$metodoFiltro];
+    elseif ($metodoFiltro === '') $metodoFiltro = [];
+
+    // Filtro Orígenes
+    $origenFiltro = $filtros['origen'] ?? [];
+    if (!is_array($origenFiltro) && $origenFiltro !== '') $origenFiltro = [$origenFiltro];
+    elseif ($origenFiltro === '') $origenFiltro = [];
+
+    $cuentaSeleccionada = null;
+    if (!empty($idCuentaFiltro)) {
         foreach ($resumenCuentas as $cuenta) {
-            if ((string)($cuenta['id'] ?? '') === (string)$idCuentaFiltro) {
+            if (in_array((string)($cuenta['id'] ?? ''), $idCuentaFiltro)) {
                 $cuentaSeleccionada = $cuenta;
                 break;
             }
         }
     }
 
+    // ========================================================================
     // 2. FUNCIONES AUXILIARES (HELPERS) PARA LIMPIAR LA VISTA
+    // ========================================================================
     $formatCurrency = function($value, $decimals = 2) {
         return 'S/ ' . number_format((float)($value ?? 0), $decimals, '.', ',');
     };
 
+    // ========================================================================
     // 3. LÓGICA DE ALERTAS (SWEETALERT)
+    // ========================================================================
     $swalIcon = null;
     $swalMessage = null;
 
@@ -65,44 +85,120 @@
 
                 <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1">Cuenta Bancaria / Caja</label>
-                    <select class="form-select bg-light border-secondary-subtle auto-submit" name="id_cuenta" style="height: 38px;">
-                        <option value="">Todas las cuentas</option>
-                        <?php foreach ($resumenCuentas as $c): ?>
-                            <option value="<?= (int)($c['id'] ?? 0) ?>" <?= ((string)$idCuentaFiltro === (string)($c['id'] ?? 0)) ? 'selected' : '' ?>>
-                                <?= e((string) ($c['nombre'] ?? '')) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <div class="dropdown dropdown-multi">
+                        <button class="btn btn-light border-secondary-subtle dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
+                            <span class="text-truncate">Todas las cuentas</span>
+                        </button>
+                        <ul class="dropdown-menu w-100 p-0 shadow-sm" style="max-height: 350px; overflow-y: auto;">
+                            <div class="p-2">
+                                <li>
+                                    <div class="form-check border-bottom pb-2 mb-2">
+                                        <input class="form-check-input chk-todos" type="checkbox" id="chkCuentaTodas" <?= empty($idCuentaFiltro) || count($idCuentaFiltro) === count($resumenCuentas) ? 'checked' : '' ?>>
+                                        <label class="form-check-label fw-bold text-primary" for="chkCuentaTodas" style="cursor: pointer;">Seleccionar Todas</label>
+                                    </div>
+                                </li>
+                                <?php foreach ($resumenCuentas as $c): ?>
+                                <?php 
+                                    $idCuentaId = (string)($c['id'] ?? 0);
+                                    $isChecked = (empty($idCuentaFiltro) || in_array($idCuentaId, $idCuentaFiltro)) ? 'checked' : '';
+                                ?>
+                                <li>
+                                    <div class="form-check mb-1">
+                                        <input class="form-check-input chk-item" type="checkbox" name="id_cuenta[]" value="<?= $idCuentaId ?>" id="chkCuenta<?= $idCuentaId ?>" <?= $isChecked ?>>
+                                        <label class="form-check-label text-truncate w-100" for="chkCuenta<?= $idCuentaId ?>" style="cursor: pointer;" title="<?= e((string) ($c['nombre'] ?? '')) ?>">
+                                            <?= e((string) ($c['nombre'] ?? '')) ?>
+                                        </label>
+                                    </div>
+                                </li>
+                                <?php endforeach; ?>
+                            </div>
+                            <div class="p-2 border-top bg-light position-sticky bottom-0 z-1">
+                                <button type="button" class="btn btn-primary btn-sm w-100 fw-bold btn-aplicar-filtro">Aplicar Filtro</button>
+                            </div>
+                        </ul>
+                    </div>
                 </div>
 
                 <div class="col-12 col-md-2">
                     <label class="form-label text-muted small fw-bold mb-1">Método de Pago</label>
-                    <select class="form-select bg-light border-secondary-subtle auto-submit" name="id_metodo_pago" style="height: 38px;">
-                        <option value="">Todos los métodos</option>
-                        <?php if (!empty($metodos)): ?>
-                            <?php foreach ($metodos as $m): ?>
-                                <option value="<?= (int) $m['id'] ?>" <?= (($filtros['id_metodo_pago'] ?? '') == $m['id']) ? 'selected' : '' ?>>
-                                    <?= e((string) $m['nombre']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <option value="Efectivo" <?= (($filtros['id_metodo_pago'] ?? '') === 'Efectivo') ? 'selected' : '' ?>>Efectivo</option>
-                            <option value="Transferencia" <?= (($filtros['id_metodo_pago'] ?? '') === 'Transferencia') ? 'selected' : '' ?>>Transferencia</option>
-                            <option value="Yape/Plin" <?= (($filtros['id_metodo_pago'] ?? '') === 'Yape/Plin') ? 'selected' : '' ?>>Yape/Plin</option>
-                            <option value="Tarjeta" <?= (($filtros['id_metodo_pago'] ?? '') === 'Tarjeta') ? 'selected' : '' ?>>Tarjeta</option>
-                            <option value="Cheque" <?= (($filtros['id_metodo_pago'] ?? '') === 'Cheque') ? 'selected' : '' ?>>Cheque</option>
-                        <?php endif; ?>
-                    </select>
+                    <div class="dropdown dropdown-multi">
+                        <button class="btn btn-light border-secondary-subtle dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
+                            <span class="text-truncate">Todos los métodos</span>
+                        </button>
+                        <ul class="dropdown-menu w-100 p-0 shadow-sm" style="max-height: 350px; overflow-y: auto;">
+                            <div class="p-2">
+                                <li>
+                                    <div class="form-check border-bottom pb-2 mb-2">
+                                        <input class="form-check-input chk-todos" type="checkbox" id="chkMetodoTodos" <?= empty($metodoFiltro) ? 'checked' : '' ?>>
+                                        <label class="form-check-label fw-bold text-primary" for="chkMetodoTodos" style="cursor: pointer;">Seleccionar Todos</label>
+                                    </div>
+                                </li>
+                                <?php 
+                                // Si no hay métodos de la BD, usamos los fijos
+                                $listaMetodos = !empty($metodos) ? $metodos : [
+                                    ['id' => 'Efectivo', 'nombre' => 'Efectivo'],
+                                    ['id' => 'Transferencia', 'nombre' => 'Transferencia'],
+                                    ['id' => 'Yape/Plin', 'nombre' => 'Yape/Plin'],
+                                    ['id' => 'Tarjeta', 'nombre' => 'Tarjeta'],
+                                    ['id' => 'Cheque', 'nombre' => 'Cheque']
+                                ];
+                                foreach ($listaMetodos as $m): 
+                                    $idMetodo = (string) $m['id'];
+                                    $isChecked = (empty($metodoFiltro) || in_array($idMetodo, $metodoFiltro)) ? 'checked' : '';
+                                ?>
+                                <li>
+                                    <div class="form-check mb-1">
+                                        <input class="form-check-input chk-item" type="checkbox" name="id_metodo_pago[]" value="<?= $idMetodo ?>" id="chkMetodo<?= htmlspecialchars(str_replace('/', '', $idMetodo)) ?>" <?= $isChecked ?>>
+                                        <label class="form-check-label text-truncate w-100" for="chkMetodo<?= htmlspecialchars(str_replace('/', '', $idMetodo)) ?>" style="cursor: pointer;">
+                                            <?= e((string) $m['nombre']) ?>
+                                        </label>
+                                    </div>
+                                </li>
+                                <?php endforeach; ?>
+                            </div>
+                            <div class="p-2 border-top bg-light position-sticky bottom-0 z-1">
+                                <button type="button" class="btn btn-primary btn-sm w-100 fw-bold btn-aplicar-filtro">Aplicar Filtro</button>
+                            </div>
+                        </ul>
+                    </div>
                 </div>
 
                 <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1">Origen / Tipo</label>
-                    <select class="form-select bg-light border-secondary-subtle auto-submit" name="origen" style="height: 38px;">
-                        <option value="">Todos los orígenes</option>
-                        <option value="CXC" <?= (($filtros['origen'] ?? '') === 'CXC') ? 'selected' : '' ?>>Cobros (CXC)</option>
-                        <option value="CXP" <?= (($filtros['origen'] ?? '') === 'CXP') ? 'selected' : '' ?>>Pagos (CXP)</option>
-                        <option value="TRANSFERENCIA" <?= (($filtros['origen'] ?? '') === 'TRANSFERENCIA') ? 'selected' : '' ?>>Transferencias</option>
-                    </select>
+                    <div class="dropdown dropdown-multi">
+                        <button class="btn btn-light border-secondary-subtle dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
+                            <span class="text-truncate">Todos los orígenes</span>
+                        </button>
+                        <ul class="dropdown-menu w-100 p-0 shadow-sm" style="max-height: 350px; overflow-y: auto;">
+                            <div class="p-2">
+                                <li>
+                                    <div class="form-check border-bottom pb-2 mb-2">
+                                        <input class="form-check-input chk-todos" type="checkbox" id="chkOrigenTodos" <?= empty($origenFiltro) ? 'checked' : '' ?>>
+                                        <label class="form-check-label fw-bold text-primary" for="chkOrigenTodos" style="cursor: pointer;">Seleccionar Todos</label>
+                                    </div>
+                                </li>
+                                <?php 
+                                $listaOrigenes = [
+                                    'CXC' => 'Cobros (CXC)',
+                                    'CXP' => 'Pagos (CXP)',
+                                    'TRANSFERENCIA' => 'Transferencias'
+                                ];
+                                foreach ($listaOrigenes as $val => $label): 
+                                    $isChecked = (empty($origenFiltro) || in_array($val, $origenFiltro)) ? 'checked' : '';
+                                ?>
+                                <li>
+                                    <div class="form-check mb-1">
+                                        <input class="form-check-input chk-item" type="checkbox" name="origen[]" value="<?= $val ?>" id="chkOrigen<?= $val ?>" <?= $isChecked ?>>
+                                        <label class="form-check-label text-truncate w-100" for="chkOrigen<?= $val ?>" style="cursor: pointer;"><?= $label ?></label>
+                                    </div>
+                                </li>
+                                <?php endforeach; ?>
+                            </div>
+                            <div class="p-2 border-top bg-light position-sticky bottom-0 z-1">
+                                <button type="button" class="btn btn-primary btn-sm w-100 fw-bold btn-aplicar-filtro">Aplicar Filtro</button>
+                            </div>
+                        </ul>
+                    </div>
                 </div>
                 
                 <div class="col-12 col-md-4">
@@ -262,10 +358,9 @@
             </div>
 
             <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
-                <small class="text-muted fw-semibold" id="tablaMovimientosPaginationInfo">Cargando...</small>
-                <nav><ul class="pagination mb-0 justify-content-end" id="tablaMovimientosPaginationControls"></ul></nav>
+                <small class="text-muted fw-semibold" id="movimientosPaginationInfo">Cargando...</small>
+                <nav><ul class="pagination mb-0 justify-content-end" id="movimientosPaginationControls"></ul></nav>
             </div>
-            
         </div>
     </div>
 </div>
