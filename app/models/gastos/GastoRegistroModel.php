@@ -27,12 +27,26 @@ class GastoRegistroModel extends Modelo
 
         $sql = 'SELECT gr.*, gc.nombre AS concepto, gc.codigo AS concepto_codigo, t.nombre_completo AS proveedor,
                        COALESCE(ccr.codigo, ccc.codigo, "SCC") AS centro_costo_codigo,
-                       COALESCE(ccr.nombre, ccc.nombre, "Sin centro") AS centro_costo_nombre
+                       COALESCE(ccr.nombre, ccc.nombre, "Sin centro") AS centro_costo_nombre,
+                       
+                       /* 👇 MAGIA: SOBREESCRIBIMOS EL ESTADO LEYENDO A TESORERÍA 👇 */
+                       CASE 
+                           WHEN gr.estado = "ANULADO" THEN "ANULADO"
+                           WHEN cxp.id IS NOT NULL AND cxp.estado = "PAGADA" THEN "PAGADO"
+                           WHEN cxp.id IS NOT NULL AND cxp.estado != "PAGADA" THEN "PENDIENTE"
+                           ELSE gr.estado
+                       END AS estado
+                       /* 👆 FIN DE LA MAGIA 👆 */
+                       
                 FROM gastos_registros gr
                 INNER JOIN gastos_conceptos gc ON gc.id = gr.id_concepto
                 INNER JOIN terceros t ON t.id = gr.id_proveedor
                 LEFT JOIN conta_centros_costo ccr ON ccr.id = gr.id_centro_costo
                 LEFT JOIN conta_centros_costo ccc ON ccc.id = gc.id_centro_costo
+                
+                /* 👇 NUEVO JOIN: CONECTAMOS CON CUENTAS POR PAGAR 👇 */
+                LEFT JOIN tesoreria_cxp cxp ON cxp.id = gr.id_cxp
+                
                 WHERE ' . implode(' AND ', $where) . '
                 ORDER BY gr.fecha DESC, gr.id DESC';
 
