@@ -198,6 +198,10 @@ $bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colo
     <script src="<?php echo e(asset_url('js/reportes/ventas.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/ventas.js'); ?>"></script>
 <?php endif; ?>
 
+<?php if ($currentRoute === 'reportes/tesoreria_movimientos'): ?>
+    <script src="<?php echo e(asset_url('js/reportes/tesoreria_movimiento.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/tesoreria_movimiento.js'); ?>"></script>
+<?php endif; ?>
+
 <?php if (str_starts_with($currentRoute, 'comercial')): ?>
     <script src="<?php echo e(asset_url('js/comercial.js')); ?>?v=<?php echo $getAssetVersion('js/comercial.js'); ?>"></script>
 <?php endif; ?>

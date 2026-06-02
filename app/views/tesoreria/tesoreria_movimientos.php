@@ -1,32 +1,38 @@
-<?php
-$movimientos = $movimientos ?? [];
-$resumenCuentas = $resumenCuentas ?? []; 
-$filtros = $filtros ?? [];
+<?php 
+    $movimientos = $movimientos ?? [];
+    $resumenCuentas = $resumenCuentas ?? []; 
+    $metodos = $metodos ?? [];
+    $filtros = $filtros ?? [];
 
-// --- LÓGICA: Detectar si estamos viendo una cuenta específica ---
-$idCuentaFiltro = $filtros['id_cuenta'] ?? '';
-$cuentaSeleccionada = null;
+    // 1. OBTENCIÓN DE FILTROS ACTUALES
+    $idCuentaFiltro = $filtros['id_cuenta'] ?? '';
+    $cuentaSeleccionada = null;
 
-if ($idCuentaFiltro !== '') {
-    foreach ($resumenCuentas as $cuenta) {
-        if ((string)($cuenta['id'] ?? '') === (string)$idCuentaFiltro) {
-            $cuentaSeleccionada = $cuenta;
-            break;
+    if ($idCuentaFiltro !== '') {
+        foreach ($resumenCuentas as $cuenta) {
+            if ((string)($cuenta['id'] ?? '') === (string)$idCuentaFiltro) {
+                $cuentaSeleccionada = $cuenta;
+                break;
+            }
         }
     }
-}
 
-$swalIcon = null;
-$swalMessage = null;
+    // 2. FUNCIONES AUXILIARES (HELPERS) PARA LIMPIAR LA VISTA
+    $formatCurrency = function($value, $decimals = 2) {
+        return 'S/ ' . number_format((float)($value ?? 0), $decimals, '.', ',');
+    };
 
-// Sanitización básica de las alertas
-if (!empty($_GET['error'])) {
-    $swalIcon = 'error';
-    $swalMessage = htmlspecialchars((string) $_GET['error'], ENT_QUOTES, 'UTF-8');
-} elseif (!empty($_GET['ok'])) {
-    $swalIcon = 'success';
-    $swalMessage = 'Movimiento anulado correctamente.';
-}
+    // 3. LÓGICA DE ALERTAS (SWEETALERT)
+    $swalIcon = null;
+    $swalMessage = null;
+
+    if (!empty($_GET['error'])) {
+        $swalIcon = 'error';
+        $swalMessage = htmlspecialchars((string) $_GET['error'], ENT_QUOTES, 'UTF-8');
+    } elseif (!empty($_GET['ok'])) {
+        $swalIcon = 'success';
+        $swalMessage = 'Movimiento anulado correctamente.';
+    }
 ?>
 
 <div class="container-fluid p-4" id="tesoreriaMovimientosApp">
@@ -38,7 +44,12 @@ if (!empty($_GET['error'])) {
             </h1>
             <p class="text-muted small mb-0 ms-1">Ledger operativo de cobros y pagos.</p>
         </div>
-        <div class="d-flex gap-2 flex-wrap justify-content-end">
+        <div class="d-flex gap-2 flex-wrap justify-content-end align-items-center">
+            
+            <a href="<?= e(route_url('reportes/tesoreria_movimientos')) ?>" class="btn bg-white border shadow-sm text-secondary fw-semibold d-flex align-items-center">
+                <i class="bi bi-bar-chart-fill me-2" style="color: #0ea5e9;"></i>Reporte Movimientos
+            </a>
+
             <a href="<?= e(route_url('tesoreria/cuentas')) ?>" class="btn btn-white border shadow-sm text-secondary fw-semibold">
                 <i class="bi bi-bank me-2 text-primary"></i>Ir a Cuentas
             </a>

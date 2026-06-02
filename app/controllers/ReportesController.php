@@ -7,6 +7,7 @@ require_once BASE_PATH . '/app/models/reportes/ReporteComprasModel.php';
 require_once BASE_PATH . '/app/models/reportes/ReporteVentasModel.php';
 require_once BASE_PATH . '/app/models/reportes/ReporteProduccionModel.php';
 require_once BASE_PATH . '/app/models/reportes/ReporteTesoreriaModel.php';
+require_once BASE_PATH . '/app/models/reportes/ReporteTesoreriaMovimientoModel.php';
 require_once BASE_PATH . '/app/models/UsuariosModel.php';
 require_once BASE_PATH . '/app/models/VentasDocumentoModel.php';
 
@@ -17,6 +18,7 @@ class ReportesController extends Controlador
     private ReporteVentasModel $ventas;
     private ReporteProduccionModel $produccion;
     private ReporteTesoreriaModel $tesoreria;
+    private ReporteTesoreriaMovimientoModel $reporteTesoreriaMov;
     private UsuariosModel $usuariosModel;
     private VentasDocumentoModel $ventasDocumentoModel;
 
@@ -39,6 +41,7 @@ class ReportesController extends Controlador
         $this->ventas = new ReporteVentasModel();
         $this->produccion = new ReporteProduccionModel();
         $this->tesoreria = new ReporteTesoreriaModel();
+        $this->reporteTesoreriaMov = new ReporteTesoreriaMovimientoModel();
         $this->usuariosModel = new UsuariosModel();
         $this->ventasDocumentoModel = new VentasDocumentoModel();
     }
@@ -100,9 +103,6 @@ class ReportesController extends Controlador
             $kardex = ($seccionActiva === 'kardex') ? $this->inventario->kardex($f, 1, 999999) : [];
             $vencimientos = ($seccionActiva === 'vencimientos') ? $this->inventario->vencimientos($f, 1, 999999) : [];
 
-            // =========================================================================
-            // NUEVO: FILTRADO ESPECIAL PARA QUE EL PDF COINCIDA CON EL BUSCADOR Y ALERTAS
-            // =========================================================================
             $busqueda = mb_strtolower(trim((string) ($_GET['busqueda'] ?? '')));
             $rawAlertas = $_GET['alertas'] ?? [];
             $alertasSeleccionadas = is_array($rawAlertas) ? $rawAlertas : (trim((string)$rawAlertas) !== '' ? [$rawAlertas] : []);
@@ -111,12 +111,10 @@ class ReportesController extends Controlador
                 $filtro = [];
                 $nuevoTotal = 0;
                 foreach ($stock['rows'] as $r) {
-                    // Filtrar por buscador
                     $textoBusqueda = mb_strtolower(($r['item'] ?? '') . ' ' . ($r['almacen'] ?? ''));
                     if ($busqueda !== '' && mb_strpos($textoBusqueda, $busqueda) === false) {
                         continue;
                     }
-                    // Filtrar por alertas múltiples
                     if (!empty($alertasSeleccionadas)) {
                         $alertaRaw = mb_strtolower((string)($r['alerta'] ?? ''));
                         $estado = 'disponible';
@@ -168,7 +166,6 @@ class ReportesController extends Controlador
                 }
                 $vencimientos['rows'] = $filtro;
             }
-            // =========================================================================
 
             $almacenNombre = 'TODOS LOS ALMACENES';
             $idsAlmacenSeleccionados = $this->normalizarIdsFiltro($f['id_almacen'] ?? []);
@@ -514,6 +511,62 @@ class ReportesController extends Controlador
             'agingCxp' => ($seccionActiva === 'cxp') ? $this->tesoreria->agingCxp($f, $pagina, $tamano) : [],
             'flujo' => ($seccionActiva === 'flujo') ? $this->tesoreria->flujoPorCuenta($f, $pagina, $tamano) : [],
             'depositos' => ($seccionActiva === 'depositos') ? $this->tesoreria->reporteDepositos($f, $pagina, $tamano) : [],
+            'pagina' => $pagina,
+            'tamano' => $tamano,
+        ]);
+    }
+
+    public function tesoreria_movimientos(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('reportes.tesoreria.ver'); 
+        $this->registrarAuditoria('tesoreria_movimientos');
+
+        [$pagina, $tamano] = $this->paginacion();
+        $f = $this->filtrosPeriodo();
+
+        $f['id_cuenta'] = trim((string) ($_GET['id_cuenta'] ?? ''));
+        $f['id_metodo_pago'] = trim((string) ($_GET['id_metodo_pago'] ?? ''));
+        $f['origen'] = strtoupper(trim((string) ($_GET['origen'] ?? '')));
+        $f['busqueda'] = mb_strtolower(trim((string) ($_GET['busqueda'] ?? '')));
+
+        $resumenCuentas = $this->reporteTesoreriaMov->listarCuentas(); 
+        $metodos = $this->reporteTesoreriaMov->listarMetodosPago();
+
+        if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
+            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
+            require_once BASE_PATH . '/vendor/autoload.php';
+
+            $resultadoPdf = $this->reporteTesoreriaMov->listarMovimientos($f, 1, 999999);
+            $movimientosPdf = $resultadoPdf['rows'] ?? [];
+
+            ob_start();
+            require BASE_PATH . '/app/views/reportes/pdf_tesoreria_movimientos.php';
+            $html = ob_get_clean();
+
+            $dompdf = new \Dompdf\Dompdf();
+            $options = $dompdf->getOptions();
+            $options->set(['isRemoteEnabled' => true]);
+            $dompdf->setOptions($options);
+
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'landscape'); 
+            $dompdf->render();
+            
+            $nombreArchivo = 'Reporte_Movimientos_Tesoreria.pdf';
+            $dompdf->stream($nombreArchivo, ['Attachment' => false]);
+            return;
+        }
+
+        $resultado = $this->reporteTesoreriaMov->listarMovimientos($f, $pagina, $tamano);
+
+        $this->render('reportes/tesoreria_movimientos', [
+            'ruta_actual' => 'reportes/tesoreria_movimientos',
+            'filtros' => $f,
+            'resumenCuentas' => $resumenCuentas,
+            'metodos' => $metodos,
+            'movimientos' => $resultado['rows'] ?? [], 
+            'total_registros' => $resultado['total'] ?? 0, 
             'pagina' => $pagina,
             'tamano' => $tamano,
         ]);
