@@ -166,7 +166,7 @@ class TesoreriaCuentaModel extends Modelo
 
         $db = $this->db();
         
-        $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cuentas WHERE codigo = :codigo AND deleted_at IS NULL AND id <> :id LIMIT 1');
+        $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cuentas WHERE codigo = :codigo AND id <> :id LIMIT 1');
         $stmtExiste->execute(['codigo' => $data['codigo'], 'id' => $id]);
         if ($stmtExiste->fetch(PDO::FETCH_ASSOC)) {
             throw new RuntimeException('Ya existe una cuenta con ese código.');
@@ -220,7 +220,10 @@ class TesoreriaCuentaModel extends Modelo
     private function generarCodigoDisponible(string $tipo): string
     {
         $prefijo = $tipo === 'CAJA' ? 'CJ-' : ($tipo === 'BILLETERA' ? 'WL-' : 'BN-');
-        $stmt = $this->db()->prepare('SELECT codigo FROM tesoreria_cuentas WHERE codigo LIKE :prefijo AND deleted_at IS NULL ORDER BY id DESC LIMIT 1');
+        
+        // CORRECCIÓN 1: Quitar 'AND deleted_at IS NULL' para que busque el último código 
+        // real creado en la historia de la tabla, incluso si fue eliminado.
+        $stmt = $this->db()->prepare('SELECT codigo FROM tesoreria_cuentas WHERE codigo LIKE :prefijo ORDER BY id DESC LIMIT 1');
         $stmt->execute(['prefijo' => $prefijo . '%']);
         $ultimo = (string) ($stmt->fetchColumn() ?: '');
 
@@ -231,8 +234,12 @@ class TesoreriaCuentaModel extends Modelo
 
         while (true) {
             $codigo = $prefijo . str_pad((string) $correlativo, 3, '0', STR_PAD_LEFT);
-            $stmtExiste = $this->db()->prepare('SELECT id FROM tesoreria_cuentas WHERE codigo = :codigo AND deleted_at IS NULL LIMIT 1');
+            
+            // CORRECCIÓN 2: Quitar 'AND deleted_at IS NULL' para asegurar que el 
+            // código generado no choque con un registro eliminado en la base de datos.
+            $stmtExiste = $this->db()->prepare('SELECT id FROM tesoreria_cuentas WHERE codigo = :codigo LIMIT 1');
             $stmtExiste->execute(['codigo' => $codigo]);
+            
             if (!$stmtExiste->fetch(PDO::FETCH_ASSOC)) return $codigo;
             $correlativo++;
         }
