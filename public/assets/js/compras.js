@@ -1518,16 +1518,56 @@
         idProveedor.addEventListener('change', refrescarPreciosSugeridos);
     }
 
-    [filtroBusqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta].forEach((el) => {
-        el.addEventListener('change', recargarPagina);
-    });
+    // Aplicamos la misma lógica de Ventas para validación de fechas (sin recargar automático)
+    if (filtroFechaDesde && filtroFechaHasta) {
+        filtroFechaDesde.addEventListener('change', () => {
+            if (filtroFechaDesde.value) {
+                filtroFechaHasta.min = filtroFechaDesde.value; 
+                if (filtroFechaHasta.value && filtroFechaHasta.value < filtroFechaDesde.value) {
+                    filtroFechaHasta.value = filtroFechaDesde.value;
+                }
+            } else {
+                filtroFechaHasta.min = '';
+            }
+        });
 
-    filtroBusqueda.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
+        filtroFechaHasta.addEventListener('change', () => {
+            if (filtroFechaHasta.value) {
+                filtroFechaDesde.max = filtroFechaHasta.value; 
+                if (filtroFechaDesde.value && filtroFechaDesde.value > filtroFechaHasta.value) {
+                    filtroFechaDesde.value = filtroFechaHasta.value;
+                }
+            } else {
+                filtroFechaDesde.max = '';
+            }
+        });
+
+        // Valores iniciales
+        if (filtroFechaDesde.value) filtroFechaHasta.min = filtroFechaDesde.value;
+        if (filtroFechaHasta.value) filtroFechaDesde.max = filtroFechaHasta.value;
+    }
+
+    // Buscador y Estado se recargan al instante
+    if (filtroBusqueda) {
+        filtroBusqueda.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                recargarPagina();
+            }
+        });
+    }
+
+    if (filtroEstado) {
+        filtroEstado.addEventListener('change', recargarPagina);
+    }
+    
+    // NUEVO: Escuchador del botón para activar el filtrado
+    const btnFiltrarFechas = document.getElementById('btnFiltrarFechas'); 
+    if (btnFiltrarFechas) {
+        btnFiltrarFechas.addEventListener('click', () => {
             recargarPagina();
-        }
-    });
+        });
+    }
 
     if (fechaEntrega && !fechaEntrega.value) {
         fechaEntrega.value = obtenerFechaLocalISO();

@@ -2155,6 +2155,7 @@
     }
 
     if (filtroFechaDesde && filtroFechaHasta) {
+        // Mantenemos la validación de rangos lógicos, pero quitamos el recargarTabla()
         filtroFechaDesde.addEventListener('change', () => {
             if (filtroFechaDesde.value) {
                 filtroFechaHasta.min = filtroFechaDesde.value; 
@@ -2164,7 +2165,6 @@
             } else {
                 filtroFechaHasta.min = '';
             }
-            recargarTabla();
         });
 
         filtroFechaHasta.addEventListener('change', () => {
@@ -2176,11 +2176,18 @@
             } else {
                 filtroFechaDesde.max = '';
             }
-            recargarTabla();
         });
 
         if (filtroFechaDesde.value) filtroFechaHasta.min = filtroFechaDesde.value;
         if (filtroFechaHasta.value) filtroFechaDesde.max = filtroFechaHasta.value;
+    }
+
+    // NUEVO: Escuchamos el clic exclusivamente en el botón de filtrar
+    const btnFiltrarFechas = document.getElementById('btnFiltrarFechas'); // Asegúrate que el ID coincida con tu HTML
+    if (btnFiltrarFechas) {
+        btnFiltrarFechas.addEventListener('click', () => {
+            recargarTabla();
+        });
     }
 
     [filtroBusqueda, filtroEstado, filtroOrdenFecha].forEach(el => {

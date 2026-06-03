@@ -102,7 +102,7 @@
     }
 
     // ========================================================================
-    // 2. LÓGICA DE COBRO MANUAL
+    // 2. LÓGICA DE COBRO MANUAL (MEJORADA CON AJAX)
     // ========================================================================
     const modalCobroManual = document.getElementById('modalCobroManual');
     const selectCliente = document.getElementById('cobroManualCliente');
@@ -117,7 +117,7 @@
         let primeraValida = null;
 
         Array.from(selectCuenta.options).forEach(opt => {
-            if (!opt.value) return; // Ignorar el placeholder
+            if (!opt.value) return; 
             const optMoneda = String(opt.dataset.moneda || '').toUpperCase();
             const esValida = !moneda || optMoneda === moneda;
             
@@ -128,8 +128,10 @@
         selectCuenta.value = primeraValida || '';
     };
 
-    const actualizarDeudaManual = () => {
+    // NUEVO: Función Asíncrona para consultar la deuda real a la Base de Datos
+    const actualizarDeudaManual = async () => {
         if (!selectCliente || !hintDeudaManual) return;
+        
         const idTercero = selectCliente.value;
         const moneda = selectMonedaManual ? selectMonedaManual.value : 'PEN';
         
@@ -138,28 +140,50 @@
             return;
         }
 
-        const opt = selectCliente.querySelector(`option[value="${idTercero}"]`);
-        const deuda = parseFloat(opt ? opt.getAttribute('data-deuda') : 0) || 0;
+        // Mostramos un estado de carga mientras consulta al servidor
+        hintDeudaManual.innerHTML = `<span class="text-muted fw-bold"><i class="spinner-border spinner-border-sm me-1"></i>Calculando...</span>`;
 
-        if (deuda > 0) {
-            hintDeudaManual.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-exclamation-circle-fill me-1"></i>Debe: ${moneda} ${deuda.toFixed(2)}</span>`;
-            if (inputMontoManual && parseFloat(inputMontoManual.value) > deuda) {
-                inputMontoManual.value = deuda.toFixed(2);
+        try {
+            // Llamamos a tu endpoint en TesoreriaController
+            const url = `index.php?ruta=tesoreria/ajax_obtener_deuda_tercero&id_tercero=${idTercero}&moneda=${moneda}&tipo=CXC`;
+            const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const json = await response.json();
+
+            if (json.ok) {
+                const deuda = parseFloat(json.deuda) || 0;
+
+                if (deuda > 0) {
+                    hintDeudaManual.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-exclamation-circle-fill me-1"></i>Debe: ${moneda} ${deuda.toFixed(2)}</span>`;
+                    
+                    // Si el monto ingresado es mayor a la deuda, lo ajustamos automáticamente
+                    if (inputMontoManual && parseFloat(inputMontoManual.value) > deuda) {
+                        inputMontoManual.value = deuda.toFixed(2);
+                    }
+                } else {
+                    hintDeudaManual.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i>Al día (${moneda} 0.00)</span>`;
+                }
+            } else {
+                hintDeudaManual.innerHTML = `<span class="text-danger fw-bold">Error al calcular</span>`;
             }
-        } else {
-            hintDeudaManual.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i>Al día (S/ 0.00)</span>`;
+        } catch (error) {
+            console.error("Error al obtener deuda:", error);
+            hintDeudaManual.innerHTML = `<span class="text-danger fw-bold">Error de red</span>`;
         }
     };
 
     if (modalCobroManual) {
         modalCobroManual.addEventListener('shown.bs.modal', () => {
             filtrarCuentasPorMoneda(selectMonedaManual, selectCuentaManual);
+            
             if (typeof window.AppSelects !== 'undefined' && !selectCliente.tomselect) {
                 window.AppSelects.initLocal('#cobroManualCliente', {
                     dropdownParent: 'body',
-                    onChange: actualizarDeudaManual
+                    onChange: actualizarDeudaManual // TomSelect disparará esto al cambiar
                 });
             }
+            
+            // Seguro adicional: Escuchar el select original por si no hay TomSelect
+            selectCliente.addEventListener('change', actualizarDeudaManual);
         });
 
         modalCobroManual.addEventListener('hidden.bs.modal', () => {
@@ -170,7 +194,7 @@
         if (selectMonedaManual) {
             selectMonedaManual.addEventListener('change', () => {
                 filtrarCuentasPorMoneda(selectMonedaManual, selectCuentaManual);
-                actualizarDeudaManual();
+                actualizarDeudaManual(); // Si cambia la moneda, recalculamos en vivo
             });
         }
     }
@@ -248,73 +272,90 @@
         window.recalcularModalCobro();
     };
 
-    // --- FUNCIÓN MAGIA: FILTRADO DE MÉTODOS (CORREGIDA) ---
+    // --- FUNCIÓN MAGIA: FILTRADO DE MÉTODOS (ESTÁNDAR GLOBAL) ---
     window.filtrarMetodosPorCuenta = function(selectCuenta, selectMetodo) {
         if (!selectCuenta || !selectMetodo) return;
 
-        const optSeleccionada = selectCuenta.options[selectCuenta.selectedIndex];
+        const idCuentaSeleccionada = parseInt(selectCuenta.value);
+        const valorPrevio = selectMetodo.value; 
         
-        // Si no hay cuenta seleccionada, bloqueamos el método
-        if (!optSeleccionada || !optSeleccionada.value) {
-            selectMetodo.value = '';
+        // 1. Limpiamos el select desde cero
+        selectMetodo.innerHTML = '<option value="" selected disabled>Método...</option>';
+
+        // 2. Extraemos los arrays seguros
+        const arrayCuentas = Array.isArray(window.TESORERIA_CUENTAS) 
+                             ? window.TESORERIA_CUENTAS 
+                             : Object.values(window.TESORERIA_CUENTAS || {});
+
+        const arrayMetodos = Array.isArray(window.TESORERIA_METODOS) 
+                             ? window.TESORERIA_METODOS 
+                             : Object.values(window.TESORERIA_METODOS || {});
+
+        // Si no hay cuenta seleccionada, mostramos todos los métodos o lo bloqueamos
+        if (!idCuentaSeleccionada || isNaN(idCuentaSeleccionada)) {
             selectMetodo.disabled = true;
             return;
         }
 
-        let rawMetodos = optSeleccionada.getAttribute('data-metodos');
-        let permitidos = [];
+        const cuentaObj = arrayCuentas.find(c => parseInt(c.id) === idCuentaSeleccionada);
+        if (!cuentaObj) return;
 
-        // Extraer los métodos permitidos (si los hay)
-        if (rawMetodos && rawMetodos !== 'null' && rawMetodos !== '') {
+        // 3. EXTRACCIÓN SÚPER SEGURA DEL JSON
+        let metodosPermitidos = [];
+        let tieneFiltro = false; // Bandera para saber si la BD realmente nos mandó métodos
+
+        let rawMetodos = cuentaObj.metodos_pago;
+
+        if (rawMetodos === null || rawMetodos === "" || rawMetodos === "null" || rawMetodos === "[]") {
+            tieneFiltro = true;       // SÍ hay filtro activo
+            metodosPermitidos = [];   // Hay 0 permitidos
+        } 
+        else if (rawMetodos !== undefined) {
             try {
                 let parsed = rawMetodos;
-                // Si viene como string escapado, lo parseamos hasta que sea un Array
-                while(typeof parsed === 'string') parsed = JSON.parse(parsed);
+                while(typeof parsed === 'string') {
+                    parsed = JSON.parse(parsed);
+                }
                 
                 if (Array.isArray(parsed)) {
-                    permitidos = parsed.map(m => String(m).trim().toLowerCase());
+                    metodosPermitidos = parsed;
+                    tieneFiltro = true;
                 }
-            } catch(e) { console.error("Error parseando JSON de métodos", e); }
+            } catch (e) {
+                console.error("No se pudo parsear el JSON de métodos:", rawMetodos);
+            }
         }
 
+        const permitidosNormalizados = metodosPermitidos.map(m => String(m).trim().toLowerCase());
+        
         let primerValido = null;
-        let seleccionActualValida = false;
-        const valorActual = selectMetodo.value;
-        let opcionesValidasCount = 0;
+        let encontroPrevio = false;
 
-        // Ocultar/Mostrar opciones según la configuración estricta
-        Array.from(selectMetodo.options).forEach(opt => {
-            if (!opt.value) return; // Ignorar el placeholder "Método..."
-            
-            const nombreMetodo = opt.textContent.trim().toLowerCase();
-            
-            // LA CLAVE: Si "permitidos" está vacío, NINGÚN método es válido.
-            const esValido = permitidos.some(p => nombreMetodo.includes(p) || p.includes(nombreMetodo));
-            
-            opt.hidden = !esValido;
-            opt.disabled = !esValido;
+        // 4. Reconstruimos SOLO las opciones válidas
+        arrayMetodos.forEach(m => {
+            const nombreDB = String(m.nombre).trim().toLowerCase();
+            const esValido = !tieneFiltro || permitidosNormalizados.some(p => nombreDB.includes(p) || p.includes(nombreDB));
 
             if (esValido) {
-                opcionesValidasCount++;
-                if (!primerValido) primerValido = opt.value;
-                if (opt.value === valorActual) seleccionActualValida = true;
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                opt.textContent = m.nombre;
+                selectMetodo.appendChild(opt);
+
+                if (!primerValido) primerValido = m.id;
+                if (String(m.id) === String(valorPrevio)) encontroPrevio = true;
             }
         });
 
-        // Qué hacer con el select según la cantidad de métodos válidos
-        if (opcionesValidasCount === 0) {
-            // Si la cuenta tiene 0 métodos vinculados, se bloquea la cajita
-            selectMetodo.value = '';
+        // 5. SALVAVIDAS
+        if (selectMetodo.options.length <= 1) {
+            selectMetodo.innerHTML = '<option value="" selected disabled>Sin métodos configurados</option>';
             selectMetodo.disabled = true;
-            
-            // Opcional: mostrar una alerta si quieres que el cajero sepa el por qué
-            // console.warn("La cuenta seleccionada no tiene métodos de pago configurados.");
         } else {
-            // Si tiene métodos, la habilitamos y seleccionamos el primero válido si es necesario
             selectMetodo.disabled = false;
-            if (!seleccionActualValida) {
-                selectMetodo.value = primerValido || '';
-            }
+            // Mantenemos la selección o auto-seleccionamos el primero válido
+            if (encontroPrevio) selectMetodo.value = valorPrevio;
+            else if (primerValido) selectMetodo.value = primerValido;
         }
     };
 

@@ -205,11 +205,16 @@
                     <div class="d-flex gap-2 w-100">
                         <div class="w-50">
                             <label class="form-label text-muted small fw-bold mb-1">Desde</label>
-                            <input type="date" name="fecha_desde" class="form-control bg-light border-secondary-subtle auto-submit" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-01')) ?>" style="height: 38px;">
+                            <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-secondary-subtle" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-01')) ?>" style="height: 38px;">
                         </div>
                         <div class="w-50">
                             <label class="form-label text-muted small fw-bold mb-1">Hasta</label>
-                            <input type="date" name="fecha_hasta" class="form-control bg-light border-secondary-subtle auto-submit" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>" style="height: 38px;">
+                            <div class="input-group shadow-sm">
+                                <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-secondary-subtle" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>" style="height: 38px;">
+                                <button type="button" id="btnFiltrarFechas" class="btn btn-secondary shadow-sm" style="height: 38px;">
+                                    <i class="bi bi-filter"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

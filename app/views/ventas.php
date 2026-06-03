@@ -82,7 +82,7 @@ $formatearFechaDMY = static function ($fecha): string {
                         <span class="input-group-text bg-light border-secondary-subtle border-start-0 border-end-0 text-muted fw-semibold" style="font-size: 0.85rem;">Hasta</span>
                         <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control shadow-none border-secondary-subtle text-secondary" value="<?php echo e((string) ($filtros['fecha_hasta'] ?? date('Y-m-t'))); ?>">
                         
-                        <button type="submit" class="btn btn-secondary shadow-sm"><i class="bi bi-filter"></i></button>
+                        <button type="button" id="btnFiltrarFechas" class="btn btn-secondary shadow-sm"><i class="bi bi-filter"></i></button>
                     </div>
                 </div>
                 

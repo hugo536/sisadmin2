@@ -182,6 +182,52 @@
             }
         });
 
+        // ========================================================================
+        // 4.5 LÓGICA DE FECHAS (Validación y recarga al hacer clic en el botón)
+        // ========================================================================
+        const filtroFechaDesde = document.getElementById('filtroFechaDesde');
+        const filtroFechaHasta = document.getElementById('filtroFechaHasta');
+        const btnFiltrarFechas = document.getElementById('btnFiltrarFechas');
+
+        if (filtroFechaDesde && filtroFechaHasta) {
+            filtroFechaDesde.addEventListener('change', () => {
+                if (filtroFechaDesde.value) {
+                    filtroFechaHasta.min = filtroFechaDesde.value; 
+                    if (filtroFechaHasta.value && filtroFechaHasta.value < filtroFechaDesde.value) {
+                        filtroFechaHasta.value = filtroFechaDesde.value;
+                    }
+                } else {
+                    filtroFechaHasta.min = '';
+                }
+            });
+
+            filtroFechaHasta.addEventListener('change', () => {
+                if (filtroFechaHasta.value) {
+                    filtroFechaDesde.max = filtroFechaHasta.value; 
+                    if (filtroFechaDesde.value && filtroFechaDesde.value > filtroFechaHasta.value) {
+                        filtroFechaDesde.value = filtroFechaHasta.value;
+                    }
+                } else {
+                    filtroFechaDesde.max = '';
+                }
+            });
+
+            // Setear los límites iniciales al cargar
+            if (filtroFechaDesde.value) filtroFechaHasta.min = filtroFechaDesde.value;
+            if (filtroFechaHasta.value) filtroFechaDesde.max = filtroFechaHasta.value;
+        }
+
+        // Disparar AJAX solo al darle clic al botón de filtro
+        if (btnFiltrarFechas) {
+            btnFiltrarFechas.addEventListener('click', () => {
+                if (formFiltros.checkValidity()) {
+                    procesarFiltros();
+                } else {
+                    formFiltros.reportValidity();
+                }
+            });
+        }
+
         // Escuchar elementos que tengan la clase auto-submit (los selects y fechas en la vista)
         formFiltros.querySelectorAll('.auto-submit').forEach(input => {
             input.addEventListener('change', function() {

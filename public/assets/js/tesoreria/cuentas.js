@@ -106,44 +106,60 @@
     // ========================================================================
 
     // A. Interceptar el formulario de Guardar / Actualizar Cuenta
-    if (formCuenta) {
-        formCuenta.addEventListener('submit', function(e) {
-            e.preventDefault(); // Pausamos el envío para mostrar la alerta
-            
-            // Verificamos si es creación o edición leyendo el ID
-            const idCuenta = this.querySelector('[name="id"]').value;
-            const esEdicion = idCuenta !== '0' && idCuenta !== '';
-            const accionTexto = esEdicion ? 'actualizar' : 'guardar';
+    if (formCuenta) {
+        formCuenta.addEventListener('submit', function(e) {
+            e.preventDefault(); // Pausamos el envío para hacer validaciones
+            
+            // --- NUEVA VALIDACIÓN: Exigir al menos un check de método de pago ---
+            const metodosSeleccionados = this.querySelectorAll('input[name="metodos_pago[]"]:checked').length;
+            
+            if (metodosSeleccionados === 0) {
+                Swal.fire({
+                    title: 'Información incompleta',
+                    text: 'Debes seleccionar como mínimo un Método de Pago Vinculado.',
+                    icon: 'warning',
+                    confirmButtonColor: '#0d6efd',
+                    confirmButtonText: 'Entendido',
+                    customClass: { popup: 'rounded-4 shadow-lg' }
+                });
+                return; // Detenemos la ejecución aquí, no mostramos la confirmación
+            }
+            // ----------------------------------------------------------------------
 
-            Swal.fire({
-                title: `¿Confirmas ${accionTexto} esta cuenta?`,
-                text: "Verifica que los datos y los métodos de pago vinculados sean correctos.",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#0d6efd', // Color azul Bootstrap
-                cancelButtonColor: '#6c757d', // Color gris Bootstrap
-                confirmButtonText: `<i class="bi bi-check-circle me-1"></i> Sí, ${accionTexto}`,
-                cancelButtonText: 'Cancelar',
-                customClass: {
-                    popup: 'rounded-4 shadow-lg' // Bordes redondeados más modernos
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Mostrar un loader mientras el backend procesa
-                    Swal.fire({
-                        title: 'Procesando...',
-                        text: 'Por favor, espera un momento.',
-                        allowOutsideClick: false,
-                        showConfirmButton: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
-                    this.submit(); // Ahora sí, enviamos el formulario al PHP
-                }
-            });
-        });
-    }
+            // Verificamos si es creación o edición leyendo el ID
+            const idCuenta = this.querySelector('[name="id"]').value;
+            const esEdicion = idCuenta !== '0' && idCuenta !== '';
+            const accionTexto = esEdicion ? 'actualizar' : 'guardar';
+
+            Swal.fire({
+                title: `¿Confirmas ${accionTexto} esta cuenta?`,
+                text: "Verifica que los datos y los métodos de pago vinculados sean correctos.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#0d6efd', // Color azul Bootstrap
+                cancelButtonColor: '#6c757d', // Color gris Bootstrap
+                confirmButtonText: `<i class="bi bi-check-circle me-1"></i> Sí, ${accionTexto}`,
+                cancelButtonText: 'Cancelar',
+                customClass: {
+                    popup: 'rounded-4 shadow-lg' // Bordes redondeados más modernos
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Mostrar un loader mientras el backend procesa
+                    Swal.fire({
+                        title: 'Procesando...',
+                        text: 'Por favor, espera un momento.',
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    this.submit(); // Ahora sí, enviamos el formulario al PHP
+                }
+            });
+        });
+    }
 
     // B. Interceptar el formulario de Eliminar Cuenta
     const formsEliminar = document.querySelectorAll('.js-form-delete-cuenta');

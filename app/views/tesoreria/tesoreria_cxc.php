@@ -518,3 +518,8 @@ if (!empty($_GET['error'])) {
         </div>
     </div>
 </div>
+
+<script>
+    window.TESORERIA_CUENTAS = <?php echo json_encode($cuentas ?? []); ?>;
+    window.TESORERIA_METODOS = <?php echo json_encode($metodos ?? []); ?>;
+</script>
