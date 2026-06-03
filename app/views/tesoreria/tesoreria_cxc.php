@@ -353,7 +353,7 @@ if (!empty($_GET['error'])) {
                         </div>
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Método de Pago <span class="text-danger">*</span></label>
-                            <select name="id_metodo_pago" class="form-select shadow-sm border-secondary-subtle" required disabled>
+                            <select name="id_metodo_pago" id="cobroManualMetodoDestino" class="form-select shadow-sm border-secondary-subtle" required disabled>
                                 <option value="" selected disabled>Seleccione un método...</option>
                                 <?php foreach($metodos as $m): ?>
                                     <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>

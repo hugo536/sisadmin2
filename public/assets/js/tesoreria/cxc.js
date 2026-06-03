@@ -108,24 +108,35 @@
     const selectCliente = document.getElementById('cobroManualCliente');
     const selectMonedaManual = document.getElementById('cobroManualMoneda');
     const selectCuentaManual = document.getElementById('cobroManualCuentaDestino');
+    const selectMetodoManual = document.getElementById('cobroManualMetodoDestino')
+        || document.querySelector('#modalCobroManual select[name="id_metodo_pago"]');
     const hintDeudaManual = document.getElementById('cobroManualDeudaHint');
     const inputMontoManual = document.getElementById('cobroManualMontoInput');
 
-    const filtrarCuentasPorMoneda = (selectMoneda, selectCuenta) => {
+    const filtrarCuentasPorMoneda = (selectMoneda, selectCuenta, opciones = {}) => {
         if (!selectMoneda || !selectCuenta) return;
         const moneda = String(selectMoneda.value || '').toUpperCase();
+        const valorActual = selectCuenta.value;
+        const debeSeleccionarPrimera = opciones.seleccionarPrimera === true;
         let primeraValida = null;
+        let valorActualSigueValido = false;
 
         Array.from(selectCuenta.options).forEach(opt => {
-            if (!opt.value) return; 
+            if (!opt.value) return;
             const optMoneda = String(opt.dataset.moneda || '').toUpperCase();
             const esValida = !moneda || optMoneda === moneda;
-            
+
             opt.hidden = !esValida;
             opt.disabled = !esValida;
             if (esValida && !primeraValida) primeraValida = opt.value;
+            if (esValida && opt.value === valorActual) valorActualSigueValido = true;
         });
-        selectCuenta.value = primeraValida || '';
+
+        if (valorActualSigueValido) {
+            selectCuenta.value = valorActual;
+        } else {
+            selectCuenta.value = debeSeleccionarPrimera ? (primeraValida || '') : '';
+        }
     };
 
     // NUEVO: Función Asíncrona para consultar la deuda real a la Base de Datos
@@ -171,9 +182,17 @@
         }
     };
 
+    const sincronizarMetodoManual = () => {
+        if (typeof window.filtrarMetodosPorCuenta === 'function') {
+            window.filtrarMetodosPorCuenta(selectCuentaManual, selectMetodoManual);
+        }
+    };
+
     if (modalCobroManual) {
         modalCobroManual.addEventListener('shown.bs.modal', () => {
+            if (selectCuentaManual) selectCuentaManual.value = '';
             filtrarCuentasPorMoneda(selectMonedaManual, selectCuentaManual);
+            sincronizarMetodoManual();
             
             if (typeof window.AppSelects !== 'undefined' && !selectCliente.tomselect) {
                 window.AppSelects.initLocal('#cobroManualCliente', {
@@ -183,17 +202,24 @@
             }
             
             // Seguro adicional: Escuchar el select original por si no hay TomSelect
-            selectCliente.addEventListener('change', actualizarDeudaManual);
+            if (selectCliente && !selectCliente.dataset.cxcDeudaListener) {
+                selectCliente.addEventListener('change', actualizarDeudaManual);
+                selectCliente.dataset.cxcDeudaListener = '1';
+            }
         });
 
         modalCobroManual.addEventListener('hidden.bs.modal', () => {
             if (hintDeudaManual) hintDeudaManual.innerHTML = '';
+            if (inputMontoManual) inputMontoManual.value = '';
+            if (selectCuentaManual) selectCuentaManual.value = '';
+            sincronizarMetodoManual();
             if (selectCliente && selectCliente.tomselect) selectCliente.tomselect.clear(true);
         });
 
         if (selectMonedaManual) {
             selectMonedaManual.addEventListener('change', () => {
                 filtrarCuentasPorMoneda(selectMonedaManual, selectCuentaManual);
+                sincronizarMetodoManual();
                 actualizarDeudaManual(); // Si cambia la moneda, recalculamos en vivo
             });
         }
@@ -380,10 +406,7 @@
             }
             // Modal Manual
             else if (e.target.id === 'cobroManualCuentaDestino') {
-                // Asegúrate de que el select de métodos en el modal manual tenga este id o ajusta el selector
-                const selectMetodo = document.getElementById('cobroManualMetodoDestino') 
-                                  || document.querySelector('#modalCobroManual select[name="id_metodo_pago"]');
-                window.filtrarMetodosPorCuenta(e.target, selectMetodo);
+                window.filtrarMetodosPorCuenta(e.target, selectMetodoManual);
             }
         });
 
