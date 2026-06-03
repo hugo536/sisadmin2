@@ -137,6 +137,8 @@
         } else {
             selectCuenta.value = debeSeleccionarPrimera ? (primeraValida || '') : '';
         }
+
+        selectCuenta.dispatchEvent(new Event('change', { bubbles: true }));
     };
 
     // NUEVO: Función Asíncrona para consultar la deuda real a la Base de Datos
@@ -216,10 +218,14 @@
             if (selectCliente && selectCliente.tomselect) selectCliente.tomselect.clear(true);
         });
 
+        if (selectCuentaManual && !selectCuentaManual.dataset.cxcMetodoListener) {
+            selectCuentaManual.addEventListener('change', sincronizarMetodoManual);
+            selectCuentaManual.dataset.cxcMetodoListener = '1';
+        }
+
         if (selectMonedaManual) {
             selectMonedaManual.addEventListener('change', () => {
                 filtrarCuentasPorMoneda(selectMonedaManual, selectCuentaManual);
-                sincronizarMetodoManual();
                 actualizarDeudaManual(); // Si cambia la moneda, recalculamos en vivo
             });
         }
@@ -299,67 +305,72 @@
     };
 
     // --- FUNCIÓN MAGIA: FILTRADO DE MÉTODOS (ESTÁNDAR GLOBAL) ---
+    const parsearMetodosPermitidosCuenta = (rawMetodos) => {
+        if (rawMetodos === undefined || rawMetodos === null || rawMetodos === '') {
+            return { tieneFiltro: false, metodos: [] };
+        }
+
+        const rawTexto = String(rawMetodos).trim();
+        if (rawTexto === '' || rawTexto.toLowerCase() === 'null') {
+            return { tieneFiltro: false, metodos: [] };
+        }
+
+        try {
+            let parsed = rawMetodos;
+            while (typeof parsed === 'string') {
+                parsed = JSON.parse(parsed);
+            }
+
+            if (Array.isArray(parsed)) {
+                return { tieneFiltro: true, metodos: parsed };
+            }
+        } catch (e) {
+            console.error('No se pudo parsear el JSON de métodos:', rawMetodos);
+        }
+
+        return { tieneFiltro: false, metodos: [] };
+    };
+
     window.filtrarMetodosPorCuenta = function(selectCuenta, selectMetodo) {
         if (!selectCuenta || !selectMetodo) return;
 
+        const optSeleccionada = selectCuenta.options[selectCuenta.selectedIndex];
         const idCuentaSeleccionada = parseInt(selectCuenta.value);
-        const valorPrevio = selectMetodo.value; 
-        
+        const valorPrevio = selectMetodo.value;
+
         // 1. Limpiamos el select desde cero
-        selectMetodo.innerHTML = '<option value="" selected disabled>Método...</option>';
+        selectMetodo.innerHTML = '<option value="" selected disabled>Seleccione un método...</option>';
 
-        // 2. Extraemos los arrays seguros
-        const arrayCuentas = Array.isArray(window.TESORERIA_CUENTAS) 
-                             ? window.TESORERIA_CUENTAS 
-                             : Object.values(window.TESORERIA_CUENTAS || {});
-
-        const arrayMetodos = Array.isArray(window.TESORERIA_METODOS) 
-                             ? window.TESORERIA_METODOS 
-                             : Object.values(window.TESORERIA_METODOS || {});
-
-        // Si no hay cuenta seleccionada, mostramos todos los métodos o lo bloqueamos
-        if (!idCuentaSeleccionada || isNaN(idCuentaSeleccionada)) {
+        // Si no hay cuenta seleccionada, bloqueamos el método
+        if (!optSeleccionada || !optSeleccionada.value || !idCuentaSeleccionada || isNaN(idCuentaSeleccionada)) {
             selectMetodo.disabled = true;
             return;
         }
 
-        const cuentaObj = arrayCuentas.find(c => parseInt(c.id) === idCuentaSeleccionada);
-        if (!cuentaObj) return;
+        // 2. Extraemos los arrays seguros
+        const arrayCuentas = Array.isArray(window.TESORERIA_CUENTAS)
+                             ? window.TESORERIA_CUENTAS
+                             : Object.values(window.TESORERIA_CUENTAS || {});
 
-        // 3. EXTRACCIÓN SÚPER SEGURA DEL JSON
-        let metodosPermitidos = [];
-        let tieneFiltro = false; // Bandera para saber si la BD realmente nos mandó métodos
+        const arrayMetodos = Array.isArray(window.TESORERIA_METODOS)
+                             ? window.TESORERIA_METODOS
+                             : Object.values(window.TESORERIA_METODOS || {});
 
-        let rawMetodos = cuentaObj.metodos_pago;
+        const cuentaObj = arrayCuentas.find(c => parseInt(c.id) === idCuentaSeleccionada) || {};
 
-        if (rawMetodos === null || rawMetodos === "" || rawMetodos === "null" || rawMetodos === "[]") {
-            tieneFiltro = true;       // SÍ hay filtro activo
-            metodosPermitidos = [];   // Hay 0 permitidos
-        } 
-        else if (rawMetodos !== undefined) {
-            try {
-                let parsed = rawMetodos;
-                while(typeof parsed === 'string') {
-                    parsed = JSON.parse(parsed);
-                }
-                
-                if (Array.isArray(parsed)) {
-                    metodosPermitidos = parsed;
-                    tieneFiltro = true;
-                }
-            } catch (e) {
-                console.error("No se pudo parsear el JSON de métodos:", rawMetodos);
-            }
-        }
+        // 3. Usamos primero el data-metodos de la opción seleccionada; si no existe,
+        //    caemos al objeto global de cuentas. Así el modal manual no depende de
+        //    que TESORERIA_CUENTAS esté sincronizado para desbloquear el método.
+        const rawMetodos = optSeleccionada.getAttribute('data-metodos') ?? cuentaObj.metodos_pago;
+        const { tieneFiltro, metodos } = parsearMetodosPermitidosCuenta(rawMetodos);
+        const permitidosNormalizados = metodos.map(m => String(m).trim().toLowerCase());
 
-        const permitidosNormalizados = metodosPermitidos.map(m => String(m).trim().toLowerCase());
-        
         let primerValido = null;
         let encontroPrevio = false;
 
         // 4. Reconstruimos SOLO las opciones válidas
         arrayMetodos.forEach(m => {
-            const nombreDB = String(m.nombre).trim().toLowerCase();
+            const nombreDB = String(m.nombre || '').trim().toLowerCase();
             const esValido = !tieneFiltro || permitidosNormalizados.some(p => nombreDB.includes(p) || p.includes(nombreDB));
 
             if (esValido) {
@@ -384,6 +395,7 @@
             else if (primerValido) selectMetodo.value = primerValido;
         }
     };
+
 
     if (!window.cxcEventosGlobalesAtachados) {
         window.cxcEventosGlobalesAtachados = true; // Candado activado
