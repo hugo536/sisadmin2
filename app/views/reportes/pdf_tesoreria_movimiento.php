@@ -124,7 +124,7 @@
                     
                     if ($estado === 'CONFIRMADO') {
                         if ($tipo === 'COBRO') $totalCobros += $monto;
-                        if ($tipo === 'PAGO') $totalPagos += $monto;
+                        if ($tipo === 'EGRESO' || $tipo === 'PAGO') $totalPagos += $monto; 
                     }
 
                     $esCobro = $tipo === 'COBRO';
