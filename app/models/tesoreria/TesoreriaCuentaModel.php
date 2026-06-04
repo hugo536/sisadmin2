@@ -14,14 +14,14 @@ class TesoreriaCuentaModel extends Modelo
                        c.id_cuenta_contable,
                        c.permite_cobros,
                        c.permite_pagos,
-                       c.metodos_pago, /* <-- NUEVO CAMPO AGREGADO */
+                       c.metodos_pago,
                        (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0) + COALESCE(trf.saldo_delta, 0)) AS saldo,
                        (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0) + COALESCE(trf.saldo_delta, 0)) AS saldo_actual
                 FROM tesoreria_cuentas c
                 LEFT JOIN (
                     SELECT id_cuenta,
-                           SUM(CASE WHEN estado = "CONFIRMADO" AND tipo = "COBRO" THEN monto
-                                    WHEN estado = "CONFIRMADO" AND tipo = "PAGO" THEN -monto
+                           SUM(CASE WHEN estado = \'CONFIRMADO\' AND tipo IN (\'COBRO\', \'INGRESO\') THEN monto
+                                    WHEN estado = \'CONFIRMADO\' AND tipo IN (\'PAGO\', \'EGRESO\') THEN -monto
                                     ELSE 0 END) AS saldo_delta
                     FROM tesoreria_movimientos
                     WHERE deleted_at IS NULL
@@ -33,15 +33,15 @@ class TesoreriaCuentaModel extends Modelo
                     FROM (
                         SELECT id_cuenta_destino AS cuenta_id, monto AS delta
                         FROM tesoreria_transferencias
-                        WHERE deleted_at IS NULL AND estado = "CONFIRMADA"
+                        WHERE deleted_at IS NULL AND estado = \'CONFIRMADA\'
                         UNION ALL
                         SELECT id_cuenta_origen AS cuenta_id, -monto AS delta
                         FROM tesoreria_transferencias
-                        WHERE deleted_at IS NULL AND estado = "CONFIRMADA"
+                        WHERE deleted_at IS NULL AND estado = \'CONFIRMADA\'
                     ) x
                     GROUP BY cuenta_id
                 ) trf ON trf.cuenta_id = c.id
-                WHERE estado = 1 
+                WHERE c.estado = 1 
                   AND c.deleted_at IS NULL
                 ORDER BY c.tipo ASC, c.nombre ASC';
 
@@ -50,7 +50,6 @@ class TesoreriaCuentaModel extends Modelo
 
     public function listarGestion(): array
     {
-        // Al usar c.* ya trae metodos_pago, no hay que agregarlo manualmente
         $sql = 'SELECT c.*, cb.nombre AS banco_nombre,
                        COALESCE(mov.total_movimientos, 0) AS total_movimientos,
                        (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0) + COALESCE(trf.saldo_delta, 0)) AS saldo_actual
@@ -59,8 +58,8 @@ class TesoreriaCuentaModel extends Modelo
                 LEFT JOIN (
                     SELECT id_cuenta,
                            COUNT(*) AS total_movimientos,
-                           SUM(CASE WHEN estado = "CONFIRMADO" AND tipo = "COBRO" THEN monto
-                                    WHEN estado = "CONFIRMADO" AND tipo = "PAGO" THEN -monto
+                           SUM(CASE WHEN estado = \'CONFIRMADO\' AND tipo IN (\'COBRO\', \'INGRESO\') THEN monto
+                                    WHEN estado = \'CONFIRMADO\' AND tipo IN (\'PAGO\', \'EGRESO\') THEN -monto
                                     ELSE 0 END) AS saldo_delta
                     FROM tesoreria_movimientos
                     WHERE deleted_at IS NULL
@@ -72,11 +71,11 @@ class TesoreriaCuentaModel extends Modelo
                     FROM (
                         SELECT id_cuenta_destino AS cuenta_id, monto AS delta
                         FROM tesoreria_transferencias
-                        WHERE deleted_at IS NULL AND estado = "CONFIRMADA"
+                        WHERE deleted_at IS NULL AND estado = \'CONFIRMADA\'
                         UNION ALL
                         SELECT id_cuenta_origen AS cuenta_id, -monto AS delta
                         FROM tesoreria_transferencias
-                        WHERE deleted_at IS NULL AND estado = "CONFIRMADA"
+                        WHERE deleted_at IS NULL AND estado = \'CONFIRMADA\'
                     ) x
                     GROUP BY cuenta_id
                 ) trf ON trf.cuenta_id = c.id
@@ -101,8 +100,6 @@ class TesoreriaCuentaModel extends Modelo
     {
         $id = (int) ($payload['id'] ?? 0);
 
-        // --- PROCESAMIENTO DE METODOS DE PAGO ---
-        // Extraemos el array, lo filtramos por si vienen valores nulos, y lo pasamos a JSON.
         $metodosPagoArray = isset($payload['metodos_pago']) && is_array($payload['metodos_pago']) ? $payload['metodos_pago'] : [];
         $metodosPagoJson = json_encode($metodosPagoArray);
 
@@ -122,7 +119,7 @@ class TesoreriaCuentaModel extends Modelo
             'fecha_saldo_inicial' => trim((string) ($payload['fecha_saldo_inicial'] ?? '')),
             'observaciones' => trim((string) ($payload['observaciones'] ?? '')),
             'estado' => array_key_exists('estado', $payload) ? (int) $payload['estado'] : 1,
-            'metodos_pago' => $metodosPagoJson, // <-- NUEVO DATO EN PROCESO
+            'metodos_pago' => $metodosPagoJson,
         ];
 
         if ($data['nombre'] === '') throw new RuntimeException('El nombre es obligatorio.');
@@ -176,7 +173,6 @@ class TesoreriaCuentaModel extends Modelo
 
         try {
             if ($id > 0) {
-                // --- SE AÑADE metodos_pago AL UPDATE ---
                 $sql = 'UPDATE tesoreria_cuentas SET
                         codigo = :codigo, nombre = :nombre, tipo = :tipo, moneda = :moneda,
                         config_banco_id = :config_banco_id,
@@ -194,7 +190,6 @@ class TesoreriaCuentaModel extends Modelo
                 return $id;
             }
 
-            // --- SE AÑADE metodos_pago AL INSERT ---
             $sql = 'INSERT INTO tesoreria_cuentas
                     (codigo, nombre, tipo, moneda, config_banco_id, titular, tipo_cuenta, numero_cuenta, cci,
                      permite_cobros, permite_pagos, saldo_inicial, fecha_saldo_inicial, observaciones,
@@ -221,8 +216,6 @@ class TesoreriaCuentaModel extends Modelo
     {
         $prefijo = $tipo === 'CAJA' ? 'CJ-' : ($tipo === 'BILLETERA' ? 'WL-' : 'BN-');
         
-        // CORRECCIÓN 1: Quitar 'AND deleted_at IS NULL' para que busque el último código 
-        // real creado en la historia de la tabla, incluso si fue eliminado.
         $stmt = $this->db()->prepare('SELECT codigo FROM tesoreria_cuentas WHERE codigo LIKE :prefijo ORDER BY id DESC LIMIT 1');
         $stmt->execute(['prefijo' => $prefijo . '%']);
         $ultimo = (string) ($stmt->fetchColumn() ?: '');
@@ -235,8 +228,6 @@ class TesoreriaCuentaModel extends Modelo
         while (true) {
             $codigo = $prefijo . str_pad((string) $correlativo, 3, '0', STR_PAD_LEFT);
             
-            // CORRECCIÓN 2: Quitar 'AND deleted_at IS NULL' para asegurar que el 
-            // código generado no choque con un registro eliminado en la base de datos.
             $stmtExiste = $this->db()->prepare('SELECT id FROM tesoreria_cuentas WHERE codigo = :codigo LIMIT 1');
             $stmtExiste->execute(['codigo' => $codigo]);
             
@@ -252,8 +243,8 @@ class TesoreriaCuentaModel extends Modelo
                 FROM tesoreria_cuentas c
                 LEFT JOIN (
                     SELECT id_cuenta,
-                           SUM(CASE WHEN estado = "CONFIRMADO" AND tipo = "COBRO" THEN monto
-                                    WHEN estado = "CONFIRMADO" AND tipo = "PAGO" THEN -monto
+                           SUM(CASE WHEN estado = \'CONFIRMADO\' AND tipo IN (\'COBRO\', \'INGRESO\') THEN monto
+                                    WHEN estado = \'CONFIRMADO\' AND tipo IN (\'PAGO\', \'EGRESO\') THEN -monto
                                     ELSE 0 END) AS saldo_delta
                     FROM tesoreria_movimientos
                     WHERE deleted_at IS NULL AND id_cuenta = :id_mov
@@ -264,11 +255,11 @@ class TesoreriaCuentaModel extends Modelo
                     FROM (
                         SELECT id_cuenta_destino AS cuenta_id, monto AS delta
                         FROM tesoreria_transferencias
-                        WHERE deleted_at IS NULL AND estado = "CONFIRMADA" AND id_cuenta_destino = :id_trf_dest
+                        WHERE deleted_at IS NULL AND estado = \'CONFIRMADA\' AND id_cuenta_destino = :id_trf_dest
                         UNION ALL
                         SELECT id_cuenta_origen AS cuenta_id, -monto AS delta
                         FROM tesoreria_transferencias
-                        WHERE deleted_at IS NULL AND estado = "CONFIRMADA" AND id_cuenta_origen = :id_trf_orig
+                        WHERE deleted_at IS NULL AND estado = \'CONFIRMADA\' AND id_cuenta_origen = :id_trf_orig
                     ) x
                     GROUP BY cuenta_id
                 ) trf ON trf.cuenta_id = c.id
