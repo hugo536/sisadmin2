@@ -141,7 +141,7 @@ class GastoRegistroModel extends Modelo
             if ($pagoInmediato === 1 && !empty($pagosDetalle)) {
                 
                 // Preparamos la observación para el pago
-                $notaPago = $observacion !== '' ? $observacion : 'Pago Rápido Gasto';
+                $notaPago = $observacion !== '' ? $observacion : 'Pago Rapido Gasto';
 
                 foreach ($pagosDetalle as $pago) {
                     $idCuenta = (int) $pago['id_cuenta'];
@@ -216,7 +216,7 @@ class GastoRegistroModel extends Modelo
                 return;
             }
 
-            // 👇 NUEVA VALIDACIÓN BLINDADA 👇
+            // 👇 VALIDACIÓN BLINDADA 👇
             $idCxp = (int) ($row['id_cxp'] ?? 0);
             
             if ($idCxp > 0) {
@@ -229,7 +229,7 @@ class GastoRegistroModel extends Modelo
                     throw new RuntimeException('No se puede anular: Este gasto ya tiene un pago registrado de S/ ' . number_format($montoPagado, 2) . '. Debe anular el pago en Tesorería primero.');
                 }
             }
-            // 👆 FIN DE LA NUEVA VALIDACIÓN 👆
+            // 👆 FIN DE LA VALIDACIÓN 👆
 
             // 1. Anular el registro maestro del gasto
             $db->prepare('UPDATE gastos_registros
@@ -245,13 +245,11 @@ class GastoRegistroModel extends Modelo
                     ->execute(['id' => $idCxp, 'user' => $userId]);
             }
 
-            // 3. Anular el Asiento Contable
+            // 3. Anular el Asiento Contable (CORREGIDO)
             $idAsiento = (int) ($row['id_asiento'] ?? 0);
             if ($idAsiento > 0) {
-                $db->prepare('UPDATE conta_asientos
-                    SET estado = 0, updated_by = :user, updated_at = NOW()
-                    WHERE id = :id')
-                    ->execute(['id' => $idAsiento, 'user' => $userId]);
+                $contaModel = new ContaAsientoModel();
+                $contaModel->anularConReversion($idAsiento, $userId);
             }
 
             if ($localTx) {
