@@ -319,7 +319,7 @@ class TesoreriaCxpModel extends Modelo
         $stmtMov = $db->prepare('INSERT INTO tesoreria_movimientos 
             (id_cuenta, id_metodo_pago, id_tercero, tipo, monto, moneda, fecha, observaciones, origen, id_origen, estado, created_by, updated_by, created_at, updated_at) 
             VALUES 
-            (:id_cuenta, :id_metodo, :id_tercero, "EGRESO", :monto, :moneda, :fecha, :observacion, "CXP", :id_origen, 1, :created_by, :updated_by, NOW(), NOW())');
+            (:id_cuenta, :id_metodo, :id_tercero, "EGRESO", :monto, :moneda, :fecha, :observacion, "CXP", :id_origen, "CONFIRMADO", :created_by, :updated_by, NOW(), NOW())');
             
         $stmtMov->execute([
             'id_cuenta'   => $idCuenta,
