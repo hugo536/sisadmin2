@@ -363,4 +363,13 @@ class TesoreriaCxpModel extends Modelo
         // 5. Recalcular el Estado Final (Pagado, Parcial)
         $this->recalcularEstado($idCxp, $userId);
     }
+
+    public function obtenerPorRecepcion(int $idRecepcion): ?array
+    {
+        $stmt = $this->db()->prepare('SELECT id, saldo FROM tesoreria_cxp WHERE id_recepcion = :id_recepcion AND deleted_at IS NULL LIMIT 1');
+        $stmt->execute(['id_recepcion' => $idRecepcion]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return $row ?: null;
+    }
 }

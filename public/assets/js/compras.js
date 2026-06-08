@@ -1085,9 +1085,12 @@
         if (errorCentroCosto) return Swal.fire('Falta Centro de Costo', 'Debe seleccionar un Centro de Costo para todos los ítems de la orden.', 'warning');
         if (errorDetalle) return Swal.fire('Verifique cantidades', 'Hay líneas con conversión o cantidad inválida.', 'warning');
 
-        // 👇 NUEVO: Validación estricta de Pagos Inmediatos 👇
-        let pagosInmediatos = [];
+        // 👇 NUEVO: Validación estricta de Pagos Inmediatos (ALINEADO CON VENTAS) 👇
+        let esCobroInmediato = false;
+        let metodosPagoFinales = [];
+
         if (switchCobroInmediatoCompra && switchCobroInmediatoCompra.checked && !modalSoloLecturaActiva) {
+            esCobroInmediato = true;
             const filasPago = contenedorMetodosPagoCompra.querySelectorAll('.fila-pago-inmediato');
             let montosPorCuenta = {};
             let saldosPorCuenta = {};
@@ -1106,6 +1109,7 @@
                 }
 
                 const idCuenta = selCuenta.value;
+                const idMetodo = selMetodo.value; 
                 const monto = parseFloat(inputMonto.value) || 0;
                 const optCuenta = selCuenta.options[selCuenta.selectedIndex];
                 const saldoDisp = parseFloat(optCuenta.getAttribute('data-saldo')) || 0;
@@ -1121,9 +1125,10 @@
                 montosPorCuenta[idCuenta] += monto;
                 sumaTotalPagos += monto;
 
-                pagosInmediatos.push({
+                // ⚠️ FIX 1: Usamos 'id_metodo' igual que en ventas
+                metodosPagoFinales.push({
                     id_cuenta: Number(idCuenta),
-                    id_metodo_pago: Number(selMetodo.value),
+                    id_metodo: Number(idMetodo),
                     monto: monto
                 });
             });
@@ -1160,8 +1165,9 @@
                 observaciones: observaciones.value,
                 tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'incluido',
                 detalle,
-                // NUEVO: Agregamos los pagos para que PHP los procese
-                pagos_inmediatos: pagosInmediatos 
+                // ⚠️ FIX 2 y 3: Agregamos la bandera booleana y usamos 'metodos_pago'
+                cobro_inmediato: esCobroInmediato,
+                metodos_pago: metodosPagoFinales 
             };
 
             const res = await postJson(urls.guardar, payload, btnGuardarOrden);
@@ -1416,6 +1422,30 @@
                     if (d.detalle && d.detalle.length > 0) d.detalle.forEach((item) => agregarFila(item));
                     else agregarFila();
 
+                    if (d.cobro_inmediato == 1 || d.cobro_inmediato === true) {
+                        if (switchCobroInmediatoCompra) {
+                            switchCobroInmediatoCompra.checked = true;
+                            if (seccionCobroInmediatoCompra) seccionCobroInmediatoCompra.classList.remove('d-none');
+                            
+                            if (d.metodos_pago && Array.isArray(d.metodos_pago)) {
+                                d.metodos_pago.forEach(pago => {
+                                    const divPago = agregarFilaPagoInmediatoCompra(pago.monto);
+                                    if (divPago) {
+                                        const selCuenta = divPago.querySelector('.select-cuenta-inmediato');
+                                        const selMetodo = divPago.querySelector('.select-metodo-inmediato');
+                                        selCuenta.value = pago.id_cuenta;
+                                        
+                                        // Filtramos los métodos y asignamos el valor guardado
+                                        if (typeof filtrarMetodosPorCuentaCompras === 'function') {
+                                            filtrarMetodosPorCuentaCompras(selCuenta, selMetodo);
+                                        }
+                                        selMetodo.disabled = false;
+                                        selMetodo.value = pago.id_metodo;
+                                    }
+                                });
+                            }
+                        }
+                    }
                     setModoSoloLectura(estadoDoc !== 0, estadoDoc);
                     modalOrden.show();
                 }

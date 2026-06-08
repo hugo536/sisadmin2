@@ -85,12 +85,12 @@ SQL;
 
     public function obtener(int $id): array
     {
-        // Solución: Agregamos el prefijo o. a las columnas para evitar la ambigüedad
         $sql = 'SELECT o.id, o.codigo, o.id_proveedor,
                        t.nombre_completo AS proveedor,
                        o.fecha_emision AS fecha_orden, 
                        o.fecha_entrega_estimada AS fecha_entrega, 
-                       o.observaciones, o.subtotal, o.total, o.estado
+                       o.observaciones, o.subtotal, o.total, o.estado,
+                       o.cobro_inmediato, o.metodos_pago /* NUEVOS */
                 FROM compras_ordenes o
                 INNER JOIN terceros t ON t.id = o.id_proveedor AND t.deleted_at IS NULL
                 WHERE o.id = :id
@@ -103,6 +103,9 @@ SQL;
         if (!$orden) {
             return [];
         }
+        
+        // 👇 Desempaquetamos el JSON para que JS lo reciba nativamente
+        $orden['metodos_pago'] = !empty($orden['metodos_pago']) ? json_decode($orden['metodos_pago'], true) : [];
         $orden['fecha_recepcion_sugerida'] = date('Y-m-d');
 
         // El detalle se mantiene igual
@@ -169,16 +172,18 @@ SQL;
 
                 $sqlUpdate = 'UPDATE compras_ordenes
                                   SET id_proveedor = :id_proveedor,
-                                  fecha_emision = :fecha_emision,
-                                  fecha_entrega_estimada = :fecha_entrega,
-                                  observaciones = :observaciones,
-                                  tipo_impuesto = :tipo_impuesto,
-                                  subtotal = :subtotal,
-                                  igv_monto = :igv_monto,
-                                  total = :total,
-                                  estado = :estado,
-                                  updated_by = :updated_by,
-                                  updated_at = NOW()
+                                      fecha_emision = :fecha_emision,
+                                      fecha_entrega_estimada = :fecha_entrega,
+                                      observaciones = :observaciones,
+                                      tipo_impuesto = :tipo_impuesto,
+                                      subtotal = :subtotal,
+                                      igv_monto = :igv_monto,
+                                      total = :total,
+                                      estado = :estado,
+                                      cobro_inmediato = :cobro_inmediato, /* NUEVO */
+                                      metodos_pago = :metodos_pago,       /* NUEVO */
+                                      updated_by = :updated_by,
+                                      updated_at = NOW()
                               WHERE id = :id
                                 AND deleted_at IS NULL';
 
@@ -193,6 +198,8 @@ SQL;
                     'igv_monto' => (float) $cabecera['igv_monto'],
                     'total' => (float) $cabecera['total'],
                     'estado' => $estado,
+                    'cobro_inmediato' => $cabecera['cobro_inmediato'] ?? 0,    // NUEVO
+                    'metodos_pago' => $cabecera['metodos_pago'] ?? '[]',       // NUEVO
                     'updated_by' => $userId,
                 ]);
 
@@ -203,35 +210,15 @@ SQL;
                 $codigo = $this->generarCodigo($db);
 
                 $sqlInsert = 'INSERT INTO compras_ordenes (
-                                codigo,
-                                id_proveedor,
-                                fecha_emision,
-                                fecha_entrega_estimada,
-                                observaciones,
-                                tipo_impuesto,
-                                subtotal,
-                                igv_monto,
-                                total,
-                                estado,
-                                created_by,
-                                updated_by,
-                                created_at,
-                                updated_at
+                                codigo, id_proveedor, fecha_emision, fecha_entrega_estimada, observaciones,
+                                tipo_impuesto, subtotal, igv_monto, total, estado,
+                                cobro_inmediato, metodos_pago, /* NUEVOS */
+                                created_by, updated_by, created_at, updated_at
                               ) VALUES (
-                                :codigo,
-                                :id_proveedor,
-                                :fecha_emision,
-                                :fecha_entrega,
-                                :observaciones,
-                                :tipo_impuesto,
-                                :subtotal,
-                                :igv_monto,
-                                :total,
-                                :estado,
-                                :created_by,
-                                :updated_by,
-                                NOW(),
-                                NOW()
+                                :codigo, :id_proveedor, :fecha_emision, :fecha_entrega, :observaciones,
+                                :tipo_impuesto, :subtotal, :igv_monto, :total, :estado,
+                                :cobro_inmediato, :metodos_pago, /* NUEVOS */
+                                :created_by, :updated_by, NOW(), NOW()
                               )';
 
                 $db->prepare($sqlInsert)->execute([
@@ -245,6 +232,8 @@ SQL;
                     'igv_monto' => (float) $cabecera['igv_monto'],
                     'total' => (float) $cabecera['total'],
                     'estado' => $estado,
+                    'cobro_inmediato' => $cabecera['cobro_inmediato'] ?? 0,    // NUEVO
+                    'metodos_pago' => $cabecera['metodos_pago'] ?? '[]',       // NUEVO
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);

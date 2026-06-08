@@ -11,6 +11,8 @@ require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
 require_once BASE_PATH . '/app/models/comercial/ListaPrecioModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCxcModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
+// 👇 AÑADIDO: Importamos el modelo de Movimientos de Tesorería 👇
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMovimientoModel.php';
 
 class ComprasController extends Controlador
 {
@@ -19,6 +21,8 @@ class ComprasController extends Controlador
     private TesoreriaCxpModel $tesoreriaCxpModel;
     private CentroCostoModel $centroCostoModel;
     private ListaPrecioModel $listaPrecioModel;
+    // 👇 AÑADIDO: Propiedad para el modelo de movimientos 👇
+    private TesoreriaMovimientoModel $tesoreriaMovModel;
 
     public function __construct()
     {
@@ -27,6 +31,8 @@ class ComprasController extends Controlador
         $this->tesoreriaCxpModel = new TesoreriaCxpModel();
         $this->centroCostoModel = new CentroCostoModel();
         $this->listaPrecioModel = new ListaPrecioModel();
+        // 👇 AÑADIDO: Inicializamos el modelo de movimientos 👇
+        $this->tesoreriaMovModel = new TesoreriaMovimientoModel();
     }
 
     public function index(): void
@@ -41,12 +47,9 @@ class ComprasController extends Controlador
             'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
         ];
 
-        // --- NUEVO CÓDIGO ---
-        // Si el usuario no filtró por un estado específico, le decimos al modelo que ignore las anuladas (9)
         if ($filtros['estado'] === null) {
             $filtros['excluir_estado'] = 9; 
         }
-        // --------------------
 
         if ($filtros['fecha_desde'] === '' && $filtros['fecha_hasta'] === '') {
             $hoy = new DateTimeImmutable('today');
@@ -72,7 +75,7 @@ class ComprasController extends Controlador
                     $payload['resolucion'], 
                     $payload['detalle'], 
                     $userId,
-                    $esperarReemplazo // <-- ¡Perfectamente capturado y enviado al modelo!
+                    $esperarReemplazo
                 );
 
                 json_response(['ok' => true, 'mensaje' => 'Devolución registrada correctamente. La cuenta por pagar y el inventario han sido actualizados.']);
@@ -88,9 +91,8 @@ class ComprasController extends Controlador
                 'ok' => true,
                 'data' => $this->ordenModel->listar($filtros),
             ]);
-            exit; // <-- FIX: Usar exit en lugar de return
+            exit;
         }
-
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'unidades_item') {
             try {
@@ -105,7 +107,7 @@ class ComprasController extends Controlador
                     'mensaje' => 'No se pudieron cargar unidades de conversión.',
                 ], 500);
             }
-            exit; // <-- FIX: Usar exit en lugar de return
+            exit;
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'precio_sugerido_proveedor') {
@@ -114,7 +116,7 @@ class ComprasController extends Controlador
             $idUnidad = (int) ($_GET['id_unidad'] ?? 0);
             if ($idProveedor <= 0 || $idItem <= 0) {
                 json_response(['ok' => false, 'mensaje' => 'Parámetros inválidos.'], 422);
-                exit; // <-- FIX: Usar exit en lugar de return
+                exit;
             }
 
             $precio = $this->listaPrecioModel->obtenerPrecioRecomendadoProveedor(
@@ -127,7 +129,7 @@ class ComprasController extends Controlador
                 'encontrado' => $precio !== null,
                 'precio_recomendado' => $precio,
             ]);
-            exit; // <-- FIX: Usar exit en lugar de return
+            exit;
         }
 
         // Ver detalle AJAX
@@ -144,7 +146,7 @@ class ComprasController extends Controlador
                     'mensaje' => 'Error al obtener los detalles de la orden: ' . $e->getMessage()
                 ], 500);
             }
-            exit; // <-- FIX: Usar exit en lugar de return
+            exit;
         }
 
         // Renderizar Vista
@@ -156,10 +158,7 @@ class ComprasController extends Controlador
             'items'         => $this->ordenModel->listarItemsActivos(),
             'almacenes'     => $this->recepcionModel->listarAlmacenesActivos(),
             'centros_costo' => $this->centroCostoModel->listar(),
-            
-            // 👇 AQUÍ ESTÁ LA CORRECCIÓN 👇
             'cuentas'       => (new TesoreriaCuentaModel())->listarActivas(), 
-            
             'metodos'       => (new TesoreriaCxcModel())->obtenerMetodosActivos(),
         ]);
     }
@@ -243,6 +242,9 @@ class ComprasController extends Controlador
                 $totalFinal = $subtotal;
             }
 
+            $cobroInmediato = !empty($payload['cobro_inmediato']) ? 1 : 0;
+            $metodosPago = is_array($payload['metodos_pago'] ?? null) ? $payload['metodos_pago'] : [];
+
             // Llamar al Modelo enviando los nuevos campos
             $id = $this->ordenModel->crearOActualizar([
                 'id' => $idOrden,
@@ -254,9 +256,19 @@ class ComprasController extends Controlador
                 'igv_monto' => round($igvMonto, 4),     
                 'total' => round($totalFinal, 2),       
                 'estado' => 0, 
+                'cobro_inmediato' => $cobroInmediato,
+                'metodos_pago' => json_encode($metodosPago)
             ], $detalle, $userId);
 
-            json_response(['ok' => true, 'mensaje' => 'Orden guardada correctamente.', 'id' => $id]);
+            $mensaje = 'Orden guardada correctamente.';
+            
+            // Si hubo pago al contado, auto-aprobamos la orden para que pase a recepción
+            if ($cobroInmediato) {
+                $this->ordenModel->aprobar($id, $userId);
+                $mensaje = 'Orden guardada y aprobada automáticamente por pago al contado.';
+            }
+
+            json_response(['ok' => true, 'mensaje' => $mensaje, 'id' => $id]);
 
         } catch (Throwable $e) {
             json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
@@ -352,7 +364,7 @@ class ComprasController extends Controlador
 
         if (!es_ajax()) {
             json_response(['ok' => false, 'mensaje' => 'Solicitud inválida.'], 400);
-            return; // Aquí está bien usar return porque no hay html que se renderice después
+            return;
         }
 
         try {
@@ -374,18 +386,15 @@ class ComprasController extends Controlador
                 throw new RuntimeException('Debe proporcionar el detalle de productos a ingresar.');
             }
 
-            // --- TOQUE DE ORO: VALIDACIÓN ESTRICTA DE FECHAS EN BACKEND ---
             if ($fechaRecepcion !== '') {
                 $ordenData = $this->ordenModel->obtener($idOrden);
                 if (!empty($ordenData['fecha_orden'])) {
-                    // Extraemos solo el YYYY-MM-DD por si viene con horas
                     $fechaOrdenSoloDia = explode(' ', $ordenData['fecha_orden'])[0];
                     if ($fechaRecepcion < $fechaOrdenSoloDia) {
                         throw new RuntimeException("Error: La fecha de recepción ($fechaRecepcion) no puede ser anterior a la emisión del pedido ($fechaOrdenSoloDia).");
                     }
                 }
             }
-            // --------------------------------------------------------------
 
             $idRecepcion = $this->recepcionModel->registrarRecepcion(
                 $idOrden,
@@ -396,7 +405,80 @@ class ComprasController extends Controlador
                 $observaciones
             );
 
+            // Nace la deuda en Tesorería
             $this->tesoreriaCxpModel->crearDesdeRecepcion($idRecepcion, $userId);
+
+            // 👇 INYECCIÓN: EL PUENTE DE PAGO AUTOMÁTICO 👇
+            $ordenData = $this->ordenModel->obtener($idOrden);
+            
+            // Verificamos si el cobro viene en el POST actual (JS) o ya estaba en la BD
+            $esCobroInmediato = !empty($payload['cobro_inmediato']) || !empty($ordenData['cobro_inmediato']);
+            $rawMetodos = !empty($payload['metodos_pago']) ? $payload['metodos_pago'] : ($ordenData['metodos_pago'] ?? null);
+
+            if ($esCobroInmediato && !empty($rawMetodos)) {
+                
+                // 1. DESENCAPSULADO EXTREMO (Anti-Doble-Encode): 
+                // Pelamos el JSON como una cebolla hasta obtener el Array real.
+                $metodosArray = $rawMetodos;
+                while (is_string($metodosArray)) {
+                    $dec = json_decode($metodosArray, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $metodosArray = $dec;
+                    } else {
+                        break;
+                    }
+                }
+
+                // Ahora sí, si es un array válido, procesamos el pago
+                if (is_array($metodosArray) && count($metodosArray) > 0) {
+                    
+                    // Buscamos el ID y Saldo de la CXP que se acaba de crear arriba
+                    $cxpData = $this->tesoreriaCxpModel->obtenerPorRecepcion($idRecepcion);
+
+                    if ($cxpData) {
+                        $idCxp = (int) $cxpData['id'];
+                        $saldoCxp = (float) $cxpData['saldo'];
+                        
+                        foreach ($metodosArray as $pago) {
+                            // Por si los objetos internos también quedaron como string
+                            if (is_string($pago)) {
+                                $pago = json_decode($pago, true) ?: [];
+                            }
+                            if (!is_array($pago)) continue;
+
+                            // 2. ATRAPAMOS TODAS LAS VARIACIONES DE LLAVES
+                            $idMetodo = (int) ($pago['id_metodo'] ?? $pago['id_metodo_pago'] ?? $pago['metodo'] ?? 0);
+                            $idCuenta = (int) ($pago['id_cuenta'] ?? $pago['cuenta'] ?? 0);
+                            $montoPago = (float) ($pago['monto'] ?? 0);
+                            
+                            // Prevención antibalas
+                            if ($montoPago > $saldoCxp) {
+                                $montoPago = $saldoCxp; 
+                            }
+                            
+                            // Si todo es válido, disparamos el cobro
+                            if ($montoPago > 0 && $idMetodo > 0 && $idCuenta > 0) {
+                                $fechaPago = $fechaRecepcion !== '' ? $fechaRecepcion : date('Y-m-d');
+                                $observacion = 'Pago al contado (Automático) desde Recepción de Orden ' . ($ordenData['codigo'] ?? $idOrden);
+
+                                // Registramos el pago en caja/bancos oficialmente
+                                $this->tesoreriaCxpModel->registrarPagoDirecto(
+                                    $idCxp,
+                                    $idCuenta,
+                                    $idMetodo,
+                                    $montoPago,
+                                    $fechaPago,
+                                    $observacion,
+                                    $userId
+                                );
+                                
+                                $saldoCxp -= $montoPago; 
+                            }
+                        }
+                    }
+                }
+            }
+            // 👆 FIN DE LA INYECCIÓN 👆
 
             json_response([
                 'ok' => true,
@@ -451,10 +533,8 @@ class ComprasController extends Controlador
 
     public function precioSugeridoAjax(): void
     {
-        // Aseguramos que la respuesta sea JSON
         header('Content-Type: application/json');
 
-        // Capturamos los datos que envía tu fetch en JS
         $idProveedor = (int)($_GET['id_proveedor'] ?? 0);
         $idItem      = (int)($_GET['id_item'] ?? 0);
         $idUnidad    = !empty($_GET['id_unidad']) ? (int)$_GET['id_unidad'] : null;
@@ -468,10 +548,7 @@ class ComprasController extends Controlador
         }
 
         try {
-            // Instanciamos el modelo 
             $modelo = new ComprasOrdenModel();
-            
-            // Llamamos a la función
             $precio = $modelo->obtenerPrecioProveedor($idProveedor, $idItem, $idUnidad);
 
             echo json_encode([
