@@ -532,6 +532,8 @@ class ReportesController extends Controlador
         $f['origen'] = array_map('strtoupper', $this->normalizarTextoFiltro($_GET['origen'] ?? []));
         
         $f['busqueda'] = mb_strtolower(trim((string) ($_GET['busqueda'] ?? '')));
+        $f['id_origen'] = (int) ($_GET['id_origen'] ?? 0);
+        $f['id_tercero'] = (int) ($_GET['id_tercero'] ?? 0);
         // ------------------------------------------------------------------------------------------
 
         $resumenCuentas = $this->reporteTesoreriaMov->listarCuentas(); 
