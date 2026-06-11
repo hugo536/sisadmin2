@@ -104,66 +104,87 @@
     // ========================================================================
     // --- FUNCIÓN MAGIA: FILTRADO DE MÉTODOS ESTRICTO (GLOBAL) ---
     // ========================================================================
+    const parsearMetodosPermitidosCuentaCxp = (rawMetodos) => {
+        if (rawMetodos === undefined || rawMetodos === null || rawMetodos === '') {
+            return { tieneFiltro: false, metodos: [] };
+        }
+
+        const rawTexto = String(rawMetodos).trim();
+        if (rawTexto === '' || rawTexto.toLowerCase() === 'null') {
+            return { tieneFiltro: false, metodos: [] };
+        }
+
+        try {
+            let parsed = rawMetodos;
+            while (typeof parsed === 'string') {
+                parsed = JSON.parse(parsed);
+            }
+
+            if (Array.isArray(parsed)) {
+                return { tieneFiltro: parsed.length > 0, metodos: parsed };
+            }
+        } catch (e) {
+            console.error('Error parseando JSON de métodos', e);
+        }
+
+        return { tieneFiltro: false, metodos: [] };
+    };
+
+    const obtenerOpcionesMetodoOriginalesCxp = (selectMetodo) => {
+        if (!selectMetodo._opcionesMetodoOriginales) {
+            selectMetodo._opcionesMetodoOriginales = Array.from(selectMetodo.options)
+                .filter(opt => opt.value)
+                .map(opt => ({ value: opt.value, text: opt.textContent }));
+        }
+
+        return selectMetodo._opcionesMetodoOriginales;
+    };
+
     window.filtrarMetodosPorCuentaCxp = function(selectCuenta, selectMetodo) {
         if (!selectCuenta || !selectMetodo) return;
 
         const optSeleccionada = selectCuenta.options[selectCuenta.selectedIndex];
-        
+        const valorActual = selectMetodo.value;
+        const opcionesOriginales = obtenerOpcionesMetodoOriginalesCxp(selectMetodo);
+
+        selectMetodo.innerHTML = '<option value="" selected disabled>Seleccione un método...</option>';
+
         // Si no hay cuenta seleccionada, bloqueamos el método
         if (!optSeleccionada || !optSeleccionada.value) {
-            selectMetodo.value = '';
             selectMetodo.disabled = true;
             return;
         }
 
-        let rawMetodos = optSeleccionada.getAttribute('data-metodos');
-        let permitidos = [];
-
-        // Extraer los métodos permitidos (si los hay)
-        if (rawMetodos && rawMetodos !== 'null' && rawMetodos !== '') {
-            try {
-                let parsed = rawMetodos;
-                // Parsear recursivamente si viene doble string
-                while(typeof parsed === 'string') parsed = JSON.parse(parsed);
-                
-                if (Array.isArray(parsed)) {
-                    permitidos = parsed.map(m => String(m).trim().toLowerCase());
-                }
-            } catch(e) { console.error("Error parseando JSON de métodos", e); }
-        }
+        const { tieneFiltro, metodos } = parsearMetodosPermitidosCuentaCxp(optSeleccionada.getAttribute('data-metodos'));
+        const permitidos = metodos.map(m => String(m).trim().toLowerCase());
 
         let primerValido = null;
         let seleccionActualValida = false;
-        const valorActual = selectMetodo.value;
-        let opcionesValidasCount = 0;
 
-        // Ocultar/Mostrar opciones
-        Array.from(selectMetodo.options).forEach(opt => {
-            if (!opt.value) return; // Ignorar el placeholder "Método..."
-            
-            const nombreMetodo = opt.textContent.trim().toLowerCase();
-            const esValido = permitidos.some(p => nombreMetodo.includes(p) || p.includes(nombreMetodo));
-            
-            opt.hidden = !esValido;
-            opt.disabled = !esValido;
+        opcionesOriginales.forEach(metodo => {
+            const nombreMetodo = String(metodo.text || '').trim().toLowerCase();
+            const esValido = !tieneFiltro || permitidos.some(p => nombreMetodo.includes(p) || p.includes(nombreMetodo));
 
-            if (esValido) {
-                opcionesValidasCount++;
-                if (!primerValido) primerValido = opt.value;
-                if (opt.value === valorActual) seleccionActualValida = true;
-            }
+            if (!esValido) return;
+
+            const opt = document.createElement('option');
+            opt.value = metodo.value;
+            opt.textContent = metodo.text;
+            selectMetodo.appendChild(opt);
+
+            if (!primerValido) primerValido = metodo.value;
+            if (metodo.value === valorActual) seleccionActualValida = true;
         });
 
-        if (opcionesValidasCount === 0) {
-            selectMetodo.value = '';
+        if (selectMetodo.options.length <= 1) {
+            selectMetodo.innerHTML = '<option value="" selected disabled>Sin métodos configurados</option>';
             selectMetodo.disabled = true;
         } else {
             selectMetodo.disabled = false;
-            if (!seleccionActualValida) {
-                selectMetodo.value = primerValido || '';
-            }
+            selectMetodo.value = seleccionActualValida ? valorActual : (primerValido || '');
         }
     };
+
 
 
     // ========================================================================
@@ -192,7 +213,7 @@
             if (esValida && !primeraValida) primeraValida = opt.value;
         });
         selectCuenta.value = primeraValida || '';
-        selectCuenta.dispatchEvent(new Event('change')); // Disparar change para actualizar hint de saldo y métodos
+        selectCuenta.dispatchEvent(new Event('change', { bubbles: true })); // Disparar change para actualizar hint de saldo y métodos
     };
 
     const actualizarDeudaManual = () => {
@@ -241,8 +262,15 @@
                 actualizarDeudaManual();
             });
         }
+
+        if (selectCuentaManual && !selectCuentaManual.dataset.cxpMetodoListener) {
+            selectCuentaManual.addEventListener('change', () => {
+                const selectMetodoManual = document.getElementById('pagoManualMetodoOrigen');
+                window.filtrarMetodosPorCuentaCxp(selectCuentaManual, selectMetodoManual);
+            });
+            selectCuentaManual.dataset.cxpMetodoListener = '1';
+        }
         
-        // Controlar saldo disponible al cambiar cuenta manual
         // Controlar saldo disponible al cambiar cuenta manual
         if (selectCuentaManual && inputMontoManual && hintSaldoManual) {
             selectCuentaManual.addEventListener('change', function() {

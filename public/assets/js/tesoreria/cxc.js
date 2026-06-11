@@ -322,6 +322,7 @@
             }
 
             if (Array.isArray(parsed)) {
+                return { tieneFiltro: parsed.length > 0, metodos: parsed };
                 return { tieneFiltro: true, metodos: parsed };
             }
         } catch (e) {
