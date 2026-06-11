@@ -8,7 +8,6 @@ class TesoreriaCxpModel extends Modelo
 
     public function listar(array $filtros = []): array
     {
-        // MEJORA: Jalamos individualmente observaciones de cxp, orden de compra, recepción y AHORA DE GASTOS
         $sql = 'SELECT p.*, 
                        COALESCE(t.nombre_completo, "Proveedor Eliminado/Desconocido") AS proveedor,
                        TRIM(COALESCE(p.observaciones, "")) AS observacion_cxp,
@@ -126,8 +125,70 @@ class TesoreriaCxpModel extends Modelo
             'moneda'            => 'PEN',
             'monto_total'       => $total,
             'saldo'             => $total,
-            // CAMBIO: Estado inicial pasa a ser PENDIENTE
             'estado'            => $total > 0 ? 'PENDIENTE' : 'PAGADA',
+            'created_by'        => $userId,
+            'updated_by'        => $userId,
+        ]);
+
+        return (int) $db->lastInsertId();
+    }
+
+    // 👇 NUEVA FUNCIÓN PARA PAGO ANTICIPADO DESDE LA ORDEN 👇
+    public function crearDesdeOrden(int $idOrden, int $userId): int
+    {
+        $db = $this->db();
+
+        // 1. Verificamos si ya existe la CxP para evitar duplicados
+        $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cxp WHERE id_orden_compra = :id AND id_recepcion IS NULL LIMIT 1');
+        $stmtExiste->execute(['id' => $idOrden]);
+        $existe = (int) ($stmtExiste->fetchColumn() ?: 0);
+        if ($existe > 0) {
+            return $existe;
+        }
+
+        // 2. Obtenemos los datos de la orden
+        $stmtOrden = $db->prepare('SELECT o.id_proveedor, o.fecha_emision, o.total, o.codigo,
+                                          COALESCE(tp.dias_credito, 0) AS dias_credito,
+                                          UPPER(COALESCE(tp.condicion_pago, "CREDITO")) AS condicion_pago
+                                   FROM compras_ordenes o
+                                   LEFT JOIN terceros_proveedores tp ON tp.id_tercero = o.id_proveedor
+                                   WHERE o.id = :id AND o.deleted_at IS NULL LIMIT 1');
+        $stmtOrden->execute(['id' => $idOrden]);
+        $orden = $stmtOrden->fetch(PDO::FETCH_ASSOC);
+
+        if (!$orden) {
+            throw new RuntimeException('No se encontró la orden para generar CxP.');
+        }
+
+        // 3. Calculamos fechas
+        $fechaEmision = substr((string) ($orden['fecha_emision'] ?? date('Y-m-d')), 0, 10);
+        $diasCredito = (int) ($orden['dias_credito'] ?? 0);
+        $condicionPago = strtoupper((string) ($orden['condicion_pago'] ?? 'CREDITO'));
+        if ($diasCredito < 0) $diasCredito = 0;
+
+        $aplicaCredito = ($condicionPago === 'CREDITO' || $diasCredito > 0);
+        $fechaVencimiento = $aplicaCredito
+            ? date('Y-m-d', strtotime($fechaEmision . ' +' . $diasCredito . ' days'))
+            : $fechaEmision;
+            
+        $total = round((float) ($orden['total'] ?? 0), 4);
+
+        // 4. Insertamos la Cuenta por Pagar
+        $stmtInsert = $db->prepare('INSERT INTO tesoreria_cxp
+            (id_proveedor, id_orden_compra, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, observaciones, created_by, updated_by, created_at, updated_at)
+            VALUES
+            (:id_proveedor, :id_orden_compra, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :observaciones, :created_by, :updated_by, NOW(), NOW())');
+
+        $stmtInsert->execute([
+            'id_proveedor'      => $orden['id_proveedor'],
+            'id_orden_compra'   => $idOrden,
+            'fecha_emision'     => $fechaEmision,
+            'fecha_vencimiento' => $fechaVencimiento,
+            'moneda'            => 'PEN',
+            'monto_total'       => $total,
+            'saldo'             => $total,
+            'estado'            => $total > 0 ? 'PENDIENTE' : 'PAGADA',
+            'observaciones'     => 'Anticipo OC ' . $orden['codigo'],
             'created_by'        => $userId,
             'updated_by'        => $userId,
         ]);
@@ -137,7 +198,6 @@ class TesoreriaCxpModel extends Modelo
 
     public function recalcularEstado(int $id, int $userId): void
     {
-        // CAMBIO: Nueva lógica de estados (PAGADA, PARCIAL, PENDIENTE, VENCIDA)
         $stmt = $this->db()->prepare('UPDATE tesoreria_cxp
             SET saldo = GREATEST(ROUND(monto_total - monto_pagado, 4), 0),
                 estado = CASE
@@ -152,33 +212,12 @@ class TesoreriaCxpModel extends Modelo
                 updated_at = NOW()
             WHERE id = :id');
         $stmt->execute(['id' => $id, 'user' => $userId]);
-
-        $idGasto = 0;
-        $estadoCxp = 'PENDIENTE';
-
-        if ($this->tieneColumnaIdGasto()) {
-            $stmtRel = $this->db()->prepare('SELECT id_gasto, estado FROM tesoreria_cxp WHERE id = :id LIMIT 1');
-            $stmtRel->execute(['id' => $id]);
-            $rel = $stmtRel->fetch(PDO::FETCH_ASSOC) ?: null;
-            $idGasto = (int) ($rel['id_gasto'] ?? 0);
-            $estadoCxp = strtoupper((string) ($rel['estado'] ?? 'PENDIENTE'));
-        } else {
-            $stmtRel = $this->db()->prepare('SELECT id, estado FROM tesoreria_cxp WHERE id = :id LIMIT 1');
-            $stmtRel->execute(['id' => $id]);
-            $rel = $stmtRel->fetch(PDO::FETCH_ASSOC) ?: null;
-            $estadoCxp = strtoupper((string) ($rel['estado'] ?? 'PENDIENTE'));
-
-            $stmtGasto = $this->db()->prepare('SELECT id FROM gastos_registros WHERE id_cxp = :id_cxp AND deleted_at IS NULL LIMIT 1');
-            $stmtGasto->execute(['id_cxp' => $id]);
-            $idGasto = (int) ($stmtGasto->fetchColumn() ?: 0);
-        }
     }
 
     public function crearDesdeGasto(int $idGasto, int $userId): int
     {
         $db = $this->db();
 
-        // 1. Verificamos si ya existe para no duplicar
         $stmtExiste = $db->prepare('SELECT id_cxp FROM gastos_registros WHERE id = :id AND deleted_at IS NULL LIMIT 1');
         $stmtExiste->execute(['id' => $idGasto]);
         $idCxpExistente = (int) ($stmtExiste->fetchColumn() ?: 0);
@@ -186,7 +225,6 @@ class TesoreriaCxpModel extends Modelo
             return $idCxpExistente;
         }
 
-        // 2. Obtenemos los datos del gasto recién creado
         $stmtGasto = $db->prepare('SELECT id, fecha, id_proveedor, total
                                    FROM gastos_registros
                                    WHERE id = :id AND deleted_at IS NULL
@@ -201,7 +239,6 @@ class TesoreriaCxpModel extends Modelo
         $fecha = substr((string) ($gasto['fecha'] ?? date('Y-m-d')), 0, 10);
         $total = round((float) ($gasto['total'] ?? 0), 4);
 
-        // 3. Insertamos directamente la Cuenta por Pagar
         $stmtInsert = $db->prepare('INSERT INTO tesoreria_cxp
             (id_proveedor, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, created_by, updated_by, created_at, updated_at)
             VALUES
@@ -243,7 +280,6 @@ class TesoreriaCxpModel extends Modelo
             $this->db()->exec('ALTER TABLE tesoreria_cxp ADD KEY idx_tesoreria_cxp_id_gasto (id_gasto)');
             $this->columnaIdGastoDisponible = true;
         } catch (Throwable $e) {
-            // Si no se puede alterar la tabla, mantenemos compatibilidad usando el vínculo gastos_registros.id_cxp.
             $this->columnaIdGastoDisponible = $this->consultarExistenciaColumna('id_gasto');
         }
     }
@@ -291,9 +327,6 @@ class TesoreriaCxpModel extends Modelo
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
     }
     
-    // ====================================================================
-    // --- NUEVO: FUNCIÓN PARA REGISTRAR PAGOS INMEDIATOS DESDE GASTOS ---
-    // ====================================================================
     public function registrarPagoDirecto(int $idCxp, int $idCuenta, int $idMetodo, float $monto, string $fecha, string $observacion, int $userId): void
     {
         if ($idCxp <= 0 || $idCuenta <= 0 || $idMetodo <= 0 || $monto <= 0) {
@@ -302,7 +335,6 @@ class TesoreriaCxpModel extends Modelo
 
         $db = $this->db();
 
-        // 1. Obtener datos de la Cuenta por Pagar para verificar saldo y moneda
         $stmtCxp = $db->prepare('SELECT id_proveedor, moneda, saldo FROM tesoreria_cxp WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE');
         $stmtCxp->execute(['id' => $idCxp]);
         $cxp = $stmtCxp->fetch(PDO::FETCH_ASSOC);
@@ -315,7 +347,6 @@ class TesoreriaCxpModel extends Modelo
             throw new RuntimeException('El monto a pagar supera el saldo pendiente de la deuda.');
         }
 
-        // 2. Registrar el Egreso en Tesorería (Salida de dinero de caja/bancos)
         $stmtMov = $db->prepare('INSERT INTO tesoreria_movimientos 
             (id_cuenta, id_metodo_pago, id_tercero, tipo, monto, moneda, fecha, observaciones, origen, id_origen, estado, created_by, updated_by, created_at, updated_at) 
             VALUES 
@@ -324,19 +355,18 @@ class TesoreriaCxpModel extends Modelo
         $stmtMov->execute([
             'id_cuenta'   => $idCuenta,
             'id_metodo'   => $idMetodo,
-            'id_tercero'  => $cxp['id_proveedor'], // Pagamos al proveedor
+            'id_tercero'  => $cxp['id_proveedor'], 
             'monto'       => round($monto, 4),
             'moneda'      => $cxp['moneda'],
             'fecha'       => $fecha,
             'observacion' => $observacion,
-            'id_origen'   => $idCxp, // <--- NUEVO: Enlaza el movimiento con la CxP
+            'id_origen'   => $idCxp, 
             'created_by'  => $userId,
             'updated_by'  => $userId 
         ]);
 
         $idMovimiento = (int) $db->lastInsertId();
 
-        // 3. Vincular el Movimiento con la CxP (Amortización/Pago)
         $stmtPago = $db->prepare('INSERT INTO tesoreria_cxp_pagos 
             (id_cxp, id_movimiento, monto_aplicado, created_by, updated_by, created_at, updated_at) 
             VALUES 
@@ -346,11 +376,10 @@ class TesoreriaCxpModel extends Modelo
             'id_cxp'         => $idCxp,
             'id_movimiento'  => $idMovimiento,
             'monto_aplicado' => round($monto, 4),
-            'created_by'     => $userId, // <-- Cambio aquí
-            'updated_by'     => $userId  // <-- Cambio aquí
+            'created_by'     => $userId, 
+            'updated_by'     => $userId  
         ]);
 
-        // 4. Actualizar Monto Pagado en la tabla Maestra de CxP
         $stmtUpd = $db->prepare('UPDATE tesoreria_cxp 
             SET monto_pagado = monto_pagado + :monto, updated_by = :user, updated_at = NOW() 
             WHERE id = :id_cxp');
@@ -360,7 +389,6 @@ class TesoreriaCxpModel extends Modelo
             'id_cxp' => $idCxp
         ]);
 
-        // 5. Recalcular el Estado Final (Pagado, Parcial)
         $this->recalcularEstado($idCxp, $userId);
     }
 
