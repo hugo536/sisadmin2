@@ -1,0 +1,95 @@
+/* =========================================================
+   MÓDULO DE TESORERÍA: PRÉSTAMOS BANCARIOS
+   (DISEÑO ULTRA-LIMPIO ESTILO "VENTAS")
+   ========================================================= */
+
+@media (max-width: 767.98px) {
+    #tesoreriaPrestamosApp .table-pro select, 
+    #tesoreriaPrestamosApp .table-pro thead { display: none !important; }
+    
+    #tesoreriaPrestamosApp .table-pro, 
+    #tesoreriaPrestamosApp .table-pro tbody { display: block !important; width: 100% !important; }
+
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) {
+        display: flex !important; flex-wrap: wrap !important;
+        padding: 15px !important; border: 1px solid #e0e0e0 !important;
+        border-radius: 8px !important; margin-bottom: 15px !important;
+        background-color: #ffffff !important; box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        align-items: center !important; position: relative !important;
+    }
+
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td {
+        display: flex !important; flex-direction: column !important;
+        border: none !important; padding: 2px 0 !important; text-align: left !important;
+    }
+
+    /* ELIMINAR LABELS GRISES */
+    #tesoreriaPrestamosApp .table-pro tbody td::before { display: none !important; content: none !important; }
+
+    /* Columna 7: Estado -> Absoluto Arriba Derecha para no estorbar el título largo */
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(7) {
+        position: absolute !important; top: 15px !important; right: 15px !important;
+        width: auto !important; order: 0 !important; padding: 0 !important;
+    }
+
+    /* Columna 1: Entidad / Contrato -> Centro Arriba 100% */
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(1) {
+        width: 100% !important; order: 1 !important; padding-left: 0 !important;
+        padding-top: 5px !important; padding-bottom: 10px !important; padding-right: 80px !important; /* Espacio para el badge */
+    }
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(1) .fw-bold {
+        font-size: 1.15rem !important; color: #212529 !important; font-weight: 500 !important;
+    }
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(1) .text-muted {
+        color: #0d6efd !important; font-weight: bold !important; /* Contrato en Azul */
+    }
+
+    /* Columna 2: Proveedor -> 100% Debajo del título */
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(2) {
+        width: 100% !important; order: 2 !important; font-size: 0.9rem !important; color: #6c757d !important;
+        margin-bottom: 5px !important; flex-direction: row !important; align-items: center !important;
+    }
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(2)::before {
+        content: "\F4B4" !important; font-family: "bootstrap-icons" !important; /* bi-person-badge */
+        margin-right: 6px !important; color: #adb5bd !important; display: inline-block !important;
+    }
+
+    /* Columna 3: Desembolso -> Abajo Izquierda (Calendario) */
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(3) {
+        width: 50% !important; order: 3 !important; flex-direction: row !important; align-items: center !important;
+        font-weight: bold !important; color: #212529 !important; font-size: 1rem !important;
+    }
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(3)::before {
+        content: "\F21B" !important; font-family: "bootstrap-icons" !important; /* bi-calendar3 */
+        margin-right: 6px !important; color: #6c757d !important; font-weight: normal !important; display: inline-block !important;
+    }
+
+    /* Columna 6: Saldo -> Abajo Derecha (Grande) */
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(6) {
+        width: 50% !important; order: 4 !important; align-items: flex-end !important;
+        font-size: 1.15rem !important;
+    }
+
+    /* Columna 4 y 5: Detalles Moneda */
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(4) {
+        width: 50% !important; order: 5 !important; flex-direction: row !important; font-size: 0.85rem !important; margin-top: 2px !important;
+    }
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(4)::before {
+        content: "Total:" !important; margin-right: 4px !important; color: #adb5bd !important; display: inline-block !important;
+    }
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(5) {
+        width: 50% !important; order: 6 !important; flex-direction: row !important; justify-content: flex-end !important; font-size: 0.85rem !important; margin-top: 2px !important;
+    }
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(5)::before {
+        content: "Pagado:" !important; margin-right: 4px !important; color: #adb5bd !important; display: inline-block !important;
+    }
+
+    /* Columna 8: Acciones -> Pie de Tarjeta LÍNEA PUNTEADA */
+    #tesoreriaPrestamosApp .table-pro tbody tr:not(.empty-msg-row) td:nth-child(8) {
+        width: 100% !important; order: 7 !important; border-top: 1px dashed #dee2e6 !important;
+        margin-top: 12px !important; padding-top: 12px !important; padding-right: 0 !important; 
+        flex-direction: row !important; justify-content: flex-end !important;
+    }
+
+    #tesoreriaPrestamosApp .table-pro tbody tr.empty-msg-row td { display: block !important; width: 100% !important; text-align: center !important; padding: 2rem 1rem !important; border: none !important; }
+}

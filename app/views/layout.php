@@ -47,7 +47,22 @@
     <?php if ($currentRoute === 'terceros/perfil'): ?>
         <link rel="stylesheet" href="<?php echo e(asset_url('css/terceros_perfil.css')); ?>?v=<?php echo $getAssetVersion('css/terceros_perfil.css'); ?>">
     <?php endif; ?>
-    
+
+    <?php if (str_starts_with($currentRoute, 'tesoreria')): ?>
+        <?php if ($currentRoute === 'tesoreria/cuentas'): ?>
+            <link rel="stylesheet" href="<?php echo e(asset_url('css/tesoreria/cuentas.css')); ?>?v=<?php echo $getAssetVersion('css/tesoreria/cuentas.css'); ?>">
+        <?php elseif ($currentRoute === 'tesoreria/cxc'): ?>
+            <link rel="stylesheet" href="<?php echo e(asset_url('css/tesoreria/cxc.css')); ?>?v=<?php echo $getAssetVersion('css/tesoreria/cxc.css'); ?>">
+        <?php elseif ($currentRoute === 'tesoreria/cxp'): ?>
+            <link rel="stylesheet" href="<?php echo e(asset_url('css/tesoreria/cxp.css')); ?>?v=<?php echo $getAssetVersion('css/tesoreria/cxp.css'); ?>">
+        <?php elseif ($currentRoute === 'tesoreria/movimientos'): ?>
+            <link rel="stylesheet" href="<?php echo e(asset_url('css/tesoreria/movimiento.css')); ?>?v=<?php echo $getAssetVersion('css/tesoreria/movimiento.css'); ?>">
+        <?php elseif ($currentRoute === 'tesoreria/prestamos'): ?>
+            <link rel="stylesheet" href="<?php echo e(asset_url('css/tesoreria/prestamos.css')); ?>?v=<?php echo $getAssetVersion('css/tesoreria/prestamos.css'); ?>">
+        <?php elseif ($currentRoute === 'tesoreria/saldos_iniciales'): ?>
+            <link rel="stylesheet" href="<?php echo e(asset_url('css/tesoreria/saldos_iniciales.css')); ?>?v=<?php echo $getAssetVersion('css/tesoreria/saldos_iniciales.css'); ?>">
+        <?php endif; ?>
+    <?php endif; ?>
     <style>
         .ts-dropdown, .ts-dropdown.form-control { z-index: 2000 !important; }
         .ts-control { border-radius: 0.375rem; }

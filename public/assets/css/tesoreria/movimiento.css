@@ -1,0 +1,158 @@
+/* =========================================================
+   MÓDULO DE TESORERÍA: MOVIMIENTOS
+   (DISEÑO ULTRA-LIMPIO ESTILO "VENTAS")
+   ========================================================= */
+
+@media (max-width: 767.98px) {
+    
+    /* 1. Ocultar la cabecera original */
+    #movimientosTable thead {
+        display: none !important;
+    }
+
+    /* 2. Convertir la tabla y el tbody en bloques completos */
+    #movimientosTable, 
+    #movimientosTable tbody {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    /* 3. Convertir cada fila (tr) en una Tarjeta Limpia */
+    #movimientosTable tbody tr:not(.empty-msg-row) {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        padding: 15px !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 8px !important;
+        margin-bottom: 15px !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        align-items: center !important;
+    }
+
+    /* 4. Limpiar celdas por completo */
+    #movimientosTable tbody tr:not(.empty-msg-row) td {
+        display: flex !important;
+        border: none !important;
+        padding: 2px 0 !important;
+        align-items: center !important;
+        text-align: left !important;
+    }
+
+    /* 5. ELIMINAR LOS LABELS GRISES PARA LIMPIAR EL DISEÑO */
+    #movimientosTable tbody td::before {
+        display: none !important;
+        content: none !important;
+    }
+
+    /* --- REORDENAMIENTO Y DISTRIBUCIÓN ESTILO VENTAS --- */
+
+    /* Columna 4: Origen -> Arriba Izquierda (Simula el código PED-2026...) */
+    #movimientosTable tbody tr:not(.empty-msg-row) td:nth-child(4) {
+        width: 50% !important;
+        order: 1 !important;
+        justify-content: flex-start !important;
+    }
+    /* Truco: Limpiamos el fondo del badge original para que quede solo el texto azul limpio */
+    #movimientosTable tbody tr:not(.empty-msg-row) td:nth-child(4) span.badge {
+        background-color: transparent !important;
+        border: none !important;
+        color: #0d6efd !important; /* Azul Bootstrap */
+        font-size: 0.95rem !important;
+        font-weight: bold !important;
+        padding: 0 !important;
+    }
+
+    /* Columna 7: Estado -> Arriba Derecha (Píldora) */
+    #movimientosTable tbody tr:not(.empty-msg-row) td:nth-child(7) {
+        width: 50% !important;
+        order: 2 !important;
+        justify-content: flex-end !important;
+    }
+
+    /* Columna 3: Tercero / Detalle -> Centro Ancho Completo (100%) */
+    #movimientosTable tbody tr:not(.empty-msg-row) td:nth-child(3) {
+        width: 100% !important;
+        order: 3 !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        padding-top: 10px !important;
+        padding-bottom: 5px !important;
+    }
+    /* Estilo del nombre principal */
+    #movimientosTable tbody tr:not(.empty-msg-row) td:nth-child(3) span.fw-bold {
+        font-size: 1.15rem !important;
+        color: #212529 !important;
+        font-weight: 500 !important; /* Un poco menos pesado para mayor elegancia */
+    }
+
+    /* Columna 1: Fecha -> Abajo Izquierda (Con ícono de calendario) */
+    #movimientosTable tbody tr:not(.empty-msg-row) td:nth-child(1) {
+        width: 50% !important;
+        order: 4 !important;
+        color: #212529 !important;
+        font-weight: bold !important;
+    }
+    #movimientosTable tbody tr:not(.empty-msg-row) td:nth-child(1)::before {
+        content: "\F21B" !important; /* bi-calendar3 */
+        font-family: "bootstrap-icons" !important;
+        margin-right: 6px !important;
+        color: #6c757d !important;
+        font-weight: normal !important;
+        display: inline-block !important;
+    }
+
+    /* Columna 6: Monto -> Abajo Derecha (Grande) */
+    /* Nota: El color verde/rojo ya lo trae tu HTML ($montoColor) */
+    #movimientosTable tbody tr:not(.empty-msg-row) td:nth-child(6) {
+        width: 50% !important;
+        order: 5 !important;
+        justify-content: flex-end !important;
+        font-size: 1.15rem !important;
+        font-weight: bold !important;
+    }
+
+    /* Columna 5: Cuenta -> Debajo de la fecha (Letra celeste con ícono estilo camión de Ventas) */
+    #movimientosTable tbody tr:not(.empty-msg-row) td:nth-child(5) {
+        width: 50% !important;
+        order: 6 !important;
+        font-size: 0.85rem !important;
+        color: #0dcaf0 !important; /* Celeste cyan */
+        margin-top: 2px !important;
+    }
+    #movimientosTable tbody tr:not(.empty-msg-row) td:nth-child(5)::before {
+        content: "\F600" !important; /* bi-wallet2 */
+        font-family: "bootstrap-icons" !important;
+        margin-right: 6px !important;
+        display: inline-block !important;
+    }
+
+    /* Columna 2: Tipo (COBRO/PAGO) -> Debajo del Monto */
+    #movimientosTable tbody tr:not(.empty-msg-row) td:nth-child(2) {
+        width: 50% !important;
+        order: 7 !important;
+        justify-content: flex-end !important;
+        font-size: 0.8rem !important;
+        margin-top: 2px !important;
+    }
+
+    /* Columna 8: Acciones -> Pie de Tarjeta con LÍNEA PUNTEADA */
+    #movimientosTable tbody tr:not(.empty-msg-row) td:nth-child(8) {
+        width: 100% !important;
+        order: 8 !important;
+        border-top: 1px dashed #dee2e6 !important;
+        margin-top: 12px !important;
+        padding-top: 12px !important;
+        padding-right: 0 !important; 
+        justify-content: flex-end !important;
+    }
+
+    /* Fila vacía (cuando no hay registros) */
+    #movimientosTable tbody tr.empty-msg-row td {
+        display: block !important;
+        width: 100% !important;
+        text-align: center !important;
+        border: none !important;
+        padding: 2rem 1rem !important;
+    }
+}

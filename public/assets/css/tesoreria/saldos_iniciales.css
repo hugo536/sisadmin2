@@ -1,0 +1,177 @@
+/* =========================================================
+   MÓDULO DE TESORERÍA: SALDOS INICIALES
+   Diseño Móvil tipo Tarjetas para las dos tablas
+   ========================================================= */
+
+@media (max-width: 767.98px) {
+    
+    /* =========================================================
+       TABLA 1: DETALLE DE COMPRAS (#tablaDetalleSaldos)
+       ========================================================= */
+       
+    #tablaDetalleSaldos thead { display: none !important; }
+    
+    #tablaDetalleSaldos, 
+    #tablaDetalleSaldos tbody { display: block !important; width: 100% !important; }
+
+    /* Tarjeta principal (Omitimos la fila de mensaje vacío) */
+    #tablaDetalleSaldos tbody tr:not(#filaVaciaMensaje) {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        padding: 15px 12px !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 10px !important;
+        margin-bottom: 12px !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04) !important;
+        position: relative !important;
+        border-left: 4px solid #0d6efd !important; /* Borde azul para compras */
+    }
+
+    #tablaDetalleSaldos tbody tr:not(#filaVaciaMensaje) td {
+        display: flex !important; flex-direction: column !important;
+        border: none !important; padding: 5px 0 !important; text-align: left !important;
+    }
+
+    /* Ocultar etiquetas automáticas del ERP si existieran */
+    #tablaDetalleSaldos tbody td::before { display: none !important; content: none !important; }
+
+    /* Columna 2: Ítem -> Arriba Ancho Completo (85% para dejar espacio al botón) */
+    #tablaDetalleSaldos tbody tr:not(#filaVaciaMensaje) td:nth-child(2) {
+        width: 85% !important; order: 1 !important;
+        border-bottom: 1px dashed #e9ecef !important;
+        padding-bottom: 8px !important; margin-bottom: 8px !important;
+        font-weight: bold !important; color: #212529 !important;
+    }
+
+    /* Columna 3: Cantidad -> Medio Izquierda (50%) */
+    #tablaDetalleSaldos tbody tr:not(#filaVaciaMensaje) td:nth-child(3) {
+        width: 50% !important; order: 2 !important; align-items: flex-start !important;
+    }
+    #tablaDetalleSaldos tbody tr:not(#filaVaciaMensaje) td:nth-child(3)::before {
+        content: "CANTIDAD" !important; display: block !important;
+        font-size: 0.65rem !important; color: #adb5bd !important; font-weight: 700 !important;
+    }
+
+    /* Columna 4: Unidad -> Medio Derecha (50%) */
+    #tablaDetalleSaldos tbody tr:not(#filaVaciaMensaje) td:nth-child(4) {
+        width: 50% !important; order: 3 !important; align-items: flex-end !important;
+    }
+    #tablaDetalleSaldos tbody tr:not(#filaVaciaMensaje) td:nth-child(4)::before {
+        content: "UNIDAD" !important; display: block !important;
+        font-size: 0.65rem !important; color: #adb5bd !important; font-weight: 700 !important;
+        text-align: right !important;
+    }
+
+    /* Columna 1: Fecha -> Abajo Izquierda (50%) */
+    #tablaDetalleSaldos tbody tr:not(#filaVaciaMensaje) td:nth-child(1) {
+        width: 50% !important; order: 4 !important; padding-top: 10px !important;
+    }
+    #tablaDetalleSaldos tbody tr:not(#filaVaciaMensaje) td:nth-child(1)::before {
+        content: "FECHA" !important; display: block !important;
+        font-size: 0.65rem !important; color: #adb5bd !important; font-weight: 700 !important;
+    }
+
+    /* Columna 5: Subtotal -> Abajo Derecha (50%) */
+    #tablaDetalleSaldos tbody tr:not(#filaVaciaMensaje) td:nth-child(5) {
+        width: 50% !important; order: 5 !important;
+        align-items: flex-end !important; padding-top: 10px !important;
+        font-size: 1.15rem !important; font-weight: bold !important; color: #0d6efd !important;
+    }
+    #tablaDetalleSaldos tbody tr:not(#filaVaciaMensaje) td:nth-child(5)::before {
+        content: "SUBTOTAL" !important; display: block !important;
+        font-size: 0.65rem !important; color: #adb5bd !important; font-weight: 700 !important;
+        text-align: right !important;
+    }
+
+    /* Columna 6: Acción -> Flotante arriba a la derecha */
+    #tablaDetalleSaldos tbody tr:not(#filaVaciaMensaje) td:nth-child(6) {
+        position: absolute !important; top: 12px !important; right: 12px !important;
+        width: auto !important; padding: 0 !important; order: 0 !important;
+        flex-direction: row !important; /* Por si hay editar y eliminar juntos */
+    }
+
+    /* Fila vacía de Compras */
+    #filaVaciaMensaje td {
+        display: block !important; width: 100% !important;
+        text-align: center !important; padding: 2rem 1rem !important; border: none !important;
+    }
+
+
+    /* =========================================================
+       TABLA 2: AMORTIZACIONES (#tablaAmortizaciones)
+       ========================================================= */
+       
+    #tablaAmortizaciones thead { display: none !important; }
+    
+    #tablaAmortizaciones, 
+    #tablaAmortizaciones tbody { display: block !important; width: 100% !important; }
+
+    /* Tarjeta principal */
+    #tablaAmortizaciones tbody tr:not(#filaVaciaAmortizaciones) {
+        display: flex !important; flex-wrap: wrap !important;
+        padding: 15px 12px !important; border: 1px solid #e0e0e0 !important;
+        border-radius: 10px !important; margin-bottom: 12px !important;
+        background-color: #ffffff !important; box-shadow: 0 2px 4px rgba(0,0,0,0.04) !important;
+        position: relative !important;
+        border-left: 4px solid #198754 !important; /* Borde verde para pagos */
+    }
+
+    #tablaAmortizaciones tbody tr:not(#filaVaciaAmortizaciones) td {
+        display: flex !important; flex-direction: column !important;
+        border: none !important; padding: 5px 0 !important; text-align: left !important;
+    }
+
+    #tablaAmortizaciones tbody td::before { display: none !important; content: none !important; }
+
+    /* Columna 1: Fecha -> Arriba Izquierda (50%) */
+    #tablaAmortizaciones tbody tr:not(#filaVaciaAmortizaciones) td:nth-child(1) {
+        width: 50% !important; order: 1 !important;
+        border-bottom: 1px dashed #e9ecef !important; padding-bottom: 8px !important; margin-bottom: 8px !important;
+    }
+    #tablaAmortizaciones tbody tr:not(#filaVaciaAmortizaciones) td:nth-child(1)::before {
+        content: "FECHA" !important; display: block !important;
+        font-size: 0.65rem !important; color: #adb5bd !important; font-weight: 700 !important;
+    }
+
+    /* Columna 2: Ref. Pago -> Arriba Derecha (50%) */
+    #tablaAmortizaciones tbody tr:not(#filaVaciaAmortizaciones) td:nth-child(2) {
+        width: 50% !important; order: 2 !important; align-items: flex-end !important;
+        border-bottom: 1px dashed #e9ecef !important; padding-bottom: 8px !important; margin-bottom: 8px !important;
+    }
+    #tablaAmortizaciones tbody tr:not(#filaVaciaAmortizaciones) td:nth-child(2)::before {
+        content: "REFERENCIA" !important; display: block !important;
+        font-size: 0.65rem !important; color: #adb5bd !important; font-weight: 700 !important; text-align: right !important;
+    }
+
+    /* Columna 3: Método -> Abajo Izquierda (50%) */
+    #tablaAmortizaciones tbody tr:not(#filaVaciaAmortizaciones) td:nth-child(3) {
+        width: 50% !important; order: 3 !important; padding-top: 5px !important;
+    }
+    #tablaAmortizaciones tbody tr:not(#filaVaciaAmortizaciones) td:nth-child(3)::before {
+        content: "MÉTODO" !important; display: block !important;
+        font-size: 0.65rem !important; color: #adb5bd !important; font-weight: 700 !important;
+    }
+
+    /* Columna 4: Monto -> Abajo Derecha (50%) */
+    #tablaAmortizaciones tbody tr:not(#filaVaciaAmortizaciones) td:nth-child(4) {
+        width: 50% !important; order: 4 !important; padding-top: 5px !important;
+        align-items: flex-end !important; font-size: 1.1rem !important; font-weight: bold !important; color: #198754 !important;
+    }
+    #tablaAmortizaciones tbody tr:not(#filaVaciaAmortizaciones) td:nth-child(4)::before {
+        content: "MONTO" !important; display: block !important;
+        font-size: 0.65rem !important; color: #adb5bd !important; font-weight: 700 !important; text-align: right !important;
+    }
+
+    /* Columna 5: Acción -> Flotante arriba a la derecha */
+    #tablaAmortizaciones tbody tr:not(#filaVaciaAmortizaciones) td:nth-child(5) {
+        position: absolute !important; top: 12px !important; right: 12px !important;
+        width: auto !important; padding: 0 !important; order: 0 !important;
+    }
+
+    /* Fila vacía de Amortizaciones */
+    #filaVaciaAmortizaciones td {
+        display: block !important; width: 100% !important;
+        text-align: center !important; padding: 1.5rem 1rem !important; border: none !important;
+    }
+}
