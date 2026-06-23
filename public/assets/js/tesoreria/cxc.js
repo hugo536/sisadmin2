@@ -35,7 +35,6 @@
                     contenedorTabla.innerHTML = nuevoContenedor.innerHTML;
                 }
 
-                // Reinicializar Tooltips y Buscador ERPTable
                 if (typeof bootstrap !== 'undefined') {
                     [].slice.call(contenedorTabla.querySelectorAll('[data-bs-toggle="tooltip"]'))
                         .forEach(el => bootstrap.Tooltip.getOrCreateInstance(el));
@@ -60,7 +59,6 @@
             cargarDatosAjax(url.toString());
         };
 
-        // Inputs Auto-submit (Selects y Fechas)
         formFiltros.addEventListener('input', (e) => {
             if (e.target.matches('.auto-submit')) {
                 clearTimeout(timerFiltro);
@@ -68,13 +66,11 @@
             }
         });
 
-        // Tabs (Pestañas)
         document.querySelectorAll('.js-tab-cxc').forEach(tab => {
             tab.addEventListener('click', (e) => {
                 const vista = e.currentTarget.getAttribute('data-vista');
                 if (inputVistaGlobal) inputVistaGlobal.value = vista;
                 
-                // Efecto visual en tabs
                 document.querySelectorAll('.js-tab-cxc').forEach(t => {
                     t.classList.remove('active', 'text-primary', 'border-primary', 'border-bottom-0', 'bg-white');
                     t.classList.add('text-secondary', 'bg-light', 'border-0');
@@ -86,7 +82,6 @@
             });
         });
 
-        // Paginación
         contenedorTabla.addEventListener('click', (e) => {
             const linkPaginacion = e.target.closest('.pagination a.page-link');
             if (linkPaginacion) {
@@ -102,17 +97,9 @@
     }
 
     // ========================================================================
-    // 2. LÓGICA DE COBRO MANUAL (MEJORADA CON AJAX)
+    // 2. LÓGICA DE COBRO MANUAL (MEJORADA CON AJAX Y DOM DINÁMICO)
     // ========================================================================
-    const modalCobroManual = document.getElementById('modalCobroManual');
-    const selectCliente = document.getElementById('cobroManualCliente');
-    const selectMonedaManual = document.getElementById('cobroManualMoneda');
-    const selectCuentaManual = document.getElementById('cobroManualCuentaDestino');
-    const selectMetodoManual = document.getElementById('cobroManualMetodoDestino')
-        || document.querySelector('#modalCobroManual select[name="id_metodo_pago"]');
-    const hintDeudaManual = document.getElementById('cobroManualDeudaHint');
-    const inputMontoManual = document.getElementById('cobroManualMontoInput');
-
+    
     const filtrarCuentasPorMoneda = (selectMoneda, selectCuenta, opciones = {}) => {
         if (!selectMoneda || !selectCuenta) return;
         const moneda = String(selectMoneda.value || '').toUpperCase();
@@ -141,8 +128,13 @@
         selectCuenta.dispatchEvent(new Event('change', { bubbles: true }));
     };
 
-    // NUEVO: Función Asíncrona para consultar la deuda real a la Base de Datos
     const actualizarDeudaManual = async () => {
+        // Búsqueda dinámica en el DOM
+        const selectCliente = document.getElementById('cobroManualCliente');
+        const hintDeudaManual = document.getElementById('cobroManualDeudaHint');
+        const selectMonedaManual = document.getElementById('cobroManualMoneda');
+        const inputMontoManual = document.getElementById('cobroManualMontoInput');
+
         if (!selectCliente || !hintDeudaManual) return;
         
         const idTercero = selectCliente.value;
@@ -153,11 +145,9 @@
             return;
         }
 
-        // Mostramos un estado de carga mientras consulta al servidor
         hintDeudaManual.innerHTML = `<span class="text-muted fw-bold"><i class="spinner-border spinner-border-sm me-1"></i>Calculando...</span>`;
 
         try {
-            // Llamamos a tu endpoint en TesoreriaController
             const url = `index.php?ruta=tesoreria/ajax_obtener_deuda_tercero&id_tercero=${idTercero}&moneda=${moneda}&tipo=CXC`;
             const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             const json = await response.json();
@@ -168,7 +158,6 @@
                 if (deuda > 0) {
                     hintDeudaManual.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-exclamation-circle-fill me-1"></i>Debe: ${moneda} ${deuda.toFixed(2)}</span>`;
                     
-                    // Si el monto ingresado es mayor a la deuda, lo ajustamos automáticamente
                     if (inputMontoManual && parseFloat(inputMontoManual.value) > deuda) {
                         inputMontoManual.value = deuda.toFixed(2);
                     }
@@ -185,25 +174,38 @@
     };
 
     const sincronizarMetodoManual = () => {
-        if (typeof window.filtrarMetodosPorCuenta === 'function') {
-            window.filtrarMetodosPorCuenta(selectCuentaManual, selectMetodoManual);
+        // Búsqueda dinámica en el DOM
+        const cuentaSelect = document.getElementById('cobroManualCuentaDestino');
+        const metodoSelect = document.getElementById('cobroManualMetodoDestino') || document.querySelector('#modalCobroManual select[name="id_metodo_pago"]');
+        
+        if (typeof window.filtrarMetodosPorCuenta === 'function' && cuentaSelect && metodoSelect) {
+            window.filtrarMetodosPorCuenta(cuentaSelect, metodoSelect);
         }
     };
 
-    if (modalCobroManual) {
+    const modalCobroManual = document.getElementById('modalCobroManual');
+
+    if (modalCobroManual && !modalCobroManual.dataset.eventosCxc) {
+        modalCobroManual.dataset.eventosCxc = '1';
+
         modalCobroManual.addEventListener('shown.bs.modal', () => {
+            const selectCuentaManual = document.getElementById('cobroManualCuentaDestino');
+            const selectMonedaManual = document.getElementById('cobroManualMoneda');
+            const selectCliente = document.getElementById('cobroManualCliente');
+
             if (selectCuentaManual) selectCuentaManual.value = '';
             filtrarCuentasPorMoneda(selectMonedaManual, selectCuentaManual);
             sincronizarMetodoManual();
             
-            if (typeof window.AppSelects !== 'undefined' && !selectCliente.tomselect) {
-                window.AppSelects.initLocal('#cobroManualCliente', {
-                    dropdownParent: 'body',
-                    onChange: actualizarDeudaManual // TomSelect disparará esto al cambiar
-                });
+            if (typeof window.AppSelects !== 'undefined' && selectCliente) {
+                if (!selectCliente.tomselect && !selectCliente.classList.contains('tomselected')) {
+                    window.AppSelects.initLocal('#cobroManualCliente', {
+                        dropdownParent: 'body',
+                        onChange: actualizarDeudaManual
+                    });
+                }
             }
             
-            // Seguro adicional: Escuchar el select original por si no hay TomSelect
             if (selectCliente && !selectCliente.dataset.cxcDeudaListener) {
                 selectCliente.addEventListener('change', actualizarDeudaManual);
                 selectCliente.dataset.cxcDeudaListener = '1';
@@ -211,28 +213,35 @@
         });
 
         modalCobroManual.addEventListener('hidden.bs.modal', () => {
+            const hintDeudaManual = document.getElementById('cobroManualDeudaHint');
+            const inputMontoManual = document.getElementById('cobroManualMontoInput');
+            const selectCuentaManual = document.getElementById('cobroManualCuentaDestino');
+            const selectCliente = document.getElementById('cobroManualCliente');
+
             if (hintDeudaManual) hintDeudaManual.innerHTML = '';
             if (inputMontoManual) inputMontoManual.value = '';
             if (selectCuentaManual) selectCuentaManual.value = '';
             sincronizarMetodoManual();
-            if (selectCliente && selectCliente.tomselect) selectCliente.tomselect.clear(true);
+            
+            if (selectCliente && selectCliente.tomselect) {
+                selectCliente.tomselect.clear(true);
+            }
         });
 
-        if (selectCuentaManual && !selectCuentaManual.dataset.cxcMetodoListener) {
-            selectCuentaManual.addEventListener('change', sincronizarMetodoManual);
-            selectCuentaManual.dataset.cxcMetodoListener = '1';
-        }
-
-        if (selectMonedaManual) {
-            selectMonedaManual.addEventListener('change', () => {
+        const selectMonedaObserver = document.getElementById('cobroManualMoneda');
+        if (selectMonedaObserver && !selectMonedaObserver.dataset.cxcMonedaListener) {
+            selectMonedaObserver.addEventListener('change', () => {
+                const selectCuentaManual = document.getElementById('cobroManualCuentaDestino');
+                const selectMonedaManual = document.getElementById('cobroManualMoneda');
                 filtrarCuentasPorMoneda(selectMonedaManual, selectCuentaManual);
-                actualizarDeudaManual(); // Si cambia la moneda, recalculamos en vivo
+                actualizarDeudaManual(); 
             });
+            selectMonedaObserver.dataset.cxcMonedaListener = '1';
         }
     }
 
-// ========================================================================
-    // 3. LÓGICA DE COBRO REGULAR (MODAL DE DESGLOSE)
+    // ========================================================================
+    // 3. LÓGICA DE COBRO REGULAR (MODAL DE DESGLOSE) Y EVENTOS GLOBALES
     // ========================================================================
     const modalCobro = document.getElementById('modalCobro');
     const formCobro = document.getElementById('formCobro');
@@ -242,7 +251,6 @@
 
     const roundTo = (val, dec) => Math.round((Number(val) + Number.EPSILON) * Math.pow(10, dec)) / Math.pow(10, dec);
 
-    // --- FUNCIÓN TOTALIZADORA AUTOMÁTICA ---
     window.recalcularModalCobro = function() {
         const inputTotal = document.getElementById('cobroMonto');
         const hintDistribucion = document.getElementById('cobroDistribucionHint');
@@ -250,16 +258,13 @@
         
         if (!inputTotal) return;
 
-        // Sumar todos los inputs de distribución
         let suma = 0;
         document.querySelectorAll('.js-cobro-monto-distribucion').forEach(inp => {
             suma += parseFloat(inp.value) || 0;
         });
 
-        // Actualizar el campo Total (readonly)
         inputTotal.value = suma > 0 ? suma.toFixed(2) : '';
 
-        // Ocultar/Mostrar botones de basurero (solo mostrar si hay más de 1 fila)
         filas.forEach(fila => {
             const btnQuitar = fila.querySelector('.js-remove-cobro-row');
             if (btnQuitar) {
@@ -268,7 +273,6 @@
             }
         });
 
-        // Actualizar el texto de ayuda
         if (hintDistribucion) {
             const saldoStr = document.getElementById('cobroSaldo')?.value || '0';
             const saldoTotal = parseFloat(saldoStr);
@@ -283,7 +287,6 @@
         validarNaturaleza();
     };
 
-    // --- FUNCIÓN PARA AGREGAR FILA ---
     window.agregarFilaDistribucion = function() {
         const container = document.getElementById('cobroDistribucionRows');
         const filas = container.querySelectorAll('.js-cobro-distribucion-row');
@@ -293,7 +296,6 @@
         
         nuevaFila.querySelector('.js-cobro-cuenta').value = '';
         
-        // Limpiamos y bloqueamos el método
         const selectMetodo = nuevaFila.querySelector('.js-cobro-metodo');
         selectMetodo.value = '';
         selectMetodo.disabled = true; 
@@ -304,7 +306,6 @@
         window.recalcularModalCobro();
     };
 
-    // --- FUNCIÓN MAGIA: FILTRADO DE MÉTODOS (ESTÁNDAR GLOBAL) ---
     const parsearMetodosPermitidosCuenta = (rawMetodos) => {
         if (rawMetodos === undefined || rawMetodos === null || rawMetodos === '') {
             return { tieneFiltro: false, metodos: [] };
@@ -338,16 +339,13 @@
         const idCuentaSeleccionada = parseInt(selectCuenta.value);
         const valorPrevio = selectMetodo.value;
 
-        // 1. Limpiamos el select desde cero
         selectMetodo.innerHTML = '<option value="" selected disabled>Seleccione un método...</option>';
 
-        // Si no hay cuenta seleccionada, bloqueamos el método
         if (!optSeleccionada || !optSeleccionada.value || !idCuentaSeleccionada || isNaN(idCuentaSeleccionada)) {
             selectMetodo.disabled = true;
             return;
         }
 
-        // 2. Extraemos los arrays seguros
         const arrayCuentas = Array.isArray(window.TESORERIA_CUENTAS)
                              ? window.TESORERIA_CUENTAS
                              : Object.values(window.TESORERIA_CUENTAS || {});
@@ -358,9 +356,6 @@
 
         const cuentaObj = arrayCuentas.find(c => parseInt(c.id) === idCuentaSeleccionada) || {};
 
-        // 3. Usamos primero el data-metodos de la opción seleccionada; si no existe,
-        //    caemos al objeto global de cuentas. Así el modal manual no depende de
-        //    que TESORERIA_CUENTAS esté sincronizado para desbloquear el método.
         const rawMetodos = optSeleccionada.getAttribute('data-metodos') ?? cuentaObj.metodos_pago;
         const { tieneFiltro, metodos } = parsearMetodosPermitidosCuenta(rawMetodos);
         const permitidosNormalizados = metodos.map(m => String(m).trim().toLowerCase());
@@ -368,7 +363,6 @@
         let primerValido = null;
         let encontroPrevio = false;
 
-        // 4. Reconstruimos SOLO las opciones válidas
         arrayMetodos.forEach(m => {
             const nombreDB = String(m.nombre || '').trim().toLowerCase();
             const esValido = !tieneFiltro || permitidosNormalizados.some(p => nombreDB.includes(p) || p.includes(nombreDB));
@@ -384,13 +378,11 @@
             }
         });
 
-        // 5. SALVAVIDAS
         if (selectMetodo.options.length <= 1) {
             selectMetodo.innerHTML = '<option value="" selected disabled>Sin métodos configurados</option>';
             selectMetodo.disabled = true;
         } else {
             selectMetodo.disabled = false;
-            // Mantenemos la selección o auto-seleccionamos el primero válido
             if (encontroPrevio) selectMetodo.value = valorPrevio;
             else if (primerValido) selectMetodo.value = primerValido;
         }
@@ -398,7 +390,7 @@
 
 
     if (!window.cxcEventosGlobalesAtachados) {
-        window.cxcEventosGlobalesAtachados = true; // Candado activado
+        window.cxcEventosGlobalesAtachados = true;
 
         document.addEventListener('input', (e) => {
             if (e.target.matches('.js-cobro-monto-distribucion')) {
@@ -406,9 +398,7 @@
             }
         });
 
-        // Escuchar cuando el usuario cambia de Cuenta
         document.addEventListener('change', (e) => {
-            // Modal múltiple (filas clonables)
             if (e.target.matches('.js-cobro-cuenta')) {
                 const fila = e.target.closest('.js-cobro-distribucion-row');
                 if (fila) {
@@ -416,18 +406,16 @@
                     window.filtrarMetodosPorCuenta(e.target, selectMetodo);
                 }
             }
-            // Modal Manual
             else if (e.target.id === 'cobroManualCuentaDestino') {
-                window.filtrarMetodosPorCuenta(e.target, selectMetodoManual);
+                const metodoVivo = document.getElementById('cobroManualMetodoDestino') || document.querySelector('#modalCobroManual select[name="id_metodo_pago"]');
+                window.filtrarMetodosPorCuenta(e.target, metodoVivo);
             }
         });
 
         document.addEventListener('click', (e) => {
-            // 1. Clic en Dividir Pago
             if (e.target.closest('#btnAddCobroDistribucion')) {
                 window.agregarFilaDistribucion();
             } 
-            // 2. Clic en Quitar Fila
             else if (e.target.closest('.js-remove-cobro-row')) {
                 const fila = e.target.closest('.js-cobro-distribucion-row');
                 if (document.querySelectorAll('.js-cobro-distribucion-row').length > 1 && fila) {
@@ -435,19 +423,16 @@
                     window.recalcularModalCobro();
                 }
             }
-            // 3. Clic al abrir el modal (Botón $)
             else if (e.target.closest('.js-open-cobro')) {
                 const btn = e.target.closest('.js-open-cobro');
                 document.getElementById('cobroIdOrigen').value = btn.dataset.idOrigen;
                 document.getElementById('cobroMoneda').value = btn.dataset.moneda;
                 document.getElementById('cobroSaldo').value = parseFloat(btn.dataset.saldo).toFixed(2);
                 
-                // Limpiar exceso de filas antiguas y reiniciar la primera
                 const filas = document.querySelectorAll('.js-cobro-distribucion-row');
                 filas.forEach((r, i) => {
                     if (i === 0) {
                         r.querySelectorAll('input, select').forEach(inpt => inpt.value = '');
-                        // BUG FIX: Nace vacío para que el usuario escriba desde cero
                         r.querySelector('.js-cobro-monto-distribucion').value = ''; 
                     } else {
                         r.remove();
@@ -461,7 +446,6 @@
         });
     }
 
-    // --- VALIDACIONES DE FORMULARIO ---
     const validarNaturaleza = () => {
         const inputTotal = document.getElementById('cobroMonto');
         if (!naturalezaSelect || !inputTotal) return;
@@ -496,7 +480,6 @@
     [inputCapital, inputInteres].forEach(el => el?.addEventListener('input', validarNaturaleza));
 
     if (formCobro) {
-        // Prevenir múltiples validaciones apiladas
         formCobro.removeEventListener('submit', window.submitCobroHandler);
         window.submitCobroHandler = (e) => {
             const inputTotal = document.getElementById('cobroMonto');
