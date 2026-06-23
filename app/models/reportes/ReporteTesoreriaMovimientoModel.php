@@ -63,13 +63,48 @@ class ReporteTesoreriaMovimientoModel extends Modelo
         // 3. Filtro por Método de Pago (Soporte para Selección Múltiple)
         if (!empty($f['id_metodo_pago'])) {
             $metodos = is_array($f['id_metodo_pago']) ? $f['id_metodo_pago'] : [$f['id_metodo_pago']];
-            $inParams = [];
-            foreach ($metodos as $i => $id) {
-                $key = 'metodo_' . $i;
-                $inParams[] = ':' . $key;
-                $params[$key] = (int) $id;
+            $idsMetodo = [];
+            $nombresMetodo = [];
+
+            foreach ($metodos as $valor) {
+                $valor = trim((string) $valor);
+                if ($valor === '') {
+                    continue;
+                }
+
+                if (ctype_digit($valor)) {
+                    $idsMetodo[] = (int) $valor;
+                    continue;
+                }
+
+                $nombresMetodo[] = $valor;
             }
-            $where[] = 'm.id_metodo_pago IN (' . implode(',', $inParams) . ')';
+
+            $condicionesMetodo = [];
+
+            if (!empty($idsMetodo)) {
+                $inParams = [];
+                foreach (array_values(array_unique($idsMetodo)) as $i => $id) {
+                    $key = 'metodo_id_' . $i;
+                    $inParams[] = ':' . $key;
+                    $params[$key] = $id;
+                }
+                $condicionesMetodo[] = 'm.id_metodo_pago IN (' . implode(',', $inParams) . ')';
+            }
+
+            if (!empty($nombresMetodo)) {
+                $inParams = [];
+                foreach (array_values(array_unique($nombresMetodo)) as $i => $nombre) {
+                    $key = 'metodo_nombre_' . $i;
+                    $inParams[] = ':' . $key;
+                    $params[$key] = $nombre;
+                }
+                $condicionesMetodo[] = 'mp.nombre IN (' . implode(',', $inParams) . ')';
+            }
+
+            if (!empty($condicionesMetodo)) {
+                $where[] = '(' . implode(' OR ', $condicionesMetodo) . ')';
+            }
         }
 
         // 4. Filtro por Origen (Soporte para Selección Múltiple)
@@ -84,7 +119,18 @@ class ReporteTesoreriaMovimientoModel extends Modelo
             $where[] = 'm.origen IN (' . implode(',', $inParams) . ')';
         }
 
-        // 5. Filtro de Búsqueda Global (Input text)
+        // 5. Filtros de acceso directo desde otros módulos
+        if (!empty($f['id_origen'])) {
+            $where[] = 'm.id_origen = :id_origen';
+            $params['id_origen'] = (int) $f['id_origen'];
+        }
+
+        if (!empty($f['id_tercero'])) {
+            $where[] = 'm.id_tercero = :id_tercero';
+            $params['id_tercero'] = (int) $f['id_tercero'];
+        }
+
+        // 6. Filtro de Búsqueda Global (Input text)
         if (!empty($f['busqueda'])) {
             $where[] = '(
                 t.nombre_completo LIKE :q OR 

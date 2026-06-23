@@ -105,28 +105,37 @@
             }
         };
 
-        const procesarFiltros = () => {
-            const formData = new FormData(formFiltros);
-            const urlObj = new URL(formFiltros.action);
-            
-            formData.forEach((value, key) => {
-                if (value.trim() !== '') {
-                    // Si la clave ya existe (ej. select múltiple), añadimos el nuevo valor sin sobreescribir
-                    if (urlObj.searchParams.has(key)) {
-                        urlObj.searchParams.append(key, value.trim());
-                    } else {
-                        urlObj.searchParams.set(key, value.trim());
-                    }
-                }
-            });
-            
-            // Si el usuario cambia los filtros manualmente, nos aseguramos de borrar 
-            // el id_origen de la URL para que no se quede pegado buscando siempre esa factura.
-            const currentUrlParams = new URLSearchParams(window.location.search);
-            if (currentUrlParams.has('id_origen')) {
-                 urlObj.searchParams.delete('id_origen');
-                 urlObj.searchParams.delete('id_tercero');
+        const sincronizarBusqueda = () => {
+            const inputBusqueda = document.getElementById('filtroRepMovimientos');
+            const hiddenBusqueda = document.getElementById('hidden_busqueda');
+
+            if (inputBusqueda && hiddenBusqueda) {
+                hiddenBusqueda.value = inputBusqueda.value.trim();
             }
+        };
+
+        const procesarFiltros = () => {
+            sincronizarBusqueda();
+
+            const formData = new FormData(formFiltros);
+            const urlObj = new URL(formFiltros.action, window.location.origin);
+
+            // Reconstruimos la query desde cero para evitar parámetros duplicados
+            // (especialmente `ruta`) o filtros viejos que quedaban pegados en la URL.
+            urlObj.search = '';
+
+            formData.forEach((value, key) => {
+                const valor = String(value).trim();
+                if (valor === '') {
+                    return;
+                }
+
+                urlObj.searchParams.append(key, valor);
+            });
+
+            // Al cambiar filtros siempre volvemos a la primera página.
+            urlObj.searchParams.delete('page');
+            urlObj.searchParams.delete('ajax');
 
             cargarDatosAjax(urlObj.toString());
         };
@@ -140,17 +149,47 @@
             const btnAplicar = dropdown.querySelector('.btn-aplicar-filtro');
             
             if(chkTodos && chkItems.length > 0) {
+                const labelToggle = dropdown.querySelector('.dropdown-toggle .text-truncate');
+                const labelDefault = labelToggle ? labelToggle.textContent.trim() : '';
                 
-                // Solo actualiza la parte visual (casilla padre), NO hace AJAX
+                // Solo actualiza la parte visual (casilla padre y etiqueta), NO hace AJAX
                 const updateTodos = () => {
-                    const todosMarcados = Array.from(chkItems).every(c => c.checked);
+                    const items = Array.from(chkItems);
+                    const seleccionados = items.filter(c => c.checked);
+                    const todosMarcados = seleccionados.length === items.length;
                     chkTodos.checked = todosMarcados;
+                    chkTodos.indeterminate = seleccionados.length > 0 && !todosMarcados;
+
+                    if (!labelToggle) {
+                        return;
+                    }
+
+                    if (todosMarcados) {
+                        labelToggle.textContent = labelDefault;
+                        return;
+                    }
+
+                    if (seleccionados.length === 0) {
+                        labelToggle.textContent = 'Sin selección';
+                        return;
+                    }
+
+                    if (seleccionados.length === 1) {
+                        const label = seleccionados[0].labels && seleccionados[0].labels.length > 0
+                            ? seleccionados[0].labels[0]
+                            : null;
+                        labelToggle.textContent = label ? label.textContent.trim() : '1 seleccionado';
+                        return;
+                    }
+
+                    labelToggle.textContent = `${seleccionados.length} seleccionados`;
                 };
                 
                 // Evento para "Seleccionar Todas"
                 chkTodos.addEventListener('change', function() {
                     const estadoFiltro = this.checked;
                     chkItems.forEach(c => c.checked = estadoFiltro);
+                    updateTodos();
                 });
                 
                 // Evento para cada casilla individual
@@ -240,6 +279,8 @@
         });
 
         formFiltros.addEventListener('submit', (e) => {
+            sincronizarBusqueda();
+
             // Excepción Vital: Si el clic fue en el botón de "PDF", permitimos el flujo normal
             if (e.submitter && e.submitter.value === '1' && e.submitter.name === 'exportar_pdf') {
                 return; 
