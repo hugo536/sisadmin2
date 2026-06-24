@@ -155,12 +155,18 @@ $formatearFechaDMY = static function ($fecha): string {
                                             </div>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-end fw-bold">S/ <?= number_format((float) ($orden['total'] ?? 0), 2) ?></td>
+
+                                    <td class="text-end fw-bold text-dark fs-6">
+                                        <?= strtoupper($orden['moneda'] ?? 'PEN') === 'USD' ? '$' : 'S/' ?> 
+                                        <?= number_format((float) ($orden['total'] ?? 0), 2) ?>
+                                    </td>
+
                                     <td class="text-center">
                                         <span class="badge px-3 py-2 rounded-pill <?= e($badge['clase']) ?>">
                                             <?= e($badge['texto']) ?>
                                         </span>
                                     </td>
+
                                     <td class="text-end pe-4">
                                         <div class="d-inline-flex align-items-center gap-1">
                                             <?php if ($estado === 0): ?> 
@@ -211,9 +217,8 @@ $formatearFechaDMY = static function ($fecha): string {
                     <div class="card border-0 shadow-sm mb-4">
                         <div class="card-body">
                             <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Información General</h6>
-                            <div class="row g-3 align-items-end">
-                                
-                                <div class="col-md-3">
+                            <div class="row g-3 align-items-end mb-3">
+                                <div class="col-md-4">
                                     <label for="idProveedor" class="form-label text-muted small fw-bold mb-1">Proveedor <span class="text-danger">*</span></label>
                                     <select id="idProveedor" class="form-select" required>
                                         <option value="">Seleccione...</option>
@@ -230,6 +235,14 @@ $formatearFechaDMY = static function ($fecha): string {
                                     <input type="date" class="form-control shadow-none" id="fechaEntrega" value="<?= date('Y-m-d') ?>" required>
                                 </div>
 
+                                <div class="col-md-2">
+                                    <label for="ordenMoneda" class="form-label text-primary small fw-bold mb-1">Moneda <span class="text-danger">*</span></label>
+                                    <select id="ordenMoneda" class="form-select border-primary-subtle fw-bold text-primary" required>
+                                        <option value="PEN" selected>PEN (S/)</option>
+                                        <option value="USD">USD ($)</option>
+                                    </select>
+                                </div>
+
                                 <div class="col-md-3">
                                     <label for="tipoImpuesto" class="form-label text-muted small fw-bold mb-1">Impuestos <span class="text-danger">*</span></label>
                                     <select id="tipoImpuesto" class="form-select" required>
@@ -238,8 +251,9 @@ $formatearFechaDMY = static function ($fecha): string {
                                         <option value="exonerado">Exonerado (0%)</option>
                                     </select>
                                 </div>
-
-                                <div class="col-md-3">
+                            </div>
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-12">
                                     <label for="observaciones" class="form-label text-muted small fw-bold mb-1">Observaciones</label>
                                     <input type="text" class="form-control" id="observaciones" maxlength="180" placeholder="Opcional">
                                 </div>        
@@ -610,7 +624,6 @@ $formatearFechaDMY = static function ($fecha): string {
                     <?php endforeach; ?>
                 </select>
             </div>
-            
             <div class="d-flex flex-column gap-1">
                 <select class="form-select detalle-unidad-compra d-none shadow-none" disabled>
                     <option value="">Unidad de compra...</option>
@@ -618,15 +631,18 @@ $formatearFechaDMY = static function ($fecha): string {
                 <div class="detalle-conversion-info text-end"></div> 
             </div>
         </td>
+        
         <td class="align-top py-3 px-2">
             <input type="number" class="form-control form-control-sm text-center detalle-cantidad fw-bold text-primary shadow-none border-secondary-subtle" min="0.01" step="0.01" value="1" required>
         </td>
+        
         <td class="align-top py-3 px-2">
             <div class="input-group input-group-sm">
-                <span class="input-group-text border-end-0 text-muted bg-light border-secondary-subtle">S/</span>
+                <span class="input-group-text border-end-0 text-muted bg-light border-secondary-subtle simbolo-moneda">S/</span>
                 <input type="number" class="form-control border-start-0 text-end detalle-costo shadow-none border-secondary-subtle" min="0" step="0.01" value="0.00" required>
             </div>
         </td>
+
         <td class="align-top py-3 px-2">
             <select class="form-select form-select-sm detalle-centro-costo shadow-none border-secondary-subtle">
                 <option value="">Sin centro de costo</option>
@@ -637,7 +653,11 @@ $formatearFechaDMY = static function ($fecha): string {
                 <?php endforeach; ?>
             </select>
         </td>
-        <td class="text-end align-top py-3 fw-bold text-dark detalle-subtotal fs-6">S/ 0.00</td>
+
+        <td class="text-end align-top py-3 fw-bold text-dark detalle-subtotal fs-6">
+            <span class="simbolo-moneda">S/</span> 0.00
+        </td>
+
         <td class="text-center align-top py-3">
             <button class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-fila p-1" type="button" data-bs-toggle="tooltip" title="Quitar fila" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
                 <i class="bi bi-trash-fill"></i>

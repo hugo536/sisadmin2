@@ -161,10 +161,13 @@
     // 2. LÓGICA DE PAGO MANUAL (DOM DINÁMICO & SPA BLINDADO)
     // ========================================================================
 
-    const filtrarCuentasPorMoneda = (selectMoneda, selectCuenta) => {
+    const filtrarCuentasPorMoneda = (selectMoneda, selectCuenta, opciones = {}) => {
         if (!selectMoneda || !selectCuenta) return;
         const moneda = String(selectMoneda.value || '').toUpperCase();
+        const valorActual = selectCuenta.value;
+        const debeSeleccionarPrimera = opciones.seleccionarPrimera === true;
         let primeraValida = null;
+        let valorActualSigueValido = false;
 
         Array.from(selectCuenta.options).forEach(opt => {
             if (!opt.value) return; 
@@ -174,9 +177,17 @@
             opt.hidden = !esValida;
             opt.disabled = !esValida;
             if (esValida && !primeraValida) primeraValida = opt.value;
+            if (esValida && opt.value === valorActual) valorActualSigueValido = true;
         });
-        selectCuenta.value = primeraValida || '';
-        selectCuenta.dispatchEvent(new Event('change'));
+
+        if (valorActualSigueValido) {
+            selectCuenta.value = valorActual;
+        } else {
+            // Si no hay orden de seleccionar la primera, se queda en blanco
+            selectCuenta.value = debeSeleccionarPrimera ? (primeraValida || '') : '';
+        }
+
+        selectCuenta.dispatchEvent(new Event('change', { bubbles: true }));
     };
 
     const actualizarDeudaManual = () => {
@@ -219,6 +230,9 @@
             const selectCuentaManual = document.getElementById('selectCuentaOrigenManual');
             const selectProveedor = document.getElementById('pagoManualProveedor');
 
+            // ESTA ES LA LÍNEA CLAVE QUE FALTABA
+            if (selectCuentaManual) selectCuentaManual.value = ''; 
+
             filtrarCuentasPorMoneda(selectMonedaManual, selectCuentaManual);
             
             if (typeof window.AppSelects !== 'undefined' && selectProveedor) {
@@ -235,9 +249,25 @@
             const hintDeudaManual = document.getElementById('pagoManualDeudaHint');
             const hintSaldoManual = document.getElementById('textoSaldoDisponibleManual');
             const selectProveedor = document.getElementById('pagoManualProveedor');
+            
+            // 1. Instanciamos los campos que faltan limpiar
+            const inputMontoManual = document.getElementById('pagoManualMontoInput');
+            const selectCuentaManual = document.getElementById('selectCuentaOrigenManual');
+            const selectMetodoManual = document.getElementById('pagoManualMetodoOrigen');
 
             if (hintDeudaManual) hintDeudaManual.innerHTML = '';
             if (hintSaldoManual) hintSaldoManual.innerHTML = '';
+            
+            // 2. Limpiamos explícitamente los valores
+            if (inputMontoManual) inputMontoManual.value = '';
+            if (selectCuentaManual) selectCuentaManual.value = '';
+            
+            // Opcional: reiniciar el método de pago también
+            if (selectMetodoManual) {
+                selectMetodoManual.innerHTML = '<option value="" selected disabled>Seleccione un método...</option>';
+                selectMetodoManual.disabled = true;
+            }
+
             if (selectProveedor && selectProveedor.tomselect) selectProveedor.tomselect.clear(true);
         });
 

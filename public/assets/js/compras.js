@@ -41,18 +41,15 @@
         devolucionResolucionHint.className = 'form-text text-secondary mt-1';
     }
 
-    // 👇 NUEVO: Lógica protectora del Switch de Reemplazo para Compras 👇
     function actualizarLogicaDevolucionCompra() {
         const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazoCompra');
         const checkReemplazo = document.getElementById('devolucionEsperarReemplazo');
         const motivoActual = devolucionMotivo?.value || '';
 
         if (filaSwitchReemplazo && checkReemplazo) {
-            // SÍ esperamos reemplazo si vino roto (Garantía) o nos mandaron algo equivocado
             if (motivoActual === 'Producto defectuoso / Garantía' || motivoActual === 'Producto incorrecto') {
                 filaSwitchReemplazo.classList.remove('d-none');
             } else {
-                // Para errores de conteo o vencimiento, ocultamos y apagamos el switch
                 filaSwitchReemplazo.classList.add('d-none');
                 checkReemplazo.checked = false;
             }
@@ -72,7 +69,6 @@
         console.warn('TomSelect no se pudo cargar en Compras. Se usará selector simple.');
     }
 
-    // FIX: Evaluación en tiempo real y fallback seguro para selects Locales
     function initSelectLocal(target, options = {}) {
         if (typeof window !== 'undefined' && window.AppSelects && typeof window.AppSelects.initLocal === 'function') {
             return window.AppSelects.initLocal(target, options);
@@ -82,7 +78,7 @@
         return new TomSelect(target, Object.assign({
             create: false,
             sortField: { field: 'text', direction: 'asc' },
-            searchField: ['text', 'value'], // Buscar por nombre y por ID
+            searchField: ['text', 'value'],
             plugins: ['clear_button']
         }, options));
     }
@@ -91,7 +87,7 @@
     if (document.getElementById('idProveedor') && tomSelectListo) {
         tomSelectProveedor = initSelectLocal('#idProveedor', {
             placeholder: 'Escribe para buscar proveedor...',
-            dropdownParent: 'body', // <-- DIRECTO AL BODY
+            dropdownParent: 'body',
         });
     }
 
@@ -120,10 +116,10 @@
     const btnAgregarFila = document.getElementById('btnAgregarFila');
     const switchCobroContainerCompra = document.getElementById('switchCobroContainerCompra');
     const switchCobroInmediatoCompra = document.getElementById('switchCobroInmediatoCompra');
-    const seccionCobroInmediatoCompra = document.getElementById('seccionCobroInmediatoCompra'); // Este ID debes crearlo en tu HTML
-    const contenedorMetodosPagoCompra = document.getElementById('contenedorMetodosPagoCompra'); // Este ID debes crearlo en tu HTML
-    const btnAgregarPagoInmediatoCompra = document.getElementById('btnAgregarPagoInmediatoCompra'); // Este ID debes crearlo en tu HTML
-    const totalPagadoInmediatoCompra = document.getElementById('totalPagadoInmediatoCompra'); // Este ID debes crearlo en tu HTML
+    const seccionCobroInmediatoCompra = document.getElementById('seccionCobroInmediatoCompra');
+    const contenedorMetodosPagoCompra = document.getElementById('contenedorMetodosPagoCompra');
+    const btnAgregarPagoInmediatoCompra = document.getElementById('btnAgregarPagoInmediatoCompra');
+    const totalPagadoInmediatoCompra = document.getElementById('totalPagadoInmediatoCompra');
     const cuentasDisponibles = Array.isArray(window.TESORERIA_CUENTAS) 
         ? window.TESORERIA_CUENTAS 
         : Object.values(window.TESORERIA_CUENTAS || {});
@@ -349,7 +345,8 @@
     function recalcularFila(fila) {
         const { cantidad, costo_unitario } = filaToPayload(fila);
         const subtotal = cantidad * costo_unitario;
-        fila.querySelector('.detalle-subtotal').textContent = `S/ ${subtotal.toFixed(2)}`;
+        const sim = document.getElementById('ordenMoneda')?.value === 'USD' ? '$' : 'S/';
+        fila.querySelector('.detalle-subtotal').innerHTML = `<span class="simbolo-moneda">${sim}</span> ${subtotal.toFixed(2)}`;
         recalcularTotalGeneral();
     }
 
@@ -379,17 +376,16 @@
             total = subtotal;
         }
 
-        if (ordenSubtotal) ordenSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
-        if (ordenIgv) ordenIgv.textContent = `S/ ${igv.toFixed(2)}`;
-        if (ordenTotal) ordenTotal.textContent = `S/ ${total.toFixed(2)}`;
+        const sim = document.getElementById('ordenMoneda')?.value === 'USD' ? '$' : 'S/';
+        if (ordenSubtotal) ordenSubtotal.innerHTML = `<span class="simbolo-moneda">${sim}</span> ${subtotal.toFixed(2)}`;
+        if (ordenIgv) ordenIgv.innerHTML = `<span class="simbolo-moneda">${sim}</span> ${igv.toFixed(2)}`;
+        if (ordenTotal) ordenTotal.innerHTML = `<span class="simbolo-moneda">${sim}</span> ${total.toFixed(2)}`;
 
-        // 👇 MAGIA UX: Validación Dinámica del Switch de Pago en Compras 👇
+        // Validación Dinámica del Switch de Pago en Compras
         if (switchCobroInmediatoCompra) {
             if (total <= 0) {
-                // Si el total baja a 0, bloqueamos el switch
                 switchCobroInmediatoCompra.disabled = true;
                 
-                // Si estaba encendido, lo apagamos a la fuerza
                 if (switchCobroInmediatoCompra.checked) {
                     switchCobroInmediatoCompra.checked = false;
                     if (seccionCobroInmediatoCompra) seccionCobroInmediatoCompra.classList.add('d-none');
@@ -397,26 +393,41 @@
                     calcularTotalPagoInmediatoCompra();
                 }
             } else {
-                // Si hay total y no es modo lectura, habilitamos el switch
                 if (!modalSoloLecturaActiva) {
                     switchCobroInmediatoCompra.disabled = false;
                 }
             }
         }
         
-        // Si el switch está prendido y cambiamos montos en la tabla, se debe reflejar abajo
+        // Reemplaza este bloque dentro de recalcularTotalGeneral()
         if (switchCobroInmediatoCompra && switchCobroInmediatoCompra.checked) {
             const filasPago = contenedorMetodosPagoCompra.querySelectorAll('.fila-pago-inmediato');
-            // Solo auto-actualizamos si hay 1 sola fila de pago
+            
             if (filasPago.length === 1) { 
-                filasPago[0].querySelector('.input-monto-inmediato').value = total.toFixed(2);
+                const inputMonto = filasPago[0].querySelector('.input-monto-inmediato');
+                inputMonto.value = total.toFixed(2);
+                
+                // 👇 LA MAGIA PRO: Disparamos el evento 'input' artificialmente.
+                // Esto engaña a JS haciéndole creer que el usuario tecleó el nuevo número,
+                // lo que ejecutará en cascada el cálculo del T.C. y la validación de saldos.
+                inputMonto.dispatchEvent(new Event('input', { bubbles: true }));
+            } else {
+                calcularTotalPagoInmediatoCompra();
             }
-            calcularTotalPagoInmediatoCompra();
         }
     }
 
     if (tipoImpuesto) {
         tipoImpuesto.addEventListener('change', recalcularTotalGeneral);
+    }
+
+    const ordenMoneda = document.getElementById('ordenMoneda');
+    if (ordenMoneda) {
+        ordenMoneda.addEventListener('change', () => {
+            recalcularTotalGeneral();
+            const sim = ordenMoneda.value === 'USD' ? '$' : 'S/';
+            document.querySelectorAll('.simbolo-moneda').forEach(el => el.textContent = sim);
+        });
     }
 
     async function actualizarUnidadPorItem(fila, itemGuardado = null) {
@@ -501,7 +512,7 @@
         if (tomSelectListo) {
             tomSelectItem = initSelectLocal(inputItem, {
                 placeholder: 'Buscar ítem...',
-                dropdownParent: 'body', // <-- DIRECTO AL BODY
+                dropdownParent: 'body',
             });
         }
 
@@ -577,7 +588,6 @@
         sincronizarBloqueoFilaDetalle(fila);
         recalcularFila(fila);
 
-        // --- AUTOSCROLL Y ENFOQUE AL AGREGAR ---
         if (!item) {
             setTimeout(() => {
                 fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -623,6 +633,10 @@
             el.disabled = deshabilitar;
             el.readOnly = deshabilitar;
         });
+
+        if (ordenMoneda) {
+            ordenMoneda.disabled = deshabilitar;
+        }
 
         if (tomSelectProveedor) {
             if (deshabilitar) {
@@ -675,17 +689,18 @@
         });
 
         tbodyDetalle.innerHTML = '';
-        ordenTotal.textContent = 'S/ 0.00';
-        if (ordenSubtotal) ordenSubtotal.textContent = 'S/ 0.00';
-        if (ordenIgv) ordenIgv.textContent = 'S/ 0.00';
+        
+        if (document.getElementById('ordenMoneda')) document.getElementById('ordenMoneda').value = 'PEN';
+        ordenTotal.innerHTML = `<span class="simbolo-moneda">S/</span> 0.00`;
+        if (ordenSubtotal) ordenSubtotal.innerHTML = `<span class="simbolo-moneda">S/</span> 0.00`;
+        if (ordenIgv) ordenIgv.innerHTML = `<span class="simbolo-moneda">S/</span> 0.00`;
         
         fechaEntrega.value = obtenerFechaLocalISO();
         
-        // 👇 MAGIA UX: Resetear el switch a bloqueado y apagado por defecto
         if (switchCobroContainerCompra) switchCobroContainerCompra.style.display = 'block';
         if (switchCobroInmediatoCompra) {
             switchCobroInmediatoCompra.checked = false;
-            switchCobroInmediatoCompra.disabled = true; // Nace bloqueado porque el total es 0
+            switchCobroInmediatoCompra.disabled = true;
         }
         if (seccionCobroInmediatoCompra) seccionCobroInmediatoCompra.classList.add('d-none');
         if (contenedorMetodosPagoCompra) contenedorMetodosPagoCompra.innerHTML = '';
@@ -694,7 +709,6 @@
         setModoSoloLectura(false, 0);
     }
 
-    // Helper interno para no duplicar código
     async function getJson(url) {
         const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
         const payload = await res.json();
@@ -702,7 +716,6 @@
         return payload;
     }
 
-    // --- LÓGICA RECEPCIÓN PARCIAL / MULTI-ALMACÉN ---
     async function abrirModalRecepcion(idOrden) {
         try {
             const separador = urls.index.includes('?') ? '&' : '?';
@@ -720,13 +733,11 @@
             if (recepcionFecha) {
                 recepcionFecha.value = orden.fecha_recepcion_sugerida || obtenerFechaLocalISO();
                 
-                // NUEVO: Bloquear fechas anteriores a la fecha de la orden
                 if (orden.fecha_orden) {
-                    // Extraemos solo la fecha (YYYY-MM-DD) ignorando las horas si las hubiera
                     const fechaMinima = String(orden.fecha_orden).split(' ')[0];
                     recepcionFecha.min = fechaMinima;
                 } else {
-                    recepcionFecha.removeAttribute('min'); // Limpiar por seguridad
+                    recepcionFecha.removeAttribute('min');
                 }
             }
             
@@ -851,7 +862,6 @@
         return tr;
     }
 
-    // --- LÓGICA DEVOLUCIONES ---
     async function abrirModalDevolucion(idOrden) {
         try {
             const separador = urls.index.includes('?') ? '&' : '?';
@@ -870,7 +880,6 @@
             const detalle = Array.isArray(orden.detalle) ? orden.detalle : [];
             let lineasRecibidas = 0;
 
-            // Almacenamos las promesas para cargar las unidades en paralelo
             const promesasLineas = [];
 
             detalle.forEach((linea) => {
@@ -896,15 +905,11 @@
     async function agregarFilaDevolucion(linea, cantRecibidaBase) {
         const tr = document.createElement('tr');
         
-        // --- FÓRMULA ANTIBALAS PARA EL COSTO REAL ---
         const factorCompra = parseFloat(linea.factor_conversion_aplicado || 1);
         const cantidadBaseTotal = parseFloat(linea.cantidad_base || 1);
         const subtotalLinea = parseFloat(linea.subtotal || 0);
         
-        // Obtenemos el costo real dividiendo el subtotal entre la cantidad de botellas totales.
         const costoBaseReal = cantidadBaseTotal > 0 ? (subtotalLinea / cantidadBaseTotal) : 0;
-        
-        // Multiplicamos para mostrar en pantalla cuánto costó la plancha
         const costoCompraDisplay = costoBaseReal * factorCompra; 
 
         const cantidadRecibidaEnUnidadCompra = factorCompra > 0 ? (cantRecibidaBase / factorCompra) : cantRecibidaBase;
@@ -913,7 +918,7 @@
 
         tr.dataset.idDetalle = linea.id;
         tr.dataset.idItem = linea.id_item;
-        tr.dataset.costoBase = costoBaseReal; // <-- GUARDAMOS EL COSTO BASE REAL EXACTO
+        tr.dataset.costoBase = costoBaseReal; 
         tr.dataset.maxBase = cantRecibidaBase; 
 
         tr.innerHTML = `
@@ -966,12 +971,10 @@
                 selectUnidad.appendChild(opt);
             });
             
-            // Si la compró en Caja, le sugerimos devolver en Caja
             if (linea.id_item_unidad) {
                 selectUnidad.value = String(linea.id_item_unidad);
             }
 
-            // Fallback: si no existe coincidencia por ID, usamos la unidad/factor original de compra.
             if (selectUnidad.value === '' && factorCompra > 1) {
                 const optCompra = document.createElement('option');
                 optCompra.value = `compra_${linea.id_item_unidad || 'orig'}`;
@@ -998,16 +1001,12 @@
             
             let cantBaseCalculada = cantInput * factorSeleccionado;
             
-            // --- NUEVO: SOLUCIÓN A LA TRAMPA DE LOS DECIMALES ---
-            // ¿Cuánto es lo máximo que el usuario ve que puede devolver?
             const maxInputVisible = parseFloat((cantRecibidaBase / factorSeleccionado).toFixed(2));
             
-            // Si el usuario digitó exactamente ese máximo visible, forzamos la cantidad base original exacta (ej. 420)
             if (Math.abs(cantInput - maxInputVisible) < 0.001) {
                 cantBaseCalculada = cantRecibidaBase;
                 inputCant.classList.remove('is-invalid', 'border-danger');
             } 
-            // Si realmente se pasó (escribió 2 planchas en vez de 1.67)
             else if (cantBaseCalculada > cantRecibidaBase + 0.0001) {
                 cantInput = cantRecibidaBase / factorSeleccionado;
                 cantBaseCalculada = cantRecibidaBase;
@@ -1016,12 +1015,9 @@
             } else {
                 inputCant.classList.remove('is-invalid', 'border-danger');
             }
-            // ----------------------------------------------------
 
-            // Guardamos la cantidad base exacta a enviar al backend en el HTML
             tr.dataset.cantBaseExacta = cantBaseCalculada;
 
-            // Convertimos el costo base a la unidad de devolución seleccionada
             const costoUnitarioSegunUnidad = costoBaseReal * factorSeleccionado;
             const subtotal = cantInput * costoUnitarioSegunUnidad;
             tdSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
@@ -1085,7 +1081,6 @@
         if (errorCentroCosto) return Swal.fire('Falta Centro de Costo', 'Debe seleccionar un Centro de Costo para todos los ítems de la orden.', 'warning');
         if (errorDetalle) return Swal.fire('Verifique cantidades', 'Hay líneas con conversión o cantidad inválida.', 'warning');
 
-        // 👇 NUEVO: Validación estricta de Pagos Inmediatos (ALINEADO CON VENTAS) 👇
         let esCobroInmediato = false;
         let metodosPagoFinales = [];
 
@@ -1125,11 +1120,21 @@
                 montosPorCuenta[idCuenta] += monto;
                 sumaTotalPagos += monto;
 
-                // ⚠️ FIX 1: Usamos 'id_metodo' igual que en ventas
+                // Capturar Tipo de Cambio si está visible
+                const inputTC = fila.querySelector('.input-tc-inmediato');
+                const tcValor = (!fila.querySelector('.seccion-tipo-cambio').classList.contains('d-none') && inputTC) 
+                                ? parseFloat(inputTC.value) || 0 
+                                : 1; // Si no hay choque de moneda, T.C es 1
+
+                if (tcValor <= 0 && !fila.querySelector('.seccion-tipo-cambio').classList.contains('d-none')) {
+                    errorPagos = true; // Forzamos error si olvidó poner el T.C.
+                }
+
                 metodosPagoFinales.push({
                     id_cuenta: Number(idCuenta),
                     id_metodo: Number(idMetodo),
-                    monto: monto
+                    monto: monto,
+                    tipo_cambio: tcValor // <-- ESTO VIAJA AL BACKEND
                 });
             });
 
@@ -1137,7 +1142,6 @@
                 return Swal.fire('Error en Pagos', 'Complete la cuenta, el método y un monto mayor a cero en el pago rápido.', 'warning');
             }
 
-            // Validar fondos insuficientes
             let erroresSaldo = [];
             for (const idC in montosPorCuenta) {
                 if (montosPorCuenta[idC] > saldosPorCuenta[idC]) {
@@ -1149,7 +1153,6 @@
                 return Swal.fire({ icon: 'error', title: 'Fondos insuficientes', html: erroresSaldo.join('<br><br>') });
             }
 
-            // Validar que no se pague de más
             const totalTexto = ordenTotal ? ordenTotal.textContent.replace(/[^\d.-]/g, '') : '0';
             const totalPedido = parseFloat(totalTexto) || 0;
             if (sumaTotalPagos > totalPedido) {
@@ -1164,8 +1167,11 @@
                 fecha_emision: fechaEntrega.value,
                 observaciones: observaciones.value,
                 tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'incluido',
+                
+                // 👇 ASEGÚRATE DE TENER ESTA LÍNEA 👇
+                moneda: document.getElementById('ordenMoneda').value, 
+                
                 detalle,
-                // ⚠️ FIX 2 y 3: Agregamos la bandera booleana y usamos 'metodos_pago'
                 cobro_inmediato: esCobroInmediato,
                 metodos_pago: metodosPagoFinales 
             };
@@ -1247,8 +1253,6 @@
                     const selectU = tr.querySelector('.dev-select-unidad');
                     const factor = parseFloat(selectU.options[selectU.selectedIndex]?.dataset.factor || 1);
                     
-                    // NUEVO: Recuperamos la cantidad exacta que calculó recalcularLinea()
-                    // Si por algún motivo no existe, usamos el cálculo tradicional como fallback
                     const cantidadBaseExacta = parseFloat(tr.dataset.cantBaseExacta || (cant * factor));
                     
                     detalle.push({
@@ -1257,7 +1261,7 @@
                         id_unidad: selectU.value ? Number(selectU.value) : null,
                         factor: factor,
                         cantidad_input: cant,
-                        cantidad_base: cantidadBaseExacta, // <-- AQUÍ USAMOS LA EXACTA
+                        cantidad_base: cantidadBaseExacta, 
                         costo_base: parseFloat(tr.dataset.costoBase)
                     });
                     totalDevolverBase += cantidadBaseExacta;
@@ -1272,15 +1276,14 @@
                 const separador = urls.index.includes('?') ? '&' : '?';
                 const urlPost = `${urls.index}${separador}accion=guardar_devolucion`;
 
-                // NUEVO: Capturamos el valor del switch
                 const checkReemplazo = document.getElementById('devolucionEsperarReemplazo');
-                const esperarReemplazo = checkReemplazo ? checkReemplazo.checked : true; // Por defecto true si no lo encuentra
+                const esperarReemplazo = checkReemplazo ? checkReemplazo.checked : true;
 
                 const payload = {
                     id_orden: Number(devolucionOrdenId.value),
                     motivo: devolucionMotivo.value,
                     resolucion: devolucionResolucion.value,
-                    esperar_reemplazo: esperarReemplazo, // <-- LO ENVIAMOS AL BACKEND
+                    esperar_reemplazo: esperarReemplazo, 
                     detalle: detalle
                 };
 
@@ -1294,7 +1297,6 @@
         });
     }
 
-    // Activamos el escuchador para el motivo de devolución
     devolucionMotivo?.addEventListener('change', actualizarLogicaDevolucionCompra);
     actualizarLogicaDevolucionCompra();
 
@@ -1332,15 +1334,12 @@
                     const d = json.data;
                     const estadoDoc = Number(d.estado || 0);
 
-                    // --- NUEVO: Si la orden está recepcionada o finalizada (estado 3 o superior), abrimos el modal de Resumen ---
                     if (estadoDoc >= 3) {
                         const modalResumenEl = document.getElementById('modalResumenCompra');
                         if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
 
-                        // Llenar datos generales
                         document.getElementById('resumenCompraCodigo').textContent = d.codigo || '-';
                         
-                        // Extraemos el proveedor y la fecha de recepción de la tabla principal
                         const filaTabla = target.closest('tr');
                         const nombreProveedor = filaTabla?.querySelector('td:nth-child(2)')?.textContent?.trim() || 'Proveedor';
                         const fechaRecepcionTabla = filaTabla?.querySelector('.bi-box-arrow-in-down')?.parentElement?.textContent?.trim() || '-';
@@ -1349,35 +1348,29 @@
                         document.getElementById('resumenCompraFechaOrden').textContent = formatearFechaDMY(d.fecha_orden);
                         document.getElementById('resumenCompraFechaRecepcion').textContent = fechaRecepcionTabla;
                         document.getElementById('resumenCompraObservaciones').textContent = d.observaciones || 'Sin observaciones.';
-                        document.getElementById('resumenCompraTotalFinal').textContent = `S/ ${Number(d.total || 0).toFixed(2)}`;
+                        
+                        // Determinamos el símbolo para el modal de resumen también
+                        const sim = d.moneda === 'USD' ? '$' : 'S/';
+                        document.getElementById('resumenCompraTotalFinal').textContent = `${sim} ${Number(d.total || 0).toFixed(2)}`;
 
-                        // Llenar tabla de productos
                         const tbodyResumen = document.querySelector('#tablaResumenProductosCompra tbody');
                         tbodyResumen.innerHTML = '';
 
                         if (d.detalle && d.detalle.length > 0) {
                             d.detalle.forEach(item => {
-                                // 1. Extraemos variables y factor de conversión (igual que en tu función de devoluciones)
                                 const factor = Number(item.factor_conversion_aplicado || 1);
-                                
-                                // Cantidad Pedida
-                                const cantPedidaCompra = Number(item.cantidad || 0); // Ej: 4
-                                const cantPedidaBase = cantPedidaCompra * factor;    // Ej: 648
-                                
-                                // Cantidad Recibida (tu BD guarda esto en unidad base)
-                                const cantRecibidaBase = Number(item.cantidad_recibida || 0); // Ej: 648
-                                const cantRecibidaCompra = factor > 0 ? (cantRecibidaBase / factor) : cantRecibidaBase; // Ej: 4
+                                const cantPedidaCompra = Number(item.cantidad || 0); 
+                                const cantPedidaBase = cantPedidaCompra * factor;    
+                                const cantRecibidaBase = Number(item.cantidad_recibida || 0); 
+                                const cantRecibidaCompra = factor > 0 ? (cantRecibidaBase / factor) : cantRecibidaBase; 
 
-                                // Unidades
                                 const unidadCompra = item.unidad_nombre || 'UND';
                                 const unidadBase = item.unidad_base || 'UND';
-                                const requiereSubtitulo = factor > 1; // Solo mostramos subtítulo si hay conversión
+                                const requiereSubtitulo = factor > 1; 
 
-                                // Precios y Subtotal (Calculado en base a la unidad de compra para evitar el error de S/ 31,492)
                                 const precio = Number(item.costo_unitario || 0);
                                 const subtotal = cantRecibidaCompra * precio; 
 
-                                // 2. Construimos el HTML de las celdas
                                 let htmlPedida = `<span class="d-block fw-bold text-dark">${cantPedidaCompra.toFixed(2)} ${unidadCompra}</span>`;
                                 if (requiereSubtitulo) {
                                     htmlPedida += `<small class="text-muted">(${cantPedidaBase.toFixed(2)} ${unidadBase})</small>`;
@@ -1388,14 +1381,13 @@
                                     htmlRecibida += `<small class="text-muted">(${cantRecibidaBase.toFixed(2)} ${unidadBase})</small>`;
                                 }
 
-                                // 3. Insertamos la fila
                                 const trItem = document.createElement('tr');
                                 trItem.innerHTML = `
                                     <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
                                     <td class="text-center py-2 align-middle">${htmlPedida}</td>
                                     <td class="text-center py-2 align-middle">${htmlRecibida}</td>
-                                    <td class="text-end py-2 text-muted align-middle">S/ ${precio.toFixed(2)}</td>
-                                    <td class="text-end pe-3 py-2 fw-bold text-dark align-middle">S/ ${subtotal.toFixed(2)}</td>
+                                    <td class="text-end py-2 text-muted align-middle">${sim} ${precio.toFixed(2)}</td>
+                                    <td class="text-end pe-3 py-2 fw-bold text-dark align-middle">${sim} ${subtotal.toFixed(2)}</td>
                                 `;
                                 tbodyResumen.appendChild(trItem);
                             });
@@ -1405,11 +1397,9 @@
 
                         const modalResumen = bootstrap.Modal.getOrCreateInstance(modalResumenEl);
                         modalResumen.show();
-                        return; // Salimos para no abrir el modal de edición normal
+                        return; 
                     }
-                    // -----------------------------------------------------------------------------------------------
-
-                    // Si no está recepcionada (es borrador o aprobada), abrimos el modal de edición bloqueado o editable según estado
+                    
                     limpiarModalOrden();
                     setOrdenEnEdicion(d.id);
                     if (tomSelectProveedor) tomSelectProveedor.setValue(d.id_proveedor);
@@ -1418,6 +1408,12 @@
                     fechaEntrega.value = d.fecha_orden || d.fecha_entrega || '';
                     observaciones.value = d.observaciones || '';
                     if (tipoImpuesto && d.tipo_impuesto) tipoImpuesto.value = d.tipo_impuesto;
+
+                    const monedaSelect = document.getElementById('ordenMoneda');
+                    if (monedaSelect) {
+                        monedaSelect.value = d.moneda || 'PEN';
+                        monedaSelect.dispatchEvent(new Event('change')); 
+                    }
 
                     if (d.detalle && d.detalle.length > 0) d.detalle.forEach((item) => agregarFila(item));
                     else agregarFila();
@@ -1435,7 +1431,6 @@
                                         const selMetodo = divPago.querySelector('.select-metodo-inmediato');
                                         selCuenta.value = pago.id_cuenta;
                                         
-                                        // Filtramos los métodos y asignamos el valor guardado
                                         if (typeof filtrarMetodosPorCuentaCompras === 'function') {
                                             filtrarMetodosPorCuentaCompras(selCuenta, selMetodo);
                                         }
@@ -1548,7 +1543,6 @@
         idProveedor.addEventListener('change', refrescarPreciosSugeridos);
     }
 
-    // Aplicamos la misma lógica de Ventas para validación de fechas (sin recargar automático)
     if (filtroFechaDesde && filtroFechaHasta) {
         filtroFechaDesde.addEventListener('change', () => {
             if (filtroFechaDesde.value) {
@@ -1572,12 +1566,10 @@
             }
         });
 
-        // Valores iniciales
         if (filtroFechaDesde.value) filtroFechaHasta.min = filtroFechaDesde.value;
         if (filtroFechaHasta.value) filtroFechaDesde.max = filtroFechaHasta.value;
     }
 
-    // Buscador y Estado se recargan al instante
     if (filtroBusqueda) {
         filtroBusqueda.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -1591,7 +1583,6 @@
         filtroEstado.addEventListener('change', recargarPagina);
     }
     
-    // NUEVO: Escuchador del botón para activar el filtrado
     const btnFiltrarFechas = document.getElementById('btnFiltrarFechas'); 
     if (btnFiltrarFechas) {
         btnFiltrarFechas.addEventListener('click', () => {
@@ -1603,9 +1594,6 @@
         fechaEntrega.value = obtenerFechaLocalISO();
     }
 
-    // ==============================================================
-    // --- MAGIA OPCIÓN B: FILTRADO DINÁMICO DE MÉTODOS POR CUENTA ---
-    // ==============================================================
     function filtrarMetodosPorCuentaCompras(selectCuenta, selectMetodo) {
         if (!selectCuenta || !selectMetodo) return;
 
@@ -1628,18 +1616,15 @@
         let metodosPermitidos = [];
         let tieneFiltro = false; 
 
-        // Capturamos el valor crudo que viene de la BD
         let rawMetodos = cuentaObj.metodos_pago;
 
-        // 👇 LA MAGIA ESTÁ AQUÍ: Si el valor es null, vacío o "null", forzamos a que el filtro bloquee todo
         if (rawMetodos === null || rawMetodos === "" || rawMetodos === "null" || rawMetodos === "[]") {
-            tieneFiltro = true;       // SÍ hay filtro activo
-            metodosPermitidos = [];   // Hay 0 permitidos
+            tieneFiltro = true;       
+            metodosPermitidos = [];   
         } 
         else if (rawMetodos !== undefined) {
             try {
                 let parsed = rawMetodos;
-                // Parseamos por si viene doblemente convertido a string
                 while(typeof parsed === 'string') { 
                     parsed = JSON.parse(parsed); 
                 }
@@ -1672,7 +1657,6 @@
             }
         });
 
-        // Si solo quedó el "Método..." (ningún método pasó el filtro)
         if (selectMetodo.options.length <= 1) {
             selectMetodo.innerHTML = '<option value="" selected disabled>Sin métodos configurados</option>';
         } else {
@@ -1681,9 +1665,6 @@
         }
     }
 
-    // ==============================================================
-    // --- LÓGICA DE PAGO INMEDIATO (COMPRAS) ---
-    // ==============================================================
     function calcularTotalPagoInmediatoCompra() {
         if (!contenedorMetodosPagoCompra) return;
         let total = 0;
@@ -1695,7 +1676,8 @@
         });
         
         if (totalPagadoInmediatoCompra) {
-            totalPagadoInmediatoCompra.textContent = `S/ ${total.toFixed(2)}`;
+            const sim = document.getElementById('ordenMoneda')?.value === 'USD' ? '$' : 'S/';
+            totalPagadoInmediatoCompra.innerHTML = `<span class="simbolo-moneda">${sim}</span> ${total.toFixed(2)}`;
             const totalTexto = ordenTotal ? ordenTotal.textContent.replace(/[^\d.-]/g, '') : '0';
             const totalPedido = parseFloat(totalTexto) || 0;
 
@@ -1723,33 +1705,48 @@
         
         let opcionesCuentas = '<option value="" selected disabled>Cuenta Origen...</option>';
         cuentasDisponibles.forEach(c => { 
-            // NUEVO: Capturamos el saldo y lo mostramos visualmente
             const saldo = parseFloat(c.saldo_actual || c.saldo || 0);
-            opcionesCuentas += `<option value="${c.id}" data-saldo="${saldo}">${c.nombre} (Disp: ${c.moneda} ${saldo.toFixed(2)})</option>`; 
+            const monedaCuenta = c.moneda || 'PEN'; // Extraemos la moneda de la cuenta
+            opcionesCuentas += `<option value="${c.id}" data-saldo="${saldo}" data-moneda="${monedaCuenta}">${c.nombre} (Disp: ${monedaCuenta} ${saldo.toFixed(2)})</option>`; 
         });
 
         const numFilas = contenedorMetodosPagoCompra.querySelectorAll('.fila-pago-inmediato').length;
-
         const div = document.createElement('div');
-        div.className = 'd-flex flex-column flex-sm-row gap-2 align-items-start align-items-sm-center bg-white p-2 rounded border border-success-subtle fila-pago-inmediato';
+        div.className = 'd-flex flex-column gap-2 bg-white p-2 rounded border border-success-subtle fila-pago-inmediato mb-2';
         
+        const sim = document.getElementById('ordenMoneda')?.value === 'USD' ? '$' : 'S/';
+
         div.innerHTML = `
-            <div class="w-100">
-                <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-cuenta-inmediato" required>
-                    ${opcionesCuentas}
-                </select>
-            </div>
-            <div class="w-100">
-                <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-metodo-inmediato" required disabled>
-                    <option value="" selected disabled>Método...</option>
-                </select>
-            </div>
-            <div class="w-100 d-flex gap-2 align-items-center">
-                <div class="input-group input-group-sm w-100">
-                    <span class="input-group-text bg-light text-muted fw-semibold border-secondary-subtle">S/</span>
-                    <input type="number" class="form-control text-end text-success fw-bold border-secondary-subtle input-monto-inmediato" min="0.01" step="0.01" placeholder="0.00" value="${montoSugerido}" required readonly>
+            <div class="d-flex flex-column flex-sm-row gap-2 align-items-start align-items-sm-center w-100">
+                <div class="w-100">
+                    <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-cuenta-inmediato" required>
+                        ${opcionesCuentas}
+                    </select>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-quitar-pago ${numFilas === 0 ? 'd-none' : ''} px-2" title="Quitar pago"><i class="bi bi-trash"></i></button>
+                <div class="w-100">
+                    <select class="form-select form-select-sm border-secondary-subtle fw-semibold text-secondary select-metodo-inmediato" required disabled>
+                        <option value="" selected disabled>Método...</option>
+                    </select>
+                </div>
+                <div class="w-100 d-flex gap-2 align-items-center">
+                    <div class="input-group input-group-sm w-100">
+                        <span class="input-group-text bg-light text-muted fw-semibold border-secondary-subtle simbolo-moneda">${sim}</span>
+                        <input type="number" class="form-control text-end text-success fw-bold border-secondary-subtle input-monto-inmediato" min="0.01" step="0.01" placeholder="0.00" value="${montoSugerido}" required readonly>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-quitar-pago ${numFilas === 0 ? 'd-none' : ''} px-2" title="Quitar pago"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+            
+            <!-- SECCIÓN TIPO DE CAMBIO (Oculta por defecto) -->
+            <div class="seccion-tipo-cambio d-none bg-light p-2 rounded border border-warning-subtle d-flex flex-wrap gap-3 align-items-center mt-1">
+                <span class="text-warning-emphasis fw-bold small"><i class="bi bi-arrow-left-right"></i> Conversión Requerida:</span>
+                <div class="input-group input-group-sm" style="width: 140px;">
+                    <span class="input-group-text bg-white border-warning-subtle text-muted">T.C.</span>
+                    <input type="number" class="form-control border-warning-subtle input-tc-inmediato" step="0.001" min="0.001" placeholder="Ej: 3.80">
+                </div>
+                <div class="small fw-bold text-secondary ms-auto">
+                    Se debitarán: <span class="text-danger monto-final-debito">0.00</span> <span class="moneda-cuenta-label">PEN</span>
+                </div>
             </div>
         `;
 
@@ -1759,6 +1756,68 @@
         const selMetodoInmediato = div.querySelector('.select-metodo-inmediato');
         const inputMontoInmediato = div.querySelector('.input-monto-inmediato');
         const btnQuitar = div.querySelector('.btn-quitar-pago');
+        
+        // Elementos del Tipo de Cambio
+        const seccionTC = div.querySelector('.seccion-tipo-cambio');
+        const inputTC = div.querySelector('.input-tc-inmediato');
+        const spanMontoDebito = div.querySelector('.monto-final-debito');
+        const spanLabelMoneda = div.querySelector('.moneda-cuenta-label');
+
+        // Función interna para calcular el débito real
+        const calcularDebitoReal = () => {
+            const opt = selCuentaInmediato.options[selCuentaInmediato.selectedIndex];
+            if (!opt || !opt.value) return;
+
+            const monedaCuenta = opt.getAttribute('data-moneda');
+            const monedaOrden = document.getElementById('ordenMoneda').value;
+            const montoPago = parseFloat(inputMontoInmediato.value) || 0;
+
+            if (monedaCuenta !== monedaOrden) {
+                // Hay choque de monedas, mostramos el T.C.
+                seccionTC.classList.remove('d-none');
+                spanLabelMoneda.textContent = monedaCuenta;
+                inputTC.required = true;
+
+                const tc = parseFloat(inputTC.value) || 0;
+                
+                // LÓGICA DE CONVERSIÓN
+                // Si la orden es en USD y la cuenta en PEN -> Multiplicamos (USD -> PEN)
+                // Si la orden es en PEN y la cuenta en USD -> Dividimos (PEN -> USD)
+                let debitoReal = 0;
+                if (monedaOrden === 'USD' && monedaCuenta === 'PEN') {
+                    debitoReal = montoPago * tc;
+                } else if (monedaOrden === 'PEN' && monedaCuenta === 'USD') {
+                    debitoReal = tc > 0 ? (montoPago / tc) : 0;
+                }
+
+                spanMontoDebito.textContent = debitoReal.toFixed(2);
+
+                // Validar saldo en base al débito real, NO al monto del pago
+                const saldoDisp = parseFloat(opt.getAttribute('data-saldo')) || 0;
+                if (debitoReal > saldoDisp) {
+                    spanMontoDebito.classList.replace('text-danger', 'text-bg-danger');
+                } else {
+                    spanMontoDebito.classList.replace('text-bg-danger', 'text-danger');
+                }
+
+            } else {
+                // Monedas iguales, ocultamos el T.C.
+                seccionTC.classList.add('d-none');
+                inputTC.required = false;
+                inputTC.value = '';
+                spanMontoDebito.textContent = montoPago.toFixed(2);
+                
+                // Validar saldo normal
+                const saldoDisp = parseFloat(opt.getAttribute('data-saldo')) || 0;
+                inputMontoInmediato.setAttribute('max', saldoDisp > 0 ? saldoDisp : 0);
+                if(parseFloat(inputMontoInmediato.value) > saldoDisp) {
+                    inputMontoInmediato.value = saldoDisp > 0 ? saldoDisp.toFixed(2) : '';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'info', title: 'Monto reajustado', text: 'El monto supera el saldo disponible de esta cuenta.', timer: 2500, showConfirmButton: false });
+                    }
+                }
+            }
+        };
 
         selCuentaInmediato.addEventListener('change', () => {
             filtrarMetodosPorCuentaCompras(selCuentaInmediato, selMetodoInmediato);
@@ -1766,28 +1825,7 @@
             selMetodoInmediato.value = '';
             inputMontoInmediato.readOnly = true;
 
-            // NUEVO: Validación de saldo al cambiar la cuenta
-            const opt = selCuentaInmediato.options[selCuentaInmediato.selectedIndex];
-            if(opt && opt.value) {
-                const saldoDisp = parseFloat(opt.getAttribute('data-saldo')) || 0;
-                inputMontoInmediato.setAttribute('max', saldoDisp > 0 ? saldoDisp : 0);
-                
-                if(parseFloat(inputMontoInmediato.value) > saldoDisp) {
-                    inputMontoInmediato.value = saldoDisp > 0 ? saldoDisp.toFixed(2) : '';
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            icon: 'info',
-                            title: 'Monto reajustado',
-                            text: 'El monto supera el saldo disponible de esta cuenta.',
-                            timer: 2500,
-                            showConfirmButton: false
-                        });
-                    }
-                }
-            } else {
-                inputMontoInmediato.removeAttribute('max');
-            }
-
+            calcularDebitoReal();
             calcularTotalPagoInmediatoCompra();
         });
 
@@ -1799,7 +1837,12 @@
             calcularTotalPagoInmediatoCompra();
         });
 
-        inputMontoInmediato.addEventListener('input', calcularTotalPagoInmediatoCompra);
+        inputMontoInmediato.addEventListener('input', () => {
+            calcularTotalPagoInmediatoCompra();
+            calcularDebitoReal();
+        });
+
+        inputTC.addEventListener('input', calcularDebitoReal);
         
         btnQuitar.addEventListener('click', () => {
             div.remove();
@@ -1808,6 +1851,8 @@
             calcularTotalPagoInmediatoCompra();
         });
 
+        // Trigger inicial si se crea con cuenta ya seleccionada
+        calcularDebitoReal();
         calcularTotalPagoInmediatoCompra();
         return div;
     }

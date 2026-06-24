@@ -6,33 +6,33 @@ class ComprasOrdenModel extends Modelo
 {
     public function listar(array $filtros = []): array
     {
-        // 1. AGREGAMOS EL SUBQUERY PARA OBTENER LA FECHA DE RECEPCIÓN
         $sql = <<<SQL
-SELECT o.id,
-       o.codigo,
-       o.id_proveedor,
-       t.nombre_completo AS proveedor,
-       o.fecha_emision AS fecha_orden,
-       o.fecha_entrega_estimada AS fecha_entrega,
-       (SELECT cr.fecha_recepcion
-        FROM compras_recepciones cr
-        WHERE cr.id_orden_compra = o.id
-        ORDER BY cr.id DESC LIMIT 1) AS fecha_recepcion,
-       COALESCE(
-           NULLIF(TRIM((SELECT cr.observaciones
-                        FROM compras_recepciones cr
-                        WHERE cr.id_orden_compra = o.id
-                        ORDER BY cr.id DESC LIMIT 1)), ''),
-           NULLIF(TRIM(o.observaciones), '')
-       ) AS observacion_subtitulo,
-       o.total,
-       o.estado,
-       o.created_at
-FROM compras_ordenes o
-INNER JOIN terceros t ON t.id = o.id_proveedor
-WHERE o.deleted_at IS NULL
-  AND t.deleted_at IS NULL
-SQL;
+            SELECT o.id,
+                o.codigo,
+                o.id_proveedor,
+                t.nombre_completo AS proveedor,
+                o.fecha_emision AS fecha_orden,
+                o.fecha_entrega_estimada AS fecha_entrega,
+                o.moneda, /* <--- CAMBIO BIMONETARIO */
+                (SELECT cr.fecha_recepcion
+                    FROM compras_recepciones cr
+                    WHERE cr.id_orden_compra = o.id
+                    ORDER BY cr.id DESC LIMIT 1) AS fecha_recepcion,
+                COALESCE(
+                    NULLIF(TRIM((SELECT cr.observaciones
+                                    FROM compras_recepciones cr
+                                    WHERE cr.id_orden_compra = o.id
+                                    ORDER BY cr.id DESC LIMIT 1)), ''),
+                    NULLIF(TRIM(o.observaciones), '')
+                ) AS observacion_subtitulo,
+                o.total,
+                o.estado,
+                o.created_at
+            FROM compras_ordenes o
+            INNER JOIN terceros t ON t.id = o.id_proveedor
+            WHERE o.deleted_at IS NULL
+            AND t.deleted_at IS NULL
+            SQL;
 
 
         $params = [];
@@ -49,12 +49,10 @@ SQL;
             $params[':estado'] = (int) $filtros['estado'];
         }
 
-        // 👇 --- NUEVO CÓDIGO: AGREGAR ESTE BLOQUE AQUÍ --- 👇
         if (isset($filtros['excluir_estado'])) {
             $sql .= ' AND o.estado != :excluir_estado';
             $params[':excluir_estado'] = (int) $filtros['excluir_estado'];
         }
-        // 👆 ----------------------------------------------- 👆
 
         if (!empty($filtros['fecha_desde'])) {
             $sql .= ' AND DATE(o.fecha_emision) >= :fecha_desde';
@@ -66,14 +64,11 @@ SQL;
             $params[':fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
-        // 2. AGREGAMOS EL SOPORTE PARA EL NUEVO FILTRO DE ORDENAMIENTO
         $ordenFecha = $filtros['orden_fecha'] ?? 'orden';
         
         if ($ordenFecha === 'recepcion') {
-            // Ordenar por la fecha en que ingresó al almacén
             $sql .= ' ORDER BY fecha_recepcion DESC, o.id DESC';
         } else {
-            // Ordenar por la fecha de emisión del pedido (comportamiento original)
             $sql .= ' ORDER BY o.fecha_emision DESC, o.id DESC';
         }
 
@@ -89,8 +84,9 @@ SQL;
                        t.nombre_completo AS proveedor,
                        o.fecha_emision AS fecha_orden, 
                        o.fecha_entrega_estimada AS fecha_entrega, 
+                       o.moneda, /* <--- CAMBIO BIMONETARIO */
                        o.observaciones, o.subtotal, o.total, o.estado,
-                       o.cobro_inmediato, o.metodos_pago /* NUEVOS */
+                       o.cobro_inmediato, o.metodos_pago 
                 FROM compras_ordenes o
                 INNER JOIN terceros t ON t.id = o.id_proveedor AND t.deleted_at IS NULL
                 WHERE o.id = :id
@@ -104,9 +100,10 @@ SQL;
             return [];
         }
         
-        // 👇 Desempaquetamos el JSON para que JS lo reciba nativamente
         $orden['metodos_pago'] = !empty($orden['metodos_pago']) ? json_decode($orden['metodos_pago'], true) : [];
         $orden['fecha_recepcion_sugerida'] = date('Y-m-d');
+        // Aseguramos un fallback en caso de registros antiguos que no tengan moneda
+        $orden['moneda'] = !empty($orden['moneda']) ? $orden['moneda'] : 'PEN';
 
         // El detalle se mantiene igual
         $detalleSql = 'SELECT d.id,
@@ -160,6 +157,12 @@ SQL;
                 throw new RuntimeException('La fecha de emisión no es válida.');
             }
 
+            // NUEVA LÍNEA: Leer moneda del payload
+            $moneda = strtoupper(trim((string) ($cabecera['moneda'] ?? 'PEN')));
+            if (!in_array($moneda, ['PEN', 'USD'], true)) {
+                $moneda = 'PEN';
+            }
+
             if ($idOrden > 0) {
                 $actual = $this->obtener($idOrden);
                 if ($actual === []) {
@@ -170,18 +173,20 @@ SQL;
                     throw new RuntimeException('Solo se pueden editar órdenes en borrador.');
                 }
 
+                // Agregamos la columna moneda al UPDATE
                 $sqlUpdate = 'UPDATE compras_ordenes
                                   SET id_proveedor = :id_proveedor,
                                       fecha_emision = :fecha_emision,
                                       fecha_entrega_estimada = :fecha_entrega,
+                                      moneda = :moneda, /* NUEVO */
                                       observaciones = :observaciones,
                                       tipo_impuesto = :tipo_impuesto,
                                       subtotal = :subtotal,
                                       igv_monto = :igv_monto,
                                       total = :total,
                                       estado = :estado,
-                                      cobro_inmediato = :cobro_inmediato, /* NUEVO */
-                                      metodos_pago = :metodos_pago,       /* NUEVO */
+                                      cobro_inmediato = :cobro_inmediato, 
+                                      metodos_pago = :metodos_pago,       
                                       updated_by = :updated_by,
                                       updated_at = NOW()
                               WHERE id = :id
@@ -192,32 +197,33 @@ SQL;
                     'id_proveedor' => (int) $cabecera['id_proveedor'],
                     'fecha_emision' => $fechaEmision,
                     'fecha_entrega' => $fechaEmision,
+                    'moneda' => $moneda, // NUEVO
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'tipo_impuesto' => $cabecera['tipo_impuesto'],
                     'subtotal' => (float) $cabecera['subtotal'],
                     'igv_monto' => (float) $cabecera['igv_monto'],
                     'total' => (float) $cabecera['total'],
                     'estado' => $estado,
-                    'cobro_inmediato' => $cabecera['cobro_inmediato'] ?? 0,    // NUEVO
-                    'metodos_pago' => $cabecera['metodos_pago'] ?? '[]',       // NUEVO
+                    'cobro_inmediato' => $cabecera['cobro_inmediato'] ?? 0,    
+                    'metodos_pago' => is_string($cabecera['metodos_pago']) ? $cabecera['metodos_pago'] : json_encode($cabecera['metodos_pago'] ?? []),
                     'updated_by' => $userId,
                 ]);
 
-                // Borrado lógico del detalle anterior para reinsertar
                 $db->prepare('UPDATE compras_ordenes_detalle SET deleted_at = NOW(), deleted_by = :user WHERE id_orden = :id_orden AND deleted_at IS NULL')
                     ->execute(['user' => $userId, 'id_orden' => $idOrden]);
             } else {
                 $codigo = $this->generarCodigo($db);
 
+                // Agregamos moneda al INSERT
                 $sqlInsert = 'INSERT INTO compras_ordenes (
-                                codigo, id_proveedor, fecha_emision, fecha_entrega_estimada, observaciones,
+                                codigo, id_proveedor, fecha_emision, fecha_entrega_estimada, moneda, observaciones,
                                 tipo_impuesto, subtotal, igv_monto, total, estado,
-                                cobro_inmediato, metodos_pago, /* NUEVOS */
+                                cobro_inmediato, metodos_pago, 
                                 created_by, updated_by, created_at, updated_at
                               ) VALUES (
-                                :codigo, :id_proveedor, :fecha_emision, :fecha_entrega, :observaciones,
+                                :codigo, :id_proveedor, :fecha_emision, :fecha_entrega, :moneda, :observaciones,
                                 :tipo_impuesto, :subtotal, :igv_monto, :total, :estado,
-                                :cobro_inmediato, :metodos_pago, /* NUEVOS */
+                                :cobro_inmediato, :metodos_pago, 
                                 :created_by, :updated_by, NOW(), NOW()
                               )';
 
@@ -226,14 +232,15 @@ SQL;
                     'id_proveedor' => (int) $cabecera['id_proveedor'],
                     'fecha_emision' => $fechaEmision,
                     'fecha_entrega' => $fechaEmision,
+                    'moneda' => $moneda, // NUEVO
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'tipo_impuesto' => $cabecera['tipo_impuesto'],
                     'subtotal' => (float) $cabecera['subtotal'],
                     'igv_monto' => (float) $cabecera['igv_monto'],
                     'total' => (float) $cabecera['total'],
                     'estado' => $estado,
-                    'cobro_inmediato' => $cabecera['cobro_inmediato'] ?? 0,    // NUEVO
-                    'metodos_pago' => $cabecera['metodos_pago'] ?? '[]',       // NUEVO
+                    'cobro_inmediato' => $cabecera['cobro_inmediato'] ?? 0,    
+                    'metodos_pago' => is_string($cabecera['metodos_pago']) ? $cabecera['metodos_pago'] : json_encode($cabecera['metodos_pago'] ?? []),
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
@@ -294,8 +301,6 @@ SQL;
                     'factor_conversion_aplicado' => $factorAplicado,
                     'cantidad_conversion' => $cantidadConversion,
                     'cantidad_base' => $cantidadBase,
-                    // ERROR CORREGIDO: Antes decía $cantidadBase. 
-                    // Debe ser la cantidad original solicitada en esa unidad.
                     'cantidad' => $cantidadConversion, 
                     'costo_unitario' => $costo,
                     'id_centro_costo' => !empty($linea['id_centro_costo']) ? (int) $linea['id_centro_costo'] : null,
@@ -474,8 +479,6 @@ SQL;
             return [];
         }
 
-        // Eliminamos las consultas dinámicas (SHOW COLUMNS/TABLES) para mejorar drásticamente la velocidad.
-        // Añadimos múltiples alias (nombre, text, label) para asegurar que el frontend lo lea sin importar el framework.
         $sql = 'SELECT u.id,
                     u.nombre,
                     u.nombre AS text,
@@ -523,17 +526,12 @@ SQL;
         return sprintf('OC-%s-%05d', date('Ymd'), $correlativo);
     }
 
-    /**
-     * Obtiene el precio pactado con un proveedor específico.
-     * Si no existe un acuerdo, devuelve el costo referencial por defecto del ítem.
-     */
     public function obtenerPrecioProveedor(int $idProveedor, int $idItem, ?int $idUnidad = null): float
     {
         if ($idProveedor <= 0 || $idItem <= 0) {
             return 0.0;
         }
 
-        // 1. Buscamos si existe un precio recomendado en los acuerdos
         $sqlAcuerdo = "SELECT capp.precio_recomendado
                        FROM comercial_acuerdos_proveedor_precios capp
                        INNER JOIN comercial_acuerdos_proveedor capv ON capv.id = capp.id_acuerdo_proveedor
@@ -564,13 +562,10 @@ SQL;
             
             $precioPactado = $stmt->fetchColumn();
 
-            // Si encontró un precio en los acuerdos, lo devolvemos
             if ($precioPactado !== false) {
                 return (float)$precioPactado;
             }
 
-            // 2. FALLBACK: Si el proveedor no tiene este ítem en sus acuerdos, 
-            // traemos el costo referencial base del ítem como sugerencia.
             $stmtItem = $this->db()->prepare("SELECT costo_referencial FROM items WHERE id = :id");
             $stmtItem->execute([':id' => $idItem]);
             $costoReferencial = $stmtItem->fetchColumn();
@@ -578,7 +573,6 @@ SQL;
             return $costoReferencial !== false ? (float)$costoReferencial : 0.0;
 
         } catch (Throwable $e) {
-            // En caso de error de base de datos, retornamos 0 para no romper la app
             return 0.0;
         }
     }
@@ -631,7 +625,6 @@ SQL;
                        VALUES (:id_dev, :id_item, :id_unidad, :cant, :cant_base, :costo, :subtotal)";
             $stmtDet = $db->prepare($sqlDet);
             
-            // FÓRMULA ANTIBALAS BACKEND
             $stmtOrdenDetalle = $db->prepare("SELECT id_item, COALESCE(cantidad_recibida, 0) AS cantidad_recibida, id_centro_costo,
                                                      (COALESCE(cantidad_conversion, cantidad_solicitada) * costo_unitario_pactado) AS subtotal_linea,
                                                      COALESCE(cantidad_base_solicitada, cantidad_solicitada) AS cantidad_base_total
@@ -662,7 +655,6 @@ SQL;
                     throw new RuntimeException('No puede devolver más cantidad que la ya recepcionada.');
                 }
 
-                // CÁLCULO SEGURO DEL COSTO BASE
                 $subtotalLineaBD = (float) ($ordenDet['subtotal_linea'] ?? 0);
                 $cantidadBaseTotalBD = (float) ($ordenDet['cantidad_base_total'] ?? 1);
                 $costoBaseSeguro = $cantidadBaseTotalBD > 0 ? ($subtotalLineaBD / $cantidadBaseTotalBD) : 0;
@@ -700,17 +692,14 @@ SQL;
 
             $devolucionTotalCompletada = $lineasConRecepcionPendiente === 0;
 
-            // 👇 1. REGLA DE ESTADO: Si esperamos reemplazo, SIEMPRE vuelve a estado 2 (Aprobada) 👇
             if ($esperarReemplazo) {
-                $nuevoEstado = 2; // Queda lista para recibir la nueva mercadería
+                $nuevoEstado = 2; 
             } else {
-                // Si no hay reemplazo y se devolvió todo, se Anula (9). Si es parcial, se Cierra/Termina (4).
                 $nuevoEstado = $devolucionTotalCompletada ? 9 : 4; 
             }
 
             $db->prepare("UPDATE compras_ordenes SET estado = ?, updated_at = NOW() WHERE id = ?")->execute([$nuevoEstado, $idOrden]);
 
-            // 👇 2. REGLA FINANCIERA: Solo ajustamos la deuda (CxP) si NO esperamos reemplazo 👇
             if (!$esperarReemplazo) {
                 $this->aplicarAjusteCxpPorDevolucion($db, $idOrden, $resolucion, $totalDevuelto, $userId);
             }
@@ -766,7 +755,6 @@ SQL;
             return;
         }
 
-        // Solo descontamos deuda automáticamente cuando la resolución sea nota de crédito.
         if (trim(strtolower($resolucion)) !== 'descuento_cxp') {
             return;
         }

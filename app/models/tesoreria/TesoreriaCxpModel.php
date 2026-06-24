@@ -327,7 +327,8 @@ class TesoreriaCxpModel extends Modelo
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
     }
     
-    public function registrarPagoDirecto(int $idCxp, int $idCuenta, int $idMetodo, float $monto, string $fecha, string $observacion, int $userId): void
+    // 👇 AÑADIDO: Parámetro $tipoCambio al final (por defecto 1.0 para que no rompa llamadas antiguas)
+    public function registrarPagoDirecto(int $idCxp, int $idCuenta, int $idMetodo, float $monto, string $fecha, string $observacion, int $userId, float $tipoCambio = 1.0): void
     {
         if ($idCxp <= 0 || $idCuenta <= 0 || $idMetodo <= 0 || $monto <= 0) {
             throw new RuntimeException('Datos inválidos para registrar el pago del gasto.');
@@ -347,6 +348,25 @@ class TesoreriaCxpModel extends Modelo
             throw new RuntimeException('El monto a pagar supera el saldo pendiente de la deuda.');
         }
 
+        // 👇 MAGIA BIMONETARIA 👇
+        // Obtenemos la moneda de la cuenta de tesorería (la caja)
+        $stmtCuenta = $db->prepare('SELECT moneda FROM tesoreria_cuentas WHERE id = :id LIMIT 1');
+        $stmtCuenta->execute(['id' => $idCuenta]);
+        $monedaCuenta = strtoupper(trim((string) $stmtCuenta->fetchColumn() ?: 'PEN'));
+        
+        $monedaOrden = strtoupper(trim($cxp['moneda']));
+        $montoParaMovimiento = $monto;
+        
+        // Si pagamos una orden en USD con una cuenta en PEN, aplicamos el TC a la salida de caja
+        if ($monedaOrden === 'USD' && $monedaCuenta === 'PEN') {
+            $montoParaMovimiento = $monto * $tipoCambio;
+        } 
+        // Si por casualidad pagas una orden en PEN con una cuenta en USD
+        elseif ($monedaOrden === 'PEN' && $monedaCuenta === 'USD') {
+            $montoParaMovimiento = $tipoCambio > 0 ? ($monto / $tipoCambio) : $monto;
+        }
+
+        // 1. REGISTRAMOS LA SALIDA DE DINERO (EGRESO) USANDO LA MONEDA Y MONTO DE LA CAJA
         $stmtMov = $db->prepare('INSERT INTO tesoreria_movimientos 
             (id_cuenta, id_metodo_pago, id_tercero, tipo, monto, moneda, fecha, observaciones, origen, id_origen, estado, created_by, updated_by, created_at, updated_at) 
             VALUES 
@@ -356,8 +376,8 @@ class TesoreriaCxpModel extends Modelo
             'id_cuenta'   => $idCuenta,
             'id_metodo'   => $idMetodo,
             'id_tercero'  => $cxp['id_proveedor'], 
-            'monto'       => round($monto, 4),
-            'moneda'      => $cxp['moneda'],
+            'monto'       => round($montoParaMovimiento, 4), // <-- Monto convertido a la moneda de la caja
+            'moneda'      => $monedaCuenta,                  // <-- Moneda real de la caja
             'fecha'       => $fecha,
             'observacion' => $observacion,
             'id_origen'   => $idCxp, 
@@ -367,6 +387,7 @@ class TesoreriaCxpModel extends Modelo
 
         $idMovimiento = (int) $db->lastInsertId();
 
+        // 2. REGISTRAMOS EL HISTORIAL DE PAGO CRUZADO (Aquí guardamos cuánto amortizó a la deuda en su moneda original)
         $stmtPago = $db->prepare('INSERT INTO tesoreria_cxp_pagos 
             (id_cxp, id_movimiento, monto_aplicado, created_by, updated_by, created_at, updated_at) 
             VALUES 
@@ -375,16 +396,17 @@ class TesoreriaCxpModel extends Modelo
         $stmtPago->execute([
             'id_cxp'         => $idCxp,
             'id_movimiento'  => $idMovimiento,
-            'monto_aplicado' => round($monto, 4),
+            'monto_aplicado' => round($monto, 4), // <-- Monto puro de la factura (Ej: $4 USD)
             'created_by'     => $userId, 
             'updated_by'     => $userId  
         ]);
 
+        // 3. DESCONTAMOS LA DEUDA EN CXP USANDO LA MONEDA ORIGINAL
         $stmtUpd = $db->prepare('UPDATE tesoreria_cxp 
             SET monto_pagado = monto_pagado + :monto, updated_by = :user, updated_at = NOW() 
             WHERE id = :id_cxp');
         $stmtUpd->execute([
-            'monto'  => round($monto, 4),
+            'monto'  => round($monto, 4), // <-- Descuenta puro (Ej: $4 USD)
             'user'   => $userId,
             'id_cxp' => $idCxp
         ]);

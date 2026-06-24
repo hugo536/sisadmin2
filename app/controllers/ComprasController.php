@@ -268,6 +268,9 @@ class ComprasController extends Controlador
                         $idMetodo = (int) ($pago['id_metodo'] ?? 0);
                         $idCuenta = (int) ($pago['id_cuenta'] ?? 0);
                         $montoPago = (float) ($pago['monto'] ?? 0);
+                        // 👇 NUEVO: Capturamos el tipo de cambio (si no viene o es 0, usamos 1)
+                        $tipoCambio = (float) ($pago['tipo_cambio'] ?? 1);
+                        if ($tipoCambio <= 0) $tipoCambio = 1;
 
                         if ($montoPago > $saldoCxp) {
                             $montoPago = $saldoCxp; 
@@ -275,10 +278,16 @@ class ComprasController extends Controlador
 
                         if ($montoPago > 0 && $idMetodo > 0 && $idCuenta > 0) {
                             $fechaPago = $fechaEmision;
+                            
+                            // Agregamos el T.C. a la observación para que quede el rastro en el historial
                             $observacion = 'Pago al contado anticipado desde OC ID ' . $id;
+                            if ($tipoCambio !== 1.0) {
+                                $observacion .= ' (T.C. aplicado: ' . $tipoCambio . ')';
+                            }
 
+                            // 👇 PASAMOS EL TIPO DE CAMBIO COMO NUEVO PARÁMETRO AL FINAL 👇
                             $this->tesoreriaCxpModel->registrarPagoDirecto(
-                                $idCxp, $idCuenta, $idMetodo, $montoPago, $fechaPago, $observacion, $userId
+                                $idCxp, $idCuenta, $idMetodo, $montoPago, $fechaPago, $observacion, $userId, $tipoCambio
                             );
                             $saldoCxp -= $montoPago; 
                         }
