@@ -76,7 +76,7 @@ class TesoreriaCxpModel extends Modelo
             return $existe;
         }
 
-        $stmtRecepcion = $db->prepare('SELECT r.id, r.id_orden_compra, o.id_proveedor, o.total, r.fecha_recepcion,
+        $stmtRecepcion = $db->prepare('SELECT r.id, r.id_orden_compra, o.id_proveedor, o.total, o.moneda, r.fecha_recepcion,
                                               COALESCE(tp.dias_credito, 0) AS dias_credito,
                                               UPPER(COALESCE(tp.condicion_pago, "CREDITO")) AS condicion_pago
                                        FROM compras_recepciones r
@@ -122,7 +122,7 @@ class TesoreriaCxpModel extends Modelo
             'id_recepcion'      => $idRecepcion,
             'fecha_emision'     => $fechaEmision,
             'fecha_vencimiento' => $fechaVencimiento,
-            'moneda'            => 'PEN',
+            'moneda'            => in_array(strtoupper((string) ($rec['moneda'] ?? 'PEN')), ['PEN', 'USD'], true) ? strtoupper((string) $rec['moneda']) : 'PEN',
             'monto_total'       => $total,
             'saldo'             => $total,
             'estado'            => $total > 0 ? 'PENDIENTE' : 'PAGADA',
@@ -147,7 +147,7 @@ class TesoreriaCxpModel extends Modelo
         }
 
         // 2. Obtenemos los datos de la orden
-        $stmtOrden = $db->prepare('SELECT o.id_proveedor, o.fecha_emision, o.total, o.codigo,
+        $stmtOrden = $db->prepare('SELECT o.id_proveedor, o.fecha_emision, o.total, o.codigo, o.moneda,
                                           COALESCE(tp.dias_credito, 0) AS dias_credito,
                                           UPPER(COALESCE(tp.condicion_pago, "CREDITO")) AS condicion_pago
                                    FROM compras_ordenes o
@@ -184,7 +184,7 @@ class TesoreriaCxpModel extends Modelo
             'id_orden_compra'   => $idOrden,
             'fecha_emision'     => $fechaEmision,
             'fecha_vencimiento' => $fechaVencimiento,
-            'moneda'            => 'PEN',
+            'moneda'            => in_array(strtoupper((string) ($orden['moneda'] ?? 'PEN')), ['PEN', 'USD'], true) ? strtoupper((string) $orden['moneda']) : 'PEN',
             'monto_total'       => $total,
             'saldo'             => $total,
             'estado'            => $total > 0 ? 'PENDIENTE' : 'PAGADA',

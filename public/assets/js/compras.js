@@ -1108,27 +1108,38 @@
                 const monto = parseFloat(inputMonto.value) || 0;
                 const optCuenta = selCuenta.options[selCuenta.selectedIndex];
                 const saldoDisp = parseFloat(optCuenta.getAttribute('data-saldo')) || 0;
+                const monedaCuenta = String(optCuenta.getAttribute('data-moneda') || 'PEN').toUpperCase();
+                const monedaOrden = String(document.getElementById('ordenMoneda')?.value || 'PEN').toUpperCase();
                 const nombreCuenta = optCuenta.text.split('(')[0].trim();
 
                 if (monto <= 0) errorPagos = true;
 
-                if (!montosPorCuenta[idCuenta]) {
-                    montosPorCuenta[idCuenta] = 0;
-                    saldosPorCuenta[idCuenta] = saldoDisp;
-                    nombresCuentas[idCuenta] = nombreCuenta;
-                }
-                montosPorCuenta[idCuenta] += monto;
-                sumaTotalPagos += monto;
-
                 // Capturar Tipo de Cambio si está visible
                 const inputTC = fila.querySelector('.input-tc-inmediato');
-                const tcValor = (!fila.querySelector('.seccion-tipo-cambio').classList.contains('d-none') && inputTC) 
+                const seccionTC = fila.querySelector('.seccion-tipo-cambio');
+                const requiereTC = seccionTC && !seccionTC.classList.contains('d-none');
+                const tcValor = (requiereTC && inputTC) 
                                 ? parseFloat(inputTC.value) || 0 
                                 : 1; // Si no hay choque de moneda, T.C es 1
 
-                if (tcValor <= 0 && !fila.querySelector('.seccion-tipo-cambio').classList.contains('d-none')) {
+                if (tcValor <= 0 && requiereTC) {
                     errorPagos = true; // Forzamos error si olvidó poner el T.C.
                 }
+
+                let montoDebitoCuenta = monto;
+                if (monedaOrden === 'USD' && monedaCuenta === 'PEN') {
+                    montoDebitoCuenta = monto * tcValor;
+                } else if (monedaOrden === 'PEN' && monedaCuenta === 'USD') {
+                    montoDebitoCuenta = tcValor > 0 ? (monto / tcValor) : 0;
+                }
+
+                if (!montosPorCuenta[idCuenta]) {
+                    montosPorCuenta[idCuenta] = 0;
+                    saldosPorCuenta[idCuenta] = saldoDisp;
+                    nombresCuentas[idCuenta] = `${nombreCuenta} (${monedaCuenta})`;
+                }
+                montosPorCuenta[idCuenta] += montoDebitoCuenta;
+                sumaTotalPagos += monto;
 
                 metodosPagoFinales.push({
                     id_cuenta: Number(idCuenta),
@@ -1145,7 +1156,7 @@
             let erroresSaldo = [];
             for (const idC in montosPorCuenta) {
                 if (montosPorCuenta[idC] > saldosPorCuenta[idC]) {
-                    erroresSaldo.push(`La cuenta <b>${nombresCuentas[idC]}</b> no tiene fondos suficientes. Intentas retirar S/ ${montosPorCuenta[idC].toFixed(2)} pero solo dispone de S/ ${saldosPorCuenta[idC].toFixed(2)}.`);
+                    erroresSaldo.push(`La cuenta <b>${nombresCuentas[idC]}</b> no tiene fondos suficientes. Intentas retirar ${montosPorCuenta[idC].toFixed(2)} pero solo dispone de ${saldosPorCuenta[idC].toFixed(2)}.`);
                 }
             }
 

@@ -178,6 +178,10 @@ class ComprasController extends Controlador
                 : trim((string) ($payload['fecha_entrega'] ?? ''));
             $observaciones = trim((string) ($payload['observaciones'] ?? ''));
             $tipoImpuesto = trim((string) ($payload['tipo_impuesto'] ?? 'incluido'));
+            $moneda = strtoupper(trim((string) ($payload['moneda'] ?? 'PEN')));
+            if (!in_array($moneda, ['PEN', 'USD'], true)) {
+                throw new RuntimeException('La moneda de la orden debe ser PEN o USD.');
+            }
             $detalle = is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [];
 
             if ($idProveedor <= 0 || !$this->ordenModel->proveedorEsValido($idProveedor)) {
@@ -241,7 +245,8 @@ class ComprasController extends Controlador
                 'id_proveedor' => $idProveedor,
                 'fecha_emision' => $fechaEmision,
                 'observaciones' => $observaciones,
-                'tipo_impuesto' => $tipoImpuesto,       
+                'tipo_impuesto' => $tipoImpuesto,
+                'moneda' => $moneda,       
                 'subtotal' => round($subtotal, 4),      
                 'igv_monto' => round($igvMonto, 4),     
                 'total' => round($totalFinal, 2),       
