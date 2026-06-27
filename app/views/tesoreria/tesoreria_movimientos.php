@@ -234,8 +234,22 @@
                                         <?php endif; ?>
                                     </td>
                                     <td class="align-top pt-3 text-muted small"><?= e($cuenta) ?></td>
+                                    <?php 
+                                        $monedaStr = strtoupper(trim((string) ($m['moneda'] ?? 'PEN')));
+                                        $simboloMoneda = ($monedaStr === 'USD') ? '$' : 'S/';
+                                        $montoBase = (float) ($m['monto'] ?? 0);
+                                        $tipoCambio = (float) ($m['tipo_cambio'] ?? 1);
+                                        
+                                        $subtituloSoles = '';
+                                        // Si es Dólares y hay un tipo de cambio distinto de 1, calculamos el equivalente en Soles
+                                        if ($monedaStr === 'USD' && $tipoCambio > 0 && $tipoCambio != 1) {
+                                            $equivalente = $montoBase * $tipoCambio;
+                                            $subtituloSoles = '<br><small class="text-muted fw-normal" style="font-size: 0.75rem;">(S/ ' . number_format($equivalente, 2) . ')</small>';
+                                        }
+                                    ?>
                                     <td class="text-end align-top pt-3 fw-bold <?= $montoColor ?> text-nowrap">
-                                        <?= $montoSigno ?> <?= number_format((float) ($m['monto'] ?? 0), 2) ?>
+                                        <?= $montoSigno ?> <?= $simboloMoneda ?> <?= number_format($montoBase, 2) ?>
+                                        <?= $subtituloSoles ?>
                                     </td>
                                     <td class="text-center align-top pt-3 text-nowrap">
                                         <?php if($estado === 'CONFIRMADO'): ?>

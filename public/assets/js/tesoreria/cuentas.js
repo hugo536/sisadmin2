@@ -247,4 +247,74 @@
         });
     }
 
+    // ========================================================================
+    // 6. LÓGICA DEL CONVERTIDOR DE MONEDAS EN TRANSFERENCIAS
+    // ========================================================================
+    const selectOrigen = document.getElementById('selectCuentaOrigenTransferencia');
+    const selectDestino = document.getElementById('selectCuentaDestinoTransferencia');
+    const inputMonto = document.getElementById('inputMontoTransferencia');
+    
+    const inputTipoCambio = document.getElementById('inputTipoCambio');
+    const inputMontoDestino = document.getElementById('inputMontoDestino');
+    const containerConversion = document.getElementById('containerConversion');
+    const labelMontoOrigen = document.getElementById('labelMontoOrigen');
+    const labelMontoDestino = document.getElementById('labelMontoDestino');
+
+    // Solo ejecutamos si existen los elementos en el DOM
+    if (selectOrigen && selectDestino && inputMonto && containerConversion) {
+        
+        function calcularConversion() {
+            const optOrigen = selectOrigen.options[selectOrigen.selectedIndex];
+            const optDestino = selectDestino.options[selectDestino.selectedIndex];
+            
+            const monedaOrigen = optOrigen ? optOrigen.getAttribute('data-moneda') : '';
+            const monedaDestino = optDestino ? optDestino.getAttribute('data-moneda') : '';
+            const monto = parseFloat(inputMonto.value) || 0;
+
+            if (monedaOrigen && monedaDestino && monedaOrigen !== monedaDestino) {
+                // Mostrar campos de conversión
+                containerConversion.style.display = 'flex';
+                labelMontoOrigen.innerText = `Monto a Extraer (${monedaOrigen})`;
+                labelMontoDestino.innerText = `Monto a Ingresar (${monedaDestino})`;
+                
+                // Hacer los campos obligatorios
+                inputTipoCambio.setAttribute('required', 'required');
+                inputMontoDestino.setAttribute('required', 'required');
+                
+                // Calcular Destino según la dirección de la moneda
+                const tipoCambio = parseFloat(inputTipoCambio.value) || 0;
+                if (tipoCambio > 0) {
+                    if (monedaOrigen === 'PEN' && monedaDestino === 'USD') {
+                        // De Soles a Dólares -> Se divide
+                        inputMontoDestino.value = (monto / tipoCambio).toFixed(2);
+                    } else if (monedaOrigen === 'USD' && monedaDestino === 'PEN') {
+                        // De Dólares a Soles -> Se multiplica
+                        inputMontoDestino.value = (monto * tipoCambio).toFixed(2);
+                    } else {
+                        // Caso genérico por defecto
+                        inputMontoDestino.value = (monto * tipoCambio).toFixed(2);
+                    }
+                } else {
+                    inputMontoDestino.value = '';
+                }
+            } else {
+                // Ocultar campos de conversión si son la misma moneda
+                containerConversion.style.display = 'none';
+                labelMontoOrigen.innerText = 'Monto a Transferir';
+                
+                // Quitar propiedad required y limpiar
+                inputTipoCambio.removeAttribute('required');
+                inputMontoDestino.removeAttribute('required');
+                inputTipoCambio.value = '';
+                inputMontoDestino.value = '';
+            }
+        }
+
+        // Listeners para recalcular en vivo
+        selectOrigen.addEventListener('change', calcularConversion);
+        selectDestino.addEventListener('change', calcularConversion);
+        inputMonto.addEventListener('input', calcularConversion);
+        inputTipoCambio.addEventListener('input', calcularConversion);
+    }
+
 })();

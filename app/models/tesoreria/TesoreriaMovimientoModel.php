@@ -60,7 +60,7 @@ class TesoreriaMovimientoModel extends Modelo
         }
 
         // --- QUERY 1: Movimientos Normales ---
-        $sqlMov = 'SELECT m.id, m.fecha, m.tipo, m.origen, m.id_origen, m.monto, m.estado, 
+        $sqlMov = 'SELECT m.id, m.fecha, m.tipo, m.origen, m.id_origen, m.monto, m.estado, m.moneda, m.tipo_cambio,
                           COALESCE(c.codigo, \'S/C\') AS cuenta_codigo, 
                           COALESCE(c.nombre, \'Cuenta Eliminada\') AS cuenta_nombre, 
                           COALESCE(t.nombre_completo, \'Tercero Eliminado\') AS tercero_nombre,
@@ -133,7 +133,7 @@ class TesoreriaMovimientoModel extends Modelo
                 $paramsFinal['fecha_hasta_in'] = $fechaHastaFilter . ' 23:59:59';
             }
 
-            $sqlTrfOut = 'SELECT trf.id, trf.fecha, \'PAGO\' AS tipo, \'TRANSFERENCIA\' AS origen, trf.id AS id_origen, trf.monto, trf.estado,
+            $sqlTrfOut = 'SELECT trf.id, trf.fecha, \'PAGO\' AS tipo, \'TRANSFERENCIA\' AS origen, trf.id AS id_origen, trf.monto_origen AS monto, trf.estado, trf.moneda_origen AS moneda, trf.tipo_cambio,
                                  COALESCE(co.codigo, \'S/C\') AS cuenta_codigo,
                                  COALESCE(co.nombre, \'Cuenta Eliminada\') AS cuenta_nombre,
                                  \'Cuentas Propias\' AS tercero_nombre,
@@ -145,7 +145,7 @@ class TesoreriaMovimientoModel extends Modelo
                           LEFT JOIN tesoreria_cuentas co ON co.id = trf.id_cuenta_origen
                           WHERE ' . implode(' AND ', $whereTrfOut);
 
-            $sqlTrfIn = 'SELECT trf.id, trf.fecha, \'COBRO\' AS tipo, \'TRANSFERENCIA\' AS origen, trf.id AS id_origen, trf.monto, trf.estado,
+            $sqlTrfIn = 'SELECT trf.id, trf.fecha, \'COBRO\' AS tipo, \'TRANSFERENCIA\' AS origen, trf.id AS id_origen, trf.monto_destino AS monto, trf.estado, trf.moneda_destino AS moneda, trf.tipo_cambio,
                                  COALESCE(cd.codigo, \'S/C\') AS cuenta_codigo,
                                  COALESCE(cd.nombre, \'Cuenta Eliminada\') AS cuenta_nombre,
                                  \'Cuentas Propias\' AS tercero_nombre,
@@ -188,6 +188,7 @@ class TesoreriaMovimientoModel extends Modelo
             $naturalezaPago = strtoupper(trim((string) ($data['naturaleza_pago'] ?? 'DOCUMENTO')));
             $montoCapital = round((float) ($data['monto_capital'] ?? $monto), 4);
             $montoInteres = round((float) ($data['monto_interes'] ?? 0), 4);
+            $tipoCambio = round((float) ($data['tipo_cambio'] ?? 1), 6); 
             $idCentroCosto = (int) ($data['id_centro_costo'] ?? 0);
 
             if ($monto <= 0) {
@@ -253,9 +254,9 @@ class TesoreriaMovimientoModel extends Modelo
             }
 
             $stmtInsert = $db->prepare('INSERT INTO tesoreria_movimientos
-                (tipo, id_tercero, origen, id_origen, id_cuenta, id_metodo_pago, fecha, moneda, monto, naturaleza_pago, monto_capital, monto_interes, id_centro_costo, referencia, observaciones, estado, created_by, updated_by, created_at, updated_at)
+                (tipo, id_tercero, origen, id_origen, id_cuenta, id_metodo_pago, fecha, moneda, monto, tipo_cambio, naturaleza_pago, monto_capital, monto_interes, id_centro_costo, referencia, observaciones, estado, created_by, updated_by, created_at, updated_at)
                 VALUES
-                (:tipo, :id_tercero, :origen, :id_origen, :id_cuenta, :id_metodo_pago, :fecha, :moneda, :monto, :naturaleza_pago, :monto_capital, :monto_interes, :id_centro_costo, :referencia, :observaciones, \'CONFIRMADO\', :created_by, :updated_by, NOW(), NOW())');
+                (:tipo, :id_tercero, :origen, :id_origen, :id_cuenta, :id_metodo_pago, :fecha, :moneda, :monto, :tipo_cambio, :naturaleza_pago, :monto_capital, :monto_interes, :id_centro_costo, :referencia, :observaciones, \'CONFIRMADO\', :created_by, :updated_by, NOW(), NOW())');
 
             $stmtInsert->execute([
                 'tipo'           => $tipo,
@@ -267,15 +268,17 @@ class TesoreriaMovimientoModel extends Modelo
                 'fecha'          => $data['fecha'],
                 'moneda'         => $data['moneda'],
                 'monto'          => $monto,
-                'naturaleza_pago' => $naturalezaPago,
-                'monto_capital' => $montoCapital,
-                'monto_interes' => $montoInteres,
-                'id_centro_costo' => $idCentroCosto > 0 ? $idCentroCosto : null,
+                'tipo_cambio'    => $tipoCambio, // <-- LO PASAMOS A LA BD
+                'naturaleza_pago'=> $naturalezaPago,
+                'monto_capital'  => $montoCapital,
+                'monto_interes'  => $montoInteres,
+                'id_centro_costo'=> $idCentroCosto > 0 ? $idCentroCosto : null,
                 'referencia'     => $data['referencia'] ?? null,
                 'observaciones'  => $data['observaciones'] ?? null,
                 'created_by'     => $userId,
                 'updated_by'     => $userId,
             ]);
+
             $idMovimiento = (int) $db->lastInsertId();
 
             $tablaOrigen = ($origen === 'CXC') ? 'tesoreria_cxc' : 'tesoreria_cxp';
@@ -352,6 +355,7 @@ class TesoreriaMovimientoModel extends Modelo
                     'fecha'          => $data['fecha'],
                     'moneda'         => $moneda,
                     'monto'          => $montoAPagarAqui,
+                    'tipo_cambio'    => $data['tipo_cambio'] ?? 1,
                     'referencia'     => $data['referencia'] ?? null,
                     'observaciones'  => $data['observaciones'] ?? null
                 ], $userId);
@@ -437,7 +441,7 @@ class TesoreriaMovimientoModel extends Modelo
                     + COALESCE((SELECT SUM(CASE WHEN m.tipo IN (\'COBRO\', \'INGRESO\') THEN m.monto WHEN m.tipo IN (\'PAGO\', \'EGRESO\') THEN -m.monto ELSE 0 END)
                                 FROM tesoreria_movimientos m
                                 WHERE m.id_cuenta = c.id AND m.estado = \'CONFIRMADO\' AND m.deleted_at IS NULL), 0)
-                    + COALESCE((SELECT SUM(CASE WHEN t.id_cuenta_destino = c.id THEN t.monto WHEN t.id_cuenta_origen = c.id THEN -t.monto ELSE 0 END)
+                    + COALESCE((SELECT SUM(CASE WHEN t.id_cuenta_destino = c.id THEN t.monto_destino WHEN t.id_cuenta_origen = c.id THEN -t.monto_origen ELSE 0 END)
                                 FROM tesoreria_transferencias t
                                 WHERE (t.id_cuenta_origen = c.id OR t.id_cuenta_destino = c.id)
                                   AND t.estado = \'CONFIRMADA\'
@@ -451,12 +455,12 @@ class TesoreriaMovimientoModel extends Modelo
                         WHERE m.estado = \'CONFIRMADO\'
                           AND m.deleted_at IS NULL
                         UNION ALL
-                        SELECT t.id_cuenta_destino AS id_cuenta, t.fecha, t.created_at, t.id, \'COBRO\' AS tipo, t.monto
+                        SELECT t.id_cuenta_destino AS id_cuenta, t.fecha, t.created_at, t.id, \'COBRO\' AS tipo, t.monto_destino AS monto
                         FROM tesoreria_transferencias t
                         WHERE t.estado = \'CONFIRMADA\'
                           AND t.deleted_at IS NULL
                         UNION ALL
-                        SELECT t.id_cuenta_origen AS id_cuenta, t.fecha, t.created_at, t.id, \'PAGO\' AS tipo, t.monto
+                        SELECT t.id_cuenta_origen AS id_cuenta, t.fecha, t.created_at, t.id, \'PAGO\' AS tipo, t.monto_origen AS monto
                         FROM tesoreria_transferencias t
                         WHERE t.estado = \'CONFIRMADA\'
                           AND t.deleted_at IS NULL
@@ -473,12 +477,12 @@ class TesoreriaMovimientoModel extends Modelo
                         WHERE m.estado = \'CONFIRMADO\'
                           AND m.deleted_at IS NULL
                         UNION ALL
-                        SELECT t.id_cuenta_destino AS id_cuenta, t.fecha, t.created_at, t.id, \'COBRO\' AS tipo, t.monto
+                        SELECT t.id_cuenta_destino AS id_cuenta, t.fecha, t.created_at, t.id, \'COBRO\' AS tipo, t.monto_destino AS monto
                         FROM tesoreria_transferencias t
                         WHERE t.estado = \'CONFIRMADA\'
                           AND t.deleted_at IS NULL
                         UNION ALL
-                        SELECT t.id_cuenta_origen AS id_cuenta, t.fecha, t.created_at, t.id, \'PAGO\' AS tipo, t.monto
+                        SELECT t.id_cuenta_origen AS id_cuenta, t.fecha, t.created_at, t.id, \'PAGO\' AS tipo, t.monto_origen AS monto
                         FROM tesoreria_transferencias t
                         WHERE t.estado = \'CONFIRMADA\'
                           AND t.deleted_at IS NULL
@@ -495,12 +499,12 @@ class TesoreriaMovimientoModel extends Modelo
                         WHERE m.estado = \'CONFIRMADO\'
                           AND m.deleted_at IS NULL
                         UNION ALL
-                        SELECT t.id_cuenta_destino AS id_cuenta, t.fecha, t.created_at, t.id, \'COBRO\' AS tipo, t.monto
+                        SELECT t.id_cuenta_destino AS id_cuenta, t.fecha, t.created_at, t.id, \'COBRO\' AS tipo, t.monto_destino AS monto
                         FROM tesoreria_transferencias t
                         WHERE t.estado = \'CONFIRMADA\'
                           AND t.deleted_at IS NULL
                         UNION ALL
-                        SELECT t.id_cuenta_origen AS id_cuenta, t.fecha, t.created_at, t.id, \'PAGO\' AS tipo, t.monto
+                        SELECT t.id_cuenta_origen AS id_cuenta, t.fecha, t.created_at, t.id, \'PAGO\' AS tipo, t.monto_origen AS monto
                         FROM tesoreria_transferencias t
                         WHERE t.estado = \'CONFIRMADA\'
                           AND t.deleted_at IS NULL

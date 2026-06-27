@@ -31,11 +31,12 @@ class TesoreriaCuentaModel extends Modelo
                     SELECT cuenta_id,
                            SUM(delta) AS saldo_delta
                     FROM (
-                        SELECT id_cuenta_destino AS cuenta_id, monto AS delta
+                    
+                        SELECT id_cuenta_destino AS cuenta_id, monto_destino AS delta
                         FROM tesoreria_transferencias
                         WHERE deleted_at IS NULL AND estado = \'CONFIRMADA\'
                         UNION ALL
-                        SELECT id_cuenta_origen AS cuenta_id, -monto AS delta
+                        SELECT id_cuenta_origen AS cuenta_id, -monto_origen AS delta
                         FROM tesoreria_transferencias
                         WHERE deleted_at IS NULL AND estado = \'CONFIRMADA\'
                     ) x
@@ -69,11 +70,11 @@ class TesoreriaCuentaModel extends Modelo
                     SELECT cuenta_id,
                            SUM(delta) AS saldo_delta
                     FROM (
-                        SELECT id_cuenta_destino AS cuenta_id, monto AS delta
+                        SELECT id_cuenta_destino AS cuenta_id, monto_destino AS delta
                         FROM tesoreria_transferencias
                         WHERE deleted_at IS NULL AND estado = \'CONFIRMADA\'
                         UNION ALL
-                        SELECT id_cuenta_origen AS cuenta_id, -monto AS delta
+                        SELECT id_cuenta_origen AS cuenta_id, -monto_origen AS delta
                         FROM tesoreria_transferencias
                         WHERE deleted_at IS NULL AND estado = \'CONFIRMADA\'
                     ) x
@@ -253,11 +254,11 @@ class TesoreriaCuentaModel extends Modelo
                 LEFT JOIN (
                     SELECT cuenta_id, SUM(delta) AS saldo_delta
                     FROM (
-                        SELECT id_cuenta_destino AS cuenta_id, monto AS delta
+                        SELECT id_cuenta_destino AS cuenta_id, monto_destino AS delta
                         FROM tesoreria_transferencias
                         WHERE deleted_at IS NULL AND estado = \'CONFIRMADA\' AND id_cuenta_destino = :id_trf_dest
                         UNION ALL
-                        SELECT id_cuenta_origen AS cuenta_id, -monto AS delta
+                        SELECT id_cuenta_origen AS cuenta_id, -monto_origen AS delta
                         FROM tesoreria_transferencias
                         WHERE deleted_at IS NULL AND estado = \'CONFIRMADA\' AND id_cuenta_origen = :id_trf_orig
                     ) x

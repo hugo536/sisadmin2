@@ -102,30 +102,46 @@ class TesoreriaController extends Controlador
                 throw new RuntimeException('Una de las cuentas seleccionadas no existe o está inactiva.');
             }
 
-            // 1. Validar que las monedas sean iguales
+            // Obtener las monedas reales de las cuentas desde la BD
             $monedaOrigen = strtoupper(trim((string) ($cuentaOrigen['moneda'] ?? '')));
             $monedaDestino = strtoupper(trim((string) ($cuentaDestino['moneda'] ?? '')));
             
+            // Valores por defecto si las monedas son iguales
+            $montoDestino = $monto; 
+            $tipoCambio = 1.0000;
+
+            // NUEVA LÓGICA: Si las monedas son distintas, validamos el convertidor enviado desde el frontend
             if ($monedaOrigen !== $monedaDestino) {
-                throw new RuntimeException("Incompatibilidad de monedas. No puede transferir de una cuenta en {$monedaOrigen} a una en {$monedaDestino}.");
+                $tipoCambio = round((float) ($_POST['tipo_cambio'] ?? 0), 6);
+                $montoDestino = round((float) ($_POST['monto_destino'] ?? 0), 4);
+
+                if ($tipoCambio <= 0) {
+                    throw new RuntimeException("Se requiere un tipo de cambio mayor a cero para transferir de {$monedaOrigen} a {$monedaDestino}.");
+                }
+                if ($montoDestino <= 0) {
+                    throw new RuntimeException('El monto final convertido en la cuenta destino debe ser mayor a cero.');
+                }
             }
 
-            // 2. Validar que la cuenta origen tenga saldo suficiente
+            // Validar que la cuenta origen tenga saldo suficiente (siempre en su propia moneda)
             $saldoDisponible = round((float) ($cuentaOrigen['saldo_actual'] ?? 0), 4);
             if ($monto > $saldoDisponible) {
                 throw new RuntimeException("Saldo insuficiente. La cuenta de origen solo dispone de {$monedaOrigen} " . number_format($saldoDisponible, 2));
             }
             // --- FIN DE VALIDACIONES ---
 
-            // Si todo está correcto, registramos la transferencia
+            // Registramos la transferencia enviando los nuevos parámetros al modelo actualizado
             $this->transferenciaModel->registrar([
-                'id_cuenta_origen' => $idOrigen,
+                'id_cuenta_origen'  => $idOrigen,
                 'id_cuenta_destino' => $idDestino,
-                'fecha' => trim((string) ($_POST['fecha'] ?? '')),
-                'moneda' => $monedaOrigen, // Forzamos la moneda real de la cuenta
-                'monto' => $monto,
-                'referencia' => trim((string) ($_POST['referencia'] ?? '')),
-                'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
+                'fecha'             => trim((string) ($_POST['fecha'] ?? '')),
+                'moneda_origen'     => $monedaOrigen, 
+                'moneda_destino'    => $monedaDestino,
+                'monto_origen'      => $monto,
+                'monto_destino'     => $montoDestino,
+                'tipo_cambio'       => $tipoCambio,
+                'referencia'        => trim((string) ($_POST['referencia'] ?? '')),
+                'observaciones'     => trim((string) ($_POST['observaciones'] ?? '')),
             ], $this->obtenerUsuarioId());
 
             redirect('tesoreria/cuentas?ok=1&action=transfer');
@@ -846,6 +862,7 @@ class TesoreriaController extends Controlador
                 'fecha'           => trim((string) ($_POST['fecha'] ?? date('Y-m-d'))),
                 'moneda'          => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
                 'monto'           => $montoTotal,
+                'tipo_cambio'     => round((float) ($_POST['tipo_cambio'] ?? 1), 6), // <-- LÍNEA NUEVA
                 'referencia'      => trim((string) ($_POST['referencia'] ?? '')),
                 'observaciones'   => trim((string) ($_POST['observaciones'] ?? '')),
                 'naturaleza_pago' => $naturalezaPago,
@@ -1034,6 +1051,7 @@ class TesoreriaController extends Controlador
                 'fecha'          => trim((string) ($_POST['fecha'] ?? date('Y-m-d'))),
                 'moneda'         => $moneda,
                 'monto'          => $monto,
+                'tipo_cambio'    => round((float) ($_POST['tipo_cambio'] ?? 1), 6), // <-- LÍNEA NUEVA
                 'referencia'     => trim((string) ($_POST['referencia'] ?? '')),
                 'observaciones'  => trim((string) ($_POST['observaciones'] ?? '')),
                 'naturaleza_pago' => 'DOCUMENTO',

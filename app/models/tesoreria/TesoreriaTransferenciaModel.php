@@ -19,8 +19,14 @@ class TesoreriaTransferenciaModel extends Modelo
             $idCuentaOrigen = (int) ($payload['id_cuenta_origen'] ?? 0);
             $idCuentaDestino = (int) ($payload['id_cuenta_destino'] ?? 0);
             $fecha = trim((string) ($payload['fecha'] ?? ''));
-            $moneda = strtoupper(trim((string) ($payload['moneda'] ?? 'PEN')));
-            $monto = round((float) ($payload['monto'] ?? 0), 4);
+            
+            // Nuevas variables mapeadas
+            $monedaOrigen = strtoupper(trim((string) ($payload['moneda_origen'] ?? 'PEN')));
+            $monedaDestino = strtoupper(trim((string) ($payload['moneda_destino'] ?? 'PEN')));
+            $montoOrigen = round((float) ($payload['monto_origen'] ?? 0), 4);
+            $montoDestino = round((float) ($payload['monto_destino'] ?? 0), 4);
+            $tipoCambio = round((float) ($payload['tipo_cambio'] ?? 1.000000), 6);
+            
             $referencia = trim((string) ($payload['referencia'] ?? ''));
             $observaciones = trim((string) ($payload['observaciones'] ?? ''));
 
@@ -33,11 +39,14 @@ class TesoreriaTransferenciaModel extends Modelo
             if ($fecha === '') {
                 throw new RuntimeException('La fecha es obligatoria.');
             }
-            if (!in_array($moneda, ['PEN', 'USD'], true)) {
+            if (!in_array($monedaOrigen, ['PEN', 'USD'], true) || !in_array($monedaDestino, ['PEN', 'USD'], true)) {
                 throw new RuntimeException('Moneda inválida.');
             }
-            if ($monto <= 0) {
-                throw new RuntimeException('El monto debe ser mayor a cero.');
+            if ($montoOrigen <= 0 || $montoDestino <= 0) {
+                throw new RuntimeException('Los montos deben ser mayores a cero.');
+            }
+            if ($tipoCambio <= 0) {
+                throw new RuntimeException('El tipo de cambio debe ser mayor a cero.');
             }
 
             $stmtCuenta = $db->prepare('SELECT id, nombre, moneda, estado
@@ -58,26 +67,26 @@ class TesoreriaTransferenciaModel extends Modelo
                 throw new RuntimeException('La cuenta destino no existe o está inactiva.');
             }
 
-            if (strtoupper((string) $cuentaOrigen['moneda']) !== $moneda || strtoupper((string) $cuentaDestino['moneda']) !== $moneda) {
-                throw new RuntimeException('La moneda de transferencia debe coincidir con la moneda de ambas cuentas.');
-            }
-
             $saldoOrigen = $this->obtenerSaldoCuentaTx($db, $idCuentaOrigen);
-            if ($saldoOrigen < $monto) {
+            if ($saldoOrigen < $montoOrigen) {
                 throw new RuntimeException('Saldo insuficiente en la cuenta origen.');
             }
 
+            // Insert con las nuevas columnas
             $stmtInsert = $db->prepare('INSERT INTO tesoreria_transferencias
-                (fecha, id_cuenta_origen, id_cuenta_destino, moneda, monto, referencia, observaciones, estado, created_by, updated_by, created_at, updated_at)
+                (fecha, id_cuenta_origen, id_cuenta_destino, moneda_origen, moneda_destino, monto_origen, monto_destino, tipo_cambio, referencia, observaciones, estado, created_by, updated_by, created_at, updated_at)
                 VALUES
-                (:fecha, :id_cuenta_origen, :id_cuenta_destino, :moneda, :monto, :referencia, :observaciones, "CONFIRMADA", :created_by, :updated_by, NOW(), NOW())');
+                (:fecha, :id_cuenta_origen, :id_cuenta_destino, :moneda_origen, :moneda_destino, :monto_origen, :monto_destino, :tipo_cambio, :referencia, :observaciones, "CONFIRMADA", :created_by, :updated_by, NOW(), NOW())');
 
             $stmtInsert->execute([
                 'fecha' => $fecha,
                 'id_cuenta_origen' => $idCuentaOrigen,
                 'id_cuenta_destino' => $idCuentaDestino,
-                'moneda' => $moneda,
-                'monto' => $monto,
+                'moneda_origen' => $monedaOrigen,
+                'moneda_destino' => $monedaDestino,
+                'monto_origen' => $montoOrigen,
+                'monto_destino' => $montoDestino,
+                'tipo_cambio' => $tipoCambio,
                 'referencia' => $referencia !== '' ? $referencia : null,
                 'observaciones' => $observaciones !== '' ? $observaciones : null,
                 'created_by' => $userId,
@@ -111,8 +120,8 @@ class TesoreriaTransferenciaModel extends Modelo
                 ), 0)
                 + COALESCE((
                     SELECT SUM(CASE
-                        WHEN t.estado = "CONFIRMADA" AND t.id_cuenta_destino = c.id THEN t.monto
-                        WHEN t.estado = "CONFIRMADA" AND t.id_cuenta_origen = c.id THEN -t.monto
+                        WHEN t.estado = "CONFIRMADA" AND t.id_cuenta_destino = c.id THEN t.monto_destino
+                        WHEN t.estado = "CONFIRMADA" AND t.id_cuenta_origen = c.id THEN -t.monto_origen
                         ELSE 0
                     END)
                     FROM tesoreria_transferencias t
@@ -134,8 +143,11 @@ class TesoreriaTransferenciaModel extends Modelo
             fecha DATE NOT NULL,
             id_cuenta_origen INT NOT NULL,
             id_cuenta_destino INT NOT NULL,
-            moneda ENUM("PEN", "USD") NOT NULL DEFAULT "PEN",
-            monto DECIMAL(14,4) NOT NULL,
+            moneda_origen ENUM("PEN", "USD") NOT NULL DEFAULT "PEN",
+            moneda_destino ENUM("PEN", "USD") NOT NULL DEFAULT "PEN",
+            monto_origen DECIMAL(14,4) NOT NULL,
+            monto_destino DECIMAL(14,4) NOT NULL,
+            tipo_cambio DECIMAL(14,6) NOT NULL DEFAULT 1.000000,
             referencia VARCHAR(120) NULL,
             observaciones VARCHAR(255) NULL,
             estado ENUM("CONFIRMADA", "ANULADA") NOT NULL DEFAULT "CONFIRMADA",
@@ -150,7 +162,7 @@ class TesoreriaTransferenciaModel extends Modelo
             KEY idx_tes_trf_destino (id_cuenta_destino, estado),
             CONSTRAINT fk_tes_trf_cuenta_origen FOREIGN KEY (id_cuenta_origen) REFERENCES tesoreria_cuentas(id),
             CONSTRAINT fk_tes_trf_cuenta_destino FOREIGN KEY (id_cuenta_destino) REFERENCES tesoreria_cuentas(id),
-            CONSTRAINT chk_tes_trf_monto CHECK (monto > 0),
+            CONSTRAINT chk_tes_trf_monto CHECK (monto_origen > 0 AND monto_destino > 0),
             CONSTRAINT chk_tes_trf_cuentas_distintas CHECK (id_cuenta_origen <> id_cuenta_destino)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
 

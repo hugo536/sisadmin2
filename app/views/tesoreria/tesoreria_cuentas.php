@@ -338,9 +338,9 @@ if (is_string($metodosPermitidos)) {
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-muted">Cuenta Origen (De donde sale)</label>
                         <select name="id_cuenta_origen" id="selectCuentaOrigenTransferencia" class="form-select shadow-none" required>
-                            <option value="" data-saldo="0">Seleccione cuenta origen...</option>
+                            <option value="" data-saldo="0" data-moneda="">Seleccione cuenta origen...</option>
                             <?php foreach ($cuentasActivas as $cta): ?>
-                                <option value="<?= (int)$cta['id'] ?>" data-saldo="<?= (float)($cta['saldo_actual'] ?? 0) ?>">
+                                <option value="<?= (int)$cta['id'] ?>" data-saldo="<?= (float)($cta['saldo_actual'] ?? 0) ?>" data-moneda="<?= e($cta['moneda']) ?>">
                                     <?= e($cta['nombre']) ?> 
                                     (Disp: <?= e($cta['moneda']) ?> <?= number_format((float)($cta['saldo_actual'] ?? 0), 2) ?>)
                                 </option>
@@ -350,10 +350,10 @@ if (is_string($metodosPermitidos)) {
 
                     <div class="mb-3">
                         <label class="form-label fw-bold small text-muted">Cuenta Destino (A donde entra)</label>
-                        <select name="id_cuenta_destino" class="form-select shadow-none" required>
-                            <option value="">Seleccione cuenta destino...</option>
+                        <select name="id_cuenta_destino" id="selectCuentaDestinoTransferencia" class="form-select shadow-none" required>
+                            <option value="" data-moneda="">Seleccione cuenta destino...</option>
                             <?php foreach ($cuentasActivas as $cta): ?>
-                                <option value="<?= (int)$cta['id'] ?>">
+                                <option value="<?= (int)$cta['id'] ?>" data-moneda="<?= e($cta['moneda']) ?>">
                                     <?= e($cta['nombre']) ?> 
                                     (Disp: <?= e($cta['moneda']) ?> <?= number_format((float)($cta['saldo_actual'] ?? 0), 2) ?>)
                                 </option>
@@ -363,12 +363,23 @@ if (is_string($metodosPermitidos)) {
 
                     <div class="row mb-3">
                         <div class="col-6">
-                            <label class="form-label fw-bold small text-muted">Monto a Transferir</label>
+                            <label class="form-label fw-bold small text-muted" id="labelMontoOrigen">Monto a Transferir</label>
                             <input type="number" id="inputMontoTransferencia" step="0.01" min="0.01" name="monto" class="form-control shadow-none fw-bold text-success" required placeholder="0.00">
                         </div>
                         <div class="col-6">
                             <label class="form-label fw-bold small text-muted">Fecha</label>
                             <input type="date" name="fecha" class="form-control shadow-none" value="<?= date('Y-m-d') ?>" required>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3" id="containerConversion" style="display: none;">
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-muted" title="Multiplicador para obtener la moneda destino">Tipo de Cambio</label>
+                            <input type="number" id="inputTipoCambio" step="0.0001" min="0.0001" name="tipo_cambio" class="form-control shadow-none fw-bold text-primary" placeholder="1.0000">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-muted" id="labelMontoDestino">Monto Destino</label>
+                            <input type="number" id="inputMontoDestino" step="0.01" name="monto_destino" class="form-control shadow-none fw-bold bg-white" readonly placeholder="0.00">
                         </div>
                     </div>
 
