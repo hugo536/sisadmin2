@@ -305,77 +305,128 @@ if (!empty($_GET['error'])) {
                 <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Registrar Pago Manual</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post" action="<?php echo e(route_url('tesoreria/registrar_pago_manual')); ?>" class="js-form-confirm">
+            <form method="post" action="<?php echo e(route_url('tesoreria/registrar_pago_manual')); ?>" class="js-form-confirm js-form-monto" id="formPagoManual">
                 <div class="modal-body p-4 bg-light">
                     <div class="row g-3">
+
                         <div class="col-md-12">
                             <div class="d-flex justify-content-between align-items-end mb-1">
                                 <label class="form-label small text-muted fw-bold mb-0">Proveedor <span class="text-danger">*</span></label>
-                                <div id="pagoManualDeudaHint" class="small text-end mb-0 fade-in"></div>
+                                <small id="pagoManualDeudaHint" class="small text-end mb-0 fade-in fw-bold"></small>
                             </div>
                             <select name="id_tercero" id="pagoManualProveedor" class="form-select shadow-sm border-secondary-subtle" required>
                                 <option value="" selected disabled>Seleccione proveedor...</option>
-                                <?php foreach($proveedores as $prov): ?>
-                                    <option value="<?php echo (int) $prov['id']; ?>" data-deuda="<?php echo (float) ($prov['deuda_total'] ?? 0); ?>">
+                                <?php foreach ($proveedores as $prov): ?>
+                                    <option value="<?php echo (int) $prov['id']; ?>">
                                         <?php echo e((string) $prov['nombre_completo']); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
+
                         <div class="col-md-6">
-                            <label class="form-label small text-muted fw-bold mb-1">Moneda <span class="text-danger">*</span></label>
+                            <label class="form-label small text-muted fw-bold mb-1">Moneda de la Deuda <span class="text-danger">*</span></label>
                             <select name="moneda" id="pagoManualMoneda" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="" disabled>Seleccione moneda...</option>
                                 <option value="PEN" selected>PEN (Soles)</option>
                                 <option value="USD">USD (Dólares)</option>
                             </select>
+                            <div class="form-text small text-muted">Esta moneda define qué deudas FIFO se pagarán.</div>
                         </div>
+
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Monto a Pagar <span class="text-danger">*</span></label>
-                            <input type="number" step="0.01" min="0.01" name="monto" id="pagoManualMontoInput" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis" required>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                name="monto"
+                                id="pagoManualMontoInput"
+                                class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis"
+                                placeholder="0.00"
+                                required>
+                            <div class="form-text small text-muted">Monto en la moneda de la deuda seleccionada.</div>
                         </div>
+
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Cuenta Origen <span class="text-danger">*</span></label>
                             <select name="id_cuenta" id="selectCuentaOrigenManual" class="form-select shadow-sm border-secondary-subtle" required>
-                                <option value="" data-saldo="0" selected disabled>Seleccione una cuenta...</option>
+                                <option value="" data-saldo="0" data-moneda="" selected disabled>Seleccione cuenta...</option>
                                 <?php foreach ($cuentas as $cta): ?>
                                     <?php $tieneAdvertenciaContable = empty($cta['id_cuenta_contable']); ?>
                                     <?php if (!$tieneAdvertenciaContable): ?>
-                                        <option 
-                                            value="<?php echo $cta['id']; ?>" 
-                                            data-saldo="<?php echo $cta['saldo_actual'] ?? 0; ?>" 
+                                        <option
+                                            value="<?php echo (int) $cta['id']; ?>"
+                                            data-saldo="<?php echo (float) ($cta['saldo_actual'] ?? 0); ?>"
                                             data-moneda="<?php echo e(strtoupper((string) $cta['moneda'])); ?>"
-                                            data-metodos="<?php echo htmlspecialchars((string)($cta['metodos_pago'] ?? '[]'), ENT_QUOTES, 'UTF-8'); ?>">
-                                            <?php echo htmlspecialchars($cta['nombre']); ?> (Disp: <?php echo e($cta['moneda']); ?> <?php echo number_format((float)($cta['saldo_actual'] ?? 0), 2); ?>)
+                                            data-metodos="<?php echo htmlspecialchars((string) ($cta['metodos_pago'] ?? '[]'), ENT_QUOTES, 'UTF-8'); ?>">
+                                            <?php echo htmlspecialchars((string) $cta['nombre']); ?> (Disp: <?php echo e(strtoupper((string) $cta['moneda'])); ?> <?php echo number_format((float) ($cta['saldo_actual'] ?? 0), 2); ?>)
                                         </option>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
                             </select>
                             <small id="textoSaldoDisponibleManual" class="text-primary fw-bold mt-1 d-block"></small>
                         </div>
+
+                        <div class="col-md-12" id="pagoManualContainerConversion" style="display:none;">
+                            <div class="p-3 bg-white border border-primary-subtle rounded-3 shadow-sm">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted fw-bold mb-1">Tipo de Cambio Real</label>
+                                        <input
+                                            type="number"
+                                            step="0.000001"
+                                            min="0.000001"
+                                            name="tipo_cambio"
+                                            id="pagoManualTipoCambio"
+                                            class="form-control form-control-sm border-primary-subtle text-primary fw-bold"
+                                            placeholder="Ej. 3.6000">
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted fw-bold mb-1" id="pagoManualLabelMontoConvertido">Monto a descontar</label>
+                                        <input
+                                            type="text"
+                                            id="pagoManualMontoConvertido"
+                                            class="form-control form-control-sm bg-light fw-bold text-muted"
+                                            readonly
+                                            placeholder="0.00">
+                                    </div>
+                                </div>
+
+                                <div class="form-text small mt-2 text-primary">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Estás cruzando monedas. El FIFO pagará la deuda en su moneda original, pero el banco descontará el monto convertido.
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Método de Pago <span class="text-danger">*</span></label>
                             <select name="id_metodo_pago" id="pagoManualMetodoOrigen" class="form-select shadow-sm border-secondary-subtle" required disabled>
                                 <option value="" selected disabled>Seleccione un método...</option>
-                                <?php foreach($metodos as $m): ?>
+                                <?php foreach ($metodos as $m): ?>
                                     <option value="<?php echo (int) $m['id']; ?>"><?php echo e((string) $m['nombre']); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
+
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Fecha de Pago <span class="text-danger">*</span></label>
                             <input type="date" name="fecha" class="form-control shadow-sm border-secondary-subtle" value="<?php echo date('Y-m-d'); ?>" required>
                         </div>
+
                         <div class="col-md-6">
                             <label class="form-label small text-muted fw-bold mb-1">Referencia / N° Operación</label>
                             <input type="text" name="referencia" class="form-control shadow-sm border-secondary-subtle" placeholder="Ej. EGR-2026-001">
                         </div>
+
                         <div class="col-md-12">
                             <label class="form-label small text-muted fw-bold mb-1">Observaciones</label>
-                            <textarea name="observaciones" class="form-control shadow-sm border-secondary-subtle" rows="2" placeholder="Se aplicará automáticamente a las deudas más antiguas."></textarea>
+                            <textarea name="observaciones" class="form-control shadow-sm border-secondary-subtle" rows="2" placeholder="Se aplicará automáticamente a las deudas más antiguas según la moneda seleccionada."></textarea>
                         </div>
                     </div>
                 </div>
+
                 <div class="modal-footer bg-light border-top-0 pt-0">
                     <button type="button" class="btn btn-white border shadow-sm text-secondary fw-semibold mb-2 mb-md-0 d-block d-md-inline-block w-100 w-md-auto" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary fw-bold shadow-sm d-block d-md-inline-block w-100 w-md-auto"><i class="bi bi-check-circle me-2"></i>Confirmar Pago Manual</button>
@@ -406,7 +457,10 @@ if (!empty($_GET['error'])) {
                                     <input type="text" id="pagoSaldo" class="form-control-plaintext text-warning-emphasis p-0 fw-bold" data-saldo-target="1" style="width: 65px; pointer-events: none;" readonly>
                                 </div>
                             </div>
-                            <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control shadow-sm border-secondary-subtle fw-bold text-warning-emphasis bg-light" readonly required>
+                            <div class="input-group shadow-sm">
+                                <span class="input-group-text bg-light border-secondary-subtle fw-bold text-muted js-lbl-moneda-doc-addon"></span>
+                                <input type="number" step="0.01" min="0.01" name="monto" id="pagoMonto" class="form-control border-secondary-subtle fw-bold text-warning-emphasis bg-light" readonly required>
+                            </div>
                         </div>
                         
                         <div class="col-12">
@@ -415,7 +469,7 @@ if (!empty($_GET['error'])) {
                                 <div class="row g-2 js-pago-distribucion-row" data-row-index="0">
                                     <div class="col-12 col-md-5">
                                         <select name="cuenta_origen_ids[]" class="form-select shadow-sm border-secondary-subtle js-pago-cuenta" required>
-                                            <option value="" data-saldo="0" selected disabled>Cuenta origen...</option>
+                                            <option value="" data-saldo="0" data-moneda="" selected disabled>Cuenta origen...</option>
                                             <?php foreach ($cuentas as $cta): ?>
                                                 <?php $tieneAdvertenciaContable = empty($cta['id_cuenta_contable']); ?>
                                                 <?php if (!$tieneAdvertenciaContable): ?>
@@ -440,11 +494,10 @@ if (!empty($_GET['error'])) {
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
-                                    <div class="col-6 col-md-3">
-                                        <div class="input-group shadow-sm">
-                                            <input type="number" step="0.01" min="0.01" name="metodo_montos[]" class="form-control border-secondary-subtle js-pago-monto-distribucion" placeholder="Monto" required>
-                                            <button type="button" class="btn btn-outline-danger px-2 js-remove-pago-row d-none" title="Quitar"><i class="bi bi-trash"></i></button>
-                                        </div>
+                                    <div class="input-group shadow-sm">
+                                        <span class="input-group-text bg-light border-secondary-subtle text-muted fw-bold js-lbl-moneda-doc-addon"></span>
+                                        <input type="number" step="0.01" min="0.01" name="metodo_montos[]" class="form-control border-secondary-subtle js-pago-monto-distribucion" placeholder="Monto" required>
+                                        <button type="button" class="btn btn-outline-danger px-2 js-remove-pago-row d-none" title="Quitar"><i class="bi bi-trash"></i></button>
                                     </div>
                                 </div>
                             </div>
@@ -455,9 +508,22 @@ if (!empty($_GET['error'])) {
                                 </button>
                                 <small id="pagoDistribucionHint" class="text-muted fw-medium"></small>
                             </div>
-                            
-                            <input type="hidden" name="id_cuenta" id="selectCuentaOrigen" value="">
-                            <input type="hidden" name="id_metodo_pago" id="selectMetodoPagoUnico" value="">
+                        </div>
+
+                        <div class="col-12" id="pagoContainerConversion" style="display: none;">
+                            <div class="p-3 bg-white border border-primary-subtle rounded-3 shadow-sm">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-sm-6">
+                                        <label class="form-label small text-muted fw-bold mb-1">Tipo de Cambio Real</label>
+                                        <input type="number" step="0.0001" min="0.0001" name="tipo_cambio" id="pagoTipoCambio" class="form-control form-control-sm border-primary-subtle text-primary fw-bold" placeholder="Ej. 3.7500">
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label small text-muted fw-bold mb-1" id="pagoLabelMontoConvertido">Monto a descontar de cuenta</label>
+                                        <input type="text" id="pagoMontoConvertido" class="form-control form-control-sm bg-light fw-bold text-muted" readonly placeholder="0.00">
+                                    </div>
+                                </div>
+                                
+                            </div>
                         </div>
                         
                         <div class="col-12 mt-3 pt-3 border-top">

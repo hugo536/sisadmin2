@@ -59,7 +59,6 @@ class TesoreriaMovimientoModel extends Modelo
             $paramsFinal['fecha_hasta_mov'] = $fechaHastaFilter . ' 23:59:59';
         }
 
-        // --- QUERY 1: Movimientos Normales ---
         $sqlMov = 'SELECT m.id, m.fecha, m.tipo, m.origen, m.id_origen, m.monto, m.estado, m.moneda, m.tipo_cambio,
                           COALESCE(c.codigo, \'S/C\') AS cuenta_codigo, 
                           COALESCE(c.nombre, \'Cuenta Eliminada\') AS cuenta_nombre, 
@@ -78,16 +77,11 @@ class TesoreriaMovimientoModel extends Modelo
                    LEFT JOIN tesoreria_cuentas c ON c.id = m.id_cuenta
                    LEFT JOIN terceros t ON t.id = m.id_tercero
                    LEFT JOIN tesoreria_metodos_pago mp ON mp.id = m.id_metodo_pago
-                   
-                   /* Joins para extraer notas de Cuentas por Cobrar y sus Ventas */
                    LEFT JOIN tesoreria_cxc cxc ON cxc.id = m.id_origen AND m.origen = \'CXC\'
                    LEFT JOIN ventas_documentos v ON v.id = cxc.id_documento_venta
-                   
-                   /* Joins para extraer notas de Cuentas por Pagar y sus Compras */
                    LEFT JOIN tesoreria_cxp cxp ON cxp.id = m.id_origen AND m.origen = \'CXP\'
                    LEFT JOIN compras_ordenes co ON co.id = cxp.id_orden_compra
                    LEFT JOIN compras_recepciones cr ON cr.id = cxp.id_recepcion
-                   
                    WHERE ' . implode(' AND ', $whereMov);
 
         // --- QUERY 2: Transferencias (Salidas y Entradas) ---
@@ -183,7 +177,7 @@ class TesoreriaMovimientoModel extends Modelo
         try {
             $origen = strtoupper(trim((string) $data['origen']));
             $idOrigen = (int) $data['id_origen'];
-            $monto = round((float) $data['monto'], 4);
+            $monto = round((float) $data['monto'], 4); // Monto en la moneda ORIGINAL del documento
             $tipo = strtoupper(trim((string) ($data['tipo'] ?? '')));
             $naturalezaPago = strtoupper(trim((string) ($data['naturaleza_pago'] ?? 'DOCUMENTO')));
             $montoCapital = round((float) ($data['monto_capital'] ?? $monto), 4);
@@ -195,6 +189,7 @@ class TesoreriaMovimientoModel extends Modelo
                 throw new RuntimeException('El monto de la transacción debe ser mayor a cero.');
             }
 
+            // 1. Obtener datos del documento origen
             if ($origen === 'CXC') {
                 $stmtOrigen = $db->prepare('SELECT id, id_cliente AS id_tercero, moneda, saldo, estado FROM tesoreria_cxc WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE');
             } elseif ($origen === 'CXP') {
@@ -213,8 +208,8 @@ class TesoreriaMovimientoModel extends Modelo
             if ($monedaOrigen === '') {
                 throw new RuntimeException('La moneda del documento de origen es inválida.');
             }
-            $data['moneda'] = $monedaOrigen;
 
+            // 2. Definir cuánto se amortiza a la deuda original (SIEMPRE EN MONEDA ORIGEN)
             $montoAplicaOrigen = $monto;
             if (($origen === 'CXP' && $tipo === 'PAGO') || ($origen === 'CXC' && $tipo === 'COBRO')) {
                 if (!in_array($naturalezaPago, ['DOCUMENTO', 'CAPITAL', 'INTERES', 'MIXTO'], true)) {
@@ -237,22 +232,42 @@ class TesoreriaMovimientoModel extends Modelo
                     }
                     $montoAplicaOrigen = $montoCapital;
                 }
+                
                 $saldoActual = round((float) ($origenRow['saldo'] ?? 0), 4);
                 if ($montoAplicaOrigen > $saldoActual) {
                     throw new RuntimeException('El componente de capital no puede exceder el saldo pendiente de la obligación.');
                 }
             }
 
+            // 3. Validar la cuenta bancaria y su moneda
             $stmtCuenta = $db->prepare('SELECT id, moneda, estado FROM tesoreria_cuentas WHERE id = :id AND deleted_at IS NULL LIMIT 1');
             $stmtCuenta->execute(['id' => (int) $data['id_cuenta']]);
             $cuentaTes = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
             
             if (!$cuentaTes || (int)$cuentaTes['estado'] !== 1) throw new RuntimeException('La cuenta de tesorería está inactiva.');
-            $monedaCuenta = strtoupper(trim((string) ($cuentaTes['moneda'] ?? '')));
-            if ($monedaCuenta !== '' && $monedaCuenta !== $monedaOrigen) {
-                throw new RuntimeException('La moneda de la cuenta no coincide con la moneda del documento.');
+            $monedaCuenta = strtoupper(trim((string) ($cuentaTes['moneda'] ?? 'PEN')));
+
+            // 4. MAGIA BIMONETARIA: Calcular cuánto afecta a la cuenta bancaria
+            $montoMovimiento = $monto;
+            $montoCapitalMovimiento = $montoCapital;
+            $montoInteresMovimiento = $montoInteres;
+
+            if ($monedaOrigen !== $monedaCuenta) {
+                if ($tipoCambio <= 0) {
+                    throw new RuntimeException("Se requiere un tipo de cambio mayor a cero para operar entre {$monedaOrigen} y {$monedaCuenta}.");
+                }
+                if ($monedaOrigen === 'USD' && $monedaCuenta === 'PEN') {
+                    $montoMovimiento = $monto * $tipoCambio;
+                    $montoCapitalMovimiento = $montoCapital * $tipoCambio;
+                    $montoInteresMovimiento = $montoInteres * $tipoCambio;
+                } elseif ($monedaOrigen === 'PEN' && $monedaCuenta === 'USD') {
+                    $montoMovimiento = $monto / $tipoCambio;
+                    $montoCapitalMovimiento = $montoCapital / $tipoCambio;
+                    $montoInteresMovimiento = $montoInteres / $tipoCambio;
+                }
             }
 
+            // 5. Insertar en el Ledger usando la moneda y monto de la CUENTA BANCARIA
             $stmtInsert = $db->prepare('INSERT INTO tesoreria_movimientos
                 (tipo, id_tercero, origen, id_origen, id_cuenta, id_metodo_pago, fecha, moneda, monto, tipo_cambio, naturaleza_pago, monto_capital, monto_interes, id_centro_costo, referencia, observaciones, estado, created_by, updated_by, created_at, updated_at)
                 VALUES
@@ -266,12 +281,12 @@ class TesoreriaMovimientoModel extends Modelo
                 'id_cuenta'      => (int) $data['id_cuenta'],
                 'id_metodo_pago' => (int) $data['id_metodo_pago'],
                 'fecha'          => $data['fecha'],
-                'moneda'         => $data['moneda'],
-                'monto'          => $monto,
-                'tipo_cambio'    => $tipoCambio, // <-- LO PASAMOS A LA BD
+                'moneda'         => $monedaCuenta, // <-- Moneda real de la cuenta
+                'monto'          => round($montoMovimiento, 4), // <-- Monto convertido
+                'tipo_cambio'    => $tipoCambio,
                 'naturaleza_pago'=> $naturalezaPago,
-                'monto_capital'  => $montoCapital,
-                'monto_interes'  => $montoInteres,
+                'monto_capital'  => round($montoCapitalMovimiento, 4),
+                'monto_interes'  => round($montoInteresMovimiento, 4),
                 'id_centro_costo'=> $idCentroCosto > 0 ? $idCentroCosto : null,
                 'referencia'     => $data['referencia'] ?? null,
                 'observaciones'  => $data['observaciones'] ?? null,
@@ -281,21 +296,23 @@ class TesoreriaMovimientoModel extends Modelo
 
             $idMovimiento = (int) $db->lastInsertId();
 
+            // 6. Descontar la deuda usando el monto en la MONEDA ORIGEN
             $tablaOrigen = ($origen === 'CXC') ? 'tesoreria_cxc' : 'tesoreria_cxp';
             $stmtUpd = $db->prepare("UPDATE $tablaOrigen SET monto_pagado = ROUND(monto_pagado + :monto_aplica, 4), updated_by = :user, updated_at = NOW() WHERE id = :id");
             $stmtUpd->execute(['monto_aplica' => $montoAplicaOrigen, 'user' => $userId, 'id' => $idOrigen]);
 
+            // 7. Enviar a contabilidad
             $contaModel = new ContaAsientoModel();
             $contaModel->registrarAutomaticoTesoreria($db, [
                 'id_movimiento'      => $idMovimiento,
                 'tipo'               => strtoupper(trim((string)$data['tipo'])), 
                 'fecha'              => (string)$data['fecha'],
-                'monto'              => $monto,
-                'id_cuenta_tesoreria' => (int)$data['id_cuenta'],
+                'monto'              => round($montoMovimiento, 4),
+                'id_cuenta_tesoreria'=> (int)$data['id_cuenta'],
                 'id_tercero'         => (int)$origenRow['id_tercero'],
                 'naturaleza_pago'    => $naturalezaPago,
-                'monto_capital'      => $montoCapital,
-                'monto_interes'      => $montoInteres,
+                'monto_capital'      => round($montoCapitalMovimiento, 4),
+                'monto_interes'      => round($montoInteresMovimiento, 4),
                 'id_centro_costo'    => $idCentroCosto
             ], $userId);
 
@@ -397,25 +414,49 @@ class TesoreriaMovimientoModel extends Modelo
 
             $origen = (string)$mov['origen'];
             $idOrigen = (int)$mov['id_origen'];
-            $monto = (float)$mov['monto'];
+            $monto = (float)$mov['monto']; // Monto en moneda de la cuenta
             $naturaleza = strtoupper((string)($mov['naturaleza_pago'] ?? 'DOCUMENTO'));
             $montoCapital = (float)($mov['monto_capital'] ?? 0);
+            $tipoCambio = (float)($mov['tipo_cambio'] ?? 1);
+            $monedaMovimiento = strtoupper((string)($mov['moneda'] ?? ''));
+
+            // 1. Obtener la moneda original del documento para reversar exacto
+            $tabla = ($origen === 'CXC') ? 'tesoreria_cxc' : 'tesoreria_cxp';
+            $stmtOrigen = $db->prepare("SELECT moneda FROM $tabla WHERE id = :id LIMIT 1");
+            $stmtOrigen->execute(['id' => $idOrigen]);
+            $monedaOrigen = strtoupper(trim((string)$stmtOrigen->fetchColumn()));
+
             $montoAplicaOrigen = $monto;
-            if ($origen === 'CXP') {
-                if ($naturaleza === 'INTERES') {
-                    $montoAplicaOrigen = 0;
-                } elseif ($naturaleza === 'MIXTO') {
-                    $montoAplicaOrigen = max(0, $montoCapital);
+            $montoCapitalAplica = $montoCapital;
+
+            // 2. Reversar conversión si fue bimonetario
+            if ($monedaOrigen !== $monedaMovimiento && $tipoCambio > 0) {
+                if ($monedaOrigen === 'USD' && $monedaMovimiento === 'PEN') {
+                    $montoAplicaOrigen = $monto / $tipoCambio;
+                    $montoCapitalAplica = $montoCapital / $tipoCambio;
+                } elseif ($monedaOrigen === 'PEN' && $monedaMovimiento === 'USD') {
+                    $montoAplicaOrigen = $monto * $tipoCambio;
+                    $montoCapitalAplica = $montoCapital * $tipoCambio;
                 }
             }
 
-            $tabla = ($origen === 'CXC') ? 'tesoreria_cxc' : 'tesoreria_cxp';
+            if ($origen === 'CXP' || $origen === 'CXC') {
+                if ($naturaleza === 'INTERES') {
+                    $montoAplicaOrigen = 0;
+                } elseif ($naturaleza === 'MIXTO') {
+                    $montoAplicaOrigen = max(0, $montoCapitalAplica);
+                }
+            }
+
+            // 3. Restaurar saldo al documento
             $stmtUpd = $db->prepare("UPDATE $tabla SET monto_pagado = GREATEST(ROUND(monto_pagado - :monto_aplica, 4), 0), updated_by = :user, updated_at = NOW() WHERE id = :id");
             $stmtUpd->execute(['monto_aplica' => $montoAplicaOrigen, 'user' => $userId, 'id' => $idOrigen]);
 
+            // 4. Anular movimiento
             $db->prepare('UPDATE tesoreria_movimientos SET estado = \'ANULADO\', updated_by = :user, updated_at = NOW() WHERE id = :id')
                ->execute(['id' => $idMovimiento, 'user' => $userId]);
 
+            // 5. Revertir Asiento Contable
             $stmtAs = $db->prepare('SELECT id FROM conta_asientos WHERE origen_modulo = \'TESORERIA\' AND id_origen = :id_mov AND estado = \'REGISTRADO\' LIMIT 1');
             $stmtAs->execute(['id_mov' => $idMovimiento]);
             $idAsiento = (int)$stmtAs->fetchColumn();
@@ -435,6 +476,7 @@ class TesoreriaMovimientoModel extends Modelo
 
     public function resumenPorCuenta(): array
     {
+        // (El código de esta función permanece sin cambios)
         $sql = 'SELECT c.id, c.codigo, c.nombre, c.moneda,
                 (
                     COALESCE(c.saldo_inicial, 0)
