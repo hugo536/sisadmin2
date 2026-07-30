@@ -280,4 +280,21 @@ class TesoreriaCxcModel extends Modelo
         $stmtCxc = $this->db()->prepare($sqlCxc);
         return $stmtCxc->execute(['id_cxc' => $idCxc]);
     }
+
+    /**
+     * Obtiene el detalle de todos los pagos realizados a un pedido (Monto y Método)
+     */
+    public function obtenerDetallePagosVenta(int $idDocumentoVenta): array
+    {
+        $sql = "SELECT m.monto, tmp.nombre AS metodo
+                FROM tesoreria_cxc c
+                INNER JOIN tesoreria_movimientos m ON m.id_origen = c.id AND m.origen = 'CXC' AND m.deleted_at IS NULL
+                INNER JOIN tesoreria_metodos_pago tmp ON tmp.id = m.id_metodo_pago
+                WHERE c.id_documento_venta = :id_venta AND c.deleted_at IS NULL";
+        
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_venta' => $idDocumentoVenta]);
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 }

@@ -52,9 +52,10 @@ class VentasController extends Controlador
             $id = (int) ($_GET['id'] ?? 0);
             $venta = $this->documentoModel->obtener($id);
 
-            // 👇 MAGIA PARA EL JS: Consultamos cuánto ha pagado el cliente 👇
+            // 👇 MAGIA PARA EL JS: Consultamos la deuda y el DETALLE de los pagos 👇
             $deuda = $this->tesoreriaCxcModel->obtenerPorVenta($id);
             $venta['monto_pagado'] = $deuda ? (float) ($deuda['monto_pagado'] ?? 0) : 0.0;
+            $venta['pagos_detallados'] = $this->tesoreriaCxcModel->obtenerDetallePagosVenta($id);
             // 👆 FIN DE LA MAGIA 👆
 
             // 👇 NUEVA MAGIA: Consultar el saldo a favor del cliente 👇

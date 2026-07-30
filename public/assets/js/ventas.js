@@ -2273,16 +2273,57 @@
             const badgePagoContenedor = document.getElementById('resumenVentaEstadoPagoBadge');
             const textoDeudaContenedor = document.getElementById('resumenVentaMontoPendiente');
 
+            const divModalidad = document.getElementById('resumenVentaModalidadPago');
+            const listaPagos = document.getElementById('lista_pagos_detallados');
+            const divDeuda = document.getElementById('resumenVentaDeuda');
+            const valDeuda = document.getElementById('val_deuda_pendiente');
+
             if (badgePagoContenedor && textoDeudaContenedor) {
+                // 1. Armar la lista de pagos si existen (Multipagos)
+                if (listaPagos) {
+                    listaPagos.innerHTML = ''; // Limpiar lista
+                    if (venta.pagos_detallados && venta.pagos_detallados.length > 0) {
+                        let htmlPagos = '';
+                        venta.pagos_detallados.forEach(pago => {
+                            htmlPagos += `<li><strong>${pago.metodo}</strong>: S/ ${Number(pago.monto).toFixed(2)}</li>`;
+                        });
+                        listaPagos.innerHTML = htmlPagos;
+                    } else {
+                        listaPagos.innerHTML = '<li>Sin pagos registrados</li>';
+                    }
+                }
+
+                // 2. Lógica de vistas según la deuda
                 if (deudaPendiente <= 0.001) {
+                    // PAGADO TOTALMENTE
                     badgePagoContenedor.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i>Pagado Total</span>';
                     textoDeudaContenedor.innerHTML = `Total abonado: <span class="fw-bold text-dark">S/ ${totalPedido.toFixed(2)}</span>`;
+                    
+                    if (divDeuda) divDeuda.style.display = 'none';
+                    if (divModalidad) divModalidad.style.display = 'block';
+
                 } else if (montoPagado > 0) {
+                    // PAGO PARCIAL
                     badgePagoContenedor.innerHTML = '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="bi bi-pie-chart-fill me-1"></i>Pago Parcial</span>';
-                    textoDeudaContenedor.innerHTML = `Abonado: S/ ${montoPagado.toFixed(2)}<br><span class="text-danger fw-bold">Deuda: S/ ${deudaPendiente.toFixed(2)}</span>`;
+                    textoDeudaContenedor.innerHTML = `Abonado parcial: <span class="text-dark">S/ ${montoPagado.toFixed(2)}</span>`;
+                    
+                    // Mostramos AMBOS: El desglose de lo pagado y la deuda
+                    if (divModalidad) divModalidad.style.display = 'block';
+                    if (divDeuda) {
+                        divDeuda.style.display = 'block';
+                        if (valDeuda) valDeuda.textContent = `S/ ${deudaPendiente.toFixed(2)}`;
+                    }
+
                 } else {
+                    // POR COBRAR (CERO PAGADO)
                     badgePagoContenedor.innerHTML = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-x-circle-fill me-1"></i>Por Cobrar</span>';
-                    textoDeudaContenedor.innerHTML = `<span class="text-danger fw-bold">Deuda total: S/ ${totalPedido.toFixed(2)}</span>`;
+                    textoDeudaContenedor.innerHTML = `Abonado: <span class="text-dark">S/ 0.00</span>`;
+                    
+                    if (divModalidad) divModalidad.style.display = 'none';
+                    if (divDeuda) {
+                        divDeuda.style.display = 'block';
+                        if (valDeuda) valDeuda.textContent = `S/ ${deudaPendiente.toFixed(2)}`;
+                    }
                 }
             }
             // --- FIN DE NUEVA LÓGICA ---

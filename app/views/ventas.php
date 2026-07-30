@@ -718,57 +718,103 @@ $formatearFechaDMY = static function ($fecha): string {
 
 <div class="modal fade" id="modalResumenVenta" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
+        <div class="modal-content border-0 shadow-lg bg-light">
+            
+            <!-- Encabezado -->
             <div class="modal-header bg-success text-white border-bottom-0 pb-4">
-                <h5 class="modal-title fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Resumen de Venta Finalizada</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-check-circle-fill me-2"></i>Resumen de Venta Finalizada
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+
+            <!-- Cuerpo del Modal -->
+            <div class="modal-body p-3 p-md-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1.2rem; border-top-right-radius: 1.2rem; position: relative;">
                 
+                <!-- Tarjeta de Información General -->
                 <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                    <div class="card-body p-3 p-md-4">
+                        
+                        <!-- Título del Pedido -->
+                        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
                             <h6 class="fw-bold text-dark mb-0">Información del Pedido</h6>
-                            <span class="badge bg-success-subtle text-success fs-6 px-3" id="resumenVentaCodigo">OC-0000</span>
+                            <span class="badge bg-success-subtle text-success fs-6 px-3 py-2 rounded-pill" id="resumenVentaCodigo">OC-0000</span>
                         </div>
                         
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <small class="text-muted fw-bold d-block mb-1">Cliente / Beneficiario</small>
-                                <div class="fw-semibold text-dark" id="resumenVentaCliente">-</div>
-                            </div>
-                            <div class="col-md-6">
-                                <small class="text-muted fw-bold d-block mb-1">Tipo de Operación</small>
-                                <div class="fw-semibold text-dark" id="resumenVentaOperacion">-</div>
-                            </div>
+                        <!-- Grid de Datos -->
+                        <div class="row g-4">
                             
-                            <div class="col-md-4 mt-4">
-                                <small class="text-muted fw-bold d-block mb-2">Fechas</small>
-                                <div class="small"><i class="bi bi-calendar3 text-muted me-1"></i> Emisión: <span class="fw-semibold text-dark" id="resumenVentaFechaEmision">-</span></div>
-                                <div class="small mt-1"><i class="bi bi-truck text-success me-1"></i> Despacho: <span class="fw-semibold text-success" id="resumenVentaFechaDespacho">-</span></div>
-                            </div>
-                            
-                            <div class="col-md-4 mt-4">
-                                <small class="text-muted fw-bold d-block mb-2">Observaciones</small>
-                                <div class="text-secondary small mb-1" id="resumenVentaObsPedido">
-                                    <i class="bi bi-file-earmark-text me-1"></i><strong>Pedido:</strong> <span>-</span>
-                                </div>
-                                <div class="text-secondary small" id="resumenVentaObsDespacho">
-                                    <i class="bi bi-truck me-1"></i><strong>Despacho:</strong> <span>-</span>
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-4 mt-4 border-start ps-3">
-                                <small class="text-muted fw-bold d-block mb-2">Estado de Pago</small>
-                                <div id="resumenVentaEstadoPagoBadge">
+                            <!-- Bloque Izquierdo (Cliente, Fechas, Obs) -->
+                            <div class="col-12 col-lg-8">
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <small class="text-muted fw-bold d-block mb-1">Cliente / Beneficiario</small>
+                                        <div class="fw-semibold text-dark text-break" id="resumenVentaCliente">-</div>
                                     </div>
-                                <div class="small mt-1 text-muted" id="resumenVentaMontoPendiente" style="line-height: 1.3;">
+                                    <div class="col-6">
+                                        <small class="text-muted fw-bold d-block mb-1">Tipo de Operación</small>
+                                        <div class="fw-semibold text-dark text-break" id="resumenVentaOperacion">-</div>
                                     </div>
+                                    
+                                    <div class="col-12"><hr class="text-muted opacity-25 my-1"></div>
+
+                                    <div class="col-6">
+                                        <small class="text-muted fw-bold d-block mb-2">Fechas</small>
+                                        <div class="small mb-1">
+                                            <i class="bi bi-calendar3 text-muted me-1"></i> <span class="d-none d-sm-inline">Emisión:</span> 
+                                            <span class="fw-semibold text-dark d-block d-sm-inline" id="resumenVentaFechaEmision">-</span>
+                                        </div>
+                                        <div class="small">
+                                            <i class="bi bi-truck text-success me-1"></i> <span class="d-none d-sm-inline">Despacho:</span> 
+                                            <span class="fw-semibold text-success d-block d-sm-inline" id="resumenVentaFechaDespacho">-</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-6">
+                                        <small class="text-muted fw-bold d-block mb-2">Observaciones</small>
+                                        <div class="text-secondary small mb-1 text-break" id="resumenVentaObsPedido">
+                                            <i class="bi bi-file-earmark-text me-1"></i><strong class="d-none d-sm-inline">Pedido:</strong> <span>-</span>
+                                        </div>
+                                        <div class="text-secondary small text-break" id="resumenVentaObsDespacho">
+                                            <i class="bi bi-truck me-1"></i><strong class="d-none d-sm-inline">Despacho:</strong> <span>-</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+                            
+                            <!-- Bloque Derecho (Estado de Pago) - Estilo Tarjeta Interna -->
+                            <div class="col-12 col-lg-4">
+                                <div class="bg-light p-3 rounded-3 border h-100">
+                                    <small class="text-muted fw-bold d-block mb-2">Estado de Pago</small>
+                                    
+                                    <!-- Badge de Estado -->
+                                    <div id="resumenVentaEstadoPagoBadge" class="mb-2"></div>
+                                    
+                                    <!-- Monto abonado -->
+                                    <div class="small text-muted mb-3" id="resumenVentaMontoPendiente" style="line-height: 1.3;"></div>
+
+                                    <!-- Contenedor para el desglose de multipagos -->
+                                    <div id="resumenVentaModalidadPago" class="small mb-2 bg-white p-2 rounded border-secondary border-opacity-25" style="display: none; border: 1px solid;">
+                                        <div class="text-muted fw-bold mb-1"><i class="bi bi-wallet2 text-success me-1"></i>Detalle de Pago:</div>
+                                        <ul id="lista_pagos_detallados" class="mb-0 ps-3 text-dark" style="font-size: 0.85rem;">
+                                            <!-- JS inyectará los <li> aquí -->
+                                        </ul>
+                                    </div>
+
+                                    <!-- Contenedor para la deuda -->
+                                    <div id="resumenVentaDeuda" class="small mt-auto" style="display: none; background-color: #fff5f5; padding: 10px; border-radius: 6px; border: 1px solid #ffeeba;">
+                                        <i class="bi bi-exclamation-circle text-danger me-1"></i>
+                                        <span class="text-danger fw-semibold">Falta pagar:</span>
+                                        <strong class="text-danger fs-5 d-block mt-1" id="val_deuda_pendiente">-</strong>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
 
+                <!-- Tarjeta de Productos -->
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="p-3 border-bottom bg-white rounded-top d-flex align-items-center">
@@ -779,22 +825,23 @@ $formatearFechaDMY = static function ($fecha): string {
                             <table class="table align-middle mb-0 table-hover" id="tablaResumenProductos">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="ps-3 text-secondary small fw-bold">Producto</th>
-                                        <th class="text-center text-secondary small fw-bold">Cant. Solicitada</th>
-                                        <th class="text-center text-secondary small fw-bold">Cant. Despachada</th>
-                                        <th class="text-end text-secondary small fw-bold">Precio Unit.</th>
-                                        <th class="text-end pe-3 text-secondary small fw-bold">Subtotal</th>
+                                        <th class="ps-3 text-secondary small fw-bold text-nowrap">Producto</th>
+                                        <th class="text-center text-secondary small fw-bold text-nowrap">Cant. Sol</th>
+                                        <th class="text-center text-secondary small fw-bold text-nowrap">Cant. Desp</th>
+                                        <th class="text-end text-secondary small fw-bold text-nowrap">Precio Unit.</th>
+                                        <th class="text-end pe-3 text-secondary small fw-bold text-nowrap">Subtotal</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white">
-                                    </tbody>
+                                    <!-- Contenido inyectado por JS -->
+                                </tbody>
                                 <tfoot class="bg-light border-top">
                                     <tr>
                                         <td colspan="2" class="ps-3 py-3">
                                             <span class="badge rounded-pill text-bg-light border text-secondary fw-semibold px-3 py-2" id="resumenVentaPesoTotal">Peso total: 0.000 kg</span>
                                         </td>
-                                        <td colspan="2" class="text-end fw-bold py-3 text-secondary">TOTAL FINAL:</td>
-                                        <td class="text-end fw-bold py-3 fs-5 text-primary pe-3 text-nowrap" id="resumenVentaTotalFinal">S/ 0.00</td>
+                                        <td colspan="2" class="text-end fw-bold py-3 text-secondary align-middle">TOTAL FINAL:</td>
+                                        <td class="text-end fw-bold py-3 fs-5 text-primary pe-3 text-nowrap align-middle" id="resumenVentaTotalFinal">S/ 0.00</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -803,9 +850,12 @@ $formatearFechaDMY = static function ($fecha): string {
                 </div>
 
             </div>
-            <div class="modal-footer bg-white border-top-0">
+            
+            <!-- Pie del Modal -->
+            <div class="modal-footer bg-white border-top-0 rounded-bottom">
                 <button type="button" class="btn btn-secondary fw-semibold px-4" data-bs-dismiss="modal">Cerrar</button>
             </div>
+            
         </div>
     </div>
 </div>
