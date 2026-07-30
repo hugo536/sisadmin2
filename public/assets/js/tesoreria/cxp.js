@@ -161,35 +161,6 @@
     // 2. LÓGICA DE PAGO MANUAL (DOM DINÁMICO & SPA BLINDADO)
     // ========================================================================
 
-    const filtrarCuentasPorMoneda = (selectMoneda, selectCuenta, opciones = {}) => {
-        if (!selectMoneda || !selectCuenta) return;
-        const moneda = String(selectMoneda.value || '').toUpperCase();
-        const valorActual = selectCuenta.value;
-        const debeSeleccionarPrimera = opciones.seleccionarPrimera === true;
-        let primeraValida = null;
-        let valorActualSigueValido = false;
-
-        Array.from(selectCuenta.options).forEach(opt => {
-            if (!opt.value) return; 
-            const optMoneda = String(opt.dataset.moneda || '').toUpperCase();
-            const esValida = !moneda || optMoneda === moneda;
-            
-            opt.hidden = !esValida;
-            opt.disabled = !esValida;
-            if (esValida && !primeraValida) primeraValida = opt.value;
-            if (esValida && opt.value === valorActual) valorActualSigueValido = true;
-        });
-
-        if (valorActualSigueValido) {
-            selectCuenta.value = valorActual;
-        } else {
-            // Si no hay orden de seleccionar la primera, se queda en blanco
-            selectCuenta.value = debeSeleccionarPrimera ? (primeraValida || '') : '';
-        }
-
-        selectCuenta.dispatchEvent(new Event('change', { bubbles: true }));
-    };
-
     const actualizarDeudaManual = async () => {
         const selectProveedor = document.getElementById('pagoManualProveedor');
         const hintDeudaManual = document.getElementById('pagoManualDeudaHint');
@@ -205,12 +176,9 @@
             return;
         }
 
-        // 1. Ponemos un estado de carga visual
         hintDeudaManual.innerHTML = `<span class="text-secondary"><i class="spinner-border spinner-border-sm me-1" role="status"></i>Calculando deuda...</span>`;
 
         try {
-            // 2. Llamamos a tu endpoint mágico bimonetario
-            // Asegúrate de que la ruta coincida con el enrutador de tu framework (añade el prefijo necesario si usas subcarpetas)
             const baseUrl = window.location.origin + window.location.pathname; 
             const url = `${baseUrl}?ruta=tesoreria/ajax_obtener_deuda_tercero&tipo=CXP&id_tercero=${idTercero}&moneda=${moneda}`;
             
@@ -224,7 +192,6 @@
 
                 if (deuda > 0) {
                     hintDeudaManual.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-exclamation-circle-fill me-1"></i>Debe: ${moneda} ${deuda.toFixed(2)}</span>`;
-                    // Autocompletar/limitar monto si supera la deuda real
                     if (inputMontoManual && parseFloat(inputMontoManual.value) > deuda) {
                         inputMontoManual.value = deuda.toFixed(2);
                     }
@@ -240,6 +207,48 @@
         }
     };
 
+    // Función exclusiva para calcular la conversión en el Modal Manual
+    window.recalcularConversionManual = function() {
+        const selectMonedaDeuda = document.getElementById('pagoManualMoneda');
+        const selectCuenta = document.getElementById('selectCuentaOrigenManual');
+        const containerConversion = document.getElementById('pagoManualContainerConversion');
+        const inputTipoCambio = document.getElementById('pagoManualTipoCambio');
+        const inputMontoConvertido = document.getElementById('pagoManualMontoConvertido');
+        const labelMontoConvertido = document.getElementById('pagoManualLabelMontoConvertido');
+        const inputMontoPagar = document.getElementById('pagoManualMontoInput');
+
+        if(!containerConversion || !selectMonedaDeuda || !selectCuenta) return;
+
+        const monedaDeuda = (selectMonedaDeuda.value || '').trim().toUpperCase();
+        const optCuenta = selectCuenta.options[selectCuenta.selectedIndex];
+        const monedaCuenta = optCuenta ? (optCuenta.getAttribute('data-moneda') || '').toUpperCase() : '';
+        const montoAPagar = parseFloat(inputMontoPagar.value) || 0;
+
+        if (monedaCuenta && monedaDeuda && monedaCuenta !== monedaDeuda) {
+            containerConversion.style.display = 'block';
+            inputTipoCambio.setAttribute('required', 'required');
+            labelMontoConvertido.innerText = `Monto a descontar (${monedaCuenta})`;
+
+            const tc = parseFloat(inputTipoCambio.value) || 0;
+            if (tc > 0) {
+                if (monedaDeuda === 'USD' && monedaCuenta === 'PEN') {
+                    inputMontoConvertido.value = (montoAPagar * tc).toFixed(2);
+                } else if (monedaDeuda === 'PEN' && monedaCuenta === 'USD') {
+                    inputMontoConvertido.value = (montoAPagar / tc).toFixed(2);
+                } else {
+                    inputMontoConvertido.value = (montoAPagar * tc).toFixed(2);
+                }
+            } else {
+                inputMontoConvertido.value = '';
+            }
+        } else {
+            containerConversion.style.display = 'none';
+            inputTipoCambio.removeAttribute('required');
+            inputTipoCambio.value = '';
+            inputMontoConvertido.value = '';
+        }
+    };
+
     const modalPagoManual = document.getElementById('modalPagoManual');
 
     // CANDADO SPA: Evitar apilamiento de Event Listeners
@@ -247,14 +256,10 @@
         modalPagoManual.dataset.eventosCxp = '1';
 
         modalPagoManual.addEventListener('shown.bs.modal', () => {
-            const selectMonedaManual = document.getElementById('pagoManualMoneda');
             const selectCuentaManual = document.getElementById('selectCuentaOrigenManual');
             const selectProveedor = document.getElementById('pagoManualProveedor');
 
-            // ESTA ES LA LÍNEA CLAVE QUE FALTABA
             if (selectCuentaManual) selectCuentaManual.value = ''; 
-
-            filtrarCuentasPorMoneda(selectMonedaManual, selectCuentaManual);
             
             if (typeof window.AppSelects !== 'undefined' && selectProveedor) {
                 if (!selectProveedor.tomselect && !selectProveedor.classList.contains('tomselected')) {
@@ -270,39 +275,23 @@
             const hintDeudaManual = document.getElementById('pagoManualDeudaHint');
             const hintSaldoManual = document.getElementById('textoSaldoDisponibleManual');
             const selectProveedor = document.getElementById('pagoManualProveedor');
-            
-            // 1. Instanciamos los campos que faltan limpiar
             const inputMontoManual = document.getElementById('pagoManualMontoInput');
             const selectCuentaManual = document.getElementById('selectCuentaOrigenManual');
             const selectMetodoManual = document.getElementById('pagoManualMetodoOrigen');
 
             if (hintDeudaManual) hintDeudaManual.innerHTML = '';
             if (hintSaldoManual) hintSaldoManual.innerHTML = '';
-            
-            // 2. Limpiamos explícitamente los valores
             if (inputMontoManual) inputMontoManual.value = '';
             if (selectCuentaManual) selectCuentaManual.value = '';
             
-            // Opcional: reiniciar el método de pago también
             if (selectMetodoManual) {
                 selectMetodoManual.innerHTML = '<option value="" selected disabled>Seleccione un método...</option>';
                 selectMetodoManual.disabled = true;
             }
 
             if (selectProveedor && selectProveedor.tomselect) selectProveedor.tomselect.clear(true);
+            window.recalcularConversionManual();
         });
-
-        // Candado Event Listener de Moneda
-        const selectMonedaObserver = document.getElementById('pagoManualMoneda');
-        if (selectMonedaObserver && !selectMonedaObserver.dataset.cxpMonedaListener) {
-            selectMonedaObserver.addEventListener('change', () => {
-                const selectMonedaManual = document.getElementById('pagoManualMoneda');
-                const selectCuentaManual = document.getElementById('selectCuentaOrigenManual');
-                filtrarCuentasPorMoneda(selectMonedaManual, selectCuentaManual);
-                actualizarDeudaManual();
-            });
-            selectMonedaObserver.dataset.cxpMonedaListener = '1';
-        }
     }
 
 
@@ -317,7 +306,6 @@
     const centroCostoGroup = document.getElementById('grupoCentroCostoInteres');
     const inputCentroCosto = document.getElementById('pagoCentroCosto');
 
-    // NUEVOS ELEMENTOS BIMONETARIOS
     const inputMonedaDeuda = document.getElementById('pagoMoneda');
     const containerConversion = document.getElementById('pagoContainerConversion');
     const inputTipoCambio = document.getElementById('pagoTipoCambio');
@@ -326,9 +314,7 @@
 
     const roundTo = (val, dec) => Math.round((Number(val) + Number.EPSILON) * Math.pow(10, dec)) / Math.pow(10, dec);
 
-    // NUEVA FUNCIÓN: Calcula la conversión de monedas en tiempo real (Blindada)
     window.recalcularConversionBimonetaria = function() {
-        // 1. Buscamos los elementos dentro de la función para asegurar que el DOM esté listo
         const modalPago = document.getElementById('modalPago');
         if (!modalPago) return;
 
@@ -338,29 +324,19 @@
         const inputMontoConvertido = document.getElementById('pagoMontoConvertido');
         const labelMontoConvertido = document.getElementById('pagoLabelMontoConvertido');
 
-        // Validamos que el HTML del convertidor exista (Si no existe, se detiene aquí)
-        if (!containerConversion || !inputTipoCambio || !inputMontoConvertido) {
-            console.warn('SisAdmin2: Falta el HTML del convertidor bimonetario.');
-            return;
-        }
+        if (!containerConversion || !inputTipoCambio || !inputMontoConvertido) return;
 
-        // Leemos la moneda de la deuda (Ej: USD)
         const monedaDeuda = (inputMonedaDeuda.value || '').trim().toUpperCase();
-        
-        // Buscamos la cuenta que el usuario seleccionó en la tabla
         const selectCuenta = modalPago.querySelector('.js-pago-cuenta');
         if (!selectCuenta) return;
         
         const optCuenta = selectCuenta.options[selectCuenta.selectedIndex];
         const monedaCuenta = optCuenta ? (optCuenta.getAttribute('data-moneda') || '').toUpperCase() : '';
 
-        // Capturamos el monto que el usuario desea amortizar
         const inputTotal = document.getElementById('pagoMonto');
         const montoTotalPagar = parseFloat(inputTotal.value) || 0;
 
-        // 2. MAGIA: ¿Cruzamos monedas?
         if (monedaCuenta && monedaDeuda && monedaCuenta !== monedaDeuda) {
-            // Mostrar panel y hacer el tipo de cambio obligatorio
             containerConversion.style.display = 'block';
             inputTipoCambio.setAttribute('required', 'required');
             labelMontoConvertido.innerText = `Monto a descontar (${monedaCuenta})`;
@@ -368,10 +344,8 @@
             const tc = parseFloat(inputTipoCambio.value) || 0;
             if (tc > 0) {
                 if (monedaDeuda === 'USD' && monedaCuenta === 'PEN') {
-                    // Deuda en Dólares, cuenta en Soles -> Se multiplica
                     inputMontoConvertido.value = (montoTotalPagar * tc).toFixed(2);
                 } else if (monedaDeuda === 'PEN' && monedaCuenta === 'USD') {
-                    // Deuda en Soles, cuenta en Dólares -> Se divide
                     inputMontoConvertido.value = (montoTotalPagar / tc).toFixed(2);
                 } else {
                     inputMontoConvertido.value = (montoTotalPagar * tc).toFixed(2);
@@ -380,7 +354,6 @@
                 inputMontoConvertido.value = '';
             }
         } else {
-            // Monedas iguales -> Ocultar panel, quitar obligatoriedad y limpiar
             containerConversion.style.display = 'none';
             inputTipoCambio.removeAttribute('required');
             inputTipoCambio.value = '';
@@ -423,7 +396,7 @@
         }
         
         validarNaturaleza();
-        window.recalcularConversionBimonetaria(); // Disparamos el recálculo bimonetario
+        window.recalcularConversionBimonetaria();
     };
 
     window.agregarFilaDistribucionCxp = function() {
@@ -452,23 +425,25 @@
             if (e.target.matches('.js-pago-monto-distribucion')) {
                 window.recalcularModalPago();
             } else if (e.target.id === 'pagoTipoCambio') {
-                // Escuchar el cambio en el input de tipo de cambio
                 window.recalcularConversionBimonetaria();
+            } else if (e.target.id === 'pagoManualMontoInput' || e.target.id === 'pagoManualTipoCambio') {
+                window.recalcularConversionManual();
             }
         });
 
         document.addEventListener('change', (e) => {
-            // Filtrado Mágico en Modal de Desglose
+            if (e.target.id === 'pagoManualMoneda') {
+                actualizarDeudaManual();
+                window.recalcularConversionManual();
+            }
             if (e.target.matches('.js-pago-cuenta')) {
                 const fila = e.target.closest('.js-pago-distribucion-row');
                 if (fila) {
                     const selectMetodo = fila.querySelector('.js-pago-metodo');
                     window.filtrarMetodosPorCuentaCxp(e.target, selectMetodo);
                 }
-                // Escuchar si cambiaron la cuenta para ver si hay cruce de monedas
                 window.recalcularConversionBimonetaria();
             }
-            // Filtrado Mágico en Modal Manual y Lógica de Saldo Disponible
             else if (e.target.id === 'selectCuentaOrigenManual') {
                 const selectMetodoManual = document.getElementById('pagoManualMetodoOrigen');
                 window.filtrarMetodosPorCuentaCxp(e.target, selectMetodoManual);
@@ -480,6 +455,7 @@
                 if(!opt || opt.value === "") {
                     if (hintSaldoManual) hintSaldoManual.innerHTML = "";
                     if (inputMontoManual) inputMontoManual.removeAttribute('max');
+                    window.recalcularConversionManual();
                     return;
                 }
                 
@@ -488,25 +464,26 @@
                 
                 const maximo = saldoCuenta > 0 ? saldoCuenta : 0;
                 if (inputMontoManual) {
-                    inputMontoManual.setAttribute('max', maximo);
+                    // Solo limitamos si las monedas son iguales, para evitar conflicto con tipo de cambio
+                    const monedaDeuda = document.getElementById('pagoManualMoneda').value;
+                    const monedaCuenta = opt.getAttribute('data-moneda');
                     
-                    if(parseFloat(inputMontoManual.value) > maximo) {
-                        inputMontoManual.value = maximo.toFixed(2);
-                        if (typeof Swal !== 'undefined') {
-                            Swal.fire({
-                                icon: 'info',
-                                title: 'Monto reajustado',
-                                text: 'El monto superaba el saldo de la cuenta seleccionada.',
-                                timer: 2500,
-                                showConfirmButton: false
-                            });
+                    if(monedaDeuda === monedaCuenta) {
+                        inputMontoManual.setAttribute('max', maximo);
+                        if(parseFloat(inputMontoManual.value) > maximo) {
+                            inputMontoManual.value = maximo.toFixed(2);
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({ icon: 'info', title: 'Monto reajustado', text: 'El monto superaba el saldo de la cuenta.', timer: 2500, showConfirmButton: false });
+                            }
                         }
+                    } else {
+                        inputMontoManual.removeAttribute('max');
                     }
                 }
+                window.recalcularConversionManual();
             }
         });
 
-        // Validación global al enviar el formulario del modal manual
         document.addEventListener('submit', (e) => {
             const form = e.target;
             if (form.closest('#modalPagoManual')) {
@@ -538,7 +515,6 @@
                 document.getElementById('pagoMoneda').value = btn.dataset.moneda;
                 document.getElementById('pagoSaldo').value = parseFloat(btn.dataset.saldo).toFixed(2);
 
-                // NUEVO: Actualizar la interfaz con el símbolo de la moneda
                 const monedaDoc = btn.dataset.moneda.toUpperCase();
                 const simbolo = (monedaDoc === 'USD') ? '$' : 'S/';
                 document.querySelectorAll('.js-lbl-moneda-doc-addon').forEach(el => el.textContent = simbolo);
@@ -623,7 +599,6 @@
             let saldosPorCuenta = {};
             let nombresCuentas = {};
 
-            // Validación de Saldos adaptada para conversión bimonetaria
             const tc = parseFloat(document.getElementById('pagoTipoCambio')?.value) || 1;
             const monedaDeuda = (document.getElementById('pagoMoneda')?.value || '').trim().toUpperCase();
 
@@ -640,7 +615,6 @@
                     
                     let montoAExtraer = parseFloat(montoInput.value) || 0;
 
-                    // Si hubo conversión, verificamos contra el monto extraído (la moneda del banco)
                     if (monedaCuenta && monedaDeuda && monedaCuenta !== monedaDeuda) {
                         if (monedaDeuda === 'USD' && monedaCuenta === 'PEN') {
                             montoAExtraer = montoAExtraer * tc;
@@ -683,7 +657,6 @@
             const filas = document.querySelectorAll('.js-pago-distribucion-row');
             filas.forEach((r, i) => i === 0 ? r.querySelectorAll('input, select').forEach(inpt => inpt.value = '') : r.remove());
             
-            // Limpiar contenedor de conversión
             if (containerConversion) containerConversion.style.display = 'none';
             if (inputTipoCambio) inputTipoCambio.removeAttribute('required');
 

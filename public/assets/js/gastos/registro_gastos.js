@@ -9,7 +9,6 @@
       document.addEventListener('DOMContentLoaded', callback, { once: true });
       return;
     }
-
     callback();
   }
 
@@ -29,7 +28,6 @@
 
       TOM_SELECT_IDS.forEach(function(id) {
         const elemento = document.getElementById(id);
-        // Validamos que exista y que NO tenga ya un tomselect creado
         if (elemento && !elemento.tomselect) {
           new window.TomSelect(elemento, {
             create: false, 
@@ -38,7 +36,6 @@
           });
         }
       });
-
       return true;
     }
 
@@ -48,16 +45,13 @@
         console.warn('TomSelect no se pudo cargar para Registro de Gastos. Se mantendrán selectores simples.');
         return;
       }
-
       window.setTimeout(function () {
         inicializarTomSelectsConReintentos(intentosRestantes - 1);
       }, 150);
     }
 
-    // Intento 1: Al cargar/inyectar la página, con reintentos por si la CDN de TomSelect termina después.
     inicializarTomSelectsConReintentos(20);
 
-    // Intento 2: Cuando el modal termina de aparecer en pantalla
     const modalTom = document.getElementById('modalNuevoGasto');
     if (modalTom) {
       modalTom.addEventListener('shown.bs.modal', function () {
@@ -65,13 +59,8 @@
       });
     }
 
-    // ==========================================
-    // 2. Autocompletado de Centro de Costo
-    // ==========================================
-    // (Desactivado a petición: El usuario seleccionará el Centro de Costo de forma 100% manual)
     const selectConcepto = document.getElementById('idConceptoGasto');
     const selectCentroCosto = document.getElementById('idCentroCostoGasto');
-
 
     // ==========================================
     // 3. Modal de Detalles de Gasto
@@ -81,36 +70,33 @@
 
     function setText(id, value) {
       const el = document.getElementById(id);
-      if (el) {
-        el.textContent = value || '-';
-      }
+      if (el) el.textContent = value || '-';
     }
 
     app.addEventListener('click', function(ev) {
       const btn = ev.target.closest('.js-ver-gasto');
-      if (!btn || !modalDetalle) {
-        return;
-      }
+      if (!btn || !modalDetalle) return;
+
+      const monedaDoc = btn.dataset.moneda || 'PEN';
+      const simbolo = (monedaDoc === 'USD') ? '$ ' : 'S/ ';
 
       setText('detGastoId', btn.dataset.id || '-');
       setText('detGastoFecha', btn.dataset.fecha || '-');
       setText('detGastoProveedor', btn.dataset.proveedor || '-');
       setText('detGastoConcepto', btn.dataset.concepto || '-');
       setText('detGastoImpuesto', btn.dataset.impuesto || '-');
-      setText('detGastoMonto', btn.dataset.monto ? 'S/ ' + btn.dataset.monto : '-');
-      setText('detGastoTotal', btn.dataset.total ? 'S/ ' + btn.dataset.total : '-');
+      setText('detGastoMonto', btn.dataset.monto ? simbolo + btn.dataset.monto : '-');
+      setText('detGastoTotal', btn.dataset.total ? simbolo + btn.dataset.total : '-');
       setText('detGastoEstado', btn.dataset.estado || '-');
       setText('detGastoCxp', btn.dataset.cxp && btn.dataset.cxp !== '0' ? btn.dataset.cxp : 'No generado');
       setText('detGastoAsiento', btn.dataset.asiento && btn.dataset.asiento !== '0' ? btn.dataset.asiento : 'No generado');
-      
-      // 👇 NUEVA LÍNEA PARA MOSTRAR LA OBSERVACIÓN 👇
       setText('detGastoObservacion', btn.dataset.observacion || '-');
 
       modalDetalle.show();
     });
 
     // ==============================================================
-    // --- MAGIA OPCIÓN B: FILTRADO DINÁMICO DE MÉTODOS POR CUENTA ---
+    // --- MAGIA: FILTRADO DINÁMICO DE MÉTODOS POR CUENTA ---
     // ==============================================================
     function filtrarMetodosPorCuentaGastos(selectCuenta, selectMetodo) {
         if (!selectCuenta || !selectMetodo) return;
@@ -172,7 +158,7 @@
             }
         });
 
-        let conteoValidos = selectMetodo.options.length - 1; // Restamos la opción por defecto
+        let conteoValidos = selectMetodo.options.length - 1;
         
         if (conteoValidos <= 0) {
             selectMetodo.innerHTML = '<option value="" selected disabled>Sin métodos configurados</option>';
@@ -180,10 +166,8 @@
             if (encontroPrevio) {
                 selectMetodo.value = valorPrevio;
             } else if (conteoValidos === 1 && primerValido) {
-                // Auto-seleccionar si solo existe 1 opción válida
                 selectMetodo.value = primerValido;
             } else {
-                // Si hay más de 1, lo dejamos vacío para que el usuario elija
                 selectMetodo.value = '';
             }
         }
@@ -191,7 +175,7 @@
 
 
     // ==========================================
-    // 4. Lógica de Cobro Inmediato (Nuevo - Estilo Ventas)
+    // 4. Lógica de Cobro Inmediato (Multimoneda)
     // ==========================================
     const switchPago = document.getElementById('switchPagoInmediato');
     const seccionPago = document.getElementById('seccionPagoInmediato');
@@ -199,8 +183,74 @@
     const btnAgregarPago = document.getElementById('btnAgregarPagoInmediatoGasto');
     const totalPagadoText = document.getElementById('totalPagadoInmediatoGasto');
     const inputMontoTotalGasto = document.getElementById('gastoMontoTotal');
+    const selectMonedaGasto = document.getElementById('gastoMoneda');
 
-    // Función para calcular el total ingresado en las filas de pago (Con colores UX)
+    // NUEVO: Funciones Bimonetarias
+    function actualizarSimboloMonedaUI() {
+        const moneda = selectMonedaGasto ? selectMonedaGasto.value : 'PEN';
+        const simbolo = moneda === 'USD' ? '$' : 'S/';
+        
+        document.querySelectorAll('.js-lbl-moneda-gasto').forEach(el => el.textContent = simbolo);
+        calcularTotalPagado();
+    }
+
+    window.recalcularConversionGasto = function() {
+        const monedaGasto = (selectMonedaGasto?.value || 'PEN').trim().toUpperCase();
+        const containerConversion = document.getElementById('gastoContainerConversion');
+        const inputTipoCambio = document.getElementById('gastoTipoCambio');
+        const inputMontoConvertido = document.getElementById('gastoMontoConvertido');
+        const labelMontoConvertido = document.getElementById('gastoLabelMontoConvertido');
+        
+        if (!containerConversion || !inputTipoCambio || !inputMontoConvertido) return;
+
+        let cruzaMoneda = false;
+        let cuentaMonedaDiferente = '';
+        let montoTotalAExtraerConvertido = 0;
+        const tc = parseFloat(inputTipoCambio.value) || 0;
+
+        document.querySelectorAll('.fila-pago-gasto').forEach(fila => {
+            const selCuenta = fila.querySelector('.select-cuenta-pago');
+            const inputMonto = fila.querySelector('.input-monto-pago');
+            const opt = selCuenta.options[selCuenta.selectedIndex];
+            const monto = parseFloat(inputMonto.value) || 0;
+            
+            if (opt && opt.value) {
+                const monedaCuenta = (opt.getAttribute('data-moneda') || '').toUpperCase();
+                if (monedaCuenta && monedaCuenta !== monedaGasto) {
+                    cruzaMoneda = true;
+                    cuentaMonedaDiferente = monedaCuenta;
+                    
+                    if (tc > 0) {
+                        if (monedaGasto === 'USD' && monedaCuenta === 'PEN') {
+                            montoTotalAExtraerConvertido += (monto * tc);
+                        } else if (monedaGasto === 'PEN' && monedaCuenta === 'USD') {
+                            montoTotalAExtraerConvertido += (monto / tc);
+                        }
+                    }
+                } else {
+                    montoTotalAExtraerConvertido += monto; 
+                }
+            }
+        });
+
+        if (cruzaMoneda) {
+            containerConversion.style.display = 'block';
+            inputTipoCambio.setAttribute('required', 'required');
+            labelMontoConvertido.innerText = `Monto a descontar (${cuentaMonedaDiferente})`;
+            
+            if (tc > 0) {
+                inputMontoConvertido.value = montoTotalAExtraerConvertido.toFixed(2);
+            } else {
+                inputMontoConvertido.value = '';
+            }
+        } else {
+            containerConversion.style.display = 'none';
+            inputTipoCambio.removeAttribute('required');
+            inputTipoCambio.value = '';
+            inputMontoConvertido.value = '';
+        }
+    };
+
     function calcularTotalPagado() {
       let total = 0;
       const inputsMonto = contenedorPagos.querySelectorAll('.input-monto-pago');
@@ -210,34 +260,31 @@
       });
       
       if (totalPagadoText) {
-        totalPagadoText.textContent = 'S/ ' + total.toFixed(2);
+        const moneda = selectMonedaGasto?.value === 'USD' ? '$' : 'S/';
+        totalPagadoText.textContent = moneda + ' ' + total.toFixed(2);
         
-        // Cambio de color visual calcando el estilo de Ventas
         const totalGasto = parseFloat(inputMontoTotalGasto.value) || 0;
         
         if (total > totalGasto) {
-            totalPagadoText.className = 'fw-bold fs-5 text-danger'; // Rojo si se pasa
+            totalPagadoText.className = 'fw-bold fs-5 text-danger'; 
         } else if (total === totalGasto && total > 0) {
-            totalPagadoText.className = 'fw-bold fs-5 text-success'; // Verde si está exacto
+            totalPagadoText.className = 'fw-bold fs-5 text-success'; 
         } else {
-            totalPagadoText.className = 'fw-bold fs-5 text-dark'; // Oscuro si falta
+            totalPagadoText.className = 'fw-bold fs-5 text-dark'; 
         }
       }
     }
 
-    // Función para crear una nueva fila dinámica de pago (Estilo Flex Compacto)
-    // Función para crear una nueva fila dinámica de pago (Estilo Flex Compacto)
     function agregarFilaPago() {
       const cuentas = window.TESORERIA_CUENTAS || [];
+      const moneda = selectMonedaGasto?.value === 'USD' ? '$' : 'S/';
       
       let opcionesCuentas = '<option value="" selected disabled>Seleccionar Cuenta...</option>';
       cuentas.forEach(c => { 
-          // NUEVO: Capturamos el saldo y lo mostramos visualmente
           const saldo = parseFloat(c.saldo_actual || c.saldo || 0);
-          opcionesCuentas += `<option value="${c.id}" data-saldo="${saldo}">${c.nombre} (Disp: ${c.moneda} ${saldo.toFixed(2)})</option>`; 
+          opcionesCuentas += `<option value="${c.id}" data-saldo="${saldo}" data-moneda="${c.moneda}">${c.nombre} (Disp: ${c.moneda} ${saldo.toFixed(2)})</option>`; 
       });
       
-      // Autocompletar el monto restante por defecto
       let totalGasto = parseFloat(inputMontoTotalGasto.value) || 0;
       let totalActual = 0;
       contenedorPagos.querySelectorAll('.input-monto-pago').forEach(inp => totalActual += (parseFloat(inp.value) || 0));
@@ -261,7 +308,7 @@
         </div>
         <div class="w-100 d-flex gap-2 align-items-center">
             <div class="input-group input-group-sm w-100">
-                <span class="input-group-text bg-light text-muted fw-semibold border-secondary-subtle">S/</span>
+                <span class="input-group-text bg-light text-muted fw-semibold border-secondary-subtle js-lbl-moneda-gasto">${moneda}</span>
                 <input type="number" step="0.01" min="0.01" class="form-control text-end text-success fw-bold shadow-none border-secondary-subtle input-monto-pago" name="pago_monto[]" value="${montoSugerido}" placeholder="0.00" required readonly>
             </div>
             <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-quitar-pago ${numFilas === 0 ? 'd-none' : ''} px-2" title="Quitar pago">
@@ -276,34 +323,30 @@
       const selMetodo = div.querySelector('.select-metodo-pago');
       const inputMonto = div.querySelector('.input-monto-pago');
       
-      // Evento: Al cambiar la cuenta, filtra los métodos y valida saldo
       selCuenta.addEventListener('change', () => {
           filtrarMetodosPorCuentaGastos(selCuenta, selMetodo);
           selMetodo.disabled = !selCuenta.value;
+          inputMonto.readOnly = !selMetodo.value;
           
-          if (selMetodo.value) {
-              inputMonto.readOnly = false;
-          } else {
-              inputMonto.readOnly = true;
-          }
+          window.recalcularConversionGasto();
           
-          // NUEVO: Validación de saldo al instante
+          // Validación de saldo visual suave si cruza moneda, estricta si es misma moneda
           const opt = selCuenta.options[selCuenta.selectedIndex];
           if(opt && opt.value) {
               const saldoDisp = parseFloat(opt.getAttribute('data-saldo')) || 0;
-              inputMonto.setAttribute('max', saldoDisp > 0 ? saldoDisp : 0);
+              const monedaCuenta = (opt.getAttribute('data-moneda') || '').toUpperCase();
+              const monedaGasto = (selectMonedaGasto?.value || 'PEN').toUpperCase();
               
-              if(parseFloat(inputMonto.value) > saldoDisp) {
-                  inputMonto.value = saldoDisp > 0 ? saldoDisp.toFixed(2) : '';
-                  if (typeof Swal !== 'undefined') {
-                      Swal.fire({
-                          icon: 'info',
-                          title: 'Monto reajustado',
-                          text: 'El monto supera el saldo disponible de esta cuenta.',
-                          timer: 2500,
-                          showConfirmButton: false
-                      });
+              if(monedaCuenta === monedaGasto) {
+                  inputMonto.setAttribute('max', saldoDisp > 0 ? saldoDisp : 0);
+                  if(parseFloat(inputMonto.value) > saldoDisp) {
+                      inputMonto.value = saldoDisp > 0 ? saldoDisp.toFixed(2) : '';
+                      if (typeof Swal !== 'undefined') {
+                          Swal.fire({ icon: 'info', title: 'Monto reajustado', text: 'El monto supera el saldo disponible de esta cuenta.', timer: 2500, showConfirmButton: false });
+                      }
                   }
+              } else {
+                  inputMonto.removeAttribute('max'); // Se validará en el submit final con TC
               }
           } else {
               inputMonto.removeAttribute('max');
@@ -312,16 +355,12 @@
           calcularTotalPagado();
       });
 
-      // Evento: Al elegir el método, libera el campo de monto
       selMetodo.addEventListener('change', () => {
           inputMonto.readOnly = !selMetodo.value;
-          if (selMetodo.value && !inputMonto.value) {
-              inputMonto.focus();
-          }
+          if (selMetodo.value && !inputMonto.value) inputMonto.focus();
           calcularTotalPagado();
       });
       
-      // Lógica al eliminar una fila
       div.querySelector('.btn-quitar-pago').addEventListener('click', function() {
         div.remove();
         const filasRestantes = contenedorPagos.querySelectorAll('.fila-pago-gasto');
@@ -329,50 +368,43 @@
             filasRestantes[0].querySelector('.btn-quitar-pago').classList.add('d-none');
         }
         calcularTotalPagado();
+        window.recalcularConversionGasto();
       });
       
-      inputMonto.addEventListener('input', calcularTotalPagado);
+      inputMonto.addEventListener('input', () => {
+          calcularTotalPagado();
+          window.recalcularConversionGasto();
+      });
       
       calcularTotalPagado();
     }
 
-    // Eventos para interactuar con la interfaz de pagos
     if (switchPago && seccionPago) {
       switchPago.addEventListener('change', function() {
-        // Bloqueo de seguridad: Si el total es 0, no permite activar el pago inmediato
         const totalGasto = parseFloat(inputMontoTotalGasto.value) || 0;
         
         if (this.checked && totalGasto <= 0) {
             this.checked = false;
-            
-            // 👇 NUEVO: Le explicamos al usuario por qué no se enciende
             if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Ingrese el Monto',
-                    text: 'Debe ingresar el Monto Total del gasto antes de habilitar el pago al contado.',
-                    timer: 3000,
-                    showConfirmButton: false
-                });
+                Swal.fire({ icon: 'info', title: 'Ingrese el Monto', text: 'Debe ingresar el Monto Total del gasto antes de habilitar el pago al contado.', timer: 3000, showConfirmButton: false });
             }
-            // Hacemos que el cursor salte directo al campo para que escriba
             if (inputMontoTotalGasto) inputMontoTotalGasto.focus();
-            
             return;
         }
 
         if (this.checked) {
           seccionPago.classList.remove('d-none');
-          // Agregar la primera fila si el contenedor está vacío
           if (contenedorPagos.children.length === 0) {
             agregarFilaPago();
           } else {
             calcularTotalPagado();
+            window.recalcularConversionGasto();
           }
         } else {
           seccionPago.classList.add('d-none');
           contenedorPagos.innerHTML = '';
           calcularTotalPagado();
+          window.recalcularConversionGasto();
         }
       });
     }
@@ -380,22 +412,41 @@
     if (btnAgregarPago) {
       btnAgregarPago.addEventListener('click', () => {
           agregarFilaPago();
-          // Asegurarnos de que todas las filas muestren el basurero cuando hay más de una
           contenedorPagos.querySelectorAll('.btn-quitar-pago').forEach(btn => btn.classList.remove('d-none'));
       });
     }
+
+    if (selectMonedaGasto) {
+        selectMonedaGasto.addEventListener('change', () => {
+            actualizarSimboloMonedaUI();
+            window.recalcularConversionGasto();
+            
+            // Si el pago inmediato está encendido, forzamos re-validación de las filas
+            if (switchPago && switchPago.checked) {
+                contenedorPagos.querySelectorAll('.select-cuenta-pago').forEach(select => {
+                    select.dispatchEvent(new Event('change'));
+                });
+            }
+        });
+    }
+
+    const inputTipoCambio = document.getElementById('gastoTipoCambio');
+    if (inputTipoCambio) {
+        inputTipoCambio.addEventListener('input', () => {
+            window.recalcularConversionGasto();
+        });
+    }
     
-    // Si el usuario cambia el total del gasto principal, actualizamos el texto del total pagado visualmente
     if (inputMontoTotalGasto) {
       inputMontoTotalGasto.addEventListener('input', () => {
           calcularTotalPagado();
-          // Si el switch está activo y solo hay una fila, podemos auto-actualizar el monto
           if (switchPago && switchPago.checked) {
               const filasPago = contenedorPagos.querySelectorAll('.fila-pago-gasto');
               if (filasPago.length === 1) { 
                   filasPago[0].querySelector('.input-monto-pago').value = inputMontoTotalGasto.value;
               }
               calcularTotalPagado();
+              window.recalcularConversionGasto();
           }
       });
     }
@@ -407,40 +458,27 @@
     
     if (modalNuevoGastoEl) {
       modalNuevoGastoEl.addEventListener('hidden.bs.modal', function () {
-        // 1. Resetear inputs nativos (Fecha, Monto, etc.)
         const formulario = document.getElementById('formNuevoGasto');
-        if (formulario) {
-          formulario.reset();
-        }
+        if (formulario) formulario.reset();
 
-        // 2. Limpiar los selectores avanzados (TomSelect)
         TOM_SELECT_IDS.forEach(function(id) {
           const elemento = document.getElementById(id);
-          if (elemento && elemento.tomselect) {
-            elemento.tomselect.clear(true);
-          }
+          if (elemento && elemento.tomselect) elemento.tomselect.clear(true);
         });
 
-        // 3. Apagar el switch de pago al contado
-        if (switchPago) {
-          switchPago.checked = false;
-        }
+        if (switchPago) switchPago.checked = false;
+        if (seccionPago) seccionPago.classList.add('d-none');
+        if (contenedorPagos) contenedorPagos.innerHTML = '';
+        
+        const containerConversion = document.getElementById('gastoContainerConversion');
+        if (containerConversion) containerConversion.style.display = 'none';
 
-        // 4. Ocultar la sección verde de Pago Rápido
-        if (seccionPago) {
-          seccionPago.classList.add('d-none');
-        }
-
-        // 5. Vaciar todas las filas dinámicas de cuentas/métodos acumuladas
-        if (contenedorPagos) {
-          contenedorPagos.innerHTML = '';
-        }
-
-        // 6. Resetear el marcador del total pagado a cero
         if (totalPagadoText) {
           totalPagadoText.textContent = 'S/ 0.00';
           totalPagadoText.className = 'fw-bold text-dark fs-5';
         }
+        
+        actualizarSimboloMonedaUI();
       });
     }
 
@@ -453,15 +491,15 @@
       formNuevoGasto.addEventListener('submit', function(e) {
         const switchPagoCheck = document.getElementById('switchPagoInmediato');
         
-        // Solo validamos montos si el switch de pago inmediato está activado
         if (switchPagoCheck && switchPagoCheck.checked) {
           const contenedorMetodos = document.getElementById('contenedorMetodosPagoGasto');
           const inputMontoGasto = document.getElementById('gastoMontoTotal');
+          const tcGlobal = parseFloat(document.getElementById('gastoTipoCambio')?.value) || 1;
+          const monedaGasto = (document.getElementById('gastoMoneda')?.value || 'PEN').toUpperCase();
             
           let totalPagado = 0;
           let faltanDatos = false;
 
-          // NUEVAS VARIABLES PARA VALIDAR SALDOS
           let montosPorCuenta = {};
           let saldosPorCuenta = {};
           let nombresCuentas = {};
@@ -477,18 +515,28 @@
                     faltanDatos = true;
                 }
 
-                // ACUMULAMOS PARA VALIDAR SALDO
                 if (cuenta && monto > 0) {
                     const opt = selCuenta.options[selCuenta.selectedIndex];
                     const saldo = parseFloat(opt.getAttribute('data-saldo')) || 0;
+                    const monedaCuenta = (opt.getAttribute('data-moneda') || '').toUpperCase();
                     const nombreStr = opt.text.split('(')[0].trim();
+                    
+                    let montoAExtraerConvertido = monto;
+
+                    if (monedaCuenta && monedaGasto && monedaCuenta !== monedaGasto) {
+                        if (monedaGasto === 'USD' && monedaCuenta === 'PEN') {
+                            montoAExtraerConvertido = monto * tcGlobal;
+                        } else if (monedaGasto === 'PEN' && monedaCuenta === 'USD') {
+                            montoAExtraerConvertido = monto / tcGlobal;
+                        }
+                    }
 
                     if (!montosPorCuenta[cuenta]) {
                         montosPorCuenta[cuenta] = 0;
                         saldosPorCuenta[cuenta] = saldo;
                         nombresCuentas[cuenta] = nombreStr;
                     }
-                    montosPorCuenta[cuenta] += monto;
+                    montosPorCuenta[cuenta] += montoAExtraerConvertido;
                 }
 
                 totalPagado += monto;
@@ -501,11 +549,10 @@
             return;
           }
 
-          // NUEVA VALIDACIÓN: FONDOS INSUFICIENTES
           let erroresSaldo = [];
           for (const idC in montosPorCuenta) {
               if (montosPorCuenta[idC] > saldosPorCuenta[idC]) {
-                  erroresSaldo.push(`La cuenta <b>${nombresCuentas[idC]}</b> no tiene saldo suficiente. Intentas pagar S/ ${montosPorCuenta[idC].toFixed(2)} pero solo dispone de S/ ${saldosPorCuenta[idC].toFixed(2)}.`);
+                  erroresSaldo.push(`La cuenta <b>${nombresCuentas[idC]}</b> no tiene saldo suficiente. Intentas extraer el equivalente a ${montosPorCuenta[idC].toFixed(2)} pero solo dispone de ${saldosPorCuenta[idC].toFixed(2)}.`);
               }
           }
 
@@ -521,27 +568,26 @@
 
           const totalGasto = parseFloat(inputMontoGasto ? inputMontoGasto.value : 0) || 0;
           
-          // Validación 1: Evitar que pague 0
           if (totalPagado === 0) {
             e.preventDefault(); 
             Swal.fire('Atención', 'Has activado el pago inmediato pero no has ingresado un monto válido.', 'warning');
             return;
           }
 
-          // Validación 2: Evitar que pague más de lo que cuesta
           if (totalPagado > totalGasto + 0.01) {
             e.preventDefault();
-            Swal.fire('Error', `El monto ingresado (S/ ${totalPagado.toFixed(2)}) supera el total del gasto (S/ ${totalGasto.toFixed(2)}).`, 'error');
+            const smbl = monedaGasto === 'USD' ? '$' : 'S/';
+            Swal.fire('Error', `El monto ingresado (${smbl} ${totalPagado.toFixed(2)}) supera el total del gasto (${smbl} ${totalGasto.toFixed(2)}).`, 'error');
             return;
           }
 
-          // Validación 3: Pago parcial (Avisamos al usuario y si confirma enviamos)
           if (totalPagado < totalGasto - 0.01) {
             e.preventDefault();
+            const smbl = monedaGasto === 'USD' ? '$' : 'S/';
             Swal.fire({
               icon: 'warning',
               title: 'Pago Incompleto',
-              text: `El gasto es de S/ ${totalGasto.toFixed(2)}, pero solo se registrarán S/ ${totalPagado.toFixed(2)}. La diferencia quedará como deuda. ¿Deseas guardar así?`,
+              text: `El gasto es de ${smbl} ${totalGasto.toFixed(2)}, pero solo se registrarán ${smbl} ${totalPagado.toFixed(2)}. La diferencia quedará como deuda. ¿Deseas guardar así?`,
               showCancelButton: true,
               confirmButtonText: 'Sí, guardar con deuda',
               cancelButtonText: 'No, corregir monto',

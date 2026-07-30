@@ -142,7 +142,10 @@ $estadoLabels = [
                             </td>
                             <td class="text-muted"><?php echo e((string)$r['concepto']); ?></td>
                             <td class="text-center"><span class="badge bg-light text-secondary border px-2 py-1"><?php echo e((string)$r['impuesto_tipo']); ?></span></td>
-                            <td class="text-end fw-bold text-primary">S/ <?php echo number_format((float)$r['total'], 2); ?></td>
+                            
+                            <td class="text-end fw-bold text-primary">
+                                <span class="small text-muted me-1"><?php echo e($r['moneda'] ?? 'PEN'); ?></span><?php echo number_format((float)$r['total'], 2); ?>
+                            </td>
                             
                             <td class="text-center">
                                 <span class="badge px-3 py-2 rounded-pill shadow-sm <?php echo e($badge['clase']); ?>">
@@ -160,6 +163,7 @@ $estadoLabels = [
                                             data-proveedor="<?php echo e((string)$r['proveedor']); ?>"
                                             data-concepto="<?php echo e((string)$r['concepto']); ?>"
                                             data-impuesto="<?php echo e((string)$r['impuesto_tipo']); ?>"
+                                            data-moneda="<?php echo e($r['moneda'] ?? 'PEN'); ?>"
                                             data-monto="<?php echo number_format((float)$r['monto'], 2); ?>"
                                             data-total="<?php echo number_format((float)$r['total'], 2); ?>"
                                             data-estado="<?php echo e($estado); ?>"
@@ -338,10 +342,18 @@ $estadoLabels = [
                                 <textarea class="form-control shadow-none border-secondary-subtle" name="observacion" rows="2" placeholder="Detalles adicionales o justificación del gasto..."></textarea>
                             </div>
 
-                            <div class="col-12 mt-4 pt-3 border-top">
+                            <div class="col-md-6 mt-4 pt-3 border-top">
+                                <label class="form-label small text-muted fw-semibold mb-1">Moneda <span class="text-danger">*</span></label>
+                                <select name="moneda" id="gastoMoneda" class="form-select shadow-none border-secondary-subtle" required>
+                                    <option value="PEN" selected>PEN (Soles)</option>
+                                    <option value="USD">USD (Dólares)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6 mt-4 pt-3 border-top">
                                 <label class="form-label small text-muted fw-semibold mb-1">Monto Total <span class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light text-muted fw-bold border-secondary-subtle">S/</span>
+                                    <span class="input-group-text bg-light text-muted fw-bold border-secondary-subtle js-lbl-moneda-gasto">S/</span>
                                     <input type="number" id="gastoMontoTotal" step="0.01" min="0.01" class="form-control shadow-none border-secondary-subtle text-primary fw-bold fs-5" name="monto" placeholder="0.00" required>
                                 </div>
                             </div>
@@ -362,6 +374,25 @@ $estadoLabels = [
                         </div>
 
                         <div id="contenedorMetodosPagoGasto" class="d-flex flex-column gap-2 mb-2"></div>
+                        
+                        <div id="gastoContainerConversion" class="mt-3 p-3 bg-white border border-primary-subtle rounded-3 shadow-sm" style="display: none;">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-sm-6">
+                                    <label class="form-label small text-muted fw-bold mb-1">Tipo de Cambio Real</label>
+                                    <input type="number" step="0.0001" min="0.0001" name="tipo_cambio" id="gastoTipoCambio" class="form-control form-control-sm border-primary-subtle text-primary fw-bold" placeholder="Ej. 3.7500">
+                                </div>
+                                <div class="col-sm-6">
+                                    <label class="form-label small text-muted fw-bold mb-1" id="gastoLabelMontoConvertido">Monto a descontar de cuenta</label>
+                                    <input type="text" id="gastoMontoConvertido" class="form-control form-control-sm bg-light fw-bold text-muted" readonly placeholder="0.00">
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-text small mt-1 text-primary">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Estás cruzando monedas. El gasto se registrará en su moneda original, pero se descontará el equivalente del banco.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                         <div class="d-flex justify-content-between align-items-center mt-3">
                             <button type="button" class="btn btn-sm btn-light text-success fw-bold shadow-sm" id="btnAgregarPagoInmediatoGasto">
