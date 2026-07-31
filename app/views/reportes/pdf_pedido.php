@@ -134,9 +134,11 @@
                 </tr>
             </thead>
             <tbody>
-                <?php $contadorItems = 1; ?>
-                <?php foreach ($venta['detalle'] as $item): ?>
-                    <?php
+                <?php 
+                    // 1. Agrupar los productos por nombre para sumar las cantidades (Venta + Regalo)
+                    $itemsAgrupados = [];
+                    
+                    foreach ($venta['detalle'] as $item) {
                         $cantidadMostrar = $hayDespachoRegistrado
                             ? (float) ($item['cantidad_despachada'] ?? 0)
                             : (float) ($item['cantidad'] ?? 0);
@@ -144,17 +146,32 @@
                         if ($cantidadMostrar <= 0) {
                             continue;
                         }
-                    ?>
+                        
+                        $nombreItem = trim(htmlspecialchars($item['item_nombre']));
+                        
+                        // Si el producto no existe en el array, lo iniciamos en 0
+                        if (!isset($itemsAgrupados[$nombreItem])) {
+                            $itemsAgrupados[$nombreItem] = 0;
+                        }
+                        
+                        // Sumamos la cantidad
+                        $itemsAgrupados[$nombreItem] += $cantidadMostrar;
+                    }
+
+                    $contadorItems = 1; 
+                ?>
+                
+                <?php foreach ($itemsAgrupados as $nombre => $cantidadTotal): ?>
                     <tr>
                         <td class="text-center"><?php echo $contadorItems++; ?></td>
-                        <td><?php echo htmlspecialchars($item['item_nombre']); ?></td>
+                        <td><?php echo $nombre; ?></td>
                         <td class="text-center" style="font-size: 14px;">
                             <strong>
                                 <?php 
                                     // LÓGICA INTELIGENTE: Si no hay decimales reales, muestra el número entero.
-                                    echo floor($cantidadMostrar) == $cantidadMostrar 
-                                        ? number_format($cantidadMostrar, 0) 
-                                        : number_format($cantidadMostrar, 2); 
+                                    echo floor($cantidadTotal) == $cantidadTotal 
+                                        ? number_format($cantidadTotal, 0) 
+                                        : number_format($cantidadTotal, 2); 
                                 ?>
                             </strong>
                         </td>

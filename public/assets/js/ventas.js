@@ -1077,15 +1077,24 @@
 
     function obtenerItemsSeleccionados(excluirFila = null) {
         const seleccionados = new Set();
-        const filasNormales = tbodyVenta ? [...tbodyVenta.querySelectorAll('tr')] : [];
-        const filasRegalo = tbodyRegalos ? [...tbodyRegalos.querySelectorAll('tr')] : [];
         
-        [...filasNormales, ...filasRegalo].forEach((fila) => {
+        // Si no hay fila de referencia, retornamos vacío
+        if (!excluirFila) return seleccionados;
+
+        // Identificamos a qué tabla pertenece la fila que estamos editando (Ventas o Regalos)
+        const tbodyPadre = excluirFila.closest('tbody');
+        if (!tbodyPadre) return seleccionados;
+
+        // Solo buscamos duplicados dentro de la MISMA tabla
+        const filas = [...tbodyPadre.querySelectorAll('tr')];
+        
+        filas.forEach((fila) => {
             if (fila === excluirFila) return;
             const selectEl = fila.querySelector('.detalle-item');
             const idItem = selectEl && selectEl.tomselect ? selectEl.tomselect.getValue() : (selectEl?.value || '');
             if (idItem !== '') seleccionados.add(idItem);
         });
+        
         return seleccionados;
     }
 
@@ -1530,7 +1539,12 @@
             const filasVentaArray = [...tbodyVenta.querySelectorAll('tr')];
             const filasRegaloArray = tbodyRegalos ? [...tbodyRegalos.querySelectorAll('tr')] : [];
             
-            if (filasVentaArray.length === 0 && filasRegaloArray.length === 0) throw new Error('Debe agregar al menos un producto al pedido.');
+            // Verificamos si la sección de regalos está activada/visible
+            const seccionRegalosVisible = seccionRegalos && !seccionRegalos.classList.contains('d-none');
+
+            if (filasVentaArray.length === 0 && (!seccionRegalosVisible || filasRegaloArray.length === 0)) {
+                throw new Error('Debe agregar al menos un producto al pedido.');
+            }
             
             const detalle = [];
             const ids = new Set();
@@ -1540,35 +1554,53 @@
             for (let i = 0; i < filasVentaArray.length; i++) {
                 const fila = filasVentaArray[i];
                 const data = filaVentaPayload(fila);
-                data.es_bonificacion = 0; // Marcar como cobrado
+                data.es_bonificacion = 0; 
                 
                 if (!data.id_item || data.id_item === '0') throw new Error('Seleccione un producto en todas las filas de la tabla de venta.');
-                if (ids.has(data.id_item)) throw new Error('No se permiten productos repetidos en el pedido.');
-                ids.add(data.id_item);
+                
+                // LA MAGIA: Clave única combinando ID + Tipo (0 = Venta)
+                const claveUnica = data.id_item + '_0';
+                if (ids.has(claveUnica)) throw new Error('No se permiten productos repetidos en la tabla de ventas.');
+                ids.add(claveUnica);
+
+                if (data.cantidad <= 0) throw new Error('La cantidad de los productos en venta debe ser mayor a cero.');
+                
                 if (!validarCantidadVsStock(fila)) excedeStock = true;
                 
                 detalle.push(data);
             }
 
-            // 2. Procesar Regalos
-            for (let i = 0; i < filasRegaloArray.length; i++) {
-                const fila = filasRegaloArray[i];
-                const selectElement = fila.querySelector('.detalle-item');
-                const idItem = selectElement && selectElement.tomselect ? selectElement.tomselect.getValue() : (selectElement ? selectElement.value : '');
-                
-                const data = {
-                    id_item: idItem || '',
-                    cantidad: parseFloat(fila.querySelector('.detalle-cantidad').value || 0),
-                    precio_unitario: parseFloat(fila.querySelector('.detalle-precio').value || 0), // Enviaremos el ref para reportes
-                    es_bonificacion: 1 // Identificador clave para el backend
-                };
+            // 2. Procesar Regalos (Solo si la tabla está visible)
+            if (seccionRegalosVisible) {
+                for (let i = 0; i < filasRegaloArray.length; i++) {
+                    const fila = filasRegaloArray[i];
+                    const selectElement = fila.querySelector('.detalle-item');
+                    const idItem = selectElement && selectElement.tomselect ? selectElement.tomselect.getValue() : (selectElement ? selectElement.value : '');
+                    const cantidad = parseFloat(fila.querySelector('.detalle-cantidad').value || 0);
 
-                if (!data.id_item || data.id_item === '0') throw new Error('Seleccione un producto en todas las filas de regalo.');
-                if (ids.has(data.id_item)) throw new Error('No se permiten productos repetidos (entre venta y regalos).');
-                ids.add(data.id_item);
-                if (!validarCantidadVsStock(fila)) excedeStock = true;
-                
-                detalle.push(data);
+                    // VALIDACIÓN NUEVA: No permitir guardar si el regalo tiene cantidad 0
+                    if (cantidad <= 0) {
+                        throw new Error('La cantidad en los productos de regalo debe ser mayor a cero. Elimina la fila si no deseas regalar nada.');
+                    }
+
+                    const data = {
+                        id_item: idItem || '',
+                        cantidad: cantidad,
+                        precio_unitario: parseFloat(fila.querySelector('.detalle-precio').value || 0), 
+                        es_bonificacion: 1 
+                    };
+
+                    if (!data.id_item || data.id_item === '0') throw new Error('Seleccione un producto en todas las filas de regalo.');
+                    
+                    // LA MAGIA: Clave única combinando ID + Tipo (1 = Regalo)
+                    const claveUnica = data.id_item + '_1';
+                    if (ids.has(claveUnica)) throw new Error('No se permiten productos repetidos dentro de la tabla de regalos.');
+                    ids.add(claveUnica);
+
+                    if (!validarCantidadVsStock(fila)) excedeStock = true;
+                    
+                    detalle.push(data);
+                }
             }
 
             let esCobroInmediato = false;
@@ -2579,24 +2611,41 @@
                     const cantDesp = Number(item.cantidad_despachada || 0);
                     const precio = Number(item.precio_unitario || 0);
                     const pesoUnitario = Number(item.peso_kg || 0);
+                    const esBonificacion = Number(item.es_bonificacion || 0); // <-- CLAVE: Detectar si es regalo
                     
                     const pesoSubtotal = cantDesp * pesoUnitario;
-                    const subtotal = cantDesp * precio;
+                    
+                    // Si es bonificación, el subtotal a cobrar es 0. Si no, cant * precio.
+                    const subtotalCobrar = esBonificacion === 1 ? 0 : (cantDesp * precio);
+                    const subtotalReferencial = cantDesp * precio;
                     
                     pesoTotalResumen += pesoSubtotal;
-                    sumaTotalDespachada += subtotal; 
+                    sumaTotalDespachada += subtotalCobrar; // Solo sumamos el monto real a cobrar
 
                     const subtituloPeso = pesoUnitario > 0
                         ? `<small class="text-muted d-block mt-1">Peso total: ${pesoSubtotal.toFixed(3)} kg</small>`
                         : '<small class="text-muted d-block mt-1">Peso total: 0.000 kg</small>';
 
+                    // Adaptar la vista si es regalo
+                    let nombreItemHtml = `${item.item_nombre || '-'}`;
+                    let subtotalHtml = `S/ ${subtotalCobrar.toFixed(2)}`;
+                    let claseFila = '';
+
+                    if (esBonificacion === 1) {
+                        claseFila = 'bg-info bg-opacity-10'; // Fila un poco celeste
+                        nombreItemHtml += ` <span class="badge bg-info-subtle text-info border border-info-subtle ms-2">🎁 Regalo</span>`;
+                        subtotalHtml = `<span class="text-success fw-bold">S/ 0.00</span><br><small class="text-decoration-line-through text-muted opacity-50" style="font-size: 0.7rem;">S/ ${subtotalReferencial.toFixed(2)}</small>`;
+                    }
+
                     const trRes = document.createElement('tr');
+                    if (claseFila) trRes.className = claseFila;
+                    
                     trRes.innerHTML = `
-                        <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}${subtituloPeso}</td>
+                        <td class="ps-3 py-2 fw-semibold text-dark">${nombreItemHtml}${subtituloPeso}</td>
                         <td class="text-center py-2 text-muted">${cantSol.toFixed(2)}</td>
                         <td class="text-center py-2 fw-bold text-success">${cantDesp.toFixed(2)}</td>
                         <td class="text-end py-2 text-muted">S/ ${precio.toFixed(2)}</td>
-                        <td class="text-end pe-3 py-2 fw-bold text-dark">S/ ${subtotal.toFixed(2)}</td>
+                        <td class="text-end pe-3 py-2 fw-bold text-dark lh-sm">${subtotalHtml}</td>
                     `;
                     tbodyResumen.appendChild(trRes);
                 });

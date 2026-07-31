@@ -1,3 +1,11 @@
+<?php
+/**
+ * @var array $venta
+ * @var array $config
+ * @var string|null $tipo_impresion
+ * @var int|null $paginas
+ */
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -122,7 +130,12 @@
                 
                 if ($cantidadItem <= 0) continue;
 
-                $totalLineas += $cantidadItem * (float) ($itemTotal['precio_unitario'] ?? 0);
+                $esBonificacion = (int) ($itemTotal['es_bonificacion'] ?? 0);
+
+                // Solo sumamos el subtotal si NO es una bonificación
+                if ($esBonificacion === 0) {
+                    $totalLineas += $cantidadItem * (float) ($itemTotal['precio_unitario'] ?? 0);
+                }
             }
 
             // Recalculamos IGV y Subtotal de manera dinámica
@@ -163,14 +176,36 @@
                         $cantidad = $usarCantidadDespachada ? (float) ($item['cantidad_despachada'] ?? 0) : (float) ($item['cantidad'] ?? 0);
                         if ($cantidad <= 0) continue; 
                         
-                        $subtotalFila = $cantidad * (float)($item['precio_unitario'] ?? 0);
+                        $esBonificacion = (int) ($item['es_bonificacion'] ?? 0);
+                        $precioUnitario = (float)($item['precio_unitario'] ?? 0);
+                        $subtotalFila = $esBonificacion === 1 ? 0 : ($cantidad * $precioUnitario);
+                        
+                        $nombreItem = htmlspecialchars($item['item_nombre']);
                     ?>
                     <tr>
                         <td class="text-center"><?php echo $contadorItems++; ?></td>
-                        <td><?php echo htmlspecialchars($item['item_nombre']); ?></td>
+                        <td>
+                            <?php echo $nombreItem; ?>
+                            <?php if ($esBonificacion === 1): ?>
+                                <strong>(BONIFICACIÓN)</strong>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-center"><strong><?php echo number_format($cantidad, 2); ?></strong></td>
-                        <td class="text-right">S/ <?php echo number_format((float)($item['precio_unitario'] ?? 0), 2); ?></td>
-                        <td class="text-right">S/ <?php echo number_format($subtotalFila, 2); ?></td>
+                        <td class="text-right">
+                            <?php if ($esBonificacion === 1): ?>
+                                <span style="color: #999; font-size: 10px;">Ref: S/ <?php echo number_format($precioUnitario, 2); ?></span><br>
+                                S/ 0.00
+                            <?php else: ?>
+                                S/ <?php echo number_format($precioUnitario, 2); ?>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-right">
+                            <?php if ($esBonificacion === 1): ?>
+                                <strong style="color: #198754;">GRATIS</strong>
+                            <?php else: ?>
+                                S/ <?php echo number_format($subtotalFila, 2); ?>
+                            <?php endif; ?>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
                 <tr>
