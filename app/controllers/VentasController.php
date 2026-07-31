@@ -213,6 +213,9 @@ class VentasController extends Controlador
             $config = $empresaModel->obtener();
             require_once BASE_PATH . '/vendor/autoload.php';
 
+            // 👇 SOLUCIÓN: Aumentar la memoria a 512 MB o 1 GB temporalmente 👇
+            ini_set('memory_limit', '1024M'); 
+            
             $dompdf = new \Dompdf\Dompdf();
             $options = $dompdf->getOptions();
             $options->set(array('isRemoteEnabled' => true));

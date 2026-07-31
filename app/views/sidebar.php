@@ -25,13 +25,13 @@ $linkGrupoActivo = static fn(array $rutas): string => array_reduce(
 $puedeVerComercial = tiene_permiso('terceros.ver') || tiene_permiso('items.ver') || tiene_permiso('ventas.ver');
 $puedeVerRRHH = tiene_permiso('terceros.ver');
 $puedeVerDistribuidores = tiene_permiso('distribuidores.ver') || tiene_permiso('terceros.ver');
-$sidebarBadges = is_array($sidebarBadges ?? null) ? $sidebarBadges : [];
+$sidebarBadges = (isset($sidebarBadges) && is_array($sidebarBadges)) ? $sidebarBadges : [];
  
 $usuarioNombre = (string) ($_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'Usuario');
 $userInitial   = strtoupper(substr($usuarioNombre, 0, 1));
 $userRole      = (string) ($_SESSION['rol_nombre'] ?? ('Rol #' . (int) ($_SESSION['id_rol'] ?? 0)));
  
-$configEmpresa = is_array($configEmpresa ?? null) ? $configEmpresa : [];
+$configEmpresa = (isset($configEmpresa) && is_array($configEmpresa)) ? $configEmpresa : [];
 $empresaNombre = trim((string) ($configEmpresa['razon_social'] ?? 'SISADMIN2')) ?: 'SISADMIN2';
  
 $logoUrl = '';

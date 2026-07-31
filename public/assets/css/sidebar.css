@@ -5,13 +5,12 @@
 /* ── Variables ──────────────────────────────────────────────── */
 :root {
     --sb-width:         260px;
-    --sb-width-col:      64px;
+    --sb-width-col:      72px; /* Ligeramente más ancho para respirar mejor colapsado */
     --sb-bg:            #0f1117;
     --sb-bg-2:          #161b27;
     --sb-border:        rgba(255,255,255,.07);
     --sb-accent:        #f97316;
     --sb-accent-dim:    rgba(249,115,22,.15);
-    --sb-accent-glow:   rgba(249,115,22,.25);
     --sb-text:          #e2e8f0;
     --sb-text-muted:    #64748b;
     --sb-text-label:    #475569;
@@ -44,55 +43,6 @@
     overflow: hidden;
 }
 
-/* ── Collapsed (icon-only) ──────────────────────────────────── */
-.sidebar-collapsed .sidebar-desktop {
-    width: var(--sb-width-col);
-}
-.sidebar-collapsed .sb-link-text,
-.sidebar-collapsed .sb-brand-meta,
-.sidebar-collapsed .sb-user-info,
-.sidebar-collapsed .sb-user-role,
-.sidebar-collapsed .sb-search,
-.sidebar-collapsed .sb-section-label,
-.sidebar-collapsed .sb-chevron,
-.sidebar-collapsed .sb-favorites,
-.sidebar-collapsed .sb-logout-btn span,
-.sidebar-collapsed .sb-badge {
-    opacity: 0;
-    pointer-events: none;
-    width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-}
-.sidebar-collapsed .sb-brand-icon { margin: 0 auto; }
-.sidebar-collapsed .sb-avatar     { margin: 0 auto; }
-.sidebar-collapsed .sb-user-card  { justify-content: center; padding: .5rem .75rem; }
-.sidebar-collapsed .sb-link       { justify-content: center; padding: .625rem; }
-.sidebar-collapsed .sb-link-icon  { margin-right: 0; }
-.sidebar-collapsed .sb-group-btn.sb-link .collapse { display: none; }
-
-/* Tooltip when collapsed */
-.sidebar-collapsed .sb-link[data-tooltip]:hover::after {
-    content: attr(data-tooltip);
-    position: fixed;
-    left: calc(var(--sb-width-col) + 8px);
-    background: var(--sb-bg-2);
-    color: var(--sb-text);
-    font-size: .75rem;
-    padding: .35rem .65rem;
-    border-radius: 6px;
-    white-space: nowrap;
-    border: 1px solid var(--sb-border);
-    pointer-events: none;
-    z-index: 9999;
-    box-shadow: 0 4px 16px rgba(0,0,0,.4);
-    animation: sbTooltipIn .12s ease;
-}
-@keyframes sbTooltipIn {
-    from { opacity: 0; transform: translateX(-4px); }
-    to   { opacity: 1; transform: translateX(0); }
-}
-
 /* ── Layout adjustments when sidebar is desktop ─────────────── */
 html:not(.sidebar-collapsed) .main-content,
 html:not(.sidebar-collapsed) #mainContent {
@@ -106,15 +56,90 @@ html:not(.sidebar-collapsed) #mainContent {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   HEADER
+   MODO COLAPSADO (Solución Profesional a Bugs Visuales)
+═══════════════════════════════════════════════════════════ */
+.sidebar-collapsed .sidebar-desktop {
+    width: var(--sb-width-col);
+}
+
+/* 1. Eliminación física (no solo visual) de textos y submenús */
+.sidebar-collapsed .sb-link-text,
+.sidebar-collapsed .sb-brand-meta,
+.sidebar-collapsed .sb-user-info,
+.sidebar-collapsed .sb-user-role,
+.sidebar-collapsed .sb-search,
+.sidebar-collapsed .sb-section-label,
+.sidebar-collapsed .sb-chevron,
+.sidebar-collapsed .sb-favorites,
+.sidebar-collapsed .sb-logout-btn,
+.sidebar-collapsed .sb-badge,
+.sidebar-collapsed .collapse {
+    display: none !important;
+}
+
+/* 2. Reparación del Header y Toggle */
+.sidebar-collapsed .sb-header {
+    padding: 1rem 0 0.5rem 0; /* Quitamos padding lateral para centrar perfecto */
+}
+.sidebar-collapsed .sb-brand-row {
+    flex-direction: column; /* Apilamos logo arriba, botón abajo */
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.sidebar-collapsed .sb-brand {
+    justify-content: center;
+    margin: 0;
+}
+
+/* 3. Reparación de la caja fantasma del Usuario */
+.sidebar-collapsed .sb-user-card {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin-bottom: 1.5rem;
+    justify-content: center;
+}
+.sidebar-collapsed .sb-avatar {
+    margin: 0 auto;
+}
+
+/* 4. Centrado de botones y reparación del estado Activo */
+.sidebar-collapsed .sb-nav {
+    padding: 0.5rem 0; /* Quitamos padding lateral para centrar iconos */
+    scrollbar-width: none; /* Oculta scrollbar en Firefox */
+}
+.sidebar-collapsed .sb-nav::-webkit-scrollbar {
+    display: none; /* Oculta scrollbar en Chrome/Edge */
+}
+.sidebar-collapsed .sb-link {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 0.5rem auto; /* Centrado horizontal automático */
+    padding: 0;
+    justify-content: center;
+    border-radius: 8px !important;
+}
+.sidebar-collapsed .sb-link-icon {
+    margin: 0 !important;
+}
+.sidebar-collapsed .sb-link.active {
+    background-color: var(--sb-link-active-bg) !important;
+}
+.sidebar-collapsed .sb-link.active::before {
+    display: none !important; /* Quita la barra lateral gruesa en modo colapsado */
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   HEADER (Expandido)
 ═══════════════════════════════════════════════════════════ */
 .sb-header {
     padding: 1rem .875rem .5rem;
     border-bottom: 1px solid var(--sb-border);
     flex-shrink: 0;
 }
-
-/* Brand row */
 .sb-brand-row {
     display: flex;
     align-items: center;
@@ -128,16 +153,20 @@ html:not(.sidebar-collapsed) #mainContent {
     min-width: 0;
     flex: 1;
 }
+
+/* MODIFICADO: Logo con fondo blanco y padding */
 .sb-brand-icon {
     width: 36px; height: 36px;
-    background: linear-gradient(135deg, var(--sb-accent) 0%, #fb923c 100%);
+    background-color: #ffffff !important; 
     border-radius: 9px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
-    box-shadow: 0 2px 10px var(--sb-accent-glow);
+    box-shadow: 0 0 12px rgba(255,255,255,0.08) !important; /* Resplandor blanco muy sutil */
+    border: none !important;
+    padding: 3px; /* Espacio para que el logo no toque los bordes */
 }
-.sb-logo         { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; }
-.sb-brand-letter { color: #fff; font-weight: 700; font-size: .95rem; }
+.sb-logo         { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: normal; }
+.sb-brand-letter { color: #000; font-weight: 800; font-size: 1.1rem; }
 .sb-brand-meta   { min-width: 0; }
 .sb-brand-name   {
     color: var(--sb-text);
@@ -187,7 +216,9 @@ html:not(.sidebar-collapsed) #mainContent {
     margin-bottom: .75rem;
     border: 1px solid var(--sb-border);
     position: relative;
+    transition: all var(--sb-transition);
 }
+
 .sb-avatar {
     width: 34px; height: 34px;
     border-radius: 50%;
@@ -197,7 +228,7 @@ html:not(.sidebar-collapsed) #mainContent {
     font-size: .85rem;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(99,102,241,.3);
+    box-shadow: 0 0 10px rgba(100, 100, 255, 0.2); 
 }
 .sb-user-info  { flex: 1; min-width: 0; }
 .sb-user-name  { color: var(--sb-text); font-size: .78rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -216,7 +247,7 @@ html:not(.sidebar-collapsed) #mainContent {
 /* Search */
 .sb-search {
     position: relative;
-    margin-bottom: .5rem;
+    margin-bottom: 1.5rem; 
 }
 .sb-search-icon {
     position: absolute;
@@ -271,13 +302,13 @@ html:not(.sidebar-collapsed) #mainContent {
 
 /* Section labels */
 .sb-section-label {
-    color: var(--sb-text-label);
-    font-size: .6rem;
+    color: #8b949e; 
+    font-size: 0.75rem; 
     font-weight: 600;
-    letter-spacing: .1em;
+    letter-spacing: 0.05em; 
     text-transform: uppercase;
     padding: .75rem .5rem .25rem;
-    margin: 0;
+    margin: 1.5rem 0 0 0; 
 }
 
 /* Links */
@@ -305,17 +336,19 @@ html:not(.sidebar-collapsed) #mainContent {
     background: var(--sb-link-hover);
     color: var(--sb-text);
 }
+
 .sb-link.active {
-    background: var(--sb-link-active-bg);
-    color: var(--sb-accent);
+    background-color: rgba(249,115,22,.12) !important;
+    color: #ff781e;
     font-weight: 600;
+    border-radius: 0 8px 8px 0;
 }
 .sb-link.active::before {
     content: '';
     position: absolute;
     left: 0; top: 20%; bottom: 20%;
     width: 3px;
-    background: var(--sb-accent);
+    background: #ff781e;
     border-radius: 0 3px 3px 0;
 }
 
@@ -327,16 +360,47 @@ html:not(.sidebar-collapsed) #mainContent {
     flex-shrink: 0;
     transition: color var(--sb-transition);
 }
-.sb-link.active .sb-link-icon { color: var(--sb-accent); }
+.sb-link.active .sb-link-icon { color: #ff781e; }
 
-/* Chevron */
+/* Chevron y Estado Abierto de Menús Desplegables */
 .sb-chevron {
     font-size: .7rem;
     transition: transform var(--sb-transition);
     flex-shrink: 0;
     color: var(--sb-text-label);
 }
-.sb-group-btn[aria-expanded="true"] .sb-chevron { transform: rotate(180deg); }
+
+/* 1. Rota la flecha cuando está abierto */
+.sb-group-btn[aria-expanded="true"] .sb-chevron { 
+    transform: rotate(180deg); 
+}
+
+/* 2. ESTADO DESPLEGADO NORMAL (Abierto, pero NO es la página actual) 
+      Se pinta de color texto brillante (blanco) para indicar que está abierto, 
+      pero SIN usar naranja para no competir con la página activa real. */
+.sb-group-btn[aria-expanded="true"]:not(.active) {
+    color: var(--sb-text) !important;
+    background-color: transparent !important;
+}
+.sb-group-btn[aria-expanded="true"]:not(.active) .sb-link-icon,
+.sb-group-btn[aria-expanded="true"]:not(.active) .sb-chevron {
+    color: var(--sb-text) !important;
+}
+
+/* 3. ESTADO PADRE ACTIVO (Cuando estás navegando dentro de un submenú)
+      AQUÍ SÍ debe ser naranja para indicar dónde estás, pero sin caja de fondo. */
+.sb-group-btn.active {
+    background-color: transparent !important; 
+    color: #ff781e !important;
+    font-weight: 600;
+}
+.sb-group-btn.active .sb-link-icon,
+.sb-group-btn.active .sb-chevron {
+    color: #ff781e !important;
+}
+.sb-group-btn.active::before {
+    display: none !important;
+}
 
 /* Submenu */
 .sb-submenu {
