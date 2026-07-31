@@ -133,14 +133,22 @@ class ReporteTesoreriaMovimientoModel extends Modelo
         // 6. Filtro de Búsqueda Global (Input text)
         if (!empty($f['busqueda'])) {
             $where[] = '(
-                t.nombre_completo LIKE :q OR 
-                m.origen LIKE :q OR 
-                c.nombre LIKE :q OR 
-                mp.nombre LIKE :q OR 
-                m.estado LIKE :q OR 
-                m.observaciones LIKE :q
+                t.nombre_completo LIKE :q1 OR 
+                m.origen LIKE :q2 OR 
+                c.nombre LIKE :q3 OR 
+                mp.nombre LIKE :q4 OR 
+                m.estado LIKE :q5 OR 
+                m.observaciones LIKE :q6
             )';
-            $params['q'] = '%' . $f['busqueda'] . '%';
+            
+            $terminoBusqueda = '%' . $f['busqueda'] . '%';
+            
+            $params['q1'] = $terminoBusqueda;
+            $params['q2'] = $terminoBusqueda;
+            $params['q3'] = $terminoBusqueda;
+            $params['q4'] = $terminoBusqueda;
+            $params['q5'] = $terminoBusqueda;
+            $params['q6'] = $terminoBusqueda;
         }
 
         $whereSql = implode(' AND ', $where);
@@ -199,4 +207,6 @@ class ReporteTesoreriaMovimientoModel extends Modelo
             'total' => $totalRegistros
         ];
     }
+
+    
 }

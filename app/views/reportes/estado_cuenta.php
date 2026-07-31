@@ -1,4 +1,11 @@
 <?php
+/**
+ * @var array|null $filtros
+ * @var array|null $detalle
+ * @var array|null $porProducto
+ * @var array|null $clientesEstadoCuenta
+ */
+
 $filtros = is_array($filtros ?? null) ? $filtros : [];
 $detalle = is_array($detalle ?? null) ? $detalle : ['rows' => [], 'total' => 0, 'resumen' => []];
 $porProducto = is_array($porProducto ?? null) ? $porProducto : [];
@@ -18,7 +25,7 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
-                <i class="bi bi-journal-text me-2 text-primary"></i> Estado de Cuenta
+                <i class="bi bi-journal-text me-2 text-primary"></i> Estado de Cuenta Clientes
             </h1>
             <p class="text-muted small mb-0 ms-1">Historial cronológico de cargos y abonos por cliente.</p>
         </div>
@@ -31,20 +38,11 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
         <div class="card-body p-3">
             <form class="row g-2 align-items-end" method="get" action="<?php echo e(base_url() . '/'); ?>" id="estadoCuentaFiltrosForm">
                 <input type="hidden" name="ruta" value="reportes/estado_cuenta">
-                
-                <div class="col-12 col-md-2">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Fecha Desde</label>
-                    <input type="date" name="fecha_desde" class="form-control bg-light" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
-                </div>
-                
-                <div class="col-12 col-md-2">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Fecha Hasta</label>
-                    <input type="date" name="fecha_hasta" class="form-control bg-light" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
-                </div>
-                
+
+                <!-- Cliente / Distribuidor -->
                 <div class="col-12 col-md-4">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Cliente / Distribuidor</label>
-                    <select name="cliente" id="filtroClienteEstadoCuenta" class="form-select bg-light">
+                    <select name="cliente" id="filtroClienteEstadoCuenta" class="form-select bg-light shadow-sm">
                         <option value="">Todos</option>
                         <?php foreach ($clientesEstadoCuenta as $clienteNombre): ?>
                             <option value="<?php echo e($clienteNombre); ?>" <?php echo (string)($filtros['cliente'] ?? '') === $clienteNombre ? 'selected' : ''; ?>>
@@ -54,18 +52,30 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                     </select>
                 </div>
                 
-                <div class="col-12 col-md-2">
+                <!-- Tipo de Vista -->
+                <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Tipo de Vista</label>
-                    <select name="vista" class="form-select bg-light">
+                    <select name="vista" class="form-select bg-light shadow-sm">
                         <option value="DETALLE" <?php echo $vista === 'DETALLE' ? 'selected' : ''; ?>>Historial General</option>
                         <option value="PRODUCTO" <?php echo $vista === 'PRODUCTO' ? 'selected' : ''; ?>>Resumen por Producto</option>
                     </select>
                 </div>
-                
-                <div class="col-12 col-md-2">
-                    <button type="button" class="btn btn-danger w-100 shadow-sm fw-semibold" id="btnExportarPdf">
-                        <i class="bi bi-file-earmark-pdf-fill me-2"></i>Exportar PDF
-                    </button>
+
+                <!-- Filtro de Fechas Agrupado -->
+                <div class="col-12 col-md-5">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1 d-none d-md-block">&nbsp;</label> <!-- Espaciador para alinear con los otros inputs -->
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
+                        <input type="date" name="fecha_desde" class="form-control bg-light border-start-0" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
+                        
+                        <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
+                        <input type="date" name="fecha_hasta" class="form-control bg-light border-start-0" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
+                        
+                        <!-- Botón Gris de Filtro -->
+                        <button class="btn text-white" type="submit" style="background-color: #6c757d; border-color: #6c757d;">
+                            <i class="bi bi-funnel"></i>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -158,12 +168,25 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
     <?php else: ?>
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-clock-history me-2 text-primary"></i>Historial de Movimientos</h5>
+            <!-- Izquierda: Título -->
+            <h5 class="mb-0 fw-bold text-dark">
+                <i class="bi bi-clock-history me-2 text-primary"></i>Historial de Movimientos
+            </h5>
+
+            <!-- Derecha: Acciones agrupadas (Botón y Buscador) -->
+            <div class="d-flex align-items-center gap-3">
+                <!-- Botón PDF más delgado (btn-sm) y sin col-12 ni w-100 -->
+                <button type="button" class="btn btn-danger btn-sm shadow-sm fw-semibold" id="btnExportarPdf">
+                    <i class="bi bi-file-earmark-pdf-fill me-1"></i>Exportar PDF
+                </button>
+
+                <!-- Buscador -->
                 <div class="input-group input-group-sm w-auto" style="max-width: 260px;">
                     <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
                     <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroEstadoCuentaDetalle" placeholder="Filtrar en tabla...">
                 </div>
             </div>
+        </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table align-middle mb-0 table-pro" id="tablaEstadoCuentaDetalle"

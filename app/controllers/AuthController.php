@@ -14,6 +14,14 @@ class AuthController extends Controlador
 
     public function index(): void
     {
+        // === NUEVA VALIDACIÓN AQUÍ ===
+        // Si el usuario ya tiene sesión activa en otra pestaña, lo enviamos al dashboard
+        if (isset($_SESSION['id'])) {
+            header('Location: ?ruta=reportes/dashboard');
+            exit;
+        }
+        // =============================
+
         $mensaje_error = '';
         $codigo_error = (string) ($_GET['error'] ?? '');
 

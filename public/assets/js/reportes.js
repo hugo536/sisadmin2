@@ -46,37 +46,42 @@
       submitEstadoCuentaFiltros();
     });
 
+    // --- AQUÍ INTEGRAMOS TOMSELECT ---
     if (filtroTerceroEstadoCuenta) {
-      filtroTerceroEstadoCuenta.addEventListener('change', () => autoSubmitEstadoCuenta());
+      // Verificamos si la librería TomSelect está cargada en el proyecto
+      if (typeof TomSelect !== 'undefined') {
+        new TomSelect(filtroTerceroEstadoCuenta, {
+          create: false,
+          placeholder: "Buscar cliente o distribuidor...",
+          onChange: function() {
+            // Cuando cambie el valor en TomSelect, ejecutamos el auto-submit
+            autoSubmitEstadoCuenta();
+          }
+        });
+      } else {
+        // Fallback clásico por si falla la carga de TomSelect
+        filtroTerceroEstadoCuenta.addEventListener('change', () => autoSubmitEstadoCuenta());
+      }
     }
     
     // --- Lógica del botón Exportar PDF ---
     const btnExportarPdf = document.getElementById(btnPdfId);
     if (btnExportarPdf) {
       btnExportarPdf.addEventListener('click', () => {
-        // Recolectamos todos los filtros seleccionados (fechas, tercero, etc.)
         const params = new URLSearchParams(new FormData(formEstadoCuenta));
-        
-        // Agregamos el parámetro que le dirá a tu PHP que genere el PDF
         params.set('accion', pdfAction);
-        
-        // Construimos la URL limpia
         const baseUrl = formEstadoCuenta.action.split('?')[0]; 
         const urlCompleta = `${baseUrl}?${params.toString()}`;
-        
-        // Abrimos el PDF en una nueva pestaña
         window.open(urlCompleta, '_blank');
       });
     }
 
-    // --- Lógica de Auto-Filtrado (Mejora la UX) ---
-    const filtrosAutoSubmit = formEstadoCuenta.querySelectorAll('[name="fecha_desde"], [name="fecha_hasta"], [name="vista"]');
+    // CÓDIGO CORREGIDO (Solo la vista hará auto-submit):
+    const filtrosAutoSubmit = formEstadoCuenta.querySelectorAll('[name="vista"]');
 
     filtrosAutoSubmit.forEach((field) => {
       const tipo = String(field.type || '').toLowerCase();
-
       field.addEventListener('change', () => autoSubmitEstadoCuenta());
-
       if (tipo === 'date') {
         field.addEventListener('input', () => autoSubmitEstadoCuenta());
       }

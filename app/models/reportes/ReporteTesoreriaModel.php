@@ -233,7 +233,7 @@ class ReporteTesoreriaModel extends Modelo
     }
 
     // ==========================================
-    // NUEVO MÉTODO HISTORIAL (EL QUE FALTABA)
+    // MÉTODO HISTORIAL CORREGIDO
     // ==========================================
     public function historialEstadoCuenta(array $f, int $pagina, int $tamano): array
     {
@@ -242,27 +242,54 @@ class ReporteTesoreriaModel extends Modelo
         $cantidadExprZero = $this->cantidadVentasDetalleExpr('d', '0');
         $precioExprZero = $this->precioUnitarioVentasDetalleExpr('d', '0');
         
-        // Obtenemos el WHERE original y los parámetros
-        [$where, $params] = $this->buildEstadoCuentaWhere($f);
+        // CORRECCIÓN: Creamos parámetros únicos para las dos partes de la consulta
+        $params = [
+            'fd1' => $f['fecha_desde'],
+            'fh1' => $f['fecha_hasta'],
+            'fd2' => $f['fecha_desde'],
+            'fh2' => $f['fecha_hasta']
+        ];
         
-        // Creamos la tabla temporal (CTE) llamada TargetCXC.
+        $whereBase = [
+            'c.deleted_at IS NULL',
+            'NOT EXISTS (SELECT 1 FROM ventas_documentos v WHERE v.id = c.id_documento_venta AND v.tipo_operacion = "DONACION")'
+        ];
+
+        if (!empty($f['cliente'])) {
+            $whereBase[] = "COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :cliente";
+            $params['cliente'] = '%' . (string) $f['cliente'] . '%';
+        }
+        if (!empty($f['estado'])) {
+            $whereBase[] = 'c.estado = :estado';
+            $params['estado'] = (string) $f['estado'];
+        }
+        if (!empty($f['producto'])) {
+            $whereBase[] = 'EXISTS (
+                SELECT 1 FROM ventas_documentos_detalle d2
+                INNER JOIN items i2 ON i2.id = d2.id_item
+                WHERE d2.id_documento_venta = c.id_documento_venta AND d2.deleted_at IS NULL
+                  AND COALESCE(NULLIF(TRIM(i2.nombre), \'\'), \'\') LIKE :producto
+            )';
+            $params['producto'] = '%' . (string) $f['producto'] . '%';
+        }
+        
+        $whereCte = implode(' AND ', $whereBase);
+
         $cte = "
-            WITH TargetCXC AS (
+            WITH BaseCXC AS (
                 SELECT c.*, t.nombre_completo AS cliente_nombre
                 FROM tesoreria_cxc c
                 INNER JOIN terceros t ON t.id = c.id_cliente
-                WHERE {$where}
+                WHERE {$whereCte}
             )
         ";
 
-        // Consulta principal que une Cargos (Productos) y Abonos (Depósitos)
         $sql = $cte . "
             SELECT 
                 'CARGO' AS tipo_transaccion,
                 DATE(COALESCE(v.fecha_emision, c.fecha_emision)) AS fecha_atencion,
                 c.cliente_nombre AS cliente,
                 COALESCE(NULLIF(TRIM(v.codigo), ''), NULLIF(TRIM(c.documento_referencia), ''), CONCAT('CXC-', c.id)) AS documento,
-                -- MEJORA: Buscar el nombre en Items y, si no está, buscarlo en Combos/Packs
                 COALESCE(i.nombre, pp.nombre, 'Sin detalle de producto') AS producto,
                 CAST({$cantidadExpr} AS DECIMAL(14,2)) AS cantidad,
                 CAST(COALESCE({$precioExprZero}, c.monto_total) AS DECIMAL(14,4)) AS precio_unitario,
@@ -273,12 +300,13 @@ class ReporteTesoreriaModel extends Modelo
                     END
                 AS DECIMAL(14,2)) AS monto_transaccion,
                 c.estado
-            FROM TargetCXC c
+            FROM BaseCXC c
             LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta AND v.deleted_at IS NULL
             LEFT JOIN ventas_documentos_detalle d ON d.id_documento_venta = v.id AND d.deleted_at IS NULL
             LEFT JOIN items i ON i.id = d.id_item
-            -- NUEVO JOIN: Para poder leer el nombre de los Combos
             LEFT JOIN precios_presentaciones pp ON pp.id = d.id_presentacion
+            -- Se usa fd1 y fh1
+            WHERE DATE(COALESCE(v.fecha_emision, c.fecha_emision)) BETWEEN :fd1 AND :fh1
 
             UNION ALL
 
@@ -293,8 +321,10 @@ class ReporteTesoreriaModel extends Modelo
                 CAST(m.monto AS DECIMAL(14,2)) AS monto_transaccion,
                 c.estado
             FROM tesoreria_movimientos m
-            INNER JOIN TargetCXC c ON c.id = m.id_origen AND m.origen = 'CXC'
+            INNER JOIN BaseCXC c ON c.id = m.id_origen AND m.origen = 'CXC'
+            -- Se usa fd2 y fh2
             WHERE m.tipo = 'COBRO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
+              AND DATE(m.fecha) BETWEEN :fd2 AND :fh2
             
             ORDER BY fecha_atencion DESC, tipo_transaccion ASC
             LIMIT :limite OFFSET :offset
@@ -303,15 +333,18 @@ class ReporteTesoreriaModel extends Modelo
         $countSql = $cte . "
             SELECT SUM(conteos) FROM (
                 SELECT COUNT(*) AS conteos 
-                FROM TargetCXC c
-                LEFT JOIN ventas_documentos_detalle d ON d.id_documento_venta = c.id_documento_venta AND d.deleted_at IS NULL
+                FROM BaseCXC c
+                LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta AND v.deleted_at IS NULL
+                LEFT JOIN ventas_documentos_detalle d ON d.id_documento_venta = v.id AND d.deleted_at IS NULL
+                WHERE DATE(COALESCE(v.fecha_emision, c.fecha_emision)) BETWEEN :fd1 AND :fh1
                 
                 UNION ALL
                 
                 SELECT COUNT(*) AS conteos 
                 FROM tesoreria_movimientos m
-                INNER JOIN TargetCXC c ON c.id = m.id_origen AND m.origen = 'CXC'
+                INNER JOIN BaseCXC c ON c.id = m.id_origen AND m.origen = 'CXC'
                 WHERE m.tipo = 'COBRO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
+                  AND DATE(m.fecha) BETWEEN :fd2 AND :fh2
             ) AS total
         ";
 
@@ -409,14 +442,49 @@ class ReporteTesoreriaModel extends Modelo
         $offset = ($pagina - 1) * $tamano;
         $cantidadExpr = $this->cantidadComprasDetalleExpr('d', '1');
         $cantidadExprZero = $this->cantidadComprasDetalleExpr('d', '0');
-        [$where, $params] = $this->buildEstadoCuentaProveedoresWhere($f);
+        
+        // CORRECCIÓN: Creamos parámetros únicos para las dos partes de la consulta
+        $params = [
+            'fd1' => $f['fecha_desde'],
+            'fh1' => $f['fecha_hasta'],
+            'fd2' => $f['fecha_desde'],
+            'fh2' => $f['fecha_hasta']
+        ];
+        
+        $whereBase = [
+            'c.deleted_at IS NULL'
+        ];
+
+        if (!empty($f['proveedor'])) {
+            $whereBase[] = "COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :proveedor";
+            $params['proveedor'] = '%' . (string) $f['proveedor'] . '%';
+        }
+
+        if (!empty($f['estado'])) {
+            $whereBase[] = 'c.estado = :estado';
+            $params['estado'] = (string) $f['estado'];
+        }
+
+        if (!empty($f['producto'])) {
+            $whereBase[] = 'EXISTS (
+                SELECT 1
+                FROM compras_ordenes_detalle d2
+                INNER JOIN items i2 ON i2.id = d2.id_item
+                WHERE d2.id_orden = c.id_orden_compra
+                  AND d2.deleted_at IS NULL
+                  AND COALESCE(NULLIF(TRIM(i2.nombre), \'\'), \'\') LIKE :producto
+            )';
+            $params['producto'] = '%' . (string) $f['producto'] . '%';
+        }
+
+        $whereCte = implode(' AND ', $whereBase);
 
         $cte = "
-            WITH TargetCXP AS (
+            WITH BaseCXP AS (
                 SELECT c.*, t.nombre_completo AS proveedor_nombre
                 FROM tesoreria_cxp c
                 INNER JOIN terceros t ON t.id = c.id_proveedor
-                WHERE {$where}
+                WHERE {$whereCte}
             )
         ";
 
@@ -436,10 +504,12 @@ class ReporteTesoreriaModel extends Modelo
                     END
                 AS DECIMAL(14,2)) AS monto_transaccion,
                 c.estado
-            FROM TargetCXP c
+            FROM BaseCXP c
             LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra AND co.deleted_at IS NULL
             LEFT JOIN compras_ordenes_detalle d ON d.id_orden = co.id AND d.deleted_at IS NULL
             LEFT JOIN items i ON i.id = d.id_item
+            -- Se usa fd1 y fh1
+            WHERE DATE(COALESCE(co.fecha_emision, c.fecha_emision)) BETWEEN :fd1 AND :fh1
 
             UNION ALL
 
@@ -454,8 +524,10 @@ class ReporteTesoreriaModel extends Modelo
                 CAST(m.monto AS DECIMAL(14,2)) AS monto_transaccion,
                 c.estado
             FROM tesoreria_movimientos m
-            INNER JOIN TargetCXP c ON c.id = m.id_origen AND m.origen = 'CXP'
+            INNER JOIN BaseCXP c ON c.id = m.id_origen AND m.origen = 'CXP'
+            -- Se usa fd2 y fh2
             WHERE m.tipo = 'PAGO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
+              AND DATE(m.fecha) BETWEEN :fd2 AND :fh2
 
             ORDER BY fecha_atencion DESC, tipo_transaccion ASC
             LIMIT :limite OFFSET :offset
@@ -464,15 +536,18 @@ class ReporteTesoreriaModel extends Modelo
         $countSql = $cte . "
             SELECT SUM(conteos) FROM (
                 SELECT COUNT(*) AS conteos
-                FROM TargetCXP c
-                LEFT JOIN compras_ordenes_detalle d ON d.id_orden = c.id_orden_compra AND d.deleted_at IS NULL
+                FROM BaseCXP c
+                LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra AND co.deleted_at IS NULL
+                LEFT JOIN compras_ordenes_detalle d ON d.id_orden = co.id AND d.deleted_at IS NULL
+                WHERE DATE(COALESCE(co.fecha_emision, c.fecha_emision)) BETWEEN :fd1 AND :fh1
 
                 UNION ALL
 
                 SELECT COUNT(*) AS conteos
                 FROM tesoreria_movimientos m
-                INNER JOIN TargetCXP c ON c.id = m.id_origen AND m.origen = 'CXP'
+                INNER JOIN BaseCXP c ON c.id = m.id_origen AND m.origen = 'CXP'
                 WHERE m.tipo = 'PAGO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
+                  AND DATE(m.fecha) BETWEEN :fd2 AND :fh2
             ) AS total
         ";
 

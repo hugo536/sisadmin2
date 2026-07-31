@@ -697,6 +697,7 @@ class ReportesController extends Controlador
             'tamano' => $tamano,
         ]);
     }
+    
 
     private function filtrosPeriodo(): array
     {
