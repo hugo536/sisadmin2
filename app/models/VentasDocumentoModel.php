@@ -115,7 +115,7 @@ class VentasDocumentoModel extends Modelo
                               d.precio_unitario,
                               d.total_linea AS subtotal,
                               d.cantidad_despachada,
-                              /* 👇 NUEVO: Mapeo del Peso 👇 */
+                              COALESCE(d.es_bonificacion, 0) AS es_bonificacion,
                               CASE 
                                   WHEN d.id_item > 0 THEN COALESCE(i.peso_kg, 0)
                                   ELSE {$pesoSqlPacksTotal}
@@ -220,11 +220,16 @@ class VentasDocumentoModel extends Modelo
             foreach ($detalle as $linea) {
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
+                $esBonificacion = (int) ($linea['es_bonificacion'] ?? 0); // <-- NUEVO
                 
                 if ($cantidad <= 0 || $precio < 0) {
                     throw new RuntimeException('Hay líneas con cantidad o precio inválido.');
                 }
-                $sumaLineas += ($cantidad * $precio);
+                
+                // Solo sumamos al total a cobrar si NO es una bonificación
+                if ($esBonificacion === 0) {
+                    $sumaLineas += ($cantidad * $precio);
+                }
             }
 
             $subtotal = 0.0;
@@ -325,16 +330,17 @@ class VentasDocumentoModel extends Modelo
 
             $sqlDet = 'INSERT INTO ventas_documentos_detalle (
                             id_documento_venta, id_item, id_presentacion, cantidad, precio_unitario, total_linea,
-                            created_by, updated_by, created_at, updated_at
+                            es_bonificacion, created_by, updated_by, created_at, updated_at
                         ) VALUES (
                             :id_documento, :id_item, :id_presentacion, :cantidad, :precio_unitario, :total_linea,
-                            :created_by, :updated_by, NOW(), NOW()
+                            :es_bonificacion, :created_by, :updated_by, NOW(), NOW()
                         )';
 
             $stmtDet = $db->prepare($sqlDet);
             foreach ($detalle as $linea) {
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
+                $esBonificacion = (int) ($linea['es_bonificacion'] ?? 0); // <-- NUEVO
 
                 $rawId = (string) ($linea['id_item'] ?? '');
                 $idItemDB = null;
@@ -355,7 +361,8 @@ class VentasDocumentoModel extends Modelo
                     'id_presentacion' => $idPresentacionDB > 0 ? $idPresentacionDB : null,
                     'cantidad' => $cantidad,
                     'precio_unitario' => $precio,
-                    'total_linea' => round($cantidad * $precio, 2), 
+                    'total_linea' => $esBonificacion === 1 ? 0 : round($cantidad * $precio, 2), // <-- El subtotal de BD queda en 0 si es regalo
+                    'es_bonificacion' => $esBonificacion, // <-- NUEVO
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);

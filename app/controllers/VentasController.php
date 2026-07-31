@@ -352,15 +352,20 @@ class VentasController extends Controlador
                 $rawId = trim((string) ($linea['id_item'] ?? ''));
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
+                $esBonificacion = (int) ($linea['es_bonificacion'] ?? 0); // <-- NUEVO: Capturar si es regalo
 
                 if ($rawId === '' || $rawId === '0') {
                     throw new RuntimeException('Hay líneas sin producto válido.');
                 }
 
-                if (isset($itemsUnicos[$rawId])) {
-                    throw new RuntimeException('No se permiten productos repetidos en el pedido.');
+                // <-- CAMBIO CLAVE: Combinamos ID + Estado de Bonificación
+                // Esto permite comprar "Agua Belén" y tener "Agua Belén" como regalo simultáneamente
+                $claveUnica = $rawId . '_' . $esBonificacion;
+
+                if (isset($itemsUnicos[$claveUnica])) {
+                    throw new RuntimeException('No se permiten productos repetidos dentro de la misma sección (Venta o Regalo).');
                 }
-                $itemsUnicos[$rawId] = true;
+                $itemsUnicos[$claveUnica] = true;
                 
                 if ($cantidad <= 0) {
                     throw new RuntimeException('La cantidad de los ítems debe ser mayor a 0.');

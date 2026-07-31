@@ -1,4 +1,34 @@
 (async function initVentas() {
+
+    // --- VARIABLES DE REGALOS / BONIFICACIONES ---
+    const tbodyRegalos = document.querySelector('#tablaDetalleRegalos tbody');
+    const templateFilaRegalo = document.getElementById('templateFilaRegalo');
+    const seccionRegalos = document.getElementById('seccionRegalos');
+    const btnMostrarTablaRegalos = document.getElementById('btnMostrarTablaRegalos');
+    const btnCerrarTablaRegalos = document.getElementById('btnCerrarTablaRegalos');
+    const btnAgregarFilaRegalo = document.getElementById('btnAgregarFilaRegalo');
+
+    if (btnMostrarTablaRegalos) {
+        btnMostrarTablaRegalos.addEventListener('click', () => {
+            seccionRegalos.classList.remove('d-none');
+            // Agrega una primera fila automáticamente si está vacía
+            if (tbodyRegalos && tbodyRegalos.children.length === 0) {
+                agregarFilaRegalo();
+            }
+        });
+    }
+
+    if (btnCerrarTablaRegalos) {
+        btnCerrarTablaRegalos.addEventListener('click', () => {
+            seccionRegalos.classList.add('d-none');
+        });
+    }
+
+    btnAgregarFilaRegalo?.addEventListener('click', async () => {
+        await agregarFilaRegalo();
+        actualizarBloqueoFormularioPorCliente();
+    });
+
     // --- VARIABLES GLOBALES DE IMPRESIÓN ---
     window.pedidoIdPendienteImpresion = window.pedidoIdPendienteImpresion || 0;
 
@@ -435,6 +465,26 @@
                 selectItem.disabled = bloquearControlesVenta;
             }
         });
+
+        if (btnMostrarTablaRegalos) btnMostrarTablaRegalos.disabled = bloquearControlesVenta;
+        if (btnAgregarFilaRegalo) btnAgregarFilaRegalo.disabled = bloquearControlesVenta;
+
+        if (tbodyRegalos) {
+            tbodyRegalos.querySelectorAll('tr').forEach((fila) => {
+                // Bloqueamos input cantidad, pero no el precio que es readonly por defecto
+                fila.querySelectorAll('input:not(.detalle-precio), button').forEach((control) => {
+                    control.disabled = bloquearControlesVenta;
+                });
+
+                const selectItem = fila.querySelector('.detalle-item');
+                if (selectItem?.tomselect) {
+                    if (bloquearControlesVenta) selectItem.tomselect.disable();
+                    else selectItem.tomselect.enable();
+                } else if (selectItem) {
+                    selectItem.disabled = bloquearControlesVenta;
+                }
+            });
+        }
     }
 
     // ==============================================================
@@ -900,6 +950,28 @@
             }
         });
 
+        // NUEVO: Sumar el peso de los productos de regalo (no afectan el precio final)
+        if (tbodyRegalos) {
+            tbodyRegalos.querySelectorAll('tr').forEach((fila) => {
+                const cantidad = parseFloat(fila.querySelector('.detalle-cantidad').value || 0);
+                const pesoUnitarioKg = obtenerPesoUnitarioFila(fila);
+                const pesoLineaKg = cantidad * pesoUnitarioKg;
+                
+                pesoTotalKg += pesoLineaKg; // Suma al peso global
+
+                const infoPeso = fila.querySelector('.detalle-peso-info');
+                if (infoPeso) {
+                    if (pesoUnitarioKg > 0) {
+                        infoPeso.classList.remove('d-none');
+                        infoPeso.querySelector('.peso-unitario').textContent = pesoUnitarioKg.toFixed(3);
+                        infoPeso.querySelector('.peso-subtotal').textContent = pesoLineaKg.toFixed(3);
+                    } else {
+                        infoPeso.classList.add('d-none');
+                    }
+                }
+            });
+        }
+
         let subtotal = 0;
         let igv = 0;
         let total = 0;
@@ -996,7 +1068,10 @@
 
     function obtenerItemsSeleccionados(excluirFila = null) {
         const seleccionados = new Set();
-        tbodyVenta.querySelectorAll('tr').forEach((fila) => {
+        const filasNormales = tbodyVenta ? [...tbodyVenta.querySelectorAll('tr')] : [];
+        const filasRegalo = tbodyRegalos ? [...tbodyRegalos.querySelectorAll('tr')] : [];
+        
+        [...filasNormales, ...filasRegalo].forEach((fila) => {
             if (fila === excluirFila) return;
             const selectEl = fila.querySelector('.detalle-item');
             const idItem = selectEl && selectEl.tomselect ? selectEl.tomselect.getValue() : (selectEl?.value || '');
@@ -1214,6 +1289,129 @@
         recalcularTotalVenta();
     }
 
+    async function agregarFilaRegalo(item = null, esBorrador = true) {
+        if (!templateFilaRegalo) return;
+        const fragment = templateFilaRegalo.content.cloneNode(true);
+        const filaReal = fragment.querySelector('tr');
+        tbodyRegalos.appendChild(fragment);
+
+        const inputCantidad = filaReal.querySelector('.detalle-cantidad');
+        const inputPrecioRef = filaReal.querySelector('.detalle-precio'); // Es Referencial
+        const selectItem = filaReal.querySelector('.detalle-item');
+        const btnQuitar = filaReal.querySelector('.btn-quitar-fila');
+
+        if (!esBorrador) {
+            inputCantidad.readOnly = true;
+            inputCantidad.classList.add('bg-light', 'border-0');
+            if (btnQuitar) btnQuitar.style.display = 'none';
+        }
+
+        inputCantidad.addEventListener('input', async () => {
+            validarCantidadVsStock(filaReal);
+            recalcularTotalVenta(); // Afecta el peso total
+        });
+        
+        btnQuitar.addEventListener('click', () => {
+            if (selectItem.tomselect) selectItem.tomselect.destroy();
+            filaReal.remove();
+            actualizarNumeracionFilas(); 
+            recalcularTotalVenta();
+        });
+
+        if (!tomSelectListo) {
+            selectItem.innerHTML = '<option value="">Tom Select no disponible</option>';
+            selectItem.disabled = true;
+            return;
+        }
+
+        const tom = initSelectAjax(selectItem, `${urls.index}&accion=buscar_items`, {
+            placeholder: "Buscar producto de regalo...",
+            dropdownParent: 'body', 
+            load: function(query, callback) {
+                const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0);
+                const cantidadActual = Number(inputCantidad.value || 1) || 1;
+                const url = `${urls.index}&accion=buscar_items&q=${encodeURIComponent(query)}&id_cliente=${idClienteActual}&cantidad=${encodeURIComponent(cantidadActual)}`;
+                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(response => response.json())
+                    .then(json => {
+                        const items = (json.data || []).map(prod => ({
+                            id: prod.id,
+                            text: `${prod.nombre || ''}`,
+                            stock: parseFloat(prod.stock_actual || 0),
+                            precio: parseFloat(prod.precio_venta || 0), // PRECIO REFERENCIAL
+                            permiteDecimales: Number(prod.permite_decimales || 0),
+                            pesoKg: Number(prod.peso_kg || 0)
+                        }));
+                        callback(items);
+                    }).catch(() => callback());
+            },
+            onChange: function(value) {
+                const selectedOption = this.options[value];
+                if (selectedOption) {
+                    const idSeleccionado = value || '';
+                    const repetido = idSeleccionado !== '' && obtenerItemsSeleccionados(filaReal).has(idSeleccionado);
+                    if (repetido) {
+                        this.clear(true);
+                        filaReal.querySelector('.detalle-stock').textContent = '0.00';
+                        Swal.fire('Producto repetido', 'Este producto ya está seleccionado en la venta principal o en los regalos.', 'warning');
+                        return;
+                    }
+
+                    filaReal.querySelector('.detalle-stock').textContent = selectedOption.stock.toFixed(2);
+                    inputPrecioRef.value = selectedOption.precio.toFixed(4);
+                    filaReal.dataset.pesoKg = String(Number(selectedOption.pesoKg || 0));
+                    
+                    let valorActual = inputCantidad.value;
+                    if (valorActual === '0' || valorActual === '0.00' || valorActual === '') valorActual = ''; 
+                    configurarInputCantidad(inputCantidad, selectedOption.permiteDecimales, valorActual);
+                    setTimeout(() => inputCantidad.focus(), 50);
+                }
+                validarCantidadVsStock(filaReal);
+                recalcularTotalVenta();
+            },
+            render: {
+                no_results: () => '<div class="no-results">No se encontraron productos</div>',
+                loading: () => '<div class="spinner-border spinner-border-sm text-info m-2"></div> buscando...',
+                option: function(data, escape) {
+                    const stockColor = data.stock <= 0 ? 'text-danger fw-bold' : 'text-success';
+                    let stockLabel = data.stock <= 0 ? 'SIN STOCK' : (data.permiteDecimales === 1 ? Number(data.stock).toFixed(2) : String(Math.round(data.stock))); 
+                    return `<div class="py-2 d-flex justify-content-between align-items-center">
+                        <div><div class="fw-bold text-dark">${escape(data.text)}</div></div>
+                        <div class="text-end">
+                            <div class="small ${stockColor}">Stock: ${stockLabel}</div>
+                            <div class="fw-bold text-muted small">Ref: S/ ${escape(Number(data.precio).toFixed(2))}</div>
+                        </div>
+                    </div>`;
+                }
+            }
+        });
+
+        if (item) {
+            tom.addOption({
+                id: item.id_item, 
+                text: `${item.item_nombre || ''}`,
+                stock: Number(item.stock_actual || 0), 
+                precio: Number(item.precio_unitario),
+                permiteDecimales: Number(item.permite_decimales || 0),
+                pesoKg: Number(item.peso_kg || 0)
+            });
+            tom.setValue(item.id_item);
+            filaReal.dataset.pesoKg = String(Number(item.peso_kg || 0));
+     
+            if (!esBorrador) tom.disable(); 
+
+            configurarInputCantidad(inputCantidad, item.permite_decimales, item.cantidad || 0);
+            inputPrecioRef.value = Number(item.precio_unitario || 0).toFixed(4);
+            
+            const stockItem = Number(item.stock_actual || 0);
+            const stockMostrar = Number(item.permite_decimales || 0) === 1 ? stockItem.toFixed(2) : String(Math.round(stockItem));
+            filaReal.querySelector('.detalle-stock').textContent = stockMostrar;
+        }
+
+        actualizarNumeracionFilas(); // Considera modificar tu funcion para iterar ambas tablas
+        recalcularTotalVenta();
+    }
+
     function limpiarModalVenta() {
         bloqueoEdicionVenta = false;
         ventaId.value = 0;
@@ -1236,11 +1434,21 @@
             tipoImpuesto.removeAttribute('data-readonly');
         }
 
+        // Limpieza de Tabla de Venta
         tbodyVenta.querySelectorAll('.detalle-item').forEach((select) => {
             if (select.tomselect) select.tomselect.destroy();
         });
-
         tbodyVenta.innerHTML = '';
+
+        // Limpieza de Tabla de Regalos (Bloque 7)
+        if (tbodyRegalos) {
+            tbodyRegalos.querySelectorAll('.detalle-item').forEach((select) => {
+                if (select.tomselect) select.tomselect.destroy();
+            });
+            tbodyRegalos.innerHTML = '';
+        }
+        if (seccionRegalos) seccionRegalos.classList.add('d-none');
+
         if (ventaSubtotal) ventaSubtotal.textContent = 'S/ 0.00';
         if (ventaIgv) ventaIgv.textContent = 'S/ 0.00';
         if (ventaTotal) {
@@ -1310,28 +1518,48 @@
             const clienteIdActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idCliente.value || 0);
             if (!clienteIdActual) throw new Error('Debe seleccionar Cliente / Beneficiario antes de continuar.');
 
-            const filasArray = [...tbodyVenta.querySelectorAll('tr')];
-            if (filasArray.length === 0) throw new Error('Debe agregar al menos un producto.');
+            const filasVentaArray = [...tbodyVenta.querySelectorAll('tr')];
+            const filasRegaloArray = tbodyRegalos ? [...tbodyRegalos.querySelectorAll('tr')] : [];
             
-            const detalle = filasArray.map((fila) => filaVentaPayload(fila));
+            if (filasVentaArray.length === 0 && filasRegaloArray.length === 0) throw new Error('Debe agregar al menos un producto al pedido.');
+            
+            const detalle = [];
             const ids = new Set();
             let excedeStock = false; 
 
-            for (let i = 0; i < filasArray.length; i++) {
-                const fila = filasArray[i];
-                const data = detalle[i];
+            // 1. Procesar Ventas Normales
+            for (let i = 0; i < filasVentaArray.length; i++) {
+                const fila = filasVentaArray[i];
+                const data = filaVentaPayload(fila);
+                data.es_bonificacion = 0; // Marcar como cobrado
                 
-                if (!data.id_item || data.id_item === '0') {
-                    throw new Error('Seleccione un producto en todas las filas.');
-                }
-                if (ids.has(data.id_item)) {
-                    throw new Error('No se permiten productos repetidos en el pedido.');
-                }
+                if (!data.id_item || data.id_item === '0') throw new Error('Seleccione un producto en todas las filas de la tabla de venta.');
+                if (ids.has(data.id_item)) throw new Error('No se permiten productos repetidos en el pedido.');
                 ids.add(data.id_item);
+                if (!validarCantidadVsStock(fila)) excedeStock = true;
                 
-                if (!validarCantidadVsStock(fila)) {
-                    excedeStock = true;
-                }
+                detalle.push(data);
+            }
+
+            // 2. Procesar Regalos
+            for (let i = 0; i < filasRegaloArray.length; i++) {
+                const fila = filasRegaloArray[i];
+                const selectElement = fila.querySelector('.detalle-item');
+                const idItem = selectElement && selectElement.tomselect ? selectElement.tomselect.getValue() : (selectElement ? selectElement.value : '');
+                
+                const data = {
+                    id_item: idItem || '',
+                    cantidad: parseFloat(fila.querySelector('.detalle-cantidad').value || 0),
+                    precio_unitario: parseFloat(fila.querySelector('.detalle-precio').value || 0), // Enviaremos el ref para reportes
+                    es_bonificacion: 1 // Identificador clave para el backend
+                };
+
+                if (!data.id_item || data.id_item === '0') throw new Error('Seleccione un producto en todas las filas de regalo.');
+                if (ids.has(data.id_item)) throw new Error('No se permiten productos repetidos (entre venta y regalos).');
+                ids.add(data.id_item);
+                if (!validarCantidadVsStock(fila)) excedeStock = true;
+                
+                detalle.push(data);
             }
 
             let esCobroInmediato = false;
@@ -2385,7 +2613,7 @@
         const esBorrador = estadoDoc === 0;
         bloqueoEdicionVenta = !esBorrador;
         
-        const nombreCliente = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente';
+       const nombreCliente = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente';
         if (tomSelectCliente) {
             tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente, saldo_favor: Number(venta.saldo_favor_cliente || 0) });
             tomSelectCliente.setValue(venta.id_cliente);
@@ -2422,11 +2650,28 @@
         const btnGlobalAdd = document.getElementById('btnAgregarFilaVenta');
         if (btnGlobalAdd) btnGlobalAdd.style.display = esBorrador ? 'inline-block' : 'none';
 
+        // ==========================================
+        // NUEVO BLOQUE 8: CARGA DE VENTAS Y REGALOS
+        // ==========================================
+        let tieneRegalos = false;
         if (venta.detalle && venta.detalle.length) {
-            for (const linea of venta.detalle) await agregarFilaVenta(linea, esBorrador);
+            for (const linea of venta.detalle) {
+                // Evaluamos el flag que viene de la BD
+                if (Number(linea.es_bonificacion || 0) === 1) {
+                    await agregarFilaRegalo(linea, esBorrador);
+                    tieneRegalos = true;
+                } else {
+                    await agregarFilaVenta(linea, esBorrador);
+                }
+            }
         } else {
             await agregarFilaVenta(null, esBorrador);
         }
+
+        if (tieneRegalos && seccionRegalos) {
+            seccionRegalos.classList.remove('d-none');
+        }
+        // ==========================================
         
         const btnGuardar = document.getElementById('btnGuardarVenta');
         if (esBorrador) {

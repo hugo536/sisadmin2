@@ -295,6 +295,11 @@ $formatearFechaDMY = static function ($fecha): string {
                                                         <i class="bi bi-plus-lg me-1"></i>Agregar Producto
                                                     </button>
                                                     
+                                                    <!-- NUEVO BOTÓN AQUÍ -->
+                                                    <button type="button" class="btn btn-sm btn-outline-info fw-semibold" id="btnMostrarTablaRegalos">
+                                                        <i class="bi bi-gift me-1"></i>Añadir Regalos
+                                                    </button>
+                                                    
                                                     <div class="d-none d-sm-flex align-items-center bg-white border border-secondary-subtle rounded-2 px-2 py-1 shadow-sm">
                                                         <i class="bi bi-box-seam text-muted me-2"></i>
                                                         <span class="text-muted small fw-bold me-1">Peso est:</span>
@@ -330,6 +335,51 @@ $formatearFechaDMY = static function ($fecha): string {
                             </div>
                         </div>
                     </div>
+
+                    <!-- NUEVA SECCIÓN DE REGALOS -->
+                    <div class="card border-info-subtle shadow-sm mt-3 d-none fade-in" id="seccionRegalos">
+                        <div class="card-body p-0">
+                            <div class="p-3 border-bottom bg-info-subtle rounded-top d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-gift text-info-emphasis me-2 fs-5"></i>
+                                    <h6 class="mb-0 fw-bold text-info-emphasis">Productos de Regalo / Bonificaciones</h6>
+                                </div>
+                                <button type="button" class="btn-close btn-sm" id="btnCerrarTablaRegalos" aria-label="Cerrar"></button>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0 table-pro" id="tablaDetalleRegalos">
+                                    <thead class="table-light border-bottom">
+                                        <tr>
+                                            <th class="text-center text-secondary col-w-40 py-2">#</th>
+                                            <th class="ps-3 text-secondary col-min-w-300 py-2">Producto a Regalar</th>
+                                            <th class="text-end text-secondary col-w-100 py-2">Stock</th>
+                                            <th class="text-center text-secondary col-w-120 py-2">Cantidad</th>
+                                            <th class="text-center text-secondary col-w-140 py-2">Valor Ref.</th>
+                                            <th class="text-end text-secondary col-w-140 py-2">Subtotal</th>
+                                            <th class="text-center col-w-60 py-2"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white"></tbody>
+                                    <tfoot class="bg-light border-top">
+                                        <tr>
+                                            <td colspan="7" class="ps-3 py-3 align-middle border-bottom-0">
+                                                <div class="d-flex align-items-center">
+                                                    <button type="button" class="btn btn-sm btn-info text-white fw-semibold shadow-sm" id="btnAgregarFilaRegalo">
+                                                        <i class="bi bi-plus-lg me-1"></i>Agregar Regalo
+                                                    </button>
+                                                    <small class="text-info-emphasis ms-3 fw-semibold">
+                                                        <i class="bi bi-info-circle-fill me-1"></i>Estos productos descontarán stock pero no sumarán al total a cobrar.
+                                                    </small>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- FIN SECCIÓN DE REGALOS -->
                     
                     <div class="card border-0 shadow-sm mt-4 d-none" id="seccionDevolucionesVenta">
                         <div class="card-body p-0">
@@ -885,6 +935,40 @@ $formatearFechaDMY = static function ($fecha): string {
         <td class="text-end align-top py-3 fw-bold text-dark detalle-subtotal fs-6" data-label="Subtotal">S/ 0.00</td>
         <td class="text-center align-top py-3" data-label="Acción">
             <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-fila p-1" data-bs-toggle="tooltip" title="Quitar fila" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-trash-fill"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+
+<!-- TEMPLATE PARA FILAS DE REGALO -->
+<template id="templateFilaRegalo">
+    <tr class="border-bottom bg-info bg-opacity-10">
+        <td class="text-center fw-bold text-muted align-top py-3 fila-numero bg-light-subtle" style="font-size: 0.85rem;">1</td>
+        <td class="ps-3 py-3 align-top" data-label="Producto">
+            <select class="form-select form-select-sm detalle-item shadow-none border-info-subtle" required></select>
+            
+            <div class="mt-1 d-flex flex-column gap-1">
+                <small class="text-muted d-none detalle-peso-info" style="font-size: 0.75rem;">
+                    <i class="bi bi-box-seam me-1"></i><span class="peso-unitario">0.00</span> kg c/u (Total: <span class="peso-subtotal">0.00</span> kg)
+                </small>
+            </div>
+        </td>
+        <td class="text-end text-muted small fw-bold py-3 px-2 align-top detalle-stock" data-label="Stock Disponible">0.00</td>
+        <td class="align-top py-3 px-2" data-label="Cantidad">
+            <input type="number" class="form-control form-control-sm text-center detalle-cantidad fw-bold text-info shadow-none border-info-subtle" min="0" step="1" value="" required>
+        </td>
+        <td class="align-top py-3 px-2" data-label="Valor Ref.">
+            <div class="input-group input-group-sm opacity-75" title="Valor referencial - No se cobra">
+                <span class="input-group-text border-end-0 text-muted bg-light border-info-subtle">S/</span>
+                <input type="number" class="form-control border-start-0 text-end detalle-precio shadow-none border-info-subtle text-muted bg-light" min="0" step="0.0001" value="0.00" readonly tabindex="-1">
+            </div>
+        </td>
+        <td class="text-end align-top py-3 fw-bold text-success detalle-subtotal fs-6" data-label="Subtotal">
+            S/ 0.00 <br><span class="badge bg-success-subtle text-success border border-success-subtle mt-1" style="font-size: 0.65rem;">GRATIS</span>
+        </td>
+        <td class="text-center align-top py-3" data-label="Acción">
+            <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-fila p-1" data-bs-toggle="tooltip" title="Quitar regalo" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
                 <i class="bi bi-trash-fill"></i>
             </button>
         </td>
