@@ -8,19 +8,28 @@
     const btnCerrarTablaRegalos = document.getElementById('btnCerrarTablaRegalos');
     const btnAgregarFilaRegalo = document.getElementById('btnAgregarFilaRegalo');
 
+    async function mostrarTablaRegalos() {
+        if (!seccionRegalos || !tbodyRegalos) return;
+
+        seccionRegalos.classList.remove('d-none');
+
+        // Agrega una primera fila automáticamente si está vacía.
+        if (tbodyRegalos.children.length === 0) {
+            await agregarFilaRegalo();
+        }
+
+        seccionRegalos.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
     if (btnMostrarTablaRegalos) {
-        btnMostrarTablaRegalos.addEventListener('click', () => {
-            seccionRegalos.classList.remove('d-none');
-            // Agrega una primera fila automáticamente si está vacía
-            if (tbodyRegalos && tbodyRegalos.children.length === 0) {
-                agregarFilaRegalo();
-            }
+        btnMostrarTablaRegalos.addEventListener('click', async () => {
+            await mostrarTablaRegalos();
         });
     }
 
     if (btnCerrarTablaRegalos) {
         btnCerrarTablaRegalos.addEventListener('click', () => {
-            seccionRegalos.classList.add('d-none');
+            if (seccionRegalos) seccionRegalos.classList.add('d-none');
         });
     }
 
