@@ -753,98 +753,186 @@ class ReporteTesoreriaModel extends Modelo
 
     private function resumenEstadoCuenta(array $f): array
     {
-        $params = [
-            'fd' => $f['fecha_desde'],
-            'fh' => $f['fecha_hasta'],
-        ];
-
-        $whereBase = [
-            'c.deleted_at IS NULL',
-            'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
-            // NUEVO: Filtro para los cálculos de la cabecera
-            'NOT EXISTS (SELECT 1 FROM ventas_documentos v WHERE v.id = c.id_documento_venta AND v.tipo_operacion = "DONACION")'
-        ];
-        
-        $whereAnterior = [
-            'c.deleted_at IS NULL',
-            'DATE(c.fecha_emision) < :fd_anterior',
-            // NUEVO: Filtro para que las donaciones no alteren el saldo histórico
-            'NOT EXISTS (SELECT 1 FROM ventas_documentos v WHERE v.id = c.id_documento_venta AND v.tipo_operacion = "DONACION")'
-        ];
-        $params['fd_anterior'] = $f['fecha_desde'];
+        $paramsAnt = ['fd' => $f['fecha_desde']];
+        $paramsPer = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
+        $filtroCliente = "";
 
         if (!empty($f['cliente'])) {
-            $condicionCliente = "COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :cliente";
-            $whereBase[] = $condicionCliente;
-            $whereAnterior[] = $condicionCliente;
-            $params['cliente'] = '%' . (string) $f['cliente'] . '%';
+            $filtroCliente = " AND COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :cliente";
+            $paramsAnt['cliente'] = '%' . (string) $f['cliente'] . '%';
+            $paramsPer['cliente'] = '%' . (string) $f['cliente'] . '%';
         }
 
-        if (!empty($f['estado'])) {
-            $whereBase[] = 'c.estado = :estado';
-            $params['estado'] = (string) $f['estado'];
-        }
-
-        if (!empty($f['producto'])) {
-            $whereBase[] = 'EXISTS (
-                SELECT 1
-                FROM ventas_documentos_detalle d2
-                INNER JOIN items i2 ON i2.id = d2.id_item
-                WHERE d2.id_documento_venta = c.id_documento_venta
-                  AND d2.deleted_at IS NULL
-                  AND COALESCE(NULLIF(TRIM(i2.nombre), \'\'), \'\') LIKE :producto
-            )';
-            $params['producto'] = '%' . (string) $f['producto'] . '%';
-        }
-
-        $where = implode(' AND ', $whereBase);
-        $whereAnt = implode(' AND ', $whereAnterior);
-
-        // 1. OBTENEMOS EL RESUMEN DEL PERIODO ACTUAL
-        $sql = "SELECT
-                    CAST(ROUND(SUM(c.monto_total), 2) AS DECIMAL(14,2)) AS total_facturado,
-                    CAST(ROUND(SUM(c.monto_pagado), 2) AS DECIMAL(14,2)) AS total_pagado,
-                    CAST(ROUND(SUM(c.saldo), 2) AS DECIMAL(14,2)) AS total_saldo,
-                    COUNT(*) AS total_documentos
-                FROM tesoreria_cxc c
-                INNER JOIN terceros t ON t.id = c.id_cliente
-                WHERE {$where}";
-
-        $stmt = $this->db()->prepare($sql);
-        foreach ($params as $k => $v) {
-            if ($k !== 'fd_anterior') {
-                $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
-            }
-        }
-        $stmt->execute();
-        $resumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: [
-            'total_facturado' => 0,
-            'total_pagado' => 0,
-            'total_saldo' => 0,
-            'total_documentos' => 0,
-        ];
-
-        // 2. OBTENEMOS EL SALDO ANTERIOR A LA FECHA 'DESDE'
-        $sqlAnterior = "
-            SELECT 
-                (COALESCE(SUM(c.monto_total), 0) - COALESCE(SUM(c.monto_pagado), 0)) AS saldo_anterior
+        // =======================================================
+        // 1. SALDO INICIAL (Todo lo ocurrido ANTES de la fecha_desde)
+        // =======================================================
+        
+        // A. Sumar todos los cargos (Deuda) creados antes de la fecha
+        $sqlCargosAnt = "
+            SELECT COALESCE(SUM(c.monto_total), 0) 
             FROM tesoreria_cxc c
             INNER JOIN terceros t ON t.id = c.id_cliente
-            WHERE {$whereAnt}
+            LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta
+            WHERE c.deleted_at IS NULL 
+              AND DATE(COALESCE(v.fecha_emision, c.fecha_emision)) < :fd
+              AND NOT EXISTS (SELECT 1 FROM ventas_documentos v2 WHERE v2.id = c.id_documento_venta AND v2.tipo_operacion = 'DONACION')
+              {$filtroCliente}
         ";
+        $stmt = $this->db()->prepare($sqlCargosAnt);
+        $stmt->execute($paramsAnt);
+        $totalCargosAnt = (float) $stmt->fetchColumn();
+
+        // B. Sumar todos los abonos (Pagos) realizados antes de la fecha
+        $sqlAbonosAnt = "
+            SELECT COALESCE(SUM(m.monto), 0) 
+            FROM tesoreria_movimientos m
+            INNER JOIN tesoreria_cxc c ON c.id = m.id_origen AND m.origen = 'CXC'
+            INNER JOIN terceros t ON t.id = c.id_cliente
+            WHERE m.deleted_at IS NULL 
+              AND m.tipo = 'COBRO' 
+              AND m.estado = 'CONFIRMADO'
+              AND DATE(m.fecha) < :fd
+              {$filtroCliente}
+        ";
+        $stmt = $this->db()->prepare($sqlAbonosAnt);
+        $stmt->execute($paramsAnt);
+        $totalAbonosAnt = (float) $stmt->fetchColumn();
+
+        $saldoInicial = $totalCargosAnt - $totalAbonosAnt;
+
+        // =======================================================
+        // 2. MOVIMIENTOS DEL PERIODO (Entre fecha_desde y fecha_hasta)
+        // =======================================================
         
-        $stmtAnt = $this->db()->prepare($sqlAnterior);
-        foreach ($params as $k => $v) {
-            if (in_array($k, ['fd_anterior', 'cliente'])) {
-                $stmtAnt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
-            }
+        // C. Cargos generados en el periodo
+        $sqlCargosPer = "
+            SELECT COALESCE(SUM(c.monto_total), 0) AS total, COUNT(c.id) AS cant
+            FROM tesoreria_cxc c
+            INNER JOIN terceros t ON t.id = c.id_cliente
+            LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta
+            WHERE c.deleted_at IS NULL 
+              AND DATE(COALESCE(v.fecha_emision, c.fecha_emision)) BETWEEN :fd AND :fh
+              AND NOT EXISTS (SELECT 1 FROM ventas_documentos v2 WHERE v2.id = c.id_documento_venta AND v2.tipo_operacion = 'DONACION')
+              {$filtroCliente}
+        ";
+        $stmt = $this->db()->prepare($sqlCargosPer);
+        $stmt->execute($paramsPer);
+        $resCargosPer = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // D. Abonos realizados en el periodo
+        $sqlAbonosPer = "
+            SELECT COALESCE(SUM(m.monto), 0) AS total, COUNT(m.id) AS cant
+            FROM tesoreria_movimientos m
+            INNER JOIN tesoreria_cxc c ON c.id = m.id_origen AND m.origen = 'CXC'
+            INNER JOIN terceros t ON t.id = c.id_cliente
+            WHERE m.deleted_at IS NULL 
+              AND m.tipo = 'COBRO' 
+              AND m.estado = 'CONFIRMADO'
+              AND DATE(m.fecha) BETWEEN :fd AND :fh
+              {$filtroCliente}
+        ";
+        $stmt = $this->db()->prepare($sqlAbonosPer);
+        $stmt->execute($paramsPer);
+        $resAbonosPer = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $totalFacturado = (float) ($resCargosPer['total'] ?? 0);
+        $totalPagado = (float) ($resAbonosPer['total'] ?? 0);
+
+        // =======================================================
+        // 3. ARMADO DE RESULTADO MATEMÁTICO
+        // =======================================================
+        return [
+            'saldo_inicial'    => $saldoInicial,
+            'total_facturado'  => $totalFacturado,
+            'total_pagado'     => $totalPagado,
+            'total_saldo'      => $saldoInicial + $totalFacturado - $totalPagado,
+            'total_documentos' => (int)($resCargosPer['cant'] ?? 0) + (int)($resAbonosPer['cant'] ?? 0)
+        ];
+    }
+
+    private function resumenEstadoCuentaProveedores(array $f): array
+    {
+        $paramsAnt = ['fd' => $f['fecha_desde']];
+        $paramsPer = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
+        $filtroProveedor = "";
+
+        if (!empty($f['proveedor'])) {
+            $filtroProveedor = " AND COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :proveedor";
+            $paramsAnt['proveedor'] = '%' . (string) $f['proveedor'] . '%';
+            $paramsPer['proveedor'] = '%' . (string) $f['proveedor'] . '%';
         }
-        $stmtAnt->execute();
-        $saldoAnt = (float) $stmtAnt->fetchColumn();
 
-        $resumen['saldo_anterior'] = $saldoAnt;
+        // 1. SALDO INICIAL (ANTES de fecha_desde)
+        $sqlCargosAnt = "
+            SELECT COALESCE(SUM(c.monto_total), 0) 
+            FROM tesoreria_cxp c
+            INNER JOIN terceros t ON t.id = c.id_proveedor
+            LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra
+            WHERE c.deleted_at IS NULL 
+              AND DATE(COALESCE(co.fecha_emision, c.fecha_emision)) < :fd
+              {$filtroProveedor}
+        ";
+        $stmt = $this->db()->prepare($sqlCargosAnt);
+        $stmt->execute($paramsAnt);
+        $totalCargosAnt = (float) $stmt->fetchColumn();
 
-        return $resumen;
+        $sqlAbonosAnt = "
+            SELECT COALESCE(SUM(m.monto), 0) 
+            FROM tesoreria_movimientos m
+            INNER JOIN tesoreria_cxp c ON c.id = m.id_origen AND m.origen = 'CXP'
+            INNER JOIN terceros t ON t.id = c.id_proveedor
+            WHERE m.deleted_at IS NULL 
+              AND m.tipo = 'PAGO' 
+              AND m.estado = 'CONFIRMADO'
+              AND DATE(m.fecha) < :fd
+              {$filtroProveedor}
+        ";
+        $stmt = $this->db()->prepare($sqlAbonosAnt);
+        $stmt->execute($paramsAnt);
+        $totalAbonosAnt = (float) $stmt->fetchColumn();
+
+        $saldoInicial = $totalCargosAnt - $totalAbonosAnt;
+
+        // 2. MOVIMIENTOS DEL PERIODO
+        $sqlCargosPer = "
+            SELECT COALESCE(SUM(c.monto_total), 0) AS total, COUNT(c.id) AS cant
+            FROM tesoreria_cxp c
+            INNER JOIN terceros t ON t.id = c.id_proveedor
+            LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra
+            WHERE c.deleted_at IS NULL 
+              AND DATE(COALESCE(co.fecha_emision, c.fecha_emision)) BETWEEN :fd AND :fh
+              {$filtroProveedor}
+        ";
+        $stmt = $this->db()->prepare($sqlCargosPer);
+        $stmt->execute($paramsPer);
+        $resCargosPer = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $sqlAbonosPer = "
+            SELECT COALESCE(SUM(m.monto), 0) AS total, COUNT(m.id) AS cant
+            FROM tesoreria_movimientos m
+            INNER JOIN tesoreria_cxp c ON c.id = m.id_origen AND m.origen = 'CXP'
+            INNER JOIN terceros t ON t.id = c.id_proveedor
+            WHERE m.deleted_at IS NULL 
+              AND m.tipo = 'PAGO' 
+              AND m.estado = 'CONFIRMADO'
+              AND DATE(m.fecha) BETWEEN :fd AND :fh
+              {$filtroProveedor}
+        ";
+        $stmt = $this->db()->prepare($sqlAbonosPer);
+        $stmt->execute($paramsPer);
+        $resAbonosPer = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $totalFacturado = (float) ($resCargosPer['total'] ?? 0);
+        $totalPagado = (float) ($resAbonosPer['total'] ?? 0);
+
+        // 3. RESULTADO
+        return [
+            'saldo_inicial'    => $saldoInicial,
+            'total_facturado'  => $totalFacturado,
+            'total_pagado'     => $totalPagado,
+            'total_saldo'      => $saldoInicial + $totalFacturado - $totalPagado,
+            'total_documentos' => (int)($resCargosPer['cant'] ?? 0) + (int)($resAbonosPer['cant'] ?? 0)
+        ];
     }
 
     private function buildEstadoCuentaWhere(array $f): array
@@ -877,96 +965,6 @@ class ReporteTesoreriaModel extends Modelo
         }
 
         return [implode(' AND ', $where), $params];
-    }
-
-    private function resumenEstadoCuentaProveedores(array $f): array
-    {
-        $params = [
-            'fd' => $f['fecha_desde'],
-            'fh' => $f['fecha_hasta'],
-        ];
-
-        $whereBase = [
-            'c.deleted_at IS NULL',
-            'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
-        ];
-
-        $whereAnterior = [
-            'c.deleted_at IS NULL',
-            'DATE(c.fecha_emision) < :fd_anterior',
-        ];
-        $params['fd_anterior'] = $f['fecha_desde'];
-
-        if (!empty($f['proveedor'])) {
-            $condicionProveedor = "COALESCE(NULLIF(TRIM(t.nombre_completo), ''), '') LIKE :proveedor";
-            $whereBase[] = $condicionProveedor;
-            $whereAnterior[] = $condicionProveedor;
-            $params['proveedor'] = '%' . (string) $f['proveedor'] . '%';
-        }
-
-        if (!empty($f['estado'])) {
-            $whereBase[] = 'c.estado = :estado';
-            $params['estado'] = (string) $f['estado'];
-        }
-
-        if (!empty($f['producto'])) {
-            $whereBase[] = 'EXISTS (
-                SELECT 1
-                FROM compras_ordenes_detalle d2
-                INNER JOIN items i2 ON i2.id = d2.id_item
-                WHERE d2.id_orden = c.id_orden_compra
-                  AND d2.deleted_at IS NULL
-                  AND COALESCE(NULLIF(TRIM(i2.nombre), \'\'), \'\') LIKE :producto
-            )';
-            $params['producto'] = '%' . (string) $f['producto'] . '%';
-        }
-
-        $where = implode(' AND ', $whereBase);
-        $whereAnt = implode(' AND ', $whereAnterior);
-
-        $sql = "SELECT
-                    CAST(ROUND(SUM(c.monto_total), 2) AS DECIMAL(14,2)) AS total_facturado,
-                    CAST(ROUND(SUM(c.monto_pagado), 2) AS DECIMAL(14,2)) AS total_pagado,
-                    CAST(ROUND(SUM(c.saldo), 2) AS DECIMAL(14,2)) AS total_saldo,
-                    COUNT(*) AS total_documentos
-                FROM tesoreria_cxp c
-                INNER JOIN terceros t ON t.id = c.id_proveedor
-                WHERE {$where}";
-
-        $stmt = $this->db()->prepare($sql);
-        foreach ($params as $k => $v) {
-            if ($k !== 'fd_anterior') {
-                $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
-            }
-        }
-        $stmt->execute();
-        $resumen = $stmt->fetch(PDO::FETCH_ASSOC) ?: [
-            'total_facturado' => 0,
-            'total_pagado' => 0,
-            'total_saldo' => 0,
-            'total_documentos' => 0,
-        ];
-
-        $sqlAnterior = "
-            SELECT
-                (COALESCE(SUM(c.monto_total), 0) - COALESCE(SUM(c.monto_pagado), 0)) AS saldo_anterior
-            FROM tesoreria_cxp c
-            INNER JOIN terceros t ON t.id = c.id_proveedor
-            WHERE {$whereAnt}
-        ";
-
-        $stmtAnt = $this->db()->prepare($sqlAnterior);
-        foreach ($params as $k => $v) {
-            if (in_array($k, ['fd_anterior', 'proveedor'], true)) {
-                $stmtAnt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
-            }
-        }
-        $stmtAnt->execute();
-        $saldoAnt = (float) $stmtAnt->fetchColumn();
-
-        $resumen['saldo_anterior'] = $saldoAnt;
-
-        return $resumen;
     }
 
     private function buildEstadoCuentaProveedoresWhere(array $f): array

@@ -624,8 +624,24 @@ class ReportesController extends Controlador
             return;
         }
 
-        $detalle = $this->tesoreria->historialEstadoCuenta($f, $pagina, $tamano);
-        $porProducto = $this->tesoreria->estadoCuentaPorProducto($f, 200);
+        if (empty($f['cliente'])) {
+            // Si no hay cliente seleccionado, devolvemos los datos en cero/vacío
+            $detalle = [
+                'rows' => [], 
+                'total' => 0, 
+                'resumen' => [
+                    'saldo_inicial' => 0, 
+                    'total_facturado' => 0, 
+                    'total_pagado' => 0, 
+                    'total_saldo' => 0
+                ]
+            ];
+            $porProducto = [];
+        } else {
+            // Si hay cliente, procesamos la información normalmente
+            $detalle = $this->tesoreria->historialEstadoCuenta($f, $pagina, $tamano);
+            $porProducto = $this->tesoreria->estadoCuentaPorProducto($f, 200);
+        }
 
         $this->render('reportes/estado_cuenta', [
             'ruta_actual' => 'reportes/estado_cuenta',
