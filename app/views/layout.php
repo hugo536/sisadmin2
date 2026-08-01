@@ -85,13 +85,15 @@
 
 <?php
 $configEmpresa = $configEmpresa ?? [];
-$colorSistema = strtolower((string) ($configEmpresa['color_sistema'] ?? 'light'));
-$esHex = (bool) preg_match('/^#([a-f0-9]{6})$/i', $colorSistema);
-$temaSistema = $esHex ? 'custom' : $colorSistema;
-$bodyStyle = $esHex ? "--primary-color: {$colorSistema}; --primary-hover: {$colorSistema};" : '';
+$temaElegido = (string) ($configEmpresa['color_sistema'] ?? 'theme-midnight');
+
+// Si por alguna razón hay un color hexadecimal viejo en la base de datos, forzamos el tema midnight
+if (!str_starts_with($temaElegido, 'theme-')) {
+    $temaElegido = 'theme-midnight';
+}
 ?>
 
-<body data-theme="<?php echo e($temaSistema); ?>" style="<?php echo e($bodyStyle); ?>">
+<body class="<?php echo e($temaElegido); ?>">
 <script>
 (function () {
     try {

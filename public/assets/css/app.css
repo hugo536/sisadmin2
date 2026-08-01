@@ -1,17 +1,23 @@
 /* ==========================================================================
-   CSS GLOBAL (LIMPIO, SIN REDUNDANCIAS) — LISTO PARA COPIAR
-   - Variables de tema (default/dark/blue)
+   CSS GLOBAL (INTEGRADO AL NUEVO SISTEMA DE TEMAS 2024)
    - Layout base (app-container/main-content) + fix sidebar offcanvas mobile
    - Componentes: card, botones, forms, badges, avatar
    ========================================================================== */
 
 /* =======================
-   THEME TOKENS
+   THEME TOKENS (SISTEMA DINÁMICO)
    ======================= */
-:root {
-  --primary-color: #2563eb;
-  --primary-hover: #1d4ed8;
+
+/* 1. TEMA POR DEFECTO (Midnight) */
+:root, body.theme-midnight {
+  --bs-primary: #0d6efd;
+  --bs-primary-rgb: 13, 110, 253;
+  --primary-color: var(--bs-primary);
+  --primary-hover: #0b5ed7;
   --secondary-color: #64748b;
+
+  --app-sidebar-bg: #1e293b;
+  --app-table-header: #1e293b;
 
   --bg-body: #f1f5f9;
   --bg-card: #ffffff;
@@ -27,7 +33,7 @@
   --sidebar-card-bg: rgba(255, 255, 255, 0.05);
   --sidebar-card-border: rgba(255, 255, 255, 0.12);
   --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
-  --sidebar-active-bg: rgba(37, 99, 235, 0.18);
+  --sidebar-active-bg: rgba(13, 110, 253, 0.18);
   --sidebar-active-color: #93c5fd;
   --sidebar-footer-bg: rgba(15, 23, 42, 0.4);
   --sidebar-scroll: rgba(255, 255, 255, 0.2);
@@ -40,46 +46,56 @@
   --danger-border: #fecaca;
 }
 
-body[data-theme="dark"] {
-  --primary-color: #7c3aed;
-  --primary-hover: #6d28d9;
-  --bg-body: #0b1120;
-  --bg-card: #111827;
-  --text-main: #e5e7eb;
-  --text-muted: #9ca3af;
-
-  --sidebar-gradient: linear-gradient(180deg, #111827 0%, #030712 100%);
-  --sidebar-text: #d1d5db;
-  --sidebar-muted: #9ca3af;
-  --sidebar-icon: #9ca3af;
-  --sidebar-border: rgba(255, 255, 255, 0.12);
-  --sidebar-card-bg: rgba(255, 255, 255, 0.03);
-  --sidebar-card-border: rgba(255, 255, 255, 0.1);
-  --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
-  --sidebar-active-bg: rgba(124, 58, 237, 0.25);
-  --sidebar-active-color: #ddd6fe;
-  --sidebar-footer-bg: rgba(3, 7, 18, 0.55);
+/* 2. TEMA OCEAN */
+body.theme-ocean {
+  --bs-primary: #0891b2;
+  --bs-primary-rgb: 8, 145, 178;
+  --primary-color: var(--bs-primary);
+  --primary-hover: #0e7490;
+  --app-sidebar-bg: #0f172a;
+  --app-table-header: #164e63;
+  --sidebar-gradient: linear-gradient(180deg, #0f172a 0%, #082f49 100%);
+  --sidebar-active-bg: rgba(8, 145, 178, 0.18);
+  --sidebar-active-color: #67e8f9;
 }
 
-body[data-theme="blue"] {
-  --primary-color: #1d4ed8;
-  --primary-hover: #1e40af;
-  --bg-body: #eef4ff;
-  --bg-card: #ffffff;
-  --text-main: #172554;
-  --text-muted: #64748b;
+/* 3. TEMA FOREST */
+body.theme-forest {
+  --bs-primary: #10b981;
+  --bs-primary-rgb: 16, 185, 129;
+  --primary-color: var(--bs-primary);
+  --primary-hover: #059669;
+  --app-sidebar-bg: #064e3b;
+  --app-table-header: #065f46;
+  --sidebar-gradient: linear-gradient(180deg, #064e3b 0%, #022c22 100%);
+  --sidebar-active-bg: rgba(16, 185, 129, 0.18);
+  --sidebar-active-color: #6ee7b7;
+}
 
-  --sidebar-gradient: linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%);
-  --sidebar-text: #dbeafe;
-  --sidebar-muted: #bfdbfe;
-  --sidebar-icon: #bfdbfe;
-  --sidebar-border: rgba(255, 255, 255, 0.14);
-  --sidebar-card-bg: rgba(255, 255, 255, 0.08);
-  --sidebar-card-border: rgba(255, 255, 255, 0.2);
-  --sidebar-hover-bg: rgba(255, 255, 255, 0.14);
-  --sidebar-active-bg: rgba(147, 197, 253, 0.25);
-  --sidebar-active-color: #eff6ff;
-  --sidebar-footer-bg: rgba(30, 58, 138, 0.45);
+/* 4. TEMA SUNSET */
+body.theme-sunset {
+  --bs-primary: #f97316;
+  --bs-primary-rgb: 249, 115, 22;
+  --primary-color: var(--bs-primary);
+  --primary-hover: #ea580c;
+  --app-sidebar-bg: #1c1917;
+  --app-table-header: #431407;
+  --sidebar-gradient: linear-gradient(180deg, #1c1917 0%, #0c0a09 100%);
+  --sidebar-active-bg: rgba(249, 115, 22, 0.18);
+  --sidebar-active-color: #fdba74;
+}
+
+/* 5. TEMA ROYAL */
+body.theme-royal {
+  --bs-primary: #8b5cf6;
+  --bs-primary-rgb: 139, 92, 246;
+  --primary-color: var(--bs-primary);
+  --primary-hover: #7c3aed;
+  --app-sidebar-bg: #312e81;
+  --app-table-header: #3730a3;
+  --sidebar-gradient: linear-gradient(180deg, #312e81 0%, #1e1b4b 100%);
+  --sidebar-active-bg: rgba(139, 92, 246, 0.18);
+  --sidebar-active-color: #c4b5fd;
 }
 
 /* =======================
@@ -181,7 +197,7 @@ body.sidebar-collapsed .main-content {
 .form-control:focus,
 .form-select:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb), 0.12);
 }
 
 .sku-lockable:disabled,
@@ -281,13 +297,13 @@ body.sidebar-collapsed .main-content {
    DASHBOARD
    ======================= */
 .dashboard-page .dashboard-pill {
-  background: rgba(37, 99, 235, 0.12);
+  background: rgba(var(--bs-primary-rgb), 0.12);
   color: var(--primary-color);
   font-size: 0.85rem;
   font-weight: 600;
   border-radius: 999px;
   padding: 0.4rem 0.85rem;
-  border: 1px solid rgba(37, 99, 235, 0.2);
+  border: 1px solid rgba(var(--bs-primary-rgb), 0.2);
 }
 
 .dashboard-stat-card {
@@ -406,8 +422,8 @@ body.sidebar-collapsed .main-content {
 }
 .nav-tabs-pro .nav-link:hover { border-color: #e9ecef; }
 .nav-tabs-pro .nav-link.active {
-    color: #0d6efd !important;
-    border-bottom: 3px solid #0d6efd;
+    color: var(--primary-color) !important;
+    border-bottom: 3px solid var(--primary-color);
     background-color: transparent;
 }
 
@@ -416,8 +432,8 @@ body.sidebar-collapsed .main-content {
     border-bottom: 3px solid transparent;
 }
 .reportes-inventario-tabs .nav-link.active {
-    color: #0d6efd !important;
-    border-bottom-color: #0d6efd !important;
+    color: var(--primary-color) !important;
+    border-bottom-color: var(--primary-color) !important;
     background-color: #fff !important;
 }
 
@@ -580,8 +596,8 @@ iframe {
   background: transparent !important;
 }
 .ts-wrapper.form-select.focus, .ts-wrapper.form-control.focus {
-  border-color: #86b7fe !important;
-  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25) !important;
   border: none !important;
 }
 
@@ -620,7 +636,7 @@ iframe {
 .ts-dropdown .option:hover,
 .ts-dropdown [data-selectable].active {
     background-color: #e9f2ff !important;
-    color: #0d3b8e !important;
+    color: var(--primary-color) !important;
 }
 /* 3. Asegurar que los inputs y selects nativos bloqueados sean idénticos al TomSelect */
 .form-control:disabled, 

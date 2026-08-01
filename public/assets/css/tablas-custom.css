@@ -3,14 +3,15 @@
    ========================================================= */
 
 :root {
-    /* Un azul marino oscuro inspirado en el menú lateral */
-    --erp-table-header-bg: #1c2434;      
-    --erp-table-header-text: #ffffff;    /* Texto blanco para contrastar */
+    /* MAGIA: Conectamos los colores de la tabla con el sistema de temas dinámicos */
+    --erp-table-header-bg: var(--app-table-header, #1e293b);      
+    --erp-table-header-text: #ffffff;    
     
-    --erp-table-border-color: #dee2e6;  /* Color de las rayas en el cuerpo de la tabla (gris claro) */
-    --erp-primary: #0d6efd;             /* Color azul principal (se mantiene para botones e interruptores) */
-    --erp-font-size: 0.9rem;            /* Tamaño de letra general */
-    --erp-border-radius: 12px;          /* Redondeo de las esquinas del encabezado */
+    --erp-table-border-color: #dee2e6;  
+    /* Conectamos el color principal de switches y paginación al tema */
+    --erp-primary: var(--bs-primary, #0d6efd);             
+    --erp-font-size: 0.9rem;            
+    --erp-border-radius: 12px;          
 }
 
 /* 1. Estilo general de la tabla */

@@ -10,7 +10,7 @@
     overflow: hidden; /* CRÍTICO: Asegura que el encabezado azul no se salga de las esquinas redondeadas */
 }
 
-/* Estandarización del Encabezado (La zona que señalaste en rojo) */
+/* Estandarización del Encabezado */
 .modal-header {
     padding: 1rem 1.5rem;
     border-bottom: 1px solid #e9ecef;
@@ -23,9 +23,9 @@
     border-bottom: none;
 }
 
-/* Forzamos al bg-primary a usar tu color de tema global */
+/* MAGIA: Forzamos al bg-primary a usar tu color de tema dinámico */
 .modal-header.bg-primary {
-    background-color: var(--primary-color) !important;
+    background-color: var(--bs-primary, #0d6efd) !important;
 }
 
 /* Título del modal */
@@ -128,10 +128,10 @@
     border-top: 2px solid #dee2e6 !important; /* Línea separadora clara para marcar los totales */
 }
 
-/* Fila activa (seleccionada) */
+/* Fila activa (seleccionada) que respeta el tema dinámico */
 .table-pastel tbody tr.table-active td {
-    background-color: #eff6ff !important; 
-    border-left: 3px solid var(--primary-color);
+    background-color: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.05) !important; 
+    border-left: 3px solid var(--bs-primary, #0d6efd);
 }
 
 /* Fila protegida/bloqueada */
@@ -230,7 +230,8 @@
 
 @media (min-width: 768px) {
     .modal-header-adaptative {
-        background-color: var(--primary-color) !important;
+        /* MAGIA: Usa el color principal del tema en pantallas grandes */
+        background-color: var(--bs-primary, #0d6efd) !important;
         border-top-left-radius: 0.75rem;
         border-top-right-radius: 0.75rem;
         padding-bottom: 1.5rem !important;

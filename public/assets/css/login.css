@@ -1,26 +1,32 @@
+/* =========================================================
+   LOGIN STYLE (AHORA CONECTADO AL TEMA DINÁMICO)
+   ========================================================= */
+
 :root {
   --bg-color: #f3f4f6;
   --card-bg: #ffffff;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
+  
+  /* MAGIA: Conectamos los colores del login con el tema global */
+  --primary: var(--bs-primary, #2563eb);
+  
   --text-main: #111827;
   --text-muted: #6b7280;
   --border-color: #e5e7eb;
   --input-bg: #f9fafb;
-  --brand-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  
+  /* El degradado del panel izquierdo ahora mezcla el color del sidebar con el color primario */
+  --brand-gradient: linear-gradient(135deg, var(--app-sidebar-bg, #1e3a8a) 0%, var(--bs-primary, #3b82f6) 100%);
 }
 
-/* Tema Oscuro */
+/* Tema Oscuro (Si llegas a implementar un modo oscuro general después) */
 body[data-theme="dark"] {
   --bg-color: #0f172a;
   --card-bg: #1e293b;
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
   --text-main: #f3f4f6;
   --text-muted: #9ca3af;
   --border-color: #374151;
   --input-bg: #0f172a;
-  --brand-gradient: linear-gradient(135deg, #0f172a 0%, #312e81 100%);
+  --brand-gradient: linear-gradient(135deg, #0f172a 0%, var(--app-sidebar-bg, #312e81) 100%);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -67,39 +73,33 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  /* IMPORTANT: ahora el footer se ancla abajo con margin-top:auto */
 }
 
-/* =========================================================
-   NUEVO: BLOQUE SUPERIOR CENTRADO (logo + badge + textos)
-   Mantiene brand-info + copyright abajo (sin moverse)
-   ========================================================= */
+/* NUEVO: BLOQUE SUPERIOR CENTRADO (logo + badge + textos) */
 .brand-header,
 .brand-text {
-  /* Por compatibilidad con tu HTML actual (sin wrapper extra) */
   align-self: center;
   text-align: center;
 }
 
 .brand-header {
   display: flex;
-  flex-direction: column;       /* logo arriba, badge debajo */
+  flex-direction: column;      /* logo arriba, badge debajo */
   align-items: center;
   gap: 0.9rem;
-  margin-top: auto;             /* empuja este bloque hacia el centro */
+  margin-top: auto;            /* empuja este bloque hacia el centro */
 }
 
 .brand-text {
   margin-top: 1.2rem;
-  margin-bottom: auto;          /* balancea para centrar verticalmente */
+  margin-bottom: auto;         /* balancea para centrar verticalmente */
 }
 
 /* SOLUCIÓN AL LOGO */
 .brand-logo {
-  max-height: 110px;            /* un poco más grande para protagonismo */
+  max-height: 110px;           
   width: auto;
   object-fit: contain;
-  /* filter: brightness(0) invert(1); */
 }
 
 .badge-system {
@@ -118,7 +118,7 @@ body {
   font-weight: 800;
   line-height: 1.1;
   margin-bottom: 1rem;
-  background: linear-gradient(to right, #fff, #bfdbfe);
+  background: linear-gradient(to right, #fff, rgba(255,255,255,0.7));
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -128,13 +128,13 @@ body {
   font-size: 1.25rem;
   color: rgba(255,255,255,0.85);
   font-weight: 300;
-  max-width: 520px;            /* más controlado que 80% */
-  margin: 0 auto;              /* centrado */
+  max-width: 520px;            
+  margin: 0 auto;              
 }
 
 /* --- BLOQUE INFERIOR (SE QUEDA ABAJO) --- */
 .brand-info {
-  margin-top: auto;             /* asegura que siga abajo */
+  margin-top: auto;            
   padding-bottom: 2rem;
   display: flex;
   flex-direction: column;
@@ -149,7 +149,7 @@ body {
   color: rgba(255,255,255,0.7);
 }
 
-.info-item i { color: #60a5fa; }
+.info-item i { color: rgba(255,255,255,0.9); }
 
 .copyright {
   font-size: 0.8rem;
@@ -220,10 +220,11 @@ body {
   outline: none;
 }
 
+/* Usamos la variable RGB para pintar la sombra del color correcto */
 .form-input:focus {
   border-color: var(--primary);
   background: var(--card-bg);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 4px rgba(var(--bs-primary-rgb, 37, 99, 235), 0.15);
 }
 
 .input-icon {
@@ -237,9 +238,6 @@ body {
   transition: color 0.2s;
 }
 
-/* Nota: tu HTML tiene el icon ANTES del input, así que este selector no aplica.
-   Lo dejo por si cambias el orden en el futuro.
-*/
 .form-input:focus + .input-icon { color: var(--primary); }
 
 .toggle-pass {
@@ -284,10 +282,12 @@ body {
   margin-top: 1rem;
 }
 
+/* En lugar de declarar un color hover para cada tema, oscurecemos dinámicamente el color primario con un filtro */
 .btn-primary:hover {
-  background: var(--primary-hover);
+  background: var(--primary);
+  filter: brightness(0.9);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--bs-primary-rgb, 37, 99, 235), 0.3);
 }
 
 /* RESPONSIVE */

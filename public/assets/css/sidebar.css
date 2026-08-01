@@ -3,21 +3,25 @@
    ========================================================================== */
 
 /* ── Variables ──────────────────────────────────────────────── */
-:root {
+body {
     --sb-width:         260px;
-    --sb-width-col:      72px; /* Ligeramente más ancho para respirar mejor colapsado */
-    --sb-bg:            #0f1117;
-    --sb-bg-2:          #161b27;
-    --sb-border:        rgba(255,255,255,.07);
-    --sb-accent:        #f97316;
-    --sb-accent-dim:    rgba(249,115,22,.15);
+    --sb-width-col:      72px; 
+    
+    /* Ahora al estar en 'body', sí logra leer el tema global */
+    --sb-bg:            var(--app-sidebar-bg, #1e293b);
+    --sb-bg-2:          var(--app-sidebar-bg, #1e293b); 
+    --sb-border:        rgba(255,255,255,.05);
+    
+    --sb-accent:        var(--bs-primary, #0d6efd);
+    --sb-accent-dim:    rgba(var(--bs-primary-rgb, 13, 110, 253), 0.15);
+    --sb-link-active-bg:rgba(var(--bs-primary-rgb, 13, 110, 253), 0.15);
+    
     --sb-text:          #e2e8f0;
-    --sb-text-muted:    #64748b;
-    --sb-text-label:    #475569;
-    --sb-link-hover:    rgba(255,255,255,.06);
-    --sb-link-active-bg:rgba(249,115,22,.12);
-    --sb-radius:        10px;
-    --sb-transition:    .22s cubic-bezier(.4,0,.2,1);
+    --sb-text-muted:    #94a3b8;
+    --sb-text-label:    #94a3b8;
+    --sb-link-hover:    rgba(255,255,255,.05);
+    --sb-radius:        8px;
+    --sb-transition:    .25s ease;
     --sb-shadow:        0 0 0 1px var(--sb-border), 8px 0 32px rgba(0,0,0,.45);
     --sb-font:          'DM Sans', 'Segoe UI', system-ui, sans-serif;
 }
@@ -317,17 +321,18 @@ html:not(.sidebar-collapsed) #mainContent {
     align-items: center;
     gap: .5rem;
     padding: .5rem .625rem;
-    border-radius: 8px;
+    border-radius: 0 8px 8px 0; /* Forma moderna de píldora a la derecha */
+    margin: 0.15rem 1rem 0.15rem 0; /* Espacio para respirar a la derecha */
     color: var(--sb-text-muted);
     text-decoration: none;
     font-size: .8rem;
     font-weight: 500;
-    width: 100%;
+    width: calc(100% - 1rem); /* Ajuste por el margen derecho */
     border: none;
     background: transparent;
     cursor: pointer;
     text-align: left;
-    transition: color var(--sb-transition), background var(--sb-transition);
+    transition: transform var(--sb-transition), background var(--sb-transition);
     position: relative;
     white-space: nowrap;
     overflow: hidden;
@@ -335,21 +340,22 @@ html:not(.sidebar-collapsed) #mainContent {
 .sb-link:hover {
     background: var(--sb-link-hover);
     color: var(--sb-text);
+    transform: translateX(5px); /* Micro-interacción moderna */
+}
+.sb-link:hover .sb-link-icon i {
+    transform: scale(1.15); /* El ícono late al pasar el mouse */
+    transition: transform 0.2s ease;
 }
 
+/* Estado Activo Dinámico */
 .sb-link.active {
-    background-color: rgba(249,115,22,.12) !important;
-    color: #ff781e;
+    background-color: var(--sb-link-active-bg) !important;
+    color: #ffffff;
     font-weight: 600;
-    border-radius: 0 8px 8px 0;
+    border-left: 4px solid var(--sb-accent); /* Borde que cambia con el tema */
 }
 .sb-link.active::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 20%; bottom: 20%;
-    width: 3px;
-    background: #ff781e;
-    border-radius: 0 3px 3px 0;
+    display: none !important; /* Eliminamos el borde ::before antiguo */
 }
 
 /* Icon wrapper */
@@ -360,7 +366,9 @@ html:not(.sidebar-collapsed) #mainContent {
     flex-shrink: 0;
     transition: color var(--sb-transition);
 }
-.sb-link.active .sb-link-icon { color: #ff781e; }
+.sb-link.active .sb-link-icon { 
+    color: var(--sb-accent) !important; 
+}
 
 /* Chevron y Estado Abierto de Menús Desplegables */
 .sb-chevron {
@@ -375,9 +383,7 @@ html:not(.sidebar-collapsed) #mainContent {
     transform: rotate(180deg); 
 }
 
-/* 2. ESTADO DESPLEGADO NORMAL (Abierto, pero NO es la página actual) 
-      Se pinta de color texto brillante (blanco) para indicar que está abierto, 
-      pero SIN usar naranja para no competir con la página activa real. */
+/* 2. ESTADO DESPLEGADO NORMAL */
 .sb-group-btn[aria-expanded="true"]:not(.active) {
     color: var(--sb-text) !important;
     background-color: transparent !important;
@@ -387,16 +393,16 @@ html:not(.sidebar-collapsed) #mainContent {
     color: var(--sb-text) !important;
 }
 
-/* 3. ESTADO PADRE ACTIVO (Cuando estás navegando dentro de un submenú)
-      AQUÍ SÍ debe ser naranja para indicar dónde estás, pero sin caja de fondo. */
+/* 3. ESTADO PADRE ACTIVO */
 .sb-group-btn.active {
     background-color: transparent !important; 
-    color: #ff781e !important;
+    color: var(--sb-accent) !important;
     font-weight: 600;
+    border-left: none !important; /* Evita que el grupo principal tenga borde izquierdo si está colapsado */
 }
 .sb-group-btn.active .sb-link-icon,
 .sb-group-btn.active .sb-chevron {
-    color: #ff781e !important;
+    color: var(--sb-accent) !important;
 }
 .sb-group-btn.active::before {
     display: none !important;

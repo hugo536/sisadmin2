@@ -1,7 +1,8 @@
 <?php
 // Variables de ayuda mapeadas desde la BD
 $logoActual = (string) ($config['ruta_logo'] ?? '');
-$colorHex = preg_match('/^#([A-Fa-f0-9]{6})$/', (string) ($config['color_sistema'] ?? '')) ? (string) $config['color_sistema'] : '#2563eb';
+// Ya no forzamos que sea un Hexadecimal, porque ahora guardaremos el nombre del tema (ej. 'theme-ocean')
+$temaActual = (string) ($config['color_sistema'] ?? 'theme-midnight');
 ?>
 
 <div class="container-fluid p-4">
@@ -114,11 +115,38 @@ $colorHex = preg_match('/^#([A-Fa-f0-9]{6})$/', (string) ($config['color_sistema
                             </label>
                             <div class="form-text mt-2" style="font-size: 0.75rem;">PNG, JPG o WEBP (Máx. 2MB)</div>
                         </div>
-                        <div class="text-start">
-                            <label class="form-label fw-semibold">Color del sistema</label>
-                            <input type="color" name="color_sistema" id="colorSistema" class="form-control form-control-color w-100" value="<?= htmlspecialchars($colorHex); ?>">
-                            <div class="form-text">Selecciona el color principal del sistema.</div>
+                        
+                        <!-- NUEVO SELECTOR DE TEMAS -->
+                        <div class="text-start mt-4 border-top pt-3">
+                            <label class="form-label fw-bold text-dark mb-3">Tema Visual del Sistema</label>
+                            
+                            <?php 
+                                // Definimos los 5 temas disponibles
+                                $temas = [
+                                    'theme-midnight' => ['nombre' => 'Midnight', 'bg' => '#1e293b', 'btn' => '#0d6efd'],
+                                    'theme-ocean'    => ['nombre' => 'Ocean',    'bg' => '#0f172a', 'btn' => '#0891b2'],
+                                    'theme-forest'   => ['nombre' => 'Forest',   'bg' => '#064e3b', 'btn' => '#10b981'],
+                                    'theme-sunset'   => ['nombre' => 'Sunset',   'bg' => '#1c1917', 'btn' => '#f97316'],
+                                    'theme-royal'    => ['nombre' => 'Royal',    'bg' => '#312e81', 'btn' => '#8b5cf6'],
+                                ];
+                                
+                                // Si el valor en BD no existe en nuestra lista, forzamos midnight
+                                if (!array_key_exists($temaActual, $temas)) {
+                                    $temaActual = 'theme-midnight';
+                                }
+                            ?>
+                            
+                            <div class="d-flex flex-wrap gap-3 justify-content-center">
+                                <?php foreach($temas as $id => $colores): ?>
+                                    <div class="theme-option">
+                                        <input type="radio" name="color_sistema" id="<?= $id ?>" value="<?= $id ?>" class="d-none theme-radio" <?= $temaActual === $id ? 'checked' : '' ?>>
+                                        <label for="<?= $id ?>" class="theme-swatch rounded-circle shadow-sm" style="background: linear-gradient(135deg, <?= $colores['bg'] ?> 50%, <?= $colores['btn'] ?> 50%);" data-bs-toggle="tooltip" title="<?= $colores['nombre'] ?>"></label>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <div class="form-text mt-3 text-center">Selecciona la combinación de colores para la barra lateral, tablas y botones.</div>
                         </div>
+
                     </div>
                 </div>
 
@@ -132,3 +160,50 @@ $colorHex = preg_match('/^#([A-Fa-f0-9]{6})$/', (string) ($config['color_sistema
         </div>
     </form>
 </div>
+
+<!-- ESTILOS PARA EL SELECTOR DE TEMAS -->
+<style>
+    .theme-swatch {
+        width: 45px;
+        height: 45px;
+        display: block;
+        cursor: pointer;
+        border: 3px solid transparent;
+        transition: transform 0.2s, border-color 0.2s;
+    }
+    .theme-swatch:hover {
+        transform: scale(1.1);
+    }
+    .theme-radio:checked + .theme-swatch {
+        border-color: #000;
+        transform: scale(1.15);
+        box-shadow: 0 0 0 3px rgba(0,0,0,0.1) !important;
+    }
+</style>
+
+<!-- SCRIPT PARA PREVISUALIZACIÓN DE TEMAS EN TIEMPO REAL -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Seleccionamos todos los círculos de colores (radios)
+        const themeRadios = document.querySelectorAll('.theme-radio');
+        
+        // Lista de todos los temas posibles para poder borrarlos antes de aplicar uno nuevo
+        const themeClasses = [
+            'theme-midnight', 
+            'theme-ocean', 
+            'theme-forest', 
+            'theme-sunset', 
+            'theme-royal'
+        ];
+
+        themeRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                // 1. Borramos cualquier tema que el body tenga actualmente
+                document.body.classList.remove(...themeClasses);
+                
+                // 2. Le agregamos al body la clase del tema que acabas de clickear
+                document.body.classList.add(e.target.value);
+            });
+        });
+    });
+</script>
