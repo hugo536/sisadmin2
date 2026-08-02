@@ -32,7 +32,9 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
             </h1>
             <p class="text-muted small mb-0 ms-1"><?php echo e($periodoResumen); ?></p>
         </div>
-        <a href="javascript:history.back()" class="btn btn-light border shadow-sm fw-semibold text-secondary transition-hover">
+        <a href="index.php?ruta=reportes/dashboard" 
+        class="btn btn-light border shadow-sm fw-semibold text-secondary transition-hover sb-link"
+        style="width: fit-content; flex: 0 0 auto;">
             <i class="bi bi-arrow-left-short fs-5 align-middle me-1"></i>Regresar
         </a>
     </div>
@@ -40,7 +42,7 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
     <!-- Indicadores / KPIs -->
     <div class="row g-3 mb-4">
         <!-- Saldo Anterior -->
-        <div class="col-12 col-md-3">
+        <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body d-flex flex-column justify-content-center">
                     <div class="small text-muted text-uppercase fw-semibold mb-1">Saldo Anterior</div>
@@ -50,7 +52,7 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
             </div>
         </div>
         <!-- Total Cargos -->
-        <div class="col-12 col-md-3">
+        <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body d-flex flex-column justify-content-center">
                     <div class="small text-muted text-uppercase fw-semibold mb-1">Total Cargos (Deuda)</div>
@@ -59,7 +61,7 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
             </div>
         </div>
         <!-- Total Abonos -->
-        <div class="col-12 col-md-3">
+        <div class="col-6 col-md-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body d-flex flex-column justify-content-center">
                     <div class="small text-muted text-uppercase fw-semibold mb-1">Total Abonos (Pagos)</div>
@@ -68,7 +70,7 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
             </div>
         </div>
         <!-- Saldo Final -->
-        <div class="col-12 col-md-3">
+        <div class="col-6 col-md-3">
             <!-- Borde lateral para destacar el resultado final -->
             <div class="card border-0 border-start border-primary border-4 shadow-sm h-100">
                 <div class="card-body d-flex flex-column justify-content-center">
@@ -142,11 +144,11 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table align-middle mb-0 table-pro" id="tablaEstadoCuentaDetalle"
+                    <table class="table align-middle mb-0 table-pro" id="tablaEstadoCuentaProducto"
                            data-erp-table="true"
-                           data-search-input="#filtroEstadoCuentaDetalle"
+                           data-search-input="#filtroEstadoCuentaProducto"
                            data-rows-per-page="15"
-                           data-total-rows="<?php echo $detalle['total'] ?? 0; ?>">
+                           data-total-rows="<?php echo count($porProducto); ?>">
                         <thead class="table-light">
                             <tr>
                                 <th class="ps-4">Producto</th>

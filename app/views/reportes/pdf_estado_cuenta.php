@@ -116,7 +116,8 @@
         <tbody>
             <?php 
                 $rows = array_reverse($detalle['rows'] ?? []); 
-                $saldoEnLinea = (float)($res['saldo_anterior'] ?? 0); 
+                // CORRECCIÓN: Cambiado a 'saldo_inicial'
+                $saldoEnLinea = (float)($res['saldo_inicial'] ?? 0); 
             ?>
             
             <tr class="fila-saldo-anterior">
@@ -192,10 +193,12 @@
         </thead>
         <tbody>
             <tr>
-                <td>S/ <?php echo number_format((float)($res['saldo_anterior'] ?? 0), 2); ?></td>
+                <!-- CORRECCIÓN: Cambiado a 'saldo_inicial' -->
+                <td>S/ <?php echo number_format((float)($res['saldo_inicial'] ?? 0), 2); ?></td>
                 <td>S/ <?php echo number_format((float)($res['total_facturado'] ?? 0), 2); ?></td>
                 <td>S/ <?php echo number_format((float)($res['total_pagado'] ?? 0), 2); ?></td>
-                <td class="resumen-final-celda">S/ <?php echo number_format($saldoEnLinea, 2); ?></td>
+                <!-- CORRECCIÓN: Usamos directamente 'total_saldo' de la base de datos para asegurar 100% paridad con la web -->
+                <td class="resumen-final-celda">S/ <?php echo number_format((float)($res['total_saldo'] ?? $saldoEnLinea), 2); ?></td>
             </tr>
         </tbody>
     </table>

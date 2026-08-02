@@ -1,0 +1,273 @@
+/* =========================================================
+   MÓDULO DE TESORERÍA: ESTADO DE CUENTAS (RESPONSIVE)
+   Archivo: public/assets/css/reportes/estado_cuentas.css
+   ========================================================= */
+
+@media (max-width: 767.98px) {
+
+    /* Ajuste para que las tarjetas 2x2 no se vean apretadas (Clientes y Proveedores) */
+    #reportesEstadoCuentaApp .card-body,
+    #reportesEstadoCuentaProveedoresApp .card-body {
+        padding: 0.75rem !important; /* Reduce el relleno interno */
+    }
+    #reportesEstadoCuentaApp .card-body .small,
+    #reportesEstadoCuentaProveedoresApp .card-body .small {
+        font-size: 0.65rem !important; /* Texto de título más pequeño */
+        white-space: nowrap; /* Evita que el título se parta en dos líneas */
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #reportesEstadoCuentaApp .card-body .h4,
+    #reportesEstadoCuentaProveedoresApp .card-body .h4 {
+        font-size: 1.1rem !important; /* Reduce el tamaño del monto */
+    }
+
+    /* 1. Ocultar cabeceras de ambas tablas */
+    #tablaEstadoCuentaDetalle thead,
+    #tablaEstadoCuentaProveedoresDetalle thead,
+    #tablaEstadoCuentaProducto thead,
+    #tablaEstadoCuentaProveedoresProducto thead {
+        display: none !important;
+    }
+
+    /* 2. Convertir filas en tarjetas */
+    #tablaEstadoCuentaDetalle tbody tr,
+    #tablaEstadoCuentaProveedoresDetalle tbody tr,
+    #tablaEstadoCuentaProducto tbody tr,
+    #tablaEstadoCuentaProveedoresProducto tbody tr {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        padding: 15px 12px !important;
+        border: 1px solid var(--erp-table-border-color, #dee2e6) !important;
+        border-radius: 8px !important;
+        margin-bottom: 15px !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.04) !important;
+    }
+
+    /* Limpiar estilos de celdas */
+    #tablaEstadoCuentaDetalle tbody td,
+    #tablaEstadoCuentaProveedoresDetalle tbody td,
+    #tablaEstadoCuentaProducto tbody td,
+    #tablaEstadoCuentaProveedoresProducto tbody td {
+        display: block !important;
+        border: none !important;
+        padding: 4px 0 !important;
+    }
+
+    /* Eliminar pseudo-elementos globales que puedan interferir */
+    #tablaEstadoCuentaDetalle tbody td::before,
+    #tablaEstadoCuentaProveedoresDetalle tbody td::before,
+    #tablaEstadoCuentaProducto tbody td::before,
+    #tablaEstadoCuentaProveedoresProducto tbody td::before {
+        display: none !important;
+        content: none !important;
+    }
+
+    /* Si no hay datos, centrar el mensaje */
+    #tablaEstadoCuentaDetalle tbody tr td[colspan],
+    #tablaEstadoCuentaProveedoresDetalle tbody tr td[colspan],
+    #tablaEstadoCuentaProducto tbody tr td[colspan],
+    #tablaEstadoCuentaProveedoresProducto tbody tr td[colspan] {
+        width: 100% !important;
+        text-align: center !important;
+    }
+
+    /* =========================================================
+       TABLA 1: HISTORIAL DE MOVIMIENTOS (Look App Bancaria 2.0)
+       ========================================================= */
+    
+    /* --- ENCABEZADO DE LA TARJETA --- */
+    /* 1. Cliente / Proveedor (Arriba Izquierda) */
+    #tablaEstadoCuentaDetalle tbody td:nth-child(2),
+    #tablaEstadoCuentaProveedoresDetalle tbody td:nth-child(2) {
+        order: 1 !important;
+        width: 42% !important; /* Ancho ajustado para compartir la fila */
+        font-size: 0.90rem !important;
+        font-weight: 700 !important;
+        color: #1e293b !important;
+        padding-bottom: 10px !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        text-align: left !important;
+        /* Evita que un nombre muy largo rompa el diseño hacia abajo */
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important; 
+    }
+
+    /* 2. Documento / Ref (Ahora en el Centro) */
+    #tablaEstadoCuentaDetalle tbody td:nth-child(3),
+    #tablaEstadoCuentaProveedoresDetalle tbody td:nth-child(3) {
+        order: 2 !important;
+        width: 33% !important; /* Comparte el espacio central */
+        text-align: center !important; /* Centrado */
+        font-size: 0.75rem !important;
+        font-weight: 700 !important;
+        color: #64748b !important;
+        padding-bottom: 10px !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        align-self: flex-start !important;
+    }
+
+    /* 3. Fecha (Ahora a la Derecha) */
+    #tablaEstadoCuentaDetalle tbody td:nth-child(1),
+    #tablaEstadoCuentaProveedoresDetalle tbody td:nth-child(1) {
+        order: 3 !important;
+        width: 25% !important; /* Espacio a la derecha */
+        text-align: right !important; /* Alineado a la derecha */
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        color: #94a3b8 !important;
+        padding-bottom: 10px !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        align-self: flex-start !important;
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+        border-top: none !important;
+    }
+
+    /* --- CUERPO DE LA TARJETA (Formato 2 Columnas) --- */
+    
+    /* 4. Concepto / Producto (Abajo Izquierda) */
+    #tablaEstadoCuentaDetalle tbody td:nth-child(4),
+    #tablaEstadoCuentaProveedoresDetalle tbody td:nth-child(4) {
+        order: 4 !important; /* Actualizado al 4to lugar */
+        width: 60% !important;
+        padding-top: 12px !important;
+        text-align: left !important;
+    }
+    
+    /* Solución a la etiqueta verde ancha */
+    #tablaEstadoCuentaDetalle tbody td:nth-child(4) .badge,
+    #tablaEstadoCuentaProveedoresDetalle tbody td:nth-child(4) .badge {
+        white-space: normal !important;
+        text-align: left !important;
+        line-height: 1.3 !important;
+        display: inline-block !important;
+        max-width: 100% !important;
+    }
+
+    /* 5. Monto (Abajo Derecha) */
+    #tablaEstadoCuentaDetalle tbody td:nth-child(5),
+    #tablaEstadoCuentaProveedoresDetalle tbody td:nth-child(5) {
+        order: 5 !important; /* Actualizado al 5to lugar */
+        width: 40% !important;
+        padding-top: 12px !important;
+        text-align: right !important;
+        font-size: 1.2rem !important;
+        font-weight: 800 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+    }
+
+    /* Ajuste para el Footer (Totales) del Historial */
+    #tablaEstadoCuentaDetalle tfoot tr,
+    #tablaEstadoCuentaProveedoresDetalle tfoot tr {
+        display: flex !important; 
+        flex-direction: row !important; /* Alinea los elementos uno al lado del otro */
+        justify-content: space-between !important; /* Separa título y montos a los extremos */
+        align-items: center !important; /* Los centra verticalmente */
+        padding: 15px 20px !important;
+        background-color: #f8f9fa !important;
+        border-radius: 8px !important;
+    }
+    #tablaEstadoCuentaDetalle tfoot td,
+    #tablaEstadoCuentaProveedoresDetalle tfoot td {
+        width: auto !important; /* Se ajustan al contenido en lugar de forzar el 100% */
+        display: block !important; 
+        border: none !important; 
+        padding: 0 !important;
+    }
+    /* Texto "Totales mostrados:" (Izquierda) */
+    #tablaEstadoCuentaDetalle tfoot td:nth-child(1),
+    #tablaEstadoCuentaProveedoresDetalle tfoot td:nth-child(1) {
+        text-align: left !important;
+        font-size: 0.95rem !important;
+        color: #475569 !important;
+    }
+    /* Bloque de Cargos y Abonos (Derecha) */
+    #tablaEstadoCuentaDetalle tfoot td:nth-child(2),
+    #tablaEstadoCuentaProveedoresDetalle tfoot td:nth-child(2) {
+        text-align: right !important;
+    }
+
+    /* =========================================================
+       TABLA 2: RESUMEN POR PRODUCTO (4 Columnas)
+       ========================================================= */
+
+    /* C1: Producto (Arriba, Ancho Completo) */
+    #tablaEstadoCuentaProducto tbody td:nth-child(1),
+    #tablaEstadoCuentaProveedoresProducto tbody td:nth-child(1) {
+        width: 100% !important; 
+        order: 1 !important;
+        font-weight: bold !important; 
+        font-size: 1.05rem !important;
+        border-bottom: 1px dashed #e9ecef !important; 
+        margin-bottom: 8px !important; 
+        padding-bottom: 8px !important;
+    }
+
+    /* C2: Cantidad (Abajo, Izquierda - 33%) */
+    #tablaEstadoCuentaProducto tbody td:nth-child(2),
+    #tablaEstadoCuentaProveedoresProducto tbody td:nth-child(2) {
+        width: 33% !important; 
+        order: 2 !important; 
+        text-align: left !important;
+    }
+    #tablaEstadoCuentaProducto tbody td:nth-child(2)::before,
+    #tablaEstadoCuentaProveedoresProducto tbody td:nth-child(2)::before {
+        content: "Cant:"; 
+        display: block !important; 
+        font-size: 0.75rem; 
+        color: #6c757d; 
+        margin-bottom: 2px;
+    }
+
+    /* C3: Total Facturado (Abajo, Centro - 33%) */
+    #tablaEstadoCuentaProducto tbody td:nth-child(3),
+    #tablaEstadoCuentaProveedoresProducto tbody td:nth-child(3) {
+        width: 33% !important; 
+        order: 3 !important; 
+        text-align: center !important;
+    }
+    #tablaEstadoCuentaProducto tbody td:nth-child(3)::before,
+    #tablaEstadoCuentaProveedoresProducto tbody td:nth-child(3)::before {
+        content: "Facturado:"; 
+        display: block !important; 
+        font-size: 0.75rem; 
+        color: #6c757d; 
+        margin-bottom: 2px;
+    }
+
+    /* C4: Deuda Pendiente (Abajo, Derecha - 34%) */
+    #tablaEstadoCuentaProducto tbody td:nth-child(4),
+    #tablaEstadoCuentaProveedoresProducto tbody td:nth-child(4) {
+        width: 34% !important; 
+        order: 4 !important; 
+        text-align: right !important;
+    }
+    #tablaEstadoCuentaProducto tbody td:nth-child(4)::before,
+    #tablaEstadoCuentaProveedoresProducto tbody td:nth-child(4)::before {
+        content: "Deuda:"; 
+        display: block !important; 
+        font-size: 0.75rem; 
+        color: #6c757d; 
+        margin-bottom: 2px;
+    }
+
+    /* Ajuste para el Footer (Totales) de Productos */
+    #tablaEstadoCuentaProducto tfoot tr,
+    #tablaEstadoCuentaProveedoresProducto tfoot tr {
+        display: flex !important; 
+        flex-wrap: wrap !important; 
+        padding: 15px !important; 
+        justify-content: space-between !important;
+    }
+    #tablaEstadoCuentaProducto tfoot td,
+    #tablaEstadoCuentaProveedoresProducto tfoot td {
+        width: auto !important; 
+        display: block !important; 
+        border: none !important;
+    }
+}

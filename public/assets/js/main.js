@@ -246,7 +246,19 @@
       if (pushState) {
         window.history.pushState({ sisadminPartial: true }, '', url.href);
       }
-      window.scrollTo({ top: 0, behavior: 'auto' });
+      // --- FIX SCROLL INTELIGENTE ---
+      // Comparamos la ruta en la que estábamos con la ruta a la que vamos
+      const currentUrlParams = new URL(window.location.href).searchParams;
+      const nextUrlParams = url.searchParams;
+      
+      const currentRuta = currentUrlParams.get('ruta');
+      const nextRuta = nextUrlParams.get('ruta');
+
+      // Solo desplazamos hacia arriba si el usuario cambió de módulo/pantalla
+      // Si la ruta es la misma (solo aplicó filtros), mantenemos su posición de scroll.
+      if (currentRuta !== nextRuta) {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      }
     } catch (_err) {
       window.location.href = url.href;
       return;

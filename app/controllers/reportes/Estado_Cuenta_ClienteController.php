@@ -165,8 +165,32 @@ class Estado_Cuenta_ClienteController extends Controlador
                 $sheet->freezePane('A' . ($filaInicioTabla + 1));
                 $sheet->setAutoFilter('B' . $filaInicioTabla . ':G' . $filaInicioTabla);
 
-                // --- 6. LLENADO DE DATOS (Fila 7 en adelante) ---
+                // --- 6. LLENADO DE DATOS (Fila 6 en adelante) ---
                 $fila = $filaInicioTabla + 1;
+                
+                // EXTRAER Y COLOCAR EL SALDO ANTERIOR PRIMERO
+                $resumen = $detalle['resumen'] ?? [];
+                $saldoInicial = (float)($resumen['saldo_inicial'] ?? 0);
+                
+                // Imprimir fila de "Saldo Anterior"
+                $sheet->setCellValue('B' . $fila, '-');
+                $sheet->setCellValue('C' . $fila, '-');
+                $sheet->setCellValue('D' . $fila, 'SALDO ANTERIOR AL ' . date('d/m/Y', strtotime($f['fecha_desde'])));
+                $sheet->setCellValue('E' . $fila, '-');
+                $sheet->setCellValue('F' . $fila, '-');
+                $sheet->setCellValue('G' . $fila, $saldoInicial);
+                
+                $sheet->getStyle('G' . $fila)->getNumberFormat()->setFormatCode('"S/" #,##0.00');
+                $sheet->getStyle('B' . $fila . ':G' . $fila)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+                $sheet->getStyle('B' . $fila . ':G' . $fila)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFEAEAEA');
+                $sheet->getStyle('B' . $fila . ':G' . $fila)->getFont()->setBold(true);
+                $sheet->getStyle('B' . $fila)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('F' . $fila)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                
+                $filaInicialSuma = $fila; // Guardamos esta fila para sumar todo al final
+                $fila++;
+
+                // IMPRIMIR LOS MOVIMIENTOS
                 foreach ($movimientos as $row) {
                     $esCargo = ($row['tipo_transaccion'] ?? 'CARGO') === 'CARGO';
                     $multiplicador = $esCargo ? 1 : -1; 
@@ -197,11 +221,12 @@ class Estado_Cuenta_ClienteController extends Controlador
 
                 // --- 7. FILA DE TOTALES DINÁMICA ---
                 $filaTotal = $fila;
-                $sheet->setCellValue('F' . $filaTotal, 'TOTAL NETO:');
+                $sheet->setCellValue('F' . $filaTotal, 'SALDO PENDIENTE FINAL:');
                 $sheet->getStyle('F' . $filaTotal)->getFont()->setBold(true);
                 $sheet->getStyle('F' . $filaTotal)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
 
-                $sheet->setCellValue('G' . $filaTotal, '=SUM(G7:G' . ($filaTotal - 1) . ')');
+                // Ahora la fórmula suma desde la fila del Saldo Anterior hasta el último movimiento
+                $sheet->setCellValue('G' . $filaTotal, '=SUM(G' . $filaInicialSuma . ':G' . ($filaTotal - 1) . ')');
                 $sheet->getStyle('G' . $filaTotal)->getFont()->setBold(true);
                 $sheet->getStyle('G' . $filaTotal)->getNumberFormat()->setFormatCode('"S/" #,##0.00');
                 
@@ -238,7 +263,19 @@ class Estado_Cuenta_ClienteController extends Controlador
             $empresaModel = new EmpresaModel();
             $config = $empresaModel->obtener();
 
+            // 1. Consultamos los datos al modelo
             $detalle = $this->tesoreria->historialEstadoCuenta($f, 1, 999999);
+
+            // 2. EXTRAEMOS LAS VARIABLES (¡Este era el problema!)
+            // Al hacer esto, el archivo pdf_estado_cuenta.php ya podrá leerlas.
+            $filtros = $f;
+            $resumen = $detalle['resumen'] ?? [
+                'saldo_inicial' => 0, 
+                'total_facturado' => 0, 
+                'total_pagado' => 0, 
+                'total_saldo' => 0
+            ];
+            $movimientos = $detalle['rows'] ?? [];
 
             ob_start();
             require BASE_PATH . '/app/views/reportes/pdf_estado_cuenta.php';
@@ -246,7 +283,7 @@ class Estado_Cuenta_ClienteController extends Controlador
 
             $dompdf = new \Dompdf\Dompdf();
             $options = $dompdf->getOptions();
-            $options->set(['isRemoteEnabled' => true]);
+            $options->set(['isRemoteEnabled' => true]);// --- 6. LLENADO DE DATOS (Fila 6 en adelante) ---
             $dompdf->setOptions($options);
 
             $dompdf->loadHtml($html);

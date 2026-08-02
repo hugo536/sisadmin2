@@ -48,6 +48,11 @@
         <link rel="stylesheet" href="<?php echo e(asset_url('css/terceros_perfil.css')); ?>?v=<?php echo $getAssetVersion('css/terceros_perfil.css'); ?>">
     <?php endif; ?>
 
+    <?php if (str_starts_with($currentRoute, 'reportes')): ?>
+        <!-- CSS para que los Estados de Cuenta se vuelvan tarjetas en celular -->
+        <link rel="stylesheet" href="<?php echo e(asset_url('css/reportes/estado_cuentas.css')); ?>?v=<?php echo $getAssetVersion('css/reportes/estado_cuentas.css'); ?>">
+    <?php endif; ?>
+
     <?php if (str_starts_with($currentRoute, 'tesoreria')): ?>
         <?php if ($currentRoute === 'tesoreria/cuentas'): ?>
             <link rel="stylesheet" href="<?php echo e(asset_url('css/tesoreria/cuentas.css')); ?>?v=<?php echo $getAssetVersion('css/tesoreria/cuentas.css'); ?>">
@@ -202,7 +207,13 @@ if (!str_starts_with($temaElegido, 'theme-')) {
 <?php endif; ?>
 
 <?php if (str_starts_with($currentRoute, 'reportes')): ?>
+    <!-- 1. Script general de reportes (Validación de fechas, etc.) -->
     <script src="<?php echo e(asset_url('js/reportes.js')); ?>?v=<?php echo $getAssetVersion('js/reportes.js'); ?>"></script>
+<?php endif; ?>
+
+<?php if (in_array($currentRoute, ['reportes/estado_cuenta', 'reportes/estado_cuenta_proveedores'], true)): ?>
+    <!-- 2. Script específico para los Estados de Cuenta -->
+    <script src="<?php echo e(asset_url('js/reportes/estado_cuentas.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/estado_cuentas.js'); ?>"></script>
 <?php endif; ?>
 
 <?php if ($currentRoute === 'reportes/inventario'): ?>
