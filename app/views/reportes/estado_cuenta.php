@@ -32,8 +32,8 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
             </h1>
             <p class="text-muted small mb-0 ms-1"><?php echo e($periodoResumen); ?></p>
         </div>
-        <a href="javascript:history.back()" class="btn btn-outline-secondary shadow-sm fw-semibold">
-            <i class="bi bi-arrow-left me-2"></i>Volver
+        <a href="javascript:history.back()" class="btn btn-light border shadow-sm fw-semibold text-secondary transition-hover">
+            <i class="bi bi-arrow-left-short fs-5 align-middle me-1"></i>Regresar
         </a>
     </div>
 
@@ -112,18 +112,17 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                     <label class="form-label text-muted small fw-bold mb-1 ms-1 d-none d-md-block">&nbsp;</label>
                     <div class="input-group shadow-sm">
                         <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
-                        <input type="date" name="fecha_desde" class="form-control bg-light border-start-0" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
+                        <input type="date" name="fecha_desde" class="form-control bg-light border-start-0 border-end-0" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
                         
                         <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
                         <input type="date" name="fecha_hasta" class="form-control bg-light border-start-0" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
                         
-                        <!-- Botón de Filtrar -->
-                        <button class="btn text-white" type="submit" style="background-color: #6c757d; border-color: #6c757d;" title="Aplicar filtros">
-                            <i class="bi bi-funnel"></i>
+                        <!-- Botones aligerados -->
+                        <button class="btn btn-light border text-primary px-3 transition-hover" type="submit" title="Aplicar filtros" style="z-index: 0;">
+                            <i class="bi bi-funnel-fill"></i>
                         </button>
-                        <!-- Botón para limpiar filtros -->
-                        <button type="button" id="btnLimpiarFiltrosEstadoCuenta" class="btn btn-outline-secondary border-start-0" title="Limpiar filtros">
-                            <i class="bi bi-eraser"></i>
+                        <button type="button" id="btnLimpiarFiltrosEstadoCuenta" class="btn btn-light border text-danger px-3 transition-hover" title="Limpiar filtros" style="z-index: 0;">
+                            <i class="bi bi-eraser-fill"></i>
                         </button>
                     </div>
                 </div>
@@ -143,10 +142,11 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table align-middle mb-0 table-pro" id="tablaEstadoCuentaProducto"
+                    <table class="table align-middle mb-0 table-pro" id="tablaEstadoCuentaDetalle"
                            data-erp-table="true"
-                           data-search-input="#filtroEstadoCuentaProducto"
-                           data-rows-per-page="15">
+                           data-search-input="#filtroEstadoCuentaDetalle"
+                           data-rows-per-page="15"
+                           data-total-rows="<?php echo $detalle['total'] ?? 0; ?>">
                         <thead class="table-light">
                             <tr>
                                 <th class="ps-4">Producto</th>
@@ -193,14 +193,40 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                 <h5 class="mb-0 fw-bold text-dark">
                     <i class="bi bi-clock-history me-2 text-primary"></i>Historial de Movimientos
                 </h5>
+                <!-- Derecha: Acciones agrupadas (Botón Desplegable y Buscador) -->
                 <div class="d-flex align-items-center gap-3">
-                    <button type="button" class="btn btn-danger btn-sm shadow-sm fw-semibold" id="btnExportarPdf">
-                        <i class="bi bi-file-earmark-pdf-fill me-1"></i>Exportar PDF
-                    </button>
-                    <div class="input-group input-group-sm w-auto" style="max-width: 260px;">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <!-- Nuevo: Placeholder más descriptivo -->
-                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroEstadoCuentaDetalle" placeholder="Buscar documento, concepto...">
+                    
+                    <!-- Botón Exportar con opciones -->
+                    <div class="dropdown">
+                        <button class="btn btn-secondary btn-sm shadow-sm fw-semibold dropdown-toggle" type="button" id="btnMenuExportar" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-cloud-download me-1"></i> Exportar
+                        </button>
+                        <ul class="dropdown-menu shadow-sm" aria-labelledby="btnMenuExportar">
+                            <li>
+                                <button type="button" class="dropdown-item d-flex align-items-center" id="btnExportarExcel">
+                                    <i class="bi bi-file-earmark-excel-fill text-success me-2"></i> Formato Excel (.xlsx)
+                                </button>
+                            </li>
+                            <li>
+                                <button type="button" class="dropdown-item d-flex align-items-center" id="btnExportarCsv">
+                                    <i class="bi bi-filetype-csv text-secondary me-2"></i> Datos Crudos (.csv)
+                                </button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <button type="button" class="dropdown-item d-flex align-items-center" id="btnExportarPdfLimitado">
+                                    <i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i> Formato PDF (.pdf)
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Buscador -->
+                    <div class="input-group input-group-sm shadow-sm" style="max-width: 280px;">
+                        <span class="input-group-text bg-white border-end-0 text-primary px-3">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="search" class="form-control border-start-0 ps-0" id="filtroEstadoCuentaDetalle" placeholder="Buscar documento, concepto...">
                     </div>
                 </div>
             </div>
@@ -228,7 +254,18 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                                 <?php
                                 $esCargo = ($row['tipo_transaccion'] ?? 'CARGO') === 'CARGO';
                                 $fechaFmt = !empty($row['fecha_atencion']) ? date('d-m-Y', strtotime($row['fecha_atencion'])) : '';
-                                $search = mb_strtolower(trim(($row['cliente'] ?? '') . ' ' . ($row['documento'] ?? '') . ' ' . ($row['producto'] ?? '')));
+                                
+                                // Convertimos el monto a texto sin comas para facilitar la búsqueda
+                                $montoFmt = number_format((float)($row['monto_transaccion'] ?? 0), 2, '.', '');
+                                
+                                // Unimos TODOS los datos relevantes para que el buscador de JS los lea
+                                $search = mb_strtolower(trim(
+                                    ($row['cliente'] ?? '') . ' ' . 
+                                    ($row['documento'] ?? '') . ' ' . 
+                                    ($row['producto'] ?? '') . ' ' . 
+                                    $fechaFmt . ' ' . 
+                                    $montoFmt
+                                ));
                                 ?>
                                 <tr data-search="<?php echo e($search); ?>">
                                     <td class="ps-4 text-muted"><?php echo e($fechaFmt); ?></td>
@@ -239,7 +276,10 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                                             <span class="text-dark fw-medium"><?php echo e((string)($row['producto'] ?? '')); ?></span> <br>
                                             <small class="text-muted"><?php echo number_format((float)($row['cantidad'] ?? 0), 2); ?> x S/ <?php echo number_format((float)($row['precio_unitario'] ?? 0), 2); ?></small>
                                         <?php else: ?>
-                                            <span class="badge bg-success bg-opacity-25 text-success border border-success"><i class="bi bi-cash me-1"></i> Depósito / Pago</span>
+                                            <!-- Ahora imprimirá dinámicamente "Abono en BBVA", manteniendo tu diseño verde -->
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                                <i class="bi bi-cash-stack me-1"></i> <?php echo htmlspecialchars((string)($row['producto'] ?? '')); ?>
+                                            </span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-end fw-bold pe-4">

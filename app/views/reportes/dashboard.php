@@ -38,9 +38,12 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
         <h2 class="h5 fw-bold text-dark mb-3"><i class="bi bi-grid-1x2-fill me-2 text-primary"></i>Accesos Operativos</h2>
         <div class="row g-3">
             
-            <!-- NUEVO: Botón de Gráfico de Ventas integrado como Widget -->
+            <!-- Botón de Gráfico de Ventas integrado como Widget -->
             <div class="col-12 col-sm-6 col-lg-3">
-                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-primary text-white" href="<?php echo e(route_url('reportes/ventas')); ?>" style="border-radius: 1.25rem;">
+                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-primary text-white" 
+                   href="<?php echo e(route_url('reportes/ventas')); ?>" 
+                   onclick="navegarDesdeDashboard(event, this.href)"
+                   style="border-radius: 1.25rem;">
                     <div class="card-body p-3 d-flex justify-content-between align-items-center">
                         <div>
                             <div class="text-white-50 mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Análisis</div>
@@ -54,7 +57,6 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
             </div>
 
             <?php 
-            // Configuración visual para cada widget (Colores de Bootstrap)
             $widgetConfig = [
                 'compras_pendientes'   => ['color' => 'warning', 'icon' => 'bi-cart-check', 'url' => 'reportes/compras'],
                 'ventas_por_despachar' => ['color' => 'info',    'icon' => 'bi-truck',       'url' => 'reportes/ventas'],
@@ -66,11 +68,12 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
             
             <?php foreach ($reportesWidgets as $k => $v): ?>
                 <?php if ($k === 'stock_critico') continue; ?>
-                <?php 
-                    $cfg = $widgetConfig[$k] ?? ['color' => 'secondary', 'icon' => 'bi-arrow-right', 'url' => 'reportes/dashboard']; 
-                ?>
+                <?php $cfg = $widgetConfig[$k] ?? ['color' => 'secondary', 'icon' => 'bi-arrow-right', 'url' => 'reportes/dashboard']; ?>
                 <div class="col-12 col-sm-6 col-lg-3">
-                    <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-<?php echo $cfg['color']; ?>-subtle" href="<?php echo e(route_url((string) $cfg['url'])); ?>" style="border-radius: 1.25rem;">
+                    <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-<?php echo $cfg['color']; ?>-subtle" 
+                       href="<?php echo e(route_url((string) $cfg['url'])); ?>" 
+                       onclick="navegarDesdeDashboard(event, this.href)"
+                       style="border-radius: 1.25rem;">
                         <div class="card-body p-3 d-flex justify-content-between align-items-center">
                             <div>
                                 <div class="text-<?php echo $cfg['color']; ?>-emphasis mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
@@ -88,7 +91,10 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
 
             <?php if (tiene_permiso('reportes.tesoreria.ver')): ?>
             <div class="col-12 col-sm-6 col-lg-3">
-                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-success-subtle" href="<?php echo e(route_url('reportes/estado_cuenta')); ?>" style="border-radius: 1.25rem;">
+                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-success-subtle" 
+                   href="<?php echo e(route_url('reportes/estado_cuenta')); ?>" 
+                   onclick="navegarDesdeDashboard(event, this.href)"
+                   style="border-radius: 1.25rem;">
                     <div class="card-body p-3 d-flex justify-content-between align-items-center">
                         <div>
                             <div class="text-success-emphasis mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">E. Cuenta Clientes</div>
@@ -101,7 +107,10 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
                 </a>
             </div>
             <div class="col-12 col-sm-6 col-lg-3">
-                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-secondary-subtle" href="<?php echo e(route_url('reportes/estado_cuenta_proveedores')); ?>" style="border-radius: 1.25rem;">
+                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-secondary-subtle" 
+                   href="<?php echo e(route_url('reportes/estado_cuenta_proveedores')); ?>" 
+                   onclick="navegarDesdeDashboard(event, this.href)"
+                   style="border-radius: 1.25rem;">
                     <div class="card-body p-3 d-flex justify-content-between align-items-center">
                         <div>
                             <div class="text-secondary-emphasis mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">E. Cuenta Prov.</div>
@@ -301,4 +310,53 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
         graficoDona: <?php echo json_encode($datosGraficoDona ?? []); ?>,
         graficoBarras: <?php echo json_encode($datosGraficoBarras ?? []); ?>
     };
+</script>
+
+<script>
+// Función robusta para interceptar el clic de los widgets
+function navegarDesdeDashboard(event, urlString) {
+    event.preventDefault(); 
+
+    if (typeof window.navigateWithoutReload === 'function') {
+        try {
+            const urlObjeto = new URL(urlString, window.location.origin);
+            window.navigateWithoutReload(urlObjeto, true);
+            
+            // --- LÓGICA ANTI-PARPADEO (Bloqueo agresivo) ---
+            let intentos = 0;
+            
+            // Usamos setInterval para forzar la selección cada 50 milisegundos
+            const candadoMenu = setInterval(() => {
+                const dashboardLink = document.querySelector('.sidebar a[href*="reportes/dashboard"], aside a[href*="reportes/dashboard"]');
+                
+                if(dashboardLink) {
+                    // Quitamos la clase 'active' de cualquier otro lado
+                    document.querySelectorAll('.sidebar a.active, aside a.active').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    
+                    // Aseguramos que el Dashboard esté activo
+                    dashboardLink.classList.add('active'); 
+                    
+                    const parentCollapse = dashboardLink.closest('.collapse');
+                    if(parentCollapse) parentCollapse.classList.add('show');
+                }
+                
+                intentos++;
+                // Detenemos el candado después de medio segundo (10 intentos x 50ms)
+                // Para este momento la plantilla ya se rindió y el Dashboard quedará fijo.
+                if(intentos >= 10) {
+                    clearInterval(candadoMenu);
+                }
+            }, 50); 
+            // ----------------------------------------------
+            
+        } catch (error) {
+            console.error("Error al navegar con SPA:", error);
+            window.location.href = urlString; 
+        }
+    } else {
+        window.location.href = urlString;
+    }
+}
 </script>

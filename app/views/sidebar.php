@@ -88,7 +88,7 @@
                         <div class="sb-brand-name" title="<?= htmlspecialchars($empresaNombre) ?>">
                             <?= htmlspecialchars($empresaNombre) ?>
                         </div>
-                        <div class="sb-brand-tag">ERP SYSTEM v2.0</div>
+                        <div class="sb-brand-tag">ERP SYSTEM v2.2</div>
                     </div>
                 </div>
                 <?php if ($navId === 'sidebarNavScrollDesktop'): ?>

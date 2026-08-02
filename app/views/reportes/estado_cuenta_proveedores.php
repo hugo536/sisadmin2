@@ -200,7 +200,10 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
                                             <span class="text-dark fw-medium"><?php echo e((string)($row['producto'] ?? '')); ?></span> <br>
                                             <small class="text-muted"><?php echo number_format((float)($row['cantidad'] ?? 0), 2); ?> x S/ <?php echo number_format((float)($row['precio_unitario'] ?? 0), 2); ?></small>
                                         <?php else: ?>
-                                            <span class="badge bg-success"><i class="bi bi-cash me-1"></i> Pago Realizado</span>
+                                            <!-- Mantendrá el diseño de insignia, pero con el texto real del banco -->
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                                <i class="bi bi-wallet2 me-1"></i> <?php echo htmlspecialchars((string)($row['producto'] ?? '')); ?>
+                                            </span>
                                         <?php endif; ?>
                                     </td>
                                     

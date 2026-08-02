@@ -233,7 +233,7 @@ class ReporteTesoreriaModel extends Modelo
     }
 
     // ==========================================
-    // MÉTODO HISTORIAL CORREGIDO
+    // MÉTODO HISTORIAL CORREGIDO (CLIENTES)
     // ==========================================
     public function historialEstadoCuenta(array $f, int $pagina, int $tamano): array
     {
@@ -242,7 +242,6 @@ class ReporteTesoreriaModel extends Modelo
         $cantidadExprZero = $this->cantidadVentasDetalleExpr('d', '0');
         $precioExprZero = $this->precioUnitarioVentasDetalleExpr('d', '0');
         
-        // CORRECCIÓN: Creamos parámetros únicos para las dos partes de la consulta
         $params = [
             'fd1' => $f['fecha_desde'],
             'fh1' => $f['fecha_hasta'],
@@ -305,7 +304,6 @@ class ReporteTesoreriaModel extends Modelo
             LEFT JOIN ventas_documentos_detalle d ON d.id_documento_venta = v.id AND d.deleted_at IS NULL
             LEFT JOIN items i ON i.id = d.id_item
             LEFT JOIN precios_presentaciones pp ON pp.id = d.id_presentacion
-            -- Se usa fd1 y fh1
             WHERE DATE(COALESCE(v.fecha_emision, c.fecha_emision)) BETWEEN :fd1 AND :fh1
 
             UNION ALL
@@ -315,14 +313,16 @@ class ReporteTesoreriaModel extends Modelo
                 DATE(m.fecha) AS fecha_atencion,
                 c.cliente_nombre AS cliente,
                 CONCAT('PAGO REF: ', COALESCE(NULLIF(TRIM(m.referencia), ''), m.id)) AS documento,
-                'Abono / Depósito del cliente' AS producto,
+                -- NUEVO: Concatenación dinámica de la cuenta bancaria
+                CONCAT('Abono en ', COALESCE(tc.nombre, 'Caja General')) AS producto,
                 1.00 AS cantidad,
                 CAST(m.monto AS DECIMAL(14,4)) AS precio_unitario,
                 CAST(m.monto AS DECIMAL(14,2)) AS monto_transaccion,
                 c.estado
             FROM tesoreria_movimientos m
             INNER JOIN BaseCXC c ON c.id = m.id_origen AND m.origen = 'CXC'
-            -- Se usa fd2 y fh2
+            -- NUEVO: Unión con la tabla de cuentas
+            LEFT JOIN tesoreria_cuentas tc ON tc.id = m.id_cuenta
             WHERE m.tipo = 'COBRO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
               AND DATE(m.fecha) BETWEEN :fd2 AND :fh2
             
@@ -443,7 +443,6 @@ class ReporteTesoreriaModel extends Modelo
         $cantidadExpr = $this->cantidadComprasDetalleExpr('d', '1');
         $cantidadExprZero = $this->cantidadComprasDetalleExpr('d', '0');
         
-        // CORRECCIÓN: Creamos parámetros únicos para las dos partes de la consulta
         $params = [
             'fd1' => $f['fecha_desde'],
             'fh1' => $f['fecha_hasta'],
@@ -508,7 +507,6 @@ class ReporteTesoreriaModel extends Modelo
             LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra AND co.deleted_at IS NULL
             LEFT JOIN compras_ordenes_detalle d ON d.id_orden = co.id AND d.deleted_at IS NULL
             LEFT JOIN items i ON i.id = d.id_item
-            -- Se usa fd1 y fh1
             WHERE DATE(COALESCE(co.fecha_emision, c.fecha_emision)) BETWEEN :fd1 AND :fh1
 
             UNION ALL
@@ -518,14 +516,16 @@ class ReporteTesoreriaModel extends Modelo
                 DATE(m.fecha) AS fecha_atencion,
                 c.proveedor_nombre AS proveedor,
                 CONCAT('PAGO REF: ', COALESCE(NULLIF(TRIM(m.referencia), ''), m.id)) AS documento,
-                'Pago / Abono al proveedor' AS producto,
+                -- NUEVO: Concatenación dinámica de la cuenta bancaria para proveedores
+                CONCAT('Pago desde ', COALESCE(tc.nombre, 'Caja General')) AS producto,
                 1.00 AS cantidad,
                 CAST(m.monto AS DECIMAL(14,4)) AS precio_unitario,
                 CAST(m.monto AS DECIMAL(14,2)) AS monto_transaccion,
                 c.estado
             FROM tesoreria_movimientos m
             INNER JOIN BaseCXP c ON c.id = m.id_origen AND m.origen = 'CXP'
-            -- Se usa fd2 y fh2
+            -- NUEVO: Unión con la tabla de cuentas
+            LEFT JOIN tesoreria_cuentas tc ON tc.id = m.id_cuenta
             WHERE m.tipo = 'PAGO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
               AND DATE(m.fecha) BETWEEN :fd2 AND :fh2
 

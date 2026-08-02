@@ -8,8 +8,17 @@
       
       if (desde && hasta && desde.value && hasta.value && desde.value > hasta.value) {
         e.preventDefault();
-        // Usar un Toast o SweetAlert sería ideal aquí en el futuro
-        alert('La fecha "Desde" no puede ser mayor que la fecha "Hasta".');
+        // Ya que usamos SweetAlert, lo aprovechamos también aquí
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error', 
+                title: 'Rango de fechas inválido', 
+                text: 'La fecha "Desde" no puede ser mayor que la fecha "Hasta".',
+                confirmButtonColor: '#0B5ED7'
+            });
+        } else {
+            alert('La fecha "Desde" no puede ser mayor que la fecha "Hasta".');
+        }
       }
     });
   });
@@ -34,38 +43,37 @@
       }
 
       // --- LÓGICA BOTÓN LIMPIAR FILTROS (SPA) ---
-    const btnLimpiar = document.getElementById('btnLimpiarFiltrosEstadoCuenta');
-    if (btnLimpiar) {
-      btnLimpiar.addEventListener('click', () => {
-        // 1. Limpiar el select del cliente (TomSelect si existe, o el input normal)
-        if (typeof TomSelect !== 'undefined' && filtroTerceroEstadoCuenta && filtroTerceroEstadoCuenta.tomselect) {
-          filtroTerceroEstadoCuenta.tomselect.clear(true); // 'true' evita que dispare un evento 'change'
-        } else if (filtroTerceroEstadoCuenta) {
-          filtroTerceroEstadoCuenta.value = '';
-        }
+      const btnLimpiar = document.getElementById('btnLimpiarFiltrosEstadoCuenta');
+      if (btnLimpiar) {
+        btnLimpiar.addEventListener('click', () => {
+          // 1. Limpiar el select del cliente
+          if (typeof TomSelect !== 'undefined' && filtroTerceroEstadoCuenta && filtroTerceroEstadoCuenta.tomselect) {
+            filtroTerceroEstadoCuenta.tomselect.clear(true); 
+          } else if (filtroTerceroEstadoCuenta) {
+            filtroTerceroEstadoCuenta.value = '';
+          }
 
-        // 2. Limpiar las fechas (opcional, el backend le pondrá el mes actual si van vacías)
-        const inputDesde = formEstadoCuenta.querySelector('input[name="fecha_desde"]');
-        const inputHasta = formEstadoCuenta.querySelector('input[name="fecha_hasta"]');
-        if (inputDesde) inputDesde.value = '';
-        if (inputHasta) inputHasta.value = '';
+          // 2. Limpiar las fechas 
+          const inputDesde = formEstadoCuenta.querySelector('input[name="fecha_desde"]');
+          const inputHasta = formEstadoCuenta.querySelector('input[name="fecha_hasta"]');
+          if (inputDesde) inputDesde.value = '';
+          if (inputHasta) inputHasta.value = '';
 
-        // 3. Preparar la URL base para el SPA
-        const baseUrl = formEstadoCuenta.action.split('?')[0];
-        const destino = new URL(baseUrl, window.location.origin);
-        
-        // Mantener solo la ruta principal
-        const inputRuta = formEstadoCuenta.querySelector('input[name="ruta"]');
-        if (inputRuta) destino.searchParams.set('ruta', inputRuta.value);
+          // 3. Preparar la URL base para el SPA
+          const baseUrl = formEstadoCuenta.action.split('?')[0];
+          const destino = new URL(baseUrl, window.location.origin);
+          
+          const inputRuta = formEstadoCuenta.querySelector('input[name="ruta"]');
+          if (inputRuta) destino.searchParams.set('ruta', inputRuta.value);
 
-        // 4. Navegar sin recargar toda la página
-        if (typeof window.navigateWithoutReload === 'function') {
-          window.navigateWithoutReload(destino, true);
-        } else {
-          window.location.href = destino.toString();
-        }
-      });
-    }
+          // 4. Navegar sin recargar
+          if (typeof window.navigateWithoutReload === 'function') {
+            window.navigateWithoutReload(destino, true);
+          } else {
+            window.location.href = destino.toString();
+          }
+        });
+      }
     };
 
     // Temporizador para evitar múltiples recargas rápidas (Debounce)
@@ -82,29 +90,12 @@
       submitEstadoCuentaFiltros();
     });
 
-    // --- INTEGRACIÓN DE TOMSELECT (Con preparación para AJAX) ---
+    // --- INTEGRACIÓN DE TOMSELECT ---
     if (filtroTerceroEstadoCuenta) {
       if (typeof TomSelect !== 'undefined') {
         new TomSelect(filtroTerceroEstadoCuenta, {
           create: false,
           placeholder: "Buscar cliente o distribuidor...",
-          // IMPORTANTE: Cuando tengas miles de clientes, usa esta configuración AJAX:
-          /*
-          valueField: 'nombre', // El valor que viaja en el select
-          labelField: 'nombre', // Lo que se muestra
-          searchField: 'nombre',
-          load: function(query, callback) {
-            if (!query.length) return callback();
-            // Llama a tu controlador PHP para buscar clientes
-            fetch(`${window.location.origin}/public/index.php?ruta=api/clientes&q=${encodeURIComponent(query)}`)
-              .then(response => response.json())
-              .then(json => {
-                callback(json); // json debe ser un array de objetos [{nombre: 'Juan'}, {nombre: 'Pedro'}]
-              }).catch(()=>{
-                callback();
-              });
-          },
-          */
           onChange: function() {
             autoSubmitEstadoCuenta();
           }
@@ -114,12 +105,93 @@
       }
     }
     
-    // --- LÓGICA EXPORTAR PDF ---
-    const btnExportarPdf = document.getElementById(btnPdfId);
+    // --- LÓGICA DE EXPORTACIÓN (EXCEL, CSV, PDF) Y VALIDACIÓN SWEETALERT ---
+    const tablaDetalle = document.getElementById('tablaEstadoCuentaDetalle') || document.querySelector('table');
+    
+    // Obtenemos el total de registros priorizando el atributo data, o contando las filas de datos como respaldo
+    const filasReales = document.querySelectorAll('tbody tr[data-search]').length;
+    const totalRegistros = tablaDetalle ? parseInt(tablaDetalle.getAttribute('data-total-rows') || filasReales, 10) : filasReales;
+
+    // Función interceptora con SweetAlert
+    const verificarDatosVacios = (e) => {
+      if (totalRegistros === 0) {
+        e.preventDefault();
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Sin datos para exportar',
+            text: 'No hay movimientos registrados en el periodo y filtros seleccionados.',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#0B5ED7',
+            showClass: { popup: 'animate__animated animate__fadeInDown animate__faster' },
+            hideClass: { popup: 'animate__animated animate__fadeOutUp animate__faster' }
+          });
+        } else {
+          alert('No hay movimientos registrados para exportar.');
+        }
+        return true; // Retorna true indicando que bloqueó la acción
+      }
+      return false; // Retorna false indicando que tiene datos y puede continuar
+    };
+
+    // 1. Exportar a PDF (Corregido para usar la variable btnPdfId)
+    const btnExportarPdf = document.getElementById(btnPdfId) || document.getElementById('btnExportarPdfLimitado');
     if (btnExportarPdf) {
-      btnExportarPdf.addEventListener('click', () => {
+      btnExportarPdf.addEventListener('click', (e) => {
+        e.preventDefault();
+
+        // VALIDACIÓN SWEETALERT (BLOQUEA SI ESTÁ VACÍO)
+        if (verificarDatosVacios(e)) return;
+
+        // Límite Estricto (Bloqueo)
+        if (totalRegistros >= 2500) {
+          alert(`⚠️ LÍMITE EXCEDIDO: El reporte contiene ${totalRegistros} movimientos.\n\nGenerar un PDF de este tamaño (más de 70 páginas) colapsará el servidor. Por favor, utiliza la opción de exportar a Excel o CSV para descargar esta cantidad de datos masivos.`);
+          return; 
+        }
+
+        // Límite Suave (Advertencia)
+        if (totalRegistros >= 1000) {
+          const continuar = confirm(`⚠️ ATENCIÓN: Estás intentando exportar ${totalRegistros} movimientos a PDF.\n\nEste proceso puede tardar varios segundos y generar más de 30 páginas. Para reportes de este tamaño se recomienda usar Excel o CSV.\n\n¿Estás seguro de que deseas generar el PDF?`);
+          if (!continuar) return;
+        }
+
+        // Si pasa las validaciones, genera el PDF
         const params = new URLSearchParams(new FormData(formEstadoCuenta));
-        params.set('accion', pdfAction);
+        params.set('accion', pdfAction); 
+        const baseUrl = formEstadoCuenta.action.split('?')[0]; 
+        const urlCompleta = `${baseUrl}?${params.toString()}`;
+        window.open(urlCompleta, '_blank');
+      });
+    }
+
+    // 2. Exportar a Excel
+    const btnExportarExcel = document.getElementById('btnExportarExcel');
+    if (btnExportarExcel) {
+      btnExportarExcel.addEventListener('click', (e) => {
+        e.preventDefault();
+        
+        // VALIDACIÓN SWEETALERT (BLOQUEA SI ESTÁ VACÍO)
+        if (verificarDatosVacios(e)) return;
+
+        const params = new URLSearchParams(new FormData(formEstadoCuenta));
+        params.set('accion', 'exportar_excel_estado_cuenta'); 
+        const baseUrl = formEstadoCuenta.action.split('?')[0]; 
+        const urlCompleta = `${baseUrl}?${params.toString()}`;
+        window.open(urlCompleta, '_blank');
+      });
+    }
+
+    // 3. Exportar a CSV
+    const btnExportarCsv = document.getElementById('btnExportarCsv');
+    if (btnExportarCsv) {
+      btnExportarCsv.addEventListener('click', (e) => {
+        e.preventDefault();
+
+        // VALIDACIÓN SWEETALERT (BLOQUEA SI ESTÁ VACÍO)
+        if (verificarDatosVacios(e)) return;
+
+        const params = new URLSearchParams(new FormData(formEstadoCuenta));
+        params.set('accion', 'exportar_csv_estado_cuenta'); 
         const baseUrl = formEstadoCuenta.action.split('?')[0]; 
         const urlCompleta = `${baseUrl}?${params.toString()}`;
         window.open(urlCompleta, '_blank');
@@ -127,8 +199,6 @@
     }
 
     // --- AUTO-SUBMIT CONTROLADO ---
-    // Solo hacemos auto-submit al cambiar el tipo de vista. 
-    // Las fechas requerirán el botón "Filtrar" para evitar recargas mientras el usuario tipea.
     const filtrosAutoSubmit = formEstadoCuenta.querySelectorAll('[name="vista"]');
     filtrosAutoSubmit.forEach((field) => {
       field.addEventListener('change', () => autoSubmitEstadoCuenta());
@@ -180,9 +250,6 @@
     filtrosAutoSubmit.forEach((field) => {
       field.addEventListener('change', () => autoSubmitInventario());
     });
-    
-    // NOTA: Quité el evento 'input' y 'change' automático de las fechas del inventario 
-    // para que funcionen con un botón de filtrar, igual que en el Estado de Cuenta.
   };
 
   initReporteInventarioFiltros();

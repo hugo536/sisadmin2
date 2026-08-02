@@ -50,7 +50,15 @@ class Router
             $accion = $accion === 'index' ? 'dashboard' : $accion;
         }
 
-        // --- MANEJO DE MÓDULOS ESPECÍFICOS ---
+        if ($modulo === 'reportes') {
+            if ($accion === 'estado_cuenta') {
+                $controlador_clase = 'Estado_Cuenta_ClienteController';
+                $accion = 'index';
+            } elseif ($accion === 'estado_cuenta_proveedores') {
+                $controlador_clase = 'Estado_Cuenta_ProveedorController';
+                $accion = 'index';
+            }
+        }
 
         // Rutas de INVENTARIO
         if ($modulo === 'inventario') {
@@ -197,7 +205,6 @@ class Router
 
     private function resolver_controlador_archivo(string $clase): ?string
     {
-        // Añadida la ruta para la nueva carpeta 'costos' y 'tesoreria'
         $rutas_posibles = [
             BASE_PATH . '/app/controllers/' . $clase . '.php',
             BASE_PATH . '/app/controllers/inventario/' . $clase . '.php',
@@ -207,7 +214,8 @@ class Router
             BASE_PATH . '/app/controllers/contabilidad/' . $clase . '.php',
             BASE_PATH . '/app/controllers/produccion/' . $clase . '.php',
             BASE_PATH . '/app/controllers/costos/' . $clase . '.php', 
-            BASE_PATH . '/app/controllers/tesoreria/' . $clase . '.php', // <-- ¡AGREGA ESTA LÍNEA!
+            BASE_PATH . '/app/controllers/tesoreria/' . $clase . '.php',
+            BASE_PATH . '/app/controllers/reportes/' . $clase . '.php', // <-- ¡AGREGA ESTA LÍNEA PARA TUS NUEVOS CONTROLADORES!
             BASE_PATH . '/app/controladores/' . $clase . '.php',
         ];
 
