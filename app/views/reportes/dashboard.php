@@ -5,6 +5,7 @@
  * @var array|null $cumpleanosSemana
  * @var array|null $reportes_widgets
  * @var array|null $inventario_valorizado
+ * @var array|null $productosCriticos
  */
 
 $totales = is_array($totales ?? null) ? $totales : [];
@@ -12,6 +13,7 @@ $eventos = is_array($eventos ?? null) ? $eventos : [];
 $cumpleanosSemana = is_array($cumpleanosSemana ?? null) ? $cumpleanosSemana : [];
 $reportesWidgets = is_array($reportes_widgets ?? null) ? $reportes_widgets : [];
 $inventarioValorizado = is_array($inventario_valorizado ?? null) ? $inventario_valorizado : [];
+$productosCriticos = is_array($productosCriticos ?? null) ? $productosCriticos : [];
 $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] ?? 0);
 ?>
 
@@ -61,8 +63,8 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
                 'compras_pendientes'   => ['color' => 'warning', 'icon' => 'bi-cart-check', 'url' => 'reportes/compras'],
                 'ventas_por_despachar' => ['color' => 'info',    'icon' => 'bi-truck',       'url' => 'reportes/ventas'],
                 'produccion_proceso'   => ['color' => 'primary', 'icon' => 'bi-gear',        'url' => 'reportes/produccion'],
-                'cxc_vencida'          => ['color' => 'danger',  'icon' => 'bi-cash-stack',  'url' => 'reportes/cxc'], // <-- Actualizado al nuevo reporte CxC
-                'cxp_vencida'          => ['color' => 'danger',  'icon' => 'bi-wallet2',     'url' => 'reportes/cxp']  // <-- Actualizado al nuevo reporte CxP
+                'cxc_vencida'          => ['color' => 'danger',  'icon' => 'bi-cash-stack',  'url' => 'reportes/cxc'], 
+                'cxp_vencida'          => ['color' => 'danger',  'icon' => 'bi-wallet2',     'url' => 'reportes/cxp']  
             ]; 
             ?>
             
@@ -126,35 +128,78 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
         </div>
     </div>
 
-    <!-- ANÁLISIS DE INVENTARIO -->
-    <div class="mb-5">
+    <!-- ALERTAS DE INVENTARIO (Stock Crítico) -->
+    <div class="mb-5 fade-in" style="animation-delay: 0.1s;">
         <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-2">
-            <h2 class="h5 fw-bold text-dark mb-0"><i class="bi bi-pie-chart-fill me-2 text-success"></i>Análisis de Inventario</h2>
+            <h2 class="h5 fw-bold text-dark mb-0">
+                <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i>Alertas de Stock Crítico
+            </h2>
             <div class="fw-bold text-success bg-success-subtle px-3 py-2 rounded-pill border border-success-subtle shadow-sm fs-6">
                 Valor Total: S/ <?php echo number_format($totalInventarioValorizado, 2); ?>
             </div>
         </div>
         
-        <div class="row g-4">
-            <div class="col-12 col-lg-4">
-                <div class="card border-0 shadow-sm h-100" style="border-radius: 1rem;">
-                    <div class="card-body text-center p-4">
-                        <h6 class="text-muted fw-bold mb-4 text-uppercase" style="font-size: 0.8rem; letter-spacing: 0.5px;">Distribución del Valor</h6>
-                        <div style="position: relative; height: 260px; width: 100%;">
-                            <canvas id="chartStockDona"></canvas>
+        <div class="card border-0 shadow-sm" style="border-radius: 1rem; overflow: hidden;">
+            <div class="card-body p-0">
+                <?php if (empty($productosCriticos)): ?>
+                    <!-- Estado cuando el inventario está saludable -->
+                    <div class="p-5 text-center text-muted">
+                        <div class="bg-success-subtle rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                            <i class="bi bi-check2-circle fs-1 text-success"></i>
                         </div>
+                        <h5 class="fw-bold text-dark">¡Inventario Saludable!</h5>
+                        <p class="mb-0 fw-semibold">No hay artículos por debajo de su stock mínimo.</p>
                     </div>
-                </div>
-            </div>
-            <div class="col-12 col-lg-8">
-                <div class="card border-0 shadow-sm h-100" style="border-radius: 1rem;">
-                    <div class="card-body p-4">
-                        <h6 class="text-muted fw-bold mb-4 text-uppercase" style="font-size: 0.8rem; letter-spacing: 0.5px;">Top 5 Artículos de Mayor Valor</h6>
-                        <div style="position: relative; height: 260px; width: 100%;">
-                            <canvas id="chartStockBarras"></canvas>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0 table-hover table-borderless">
+                            <thead class="table-light text-muted" style="font-size: 0.75rem; text-transform: uppercase;">
+                                <tr>
+                                    <th class="ps-4 fw-bold py-3">Código / Producto</th>
+                                    <th class="fw-bold py-3 text-center">Stock Mínimo</th>
+                                    <th class="fw-bold py-3 text-center">Stock Actual</th>
+                                    <th class="fw-bold py-3 text-center">Estado</th>
+                                    <th class="pe-4 fw-bold py-3 text-end">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach (array_slice($productosCriticos, 0, 5) as $prod): ?>
+                                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                                        <td class="ps-4 py-3">
+                                            <div class="fw-bold text-dark"><?php echo e((string) ($prod['nombre'] ?? 'Sin Nombre')); ?></div>
+                                            <div class="text-muted" style="font-size: 0.8rem;"><?php echo e((string) ($prod['codigo'] ?? 'S/C')); ?></div>
+                                        </td>
+                                        <td class="text-center py-3 fw-medium text-secondary">
+                                            <?php echo (float)($prod['stock_minimo'] ?? 0); ?>
+                                        </td>
+                                        <td class="text-center py-3">
+                                            <span class="fw-bold text-danger fs-5"><?php echo (float)($prod['stock_actual'] ?? 0); ?></span>
+                                        </td>
+                                        <td class="text-center py-3">
+                                            <?php if ((float)($prod['stock_actual'] ?? 0) <= 0): ?>
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2">Agotado</span>
+                                            <?php else: ?>
+                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2">Crítico</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="pe-4 text-end py-3">
+                                            <a href="<?php echo e(route_url('inventario/kardex')); ?>&id_item=<?php echo $prod['id']; ?>" class="btn btn-sm btn-light border text-primary rounded-pill px-3 transition-hover sb-link">
+                                                <i class="bi bi-box-seam me-1"></i> Pedir
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php if(count($productosCriticos) > 5): ?>
+                        <div class="card-footer bg-light border-top text-center py-3">
+                            <a href="<?php echo e(route_url('reportes/inventario')); ?>" class="text-decoration-none fw-bold text-primary sb-link">
+                                Ver todos los <?php echo count($productosCriticos); ?> productos críticos <i class="bi bi-arrow-right ms-1"></i>
+                            </a>
                         </div>
-                    </div>
-                </div>
+                    <?php endif; ?>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -301,13 +346,6 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
     border-radius: 10px;
 }
 </style>
-
-<script>
-    window.datosInventario = {
-        graficoDona: <?php echo json_encode($datosGraficoDona ?? []); ?>,
-        graficoBarras: <?php echo json_encode($datosGraficoBarras ?? []); ?>
-    };
-</script>
 
 <script>
 function navegarDesdeDashboard(event, urlString) {

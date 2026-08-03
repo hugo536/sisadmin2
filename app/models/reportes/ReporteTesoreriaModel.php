@@ -1078,4 +1078,132 @@ class ReporteTesoreriaModel extends Modelo
             'suma_total' => $sumaTotal
         ];
     }
+
+    // ==========================================
+    // MÉTODOS PARA REPORTES MACRO (CXC y CXP)
+    // ==========================================
+    public function obtenerCarteraMacroCxC(array $f): array
+    {
+        $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
+        $where = "c.deleted_at IS NULL AND c.saldo > 0 AND c.fecha_emision BETWEEN :fd AND :fh";
+
+        if (!empty($f['estado_factura']) && $f['estado_factura'] !== 'todos') {
+            if ($f['estado_factura'] === 'vencida') {
+                $where .= " AND c.fecha_vencimiento < CURDATE()";
+            } elseif ($f['estado_factura'] === 'corriente') {
+                $where .= " AND c.fecha_vencimiento >= CURDATE()";
+            }
+        }
+
+        if (!empty($f['tipo_tercero']) && $f['tipo_tercero'] !== 'todos') {
+            if ($f['tipo_tercero'] === 'distribuidor') {
+                $where .= " AND d.id_tercero IS NOT NULL";
+            } elseif ($f['tipo_tercero'] === 'cliente') {
+                $where .= " AND d.id_tercero IS NULL";
+            }
+        }
+
+        // 1. Agrupado (Para la vista Web HTML - Aging)
+        $sqlWeb = "
+            SELECT 
+                t.nombre_completo AS cliente,
+                CASE WHEN d.id_tercero IS NOT NULL THEN 'distribuidor' ELSE 'cliente' END AS tipo_tercero,
+                SUM(c.saldo) AS total_deuda,
+                SUM(CASE WHEN c.fecha_vencimiento >= CURDATE() THEN c.saldo ELSE 0 END) AS por_vencer,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), c.fecha_vencimiento) BETWEEN 1 AND 30 THEN c.saldo ELSE 0 END) AS mora_30,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), c.fecha_vencimiento) BETWEEN 31 AND 60 THEN c.saldo ELSE 0 END) AS mora_60,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), c.fecha_vencimiento) > 60 THEN c.saldo ELSE 0 END) AS mora_mas_60
+            FROM tesoreria_cxc c
+            INNER JOIN terceros t ON t.id = c.id_cliente
+            LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
+            WHERE {$where}
+            GROUP BY t.id
+            ORDER BY total_deuda DESC
+        ";
+
+        // 2. Detallado (Para exportación Excel / CSV)
+        $sqlExcel = "
+            SELECT 
+                t.nombre_completo AS cliente,
+                CASE WHEN d.id_tercero IS NOT NULL THEN 'Distribuidor' ELSE 'Cliente' END AS tipo_tercero,
+                COALESCE(c.documento_referencia, CONCAT('CXC-', c.id)) AS documento_referencia,
+                c.fecha_emision,
+                c.fecha_vencimiento,
+                c.monto_total,
+                c.saldo,
+                CASE WHEN c.fecha_vencimiento < CURDATE() THEN 'VENCIDA' ELSE 'AL CORRIENTE' END AS estado
+            FROM tesoreria_cxc c
+            INNER JOIN terceros t ON t.id = c.id_cliente
+            LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
+            WHERE {$where}
+            ORDER BY t.nombre_completo ASC, c.fecha_emision DESC
+        ";
+
+        $stmtWeb = $this->db()->prepare($sqlWeb);
+        $stmtWeb->execute($params);
+        
+        $stmtExcel = $this->db()->prepare($sqlExcel);
+        $stmtExcel->execute($params);
+
+        return [
+            'agrupados' => $stmtWeb->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'detallados' => $stmtExcel->fetchAll(PDO::FETCH_ASSOC) ?: []
+        ];
+    }
+
+    public function obtenerCarteraMacroCxP(array $f): array
+    {
+        $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
+        $where = "c.deleted_at IS NULL AND c.saldo > 0 AND c.fecha_emision BETWEEN :fd AND :fh";
+
+        if (!empty($f['estado_factura']) && $f['estado_factura'] !== 'todos') {
+            if ($f['estado_factura'] === 'vencida') {
+                $where .= " AND c.fecha_vencimiento < CURDATE()";
+            } elseif ($f['estado_factura'] === 'corriente') {
+                $where .= " AND c.fecha_vencimiento >= CURDATE()";
+            }
+        }
+
+        $sqlWeb = "
+            SELECT 
+                t.nombre_completo AS proveedor,
+                'proveedor' AS tipo_tercero,
+                SUM(c.saldo) AS total_deuda,
+                SUM(CASE WHEN c.fecha_vencimiento >= CURDATE() THEN c.saldo ELSE 0 END) AS por_vencer,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), c.fecha_vencimiento) BETWEEN 1 AND 30 THEN c.saldo ELSE 0 END) AS mora_30,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), c.fecha_vencimiento) BETWEEN 31 AND 60 THEN c.saldo ELSE 0 END) AS mora_60,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), c.fecha_vencimiento) > 60 THEN c.saldo ELSE 0 END) AS mora_mas_60
+            FROM tesoreria_cxp c
+            INNER JOIN terceros t ON t.id = c.id_proveedor
+            WHERE {$where}
+            GROUP BY t.id
+            ORDER BY total_deuda DESC
+        ";
+
+        $sqlExcel = "
+            SELECT 
+                t.nombre_completo AS proveedor,
+                COALESCE(c.documento_referencia, CONCAT('CXP-', c.id)) AS documento_referencia,
+                c.fecha_emision,
+                c.fecha_vencimiento,
+                c.monto_total,
+                c.saldo,
+                CASE WHEN c.fecha_vencimiento < CURDATE() THEN 'VENCIDA' ELSE 'AL CORRIENTE' END AS estado
+            FROM tesoreria_cxp c
+            INNER JOIN terceros t ON t.id = c.id_proveedor
+            WHERE {$where}
+            ORDER BY t.nombre_completo ASC, c.fecha_emision DESC
+        ";
+
+        $stmtWeb = $this->db()->prepare($sqlWeb);
+        $stmtWeb->execute($params);
+        
+        $stmtExcel = $this->db()->prepare($sqlExcel);
+        $stmtExcel->execute($params);
+
+        return [
+            'agrupados' => $stmtWeb->fetchAll(PDO::FETCH_ASSOC) ?: [],
+            'detallados' => $stmtExcel->fetchAll(PDO::FETCH_ASSOC) ?: []
+        ];
+    }
 }

@@ -27,6 +27,12 @@ class CxcController extends Controlador
         $f = $this->filtrosPeriodo();
         $f['cliente'] = trim((string) ($_GET['cliente'] ?? ''));
         $f['estado_factura'] = trim((string) ($_GET['estado_factura'] ?? 'todos'));
+        
+        // --- AGREGAR ESTO: Capturar el tipo de tercero ---
+        $f['tipo_tercero'] = trim((string) ($_GET['tipo_tercero'] ?? 'todos'));
+        if (!in_array($f['tipo_tercero'], ['todos', 'cliente', 'distribuidor'], true)) {
+            $f['tipo_tercero'] = 'todos';
+        }
 
         if (!in_array($f['estado_factura'], ['todos', 'vencida', 'corriente'], true)) {
             $f['estado_factura'] = 'todos';
@@ -35,72 +41,27 @@ class CxcController extends Controlador
         $accion = $_GET['accion'] ?? $_GET['exportar'] ?? '';
 
         // --- 1. PROCESAR DATOS BASE DESDE EL MODELO ---
-        // Obtenemos todos los registros aplicando las fechas iniciales
-        $registrosBrutos = $this->tesoreria->historialEstadoCuenta($f, 1, 999999);
-        $filasCompletas = $registrosBrutos['rows'] ?? [];
+        $datos = $this->tesoreria->obtenerCarteraMacroCxC($f);
 
-        // Filtramos y calculamos KPIs ejecutivos en tiempo real
-        $registros = [];
+        // --- 2. CÁLCULO DE KPIs GLOBALES EN TIEMPO REAL ---
         $total_cartera = 0;
         $total_vencido = 0;
         $total_por_vencer = 0;
-        $clientesUnicos = [];
-        $hoy = time();
 
-        foreach ($filasCompletas as $r) {
-            // Solo procesamos transacciones de tipo CARGO (deudas vivas de CxC)
-            if (($r['tipo_transaccion'] ?? 'CARGO') !== 'CARGO') {
-                continue;
-            }
-
-            $saldo = (float)($r['monto_transaccion'] ?? 0);
-            if ($saldo <= 0) continue;
-
-            // Determinamos si está vencida comparando con la fecha actual
-            // Nota: Se asume que el modelo puede traer la fecha de vencimiento o se evalúa el estado
-            $estadoStr = strtoupper(trim((string)($r['estado'] ?? 'PENDIENTE')));
-            $esDeudaActiva = in_array($estadoStr, ['PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA'], true);
-            
-            if (!$esDeudaActiva) continue;
-
-            // Filtro por Estado de Obligación (vencida vs corriente)
-            // (Si la fecha de vencimiento está disponible o se determina por mora)
-            $fechaVencTime = isset($r['fecha_vencimiento']) ? strtotime((string)$r['fecha_vencimiento']) : 0;
-            $estaVencida = ($fechaVencTime && $fechaVencTime < $hoy);
-
-            if ($f['estado_factura'] === 'vencida' && !($estaVencida || $estadoStr === 'VENCIDA')) continue;
-            if ($f['estado_factura'] === 'corriente' && ($estaVencida || $estadoStr === 'VENCIDA')) continue;
-
-            $total_cartera += $saldo;
-            if ($estaVencida || $estadoStr === 'VENCIDA') {
-                $total_vencido += $saldo;
-            } else {
-                $total_por_vencer += $saldo;
-            }
-
-            if (!empty($r['cliente'])) {
-                $clientesUnicos[$r['cliente']] = true;
-            }
-
-            $registros[] = [
-                'cliente' => $r['cliente'] ?? '',
-                'documento_referencia' => $r['documento'] ?? '',
-                'fecha_emision' => $r['fecha_atencion'] ?? '',
-                'fecha_vencimiento' => $r['fecha_vencimiento'] ?? $r['fecha_atencion'] ?? '',
-                'monto_total' => $saldo,
-                'saldo' => $saldo,
-                'estado' => $estadoStr
-            ];
+        foreach ($datos['agrupados'] as $r) {
+            $total_cartera += (float)$r['total_deuda'];
+            $total_por_vencer += (float)$r['por_vencer'];
+            $total_vencido += ((float)$r['mora_30'] + (float)$r['mora_60'] + (float)$r['mora_mas_60']);
         }
 
         $resumen = [
             'total_cartera'      => $total_cartera,
             'total_vencido'      => $total_vencido,
             'total_por_vencer'   => $total_por_vencer,
-            'clientes_con_deuda' => count($clientesUnicos)
+            'clientes_con_deuda' => count($datos['agrupados'])
         ];
 
-        // --- 2. EXPORTAR CSV ---
+        // --- 3. EXPORTAR CSV (Usando lista detallada) ---
         if ($accion === 'exportar_csv_cxc' || $accion === 'csv') {
             $filename = 'Reporte_Global_CXC_' . date('Ymd_His') . '.csv'; 
             header('Content-Type: text/csv; charset=utf-8');
@@ -110,7 +71,7 @@ class CxcController extends Controlador
             $output = fopen('php://output', 'w');
             fputcsv($output, ['Cliente / Distribuidor', 'Documento Ref.', 'Emisión', 'Vencimiento', 'Total Emitido', 'Saldo Pendiente', 'Estado'], ',');
             
-            foreach ($registros as $row) {
+            foreach ($datos['detallados'] as $row) {
                 fputcsv($output, [
                     $row['cliente'],
                     $row['documento_referencia'],
@@ -125,7 +86,7 @@ class CxcController extends Controlador
             exit;
         }
 
-        // --- 3. EXPORTAR EXCEL NATIVO (.xlsx) CON PHPSpreadsheet ---
+        // --- 4. EXPORTAR EXCEL NATIVO (.xlsx) (Usando lista detallada) ---
         if ($accion === 'exportar_excel_cxc' || $accion === 'excel') {
             require_once BASE_PATH . '/vendor/autoload.php';
             require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
@@ -189,7 +150,7 @@ class CxcController extends Controlador
 
             // Llenado de datos
             $fila = $filaInicioTabla + 1;
-            foreach ($registros as $row) {
+            foreach ($datos['detallados'] as $row) {
                 $sheet->setCellValue('B' . $fila, $row['cliente']);
                 $sheet->setCellValue('C' . $fila, $row['documento_referencia']);
                 $sheet->setCellValue('D' . $fila, !empty($row['fecha_emision']) ? date('d/m/Y', strtotime($row['fecha_emision'])) : '');
@@ -246,11 +207,11 @@ class CxcController extends Controlador
             exit;
         }
 
-        // --- 4. RENDERIZAR VISTA WEB ---
+        // --- 5. RENDERIZAR VISTA WEB ---
         $this->render('reportes/tesoreria_cxc', [
             'ruta_actual' => 'reportes/cxc',
             'filtros' => $f,
-            'registros' => $registros,
+            'registros' => $datos['agrupados'], // Pasamos los datos listos para el Aging
             'resumen' => $resumen,
             'clientesEstadoCuenta' => $this->tesoreria->listarClientesEstadoCuenta(),
         ]);

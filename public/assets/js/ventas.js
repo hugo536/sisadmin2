@@ -1871,14 +1871,16 @@
             const hoy = obtenerFechaLocalISO();
             let fechaMinima = '';
 
-            if (venta.created_at) {
-                fechaMinima = venta.created_at.substring(0, 10);
-            } else if (venta.fecha_emision) {
+            // 🔥 CAMBIO AQUÍ: Priorizamos fecha_emision sobre created_at
+            if (venta.fecha_emision) {
                 fechaMinima = String(venta.fecha_emision).split(' ')[0];
+            } else if (venta.created_at) {
+                fechaMinima = venta.created_at.substring(0, 10);
             }
 
             if (fechaMinima) {
                 despachoFecha.min = fechaMinima;
+                // Si hoy es menor a la fecha mínima, forzamos la mínima. Si no, sugerimos hoy.
                 despachoFecha.value = hoy < fechaMinima ? fechaMinima : hoy;
             } else {
                 despachoFecha.removeAttribute('min'); 

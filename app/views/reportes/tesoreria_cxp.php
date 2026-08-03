@@ -3,29 +3,16 @@
  * @var array|null $filtros
  * @var array|null $registros
  * @var array|null $resumen
- * @var array|null $proveedoresEstadoCuenta
  */
 
 $filtros = is_array($filtros ?? null) ? $filtros : [];
 $registros = is_array($registros ?? null) ? $registros : [];
 $resumen = is_array($resumen ?? null) ? $resumen : [];
-$proveedoresEstadoCuenta = array_values(array_filter(array_map(
-    static fn($item): string => trim((string)$item),
-    is_array($proveedoresEstadoCuenta ?? null) ? $proveedoresEstadoCuenta : []
-), static fn(string $nombre): bool => $nombre !== ''));
 
 // Subtítulo dinámico para la cabecera
 $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($filtros['fecha_hasta'] ?? '') !== ''
-    ? 'Mostrando pasivos del ' . date('d/m/Y', strtotime((string)$filtros['fecha_desde'])) . ' al ' . date('d/m/Y', strtotime((string)$filtros['fecha_hasta']))
-    : 'Mostrando análisis global de pasivos y obligaciones';
-
-$badge = static function (string $estado): string {
-    if ($estado === 'PAGADA') return 'bg-success-subtle text-success border border-success-subtle';
-    if ($estado === 'PARCIAL') return 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
-    if ($estado === 'VENCIDA') return 'bg-danger-subtle text-danger border border-danger-subtle';
-    if ($estado === 'ANULADA') return 'bg-secondary-subtle text-secondary border border-secondary-subtle';
-    return 'bg-primary-subtle text-primary border border-primary-subtle';
-};
+    ? 'Análisis de obligaciones acumuladas del ' . date('d/m/Y', strtotime((string)$filtros['fecha_desde'])) . ' al ' . date('d/m/Y', strtotime((string)$filtros['fecha_hasta']))
+    : 'Mostrando análisis global de pasivos';
 ?>
 
 <div class="container-fluid p-4" id="reportesCxpApp" data-url-index="<?php echo e(base_url() . '/'); ?>">
@@ -67,10 +54,10 @@ $badge = static function (string $estado): string {
         </div>
         <!-- Por Vencer -->
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100 border-start border-warning border-4">
+            <div class="card border-0 shadow-sm h-100 border-start border-success border-4">
                 <div class="card-body d-flex flex-column justify-content-center">
-                    <div class="small text-muted text-uppercase fw-semibold mb-1">Por Vencer</div>
-                    <div class="h4 fw-bold mb-0 text-dark">S/ <?php echo number_format((float)($resumen['total_por_vencer'] ?? 0), 2); ?></div>
+                    <div class="small text-muted text-uppercase fw-semibold mb-1">Por Vencer (Al Corriente)</div>
+                    <div class="h4 fw-bold mb-0 text-success">S/ <?php echo number_format((float)($resumen['total_por_vencer'] ?? 0), 2); ?></div>
                 </div>
             </div>
         </div>
@@ -91,31 +78,27 @@ $badge = static function (string $estado): string {
             <form class="row g-2 align-items-end" method="get" action="<?php echo e(base_url() . '/'); ?>" id="cxpReporteFiltrosForm">
                 <input type="hidden" name="ruta" value="reportes/cxp">
 
-                <!-- Proveedor (Tom Select) -->
-                <div class="col-12 col-md-4">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Proveedor</label>
-                    <select name="proveedor" id="filtroProveedorEstadoCuenta" class="form-select bg-light shadow-sm">
-                        <option value="">Todos</option>
-                        <?php foreach ($proveedoresEstadoCuenta as $provNombre): ?>
-                            <option value="<?php echo e($provNombre); ?>" <?php echo (string)($filtros['proveedor'] ?? '') === $provNombre ? 'selected' : ''; ?>>
-                                <?php echo e($provNombre); ?>
-                            </option>
-                        <?php endforeach; ?>
+                <!-- Segmentación de Proveedores -->
+                <div class="col-12 col-md-3">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Segmento / Tipo</label>
+                    <select name="tipo_tercero" class="form-select bg-light shadow-sm">
+                        <option value="todos" <?php echo (($filtros['tipo_tercero'] ?? 'todos') === 'todos') ? 'selected' : ''; ?>>Todos los Proveedores</option>
+                        <!-- Puedes agregar más opciones si manejas tipos de proveedores (ej. Bienes vs Servicios) -->
                     </select>
                 </div>
                 
-                <!-- Estado de Obligación -->
+                <!-- Estado de Deuda -->
                 <div class="col-12 col-md-3">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Estado de Obligación</label>
                     <select name="estado_factura" class="form-select bg-light shadow-sm">
-                        <option value="todos" <?php echo (($filtros['estado_factura'] ?? 'todos') === 'todos') ? 'selected' : ''; ?>>Todas (Pendientes y Vencidas)</option>
-                        <option value="vencida" <?php echo (($filtros['estado_factura'] ?? '') === 'vencida') ? 'selected' : ''; ?>>Solo Vencidas</option>
+                        <option value="todos" <?php echo (($filtros['estado_factura'] ?? 'todos') === 'todos') ? 'selected' : ''; ?>>Con y Sin Mora</option>
+                        <option value="vencida" <?php echo (($filtros['estado_factura'] ?? '') === 'vencida') ? 'selected' : ''; ?>>Solo Atrasadas (Vencida)</option>
                         <option value="corriente" <?php echo (($filtros['estado_factura'] ?? '') === 'corriente') ? 'selected' : ''; ?>>Al Corriente (Por Vencer)</option>
                     </select>
                 </div>
 
                 <!-- Filtro de Fechas Agrupado -->
-                <div class="col-12 col-md-5">
+                <div class="col-12 col-md-6">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1 d-none d-md-block">&nbsp;</label>
                     <div class="input-group shadow-sm">
                         <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
@@ -138,46 +121,39 @@ $badge = static function (string $estado): string {
         </div>
     </div>
 
-    <!-- Vista de Tabla de Obligaciones -->
+    <!-- Vista de Tabla de Pasivos Agrupada (Aging) -->
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
             <h5 class="mb-0 fw-bold text-dark">
-                <i class="bi bi-journal-text me-2 text-danger"></i> Detalle de Obligaciones por Pagar
+                <i class="bi bi-buildings-fill me-2 text-danger"></i> Antigüedad de Saldos por Proveedor (Aging)
             </h5>
-            <!-- Derecha: Acciones agrupadas (Botón Exportar y Buscador) -->
+            
             <div class="d-flex align-items-center gap-3">
-                
-                <!-- Botón Exportar con opciones -->
+                <!-- Botón Exportar -->
                 <div class="dropdown">
                     <button class="btn btn-secondary btn-sm shadow-sm fw-semibold dropdown-toggle" type="button" id="btnMenuExportarCxp" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-cloud-download me-1"></i> Exportar
                     </button>
                     <ul class="dropdown-menu shadow-sm" aria-labelledby="btnMenuExportarCxp">
                         <li>
-                            <button type="button" class="dropdown-item d-flex align-items-center" onclick="alert('Generador Excel en desarrollo');">
+                            <button type="button" class="dropdown-item d-flex align-items-center" id="btnExportarExcelCxp">
                                 <i class="bi bi-file-earmark-excel-fill text-success me-2"></i> Formato Excel (.xlsx)
                             </button>
                         </li>
                         <li>
-                            <button type="button" class="dropdown-item d-flex align-items-center" onclick="alert('Generador CSV en desarrollo');">
+                            <button type="button" class="dropdown-item d-flex align-items-center" id="btnExportarCsvCxp">
                                 <i class="bi bi-filetype-csv text-secondary me-2"></i> Datos Crudos (.csv)
-                            </button>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <button type="button" class="dropdown-item d-flex align-items-center" onclick="alert('Generador PDF en desarrollo');">
-                                <i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i> Formato PDF (.pdf)
                             </button>
                         </li>
                     </ul>
                 </div>
 
-                <!-- Buscador -->
+                <!-- Buscador rápido (Filtra la tabla en memoria) -->
                 <div class="input-group input-group-sm shadow-sm" style="max-width: 280px;">
                     <span class="input-group-text bg-white border-end-0 text-danger px-3">
                         <i class="bi bi-search"></i>
                     </span>
-                    <input type="search" class="form-control border-start-0 ps-0" id="filtroCxpReporteDetalle" placeholder="Buscar proveedor, documento...">
+                    <input type="search" class="form-control border-start-0 ps-0" id="filtroCxpReporteDetalle" placeholder="Buscar proveedor...">
                 </div>
             </div>
         </div>
@@ -191,63 +167,59 @@ $badge = static function (string $estado): string {
                     <thead class="table-dark">
                         <tr>
                             <th class="ps-4">Proveedor</th>
-                            <th>Documento Ref.</th>
-                            <th class="text-center">Emisión</th>
-                            <th class="text-center">Vencimiento</th>
-                            <th class="text-center">Días Atraso</th>
-                            <th class="text-end">Total Emitido</th>
-                            <th class="text-end">Saldo Pendiente</th>
-                            <th class="text-center pe-4">Estado</th>
+                            <th class="text-end">Total Deuda</th>
+                            <th class="text-end text-success">Al Corriente</th>
+                            <th class="text-end text-warning">Atraso 1-30 días</th>
+                            <th class="text-end text-orange" style="color: #fd7e14 !important;">Atraso 31-60 días</th>
+                            <th class="text-end text-danger">Atraso 61+ días</th>
+                            <th class="text-center pe-4">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                     <?php if (empty($registros)): ?>
-                        <tr class="empty-msg-row"><td colspan="8" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay registros de obligaciones con los filtros aplicados.</td></tr>
+                        <tr class="empty-msg-row"><td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay pasivos acumulados en los filtros seleccionados.</td></tr>
                     <?php else: ?>
                         <?php foreach ($registros as $row): ?>
                             <?php
-                            $estadoStr = strtoupper(trim((string)($row['estado'] ?? 'PENDIENTE')));
-                            $fechaEmisionFmt = !empty($row['fecha_emision']) ? date('d-m-Y', strtotime($row['fecha_emision'])) : '';
-                            $fechaVencFmt = !empty($row['fecha_vencimiento']) ? date('d-m-Y', strtotime($row['fecha_vencimiento'])) : '';
-                            
-                            $fechaVencTime = strtotime((string)($row['fecha_vencimiento'] ?? ''));
-                            $hoy = time();
-                            $diasAtraso = 0;
-                            if ($fechaVencTime && $fechaVencTime < $hoy && in_array($estadoStr, ['VENCIDA', 'PARCIAL', 'PENDIENTE', 'ABIERTA'], true)) {
-                                $diasAtraso = floor(($hoy - $fechaVencTime) / (60 * 60 * 24));
-                            }
-
-                            $montoTotalFmt = number_format((float)($row['monto_total'] ?? 0), 2, '.', '');
-                            $saldoFmt = number_format((float)($row['saldo'] ?? 0), 2, '.', '');
-                            
-                            $search = mb_strtolower(trim(
-                                ($row['proveedor'] ?? '') . ' ' . 
-                                ($row['documento_referencia'] ?? '') . ' ' . 
-                                $estadoStr . ' ' . 
-                                $fechaEmisionFmt . ' ' . 
-                                $fechaVencFmt . ' ' . 
-                                $montoTotalFmt . ' ' . 
-                                $saldoFmt
-                            ));
+                            $search = mb_strtolower(trim(($row['proveedor'] ?? '') . ' ' . ($row['tipo_tercero'] ?? '')));
                             ?>
                             <tr data-search="<?php echo e($search); ?>">
-                                <td class="ps-4 fw-semibold text-truncate" style="max-width: 220px;"><?php echo e((string)($row['proveedor'] ?? '')); ?></td>
-                                <td class="text-muted"><?php echo e((string)($row['documento_referencia'] ?? ('#' . str_pad((string)($row['id_documento_compra'] ?? 0), 6, '0', STR_PAD_LEFT)))); ?></td>
-                                <td class="text-center text-muted"><?php echo e($fechaEmisionFmt); ?></td>
-                                <td class="text-center text-muted"><?php echo e($fechaVencFmt); ?></td>
-                                <td class="text-center">
-                                    <?php if ($diasAtraso > 0): ?>
-                                        <span class="badge bg-danger rounded-pill px-2"><?php echo $diasAtraso; ?> días</span>
-                                    <?php else: ?>
-                                        <span class="text-muted small">-</span>
-                                    <?php endif; ?>
+                                <td class="ps-4">
+                                    <div class="fw-bold text-dark text-truncate" style="max-width: 250px; font-size: 0.95rem;">
+                                        <?php echo e((string)($row['proveedor'] ?? '')); ?>
+                                    </div>
+                                    <div class="small text-muted"><?php echo e(ucfirst((string)($row['tipo_tercero'] ?? 'Proveedor'))); ?></div>
                                 </td>
-                                <td class="text-end text-secondary">S/ <?php echo number_format((float)($row['monto_total'] ?? 0), 2); ?></td>
-                                <td class="text-end fw-bold text-danger">S/ <?php echo number_format((float)($row['saldo'] ?? 0), 2); ?></td>
+                                
+                                <td class="text-end fw-bold text-dark fs-6">S/ <?php echo number_format((float)($row['total_deuda'] ?? 0), 2); ?></td>
+                                
+                                <!-- Al Corriente -->
+                                <td class="text-end fw-medium <?php echo ((float)($row['por_vencer'] ?? 0) > 0) ? 'text-success' : 'text-muted opacity-50'; ?>">
+                                    <?php echo ((float)($row['por_vencer'] ?? 0) > 0) ? 'S/ ' . number_format((float)$row['por_vencer'], 2) : '-'; ?>
+                                </td>
+                                
+                                <!-- Mora 1 a 30 -->
+                                <td class="text-end fw-medium <?php echo ((float)($row['mora_30'] ?? 0) > 0) ? 'text-warning' : 'text-muted opacity-50'; ?>">
+                                    <?php echo ((float)($row['mora_30'] ?? 0) > 0) ? 'S/ ' . number_format((float)$row['mora_30'], 2) : '-'; ?>
+                                </td>
+                                
+                                <!-- Mora 31 a 60 -->
+                                <td class="text-end fw-medium" style="<?php echo ((float)($row['mora_60'] ?? 0) > 0) ? 'color: #fd7e14;' : 'color: #6c757d; opacity: 0.5;'; ?>">
+                                    <?php echo ((float)($row['mora_60'] ?? 0) > 0) ? 'S/ ' . number_format((float)$row['mora_60'], 2) : '-'; ?>
+                                </td>
+                                
+                                <!-- Mora Crítica 61+ -->
+                                <td class="text-end fw-bold <?php echo ((float)($row['mora_mas_60'] ?? 0) > 0) ? 'text-danger' : 'text-muted opacity-50 fw-normal'; ?>">
+                                    <?php echo ((float)($row['mora_mas_60'] ?? 0) > 0) ? 'S/ ' . number_format((float)$row['mora_mas_60'], 2) : '-'; ?>
+                                </td>
+                                
                                 <td class="text-center pe-4">
-                                    <span class="badge px-2 py-1 rounded-pill shadow-sm <?php echo e($badge($estadoStr)); ?>" style="font-size: 0.75rem;">
-                                        <?php echo e($estadoStr); ?>
-                                    </span>
+                                    <!-- Cambio: Apunta al estado de cuenta de proveedores -->
+                                    <a href="<?php echo e(route_url('reportes/estado_cuenta_proveedores')); ?>&proveedor=<?php echo urlencode((string)($row['proveedor'] ?? '')); ?>" 
+                                       class="btn btn-sm btn-light border text-danger shadow-sm rounded-pill px-3"
+                                       data-bs-toggle="tooltip" title="Ver historial detallado">
+                                        <i class="bi bi-file-earmark-text me-1"></i> Ver Detalle
+                                    </a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -258,9 +230,13 @@ $badge = static function (string $estado): string {
                     <?php if (!empty($registros)): ?>
                     <tfoot class="table-light fw-bold">
                         <tr>
-                            <td colspan="5" class="text-end ps-4 text-muted">Totales Pasivo Mostrado:</td>
-                            <td class="text-end text-dark">S/ <?php echo number_format((float)($resumen['total_pasivo'] ?? 0), 2); ?></td>
-                            <td class="text-end text-danger pe-4" colspan="2">S/ <?php echo number_format((float)($resumen['total_pasivo'] ?? 0), 2); ?></td>
+                            <td class="text-end ps-4 text-muted text-uppercase">Totales Globales:</td>
+                            <td class="text-end text-dark fs-6">S/ <?php echo number_format((float)($resumen['total_pasivo'] ?? 0), 2); ?></td>
+                            <td class="text-end text-success">S/ <?php echo number_format((float)($resumen['total_por_vencer'] ?? 0), 2); ?></td>
+                            <td class="text-end text-warning">S/ <?php echo number_format((float)($resumen['total_mora_30'] ?? 0), 2); ?></td>
+                            <td class="text-end" style="color: #fd7e14;">S/ <?php echo number_format((float)($resumen['total_mora_60'] ?? 0), 2); ?></td>
+                            <td class="text-end text-danger">S/ <?php echo number_format((float)($resumen['total_mora_mas_60'] ?? 0), 2); ?></td>
+                            <td class="pe-4"></td>
                         </tr>
                     </tfoot>
                     <?php endif; ?>

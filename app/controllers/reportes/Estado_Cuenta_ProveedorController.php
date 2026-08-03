@@ -109,16 +109,18 @@ class Estado_Cuenta_ProveedorController extends Controlador
                 $sheet->setShowGridlines(false); 
                 $sheet->getColumnDimension('A')->setWidth(3); 
 
-                // Títulos y Empresa
+                // --- 2. TÍTULOS Y DATOS DE LA EMPRESA DINÁMICOS ---
                 $sheet->getRowDimension(1)->setRowHeight(50);
                 $nombreEmpresa = mb_strtoupper((string)($config['nombre_empresa'] ?? 'NUESTRA EMPRESA'));
                 $tituloGeneral = $esVistaProducto ? 'RESUMEN DE PRODUCTOS COMPRADOS' : 'ESTADO DE CUENTA PROVEEDORES';
                 
                 $columnaFin = $esVistaProducto ? 'E' : 'G'; 
+                // TRUCO: Fusionamos el título una columna ANTES del final para dejarle el espacio exclusivo al logo
+                $columnaMergeTitulo = $esVistaProducto ? 'D' : 'F';
 
                 $sheet->setCellValue('B1', $nombreEmpresa . ' - ' . $tituloGeneral);
-                $sheet->mergeCells('B1:' . $columnaFin . '1');
-                $sheet->getStyle('B1')->getFont()->setBold(true)->setSize(16)->getColor()->setARGB('FF0B5ED7');
+                $sheet->mergeCells('B1:' . $columnaMergeTitulo . '1');
+                $sheet->getStyle('B1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB('FF0B5ED7');
                 $sheet->getStyle('B1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                 $sheet->getStyle('B1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
 
@@ -132,7 +134,7 @@ class Estado_Cuenta_ProveedorController extends Controlador
                 $sheet->mergeCells('B3:C3');
                 $sheet->getStyle('B3')->getFont()->setBold(true);
 
-                // Logo Dinámico
+                // --- 3. INSERTAR LOGO DINÁMICO ---
                 $rutaLogo = $config['ruta_logo'] ?? '';
                 if (!empty($rutaLogo)) {
                     $rutaLimpia = ltrim($rutaLogo, '/\\');
@@ -145,9 +147,10 @@ class Estado_Cuenta_ProveedorController extends Controlador
                             $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
                             $drawing->setName('Logo Empresa');
                             $drawing->setPath($logoPath);
-                            $drawing->setHeight(60); 
+                            $drawing->setHeight(55); 
+                            
                             $drawing->setCoordinates($columnaFin . '1'); 
-                            $drawing->setOffsetX(10); 
+                            $drawing->setOffsetX($esVistaProducto ? 30 : 10); 
                             $drawing->setOffsetY(5);
                             $drawing->setWorksheet($sheet);
                         }

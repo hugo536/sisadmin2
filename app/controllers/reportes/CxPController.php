@@ -35,67 +35,27 @@ class CxpController extends Controlador
         $accion = $_GET['accion'] ?? $_GET['exportar'] ?? '';
 
         // --- 1. PROCESAR DATOS BASE DESDE EL MODELO ---
-        $registrosBrutos = $this->tesoreria->historialEstadoCuentaProveedores($f, 1, 999999);
-        $filasCompletas = $registrosBrutos['rows'] ?? [];
+        $datos = $this->tesoreria->obtenerCarteraMacroCxP($f);
 
-        // Filtramos y calculamos KPIs de pasivos en tiempo real
-        $registros = [];
+        // --- 2. CÁLCULO DE KPIs GLOBALES EN TIEMPO REAL ---
         $total_pasivo = 0;
         $total_vencido = 0;
         $total_por_vencer = 0;
-        $proveedoresUnicos = [];
-        $hoy = time();
 
-        foreach ($filasCompletas as $r) {
-            // Solo procesamos transacciones de tipo CARGO (obligaciones vivas de CxP)
-            if (($r['tipo_transaccion'] ?? 'CARGO') !== 'CARGO') {
-                continue;
-            }
-
-            $saldo = (float)($r['monto_transaccion'] ?? 0);
-            if ($saldo <= 0) continue;
-
-            $estadoStr = strtoupper(trim((string)($r['estado'] ?? 'PENDIENTE')));
-            $esDeudaActiva = in_array($estadoStr, ['PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA'], true);
-            
-            if (!$esDeudaActiva) continue;
-
-            $fechaVencTime = isset($r['fecha_vencimiento']) ? strtotime((string)$r['fecha_vencimiento']) : 0;
-            $estaVencida = ($fechaVencTime && $fechaVencTime < $hoy);
-
-            if ($f['estado_factura'] === 'vencida' && !($estaVencida || $estadoStr === 'VENCIDA')) continue;
-            if ($f['estado_factura'] === 'corriente' && ($estaVencida || $estadoStr === 'VENCIDA')) continue;
-
-            $total_pasivo += $saldo;
-            if ($estaVencida || $estadoStr === 'VENCIDA') {
-                $total_vencido += $saldo;
-            } else {
-                $total_por_vencer += $saldo;
-            }
-
-            if (!empty($r['proveedor'])) {
-                $proveedoresUnicos[$r['proveedor']] = true;
-            }
-
-            $registros[] = [
-                'proveedor' => $r['proveedor'] ?? '',
-                'documento_referencia' => $r['documento'] ?? '',
-                'fecha_emision' => $r['fecha_atencion'] ?? '',
-                'fecha_vencimiento' => $r['fecha_vencimiento'] ?? $r['fecha_atencion'] ?? '',
-                'monto_total' => $saldo,
-                'saldo' => $saldo,
-                'estado' => $estadoStr
-            ];
+        foreach ($datos['agrupados'] as $r) {
+            $total_pasivo += (float)$r['total_deuda'];
+            $total_por_vencer += (float)$r['por_vencer'];
+            $total_vencido += ((float)$r['mora_30'] + (float)$r['mora_60'] + (float)$r['mora_mas_60']);
         }
 
         $resumen = [
             'total_pasivo'          => $total_pasivo,
             'total_vencido'         => $total_vencido,
             'total_por_vencer'      => $total_por_vencer,
-            'proveedores_con_deuda' => count($proveedoresUnicos)
+            'proveedores_con_deuda' => count($datos['agrupados'])
         ];
 
-        // --- 2. EXPORTAR CSV ---
+        // --- 3. EXPORTAR CSV (Usando lista detallada) ---
         if ($accion === 'exportar_csv_cxp' || $accion === 'csv') {
             $filename = 'Reporte_Global_CXP_' . date('Ymd_His') . '.csv'; 
             header('Content-Type: text/csv; charset=utf-8');
@@ -105,7 +65,7 @@ class CxpController extends Controlador
             $output = fopen('php://output', 'w');
             fputcsv($output, ['Proveedor', 'Documento Ref.', 'Emisión', 'Vencimiento', 'Total Emitido', 'Saldo Pendiente', 'Estado'], ',');
             
-            foreach ($registros as $row) {
+            foreach ($datos['detallados'] as $row) {
                 fputcsv($output, [
                     $row['proveedor'],
                     $row['documento_referencia'],
@@ -120,7 +80,7 @@ class CxpController extends Controlador
             exit;
         }
 
-        // --- 3. EXPORTAR EXCEL NATIVO (.xlsx) CON PHPSpreadsheet ---
+        // --- 4. EXPORTAR EXCEL NATIVO (.xlsx) (Usando lista detallada) ---
         if ($accion === 'exportar_excel_cxp' || $accion === 'excel') {
             require_once BASE_PATH . '/vendor/autoload.php';
             require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
@@ -180,7 +140,7 @@ class CxpController extends Controlador
             $sheet->setAutoFilter('B' . $filaInicioTabla . ':H' . $filaInicioTabla);
 
             $fila = $filaInicioTabla + 1;
-            foreach ($registros as $row) {
+            foreach ($datos['detallados'] as $row) {
                 $sheet->setCellValue('B' . $fila, $row['proveedor']);
                 $sheet->setCellValue('C' . $fila, $row['documento_referencia']);
                 $sheet->setCellValue('D' . $fila, !empty($row['fecha_emision']) ? date('d/m/Y', strtotime($row['fecha_emision'])) : '');
@@ -235,11 +195,11 @@ class CxpController extends Controlador
             exit;
         }
 
-        // --- 4. RENDERIZAR VISTA WEB ---
+        // --- 5. RENDERIZAR VISTA WEB ---
         $this->render('reportes/tesoreria_cxp', [
             'ruta_actual' => 'reportes/cxp',
             'filtros' => $f,
-            'registros' => $registros,
+            'registros' => $datos['agrupados'],
             'resumen' => $resumen,
             'proveedoresEstadoCuenta' => $this->tesoreria->listarProveedoresEstadoCuenta(),
         ]);

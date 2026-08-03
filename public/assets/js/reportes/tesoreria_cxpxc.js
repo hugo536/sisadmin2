@@ -1,5 +1,5 @@
 /**
- * LÓGICA GLOBAL PARA REPORTES DE TESORERÍA (CXC Y CXP)
+ * LÓGICA GLOBAL PARA REPORTES MACRO DE TESORERÍA (CXC Y CXP)
  * Archivo: public/assets/js/tesoreria_cxpxc.js
  */
 
@@ -8,7 +8,6 @@ if (typeof window.inicializarModuloTesoreriaCxPCxC === 'undefined') {
     window.inicializarModuloTesoreriaCxPCxC = function(config) {
         const { 
             formId, 
-            terceroSelectId, 
             pdfAction, 
             excelAction, 
             csvAction 
@@ -21,8 +20,6 @@ if (typeof window.inicializarModuloTesoreriaCxPCxC === 'undefined') {
             return;
         }
         formReporte.setAttribute('data-js-init', 'true');
-
-        const filtroTercero = document.getElementById(terceroSelectId);
         
         // --- 1. FUNCIÓN PARA ENVIAR FILTROS (SPA) ---
         const submitFiltros = () => {
@@ -59,17 +56,21 @@ if (typeof window.inicializarModuloTesoreriaCxPCxC === 'undefined') {
         const btnLimpiar = formReporte.querySelector('[id^="btnLimpiarFiltros"]');
         if (btnLimpiar) {
             btnLimpiar.addEventListener('click', () => {
-                if (typeof TomSelect !== 'undefined' && filtroTercero && filtroTercero.tomselect) {
-                    filtroTercero.tomselect.clear(true); 
-                } else if (filtroTercero) {
-                    filtroTercero.value = '';
-                }
+                // Resetear todos los selectores nativos a su primera opción ('todos')
+                const selects = formReporte.querySelectorAll('select');
+                selects.forEach(s => {
+                    if (s.options.length > 0) {
+                        s.value = s.options[0].value; 
+                    }
+                });
 
+                // Limpiar fechas
                 const inputDesde = formReporte.querySelector('input[name="fecha_desde"]');
                 const inputHasta = formReporte.querySelector('input[name="fecha_hasta"]');
                 if (inputDesde) inputDesde.value = '';
                 if (inputHasta) inputHasta.value = '';
 
+                // Redirigir limpiamente
                 const inputRuta = formReporte.querySelector('input[name="ruta"]');
                 const rutaValor = inputRuta ? inputRuta.value : '';
                 const destino = new URL(window.location.origin + '/' + (window.location.pathname.includes('public') ? 'sisadmin2/public/' : ''));
@@ -97,27 +98,13 @@ if (typeof window.inicializarModuloTesoreriaCxPCxC === 'undefined') {
             submitFiltros();
         });
 
-        const selectoresAuto = formReporte.querySelectorAll('select[name="estado_factura"]');
+        // Escuchar cambios en CUALQUIER select del formulario (Segmentos, Estados)
+        const selectoresAuto = formReporte.querySelectorAll('select');
         selectoresAuto.forEach((field) => {
             field.addEventListener('change', () => autoSubmit());
         });
-
-        // --- 4. INTEGRACIÓN DE TOMSELECT ---
-        if (filtroTercero) {
-            if (typeof TomSelect !== 'undefined') {
-                new TomSelect(filtroTercero, {
-                    create: false,
-                    placeholder: "Buscar...",
-                    onChange: function() {
-                        autoSubmit();
-                    }
-                });
-            } else {
-                filtroTercero.addEventListener('change', () => autoSubmit());
-            }
-        }
         
-        // --- 5. LÓGICA DE EXPORTACIÓN Y VALIDACIÓN ---
+        // --- 4. LÓGICA DE EXPORTACIÓN Y VALIDACIÓN ---
         const tablaDetalle = document.querySelector('table[data-erp-table="true"]') || document.querySelector('table');
         const filasReales = document.querySelectorAll('tbody tr[data-search]').length;
         const totalRegistros = tablaDetalle ? parseInt(tablaDetalle.getAttribute('data-total-rows') || filasReales, 10) : filasReales;
@@ -129,7 +116,7 @@ if (typeof window.inicializarModuloTesoreriaCxPCxC === 'undefined') {
                     Swal.fire({
                         icon: 'warning',
                         title: 'Sin datos para exportar',
-                        text: 'No hay registros en los filtros seleccionados.',
+                        text: 'No hay registros en la cartera con los filtros seleccionados.',
                         confirmButtonText: 'Entendido',
                         confirmButtonColor: '#0B5ED7'
                     });
@@ -149,7 +136,7 @@ if (typeof window.inicializarModuloTesoreriaCxPCxC === 'undefined') {
             window.open(urlCompleta, '_blank');
         };
 
-        // Enlazamos botones de exportación si existen en la vista
+        // Enlazamos botones de exportación buscando IDs que contengan la palabra clave
         document.querySelectorAll('[id*="ExportarPdf"]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -177,22 +164,20 @@ if (typeof window.inicializarModuloTesoreriaCxPCxC === 'undefined') {
 
     // --- AUTO-INICIALIZACIÓN INTELIGENTE (SOPORTA SPA Y F5) ---
     const autoIniciarTesoreriaCxPCxC = () => {
-        // 1. Vista de Reporte CxC
+        // 1. Vista de Reporte CxC (Cuentas por Cobrar)
         if (document.getElementById('cxcReporteFiltrosForm')) {
             window.inicializarModuloTesoreriaCxPCxC({
                 formId: 'cxcReporteFiltrosForm',
-                terceroSelectId: 'filtroClienteEstadoCuenta',
                 pdfAction: 'exportar_pdf_cxc',
                 excelAction: 'exportar_excel_cxc',
                 csvAction: 'exportar_csv_cxc'
             });
         }
 
-        // 2. Vista de Reporte CxP
+        // 2. Vista de Reporte CxP (Cuentas por Pagar)
         if (document.getElementById('cxpReporteFiltrosForm')) {
             window.inicializarModuloTesoreriaCxPCxC({
                 formId: 'cxpReporteFiltrosForm',
-                terceroSelectId: 'filtroProveedorEstadoCuenta',
                 pdfAction: 'exportar_pdf_cxp',
                 excelAction: 'exportar_excel_cxp',
                 csvAction: 'exportar_csv_cxp'

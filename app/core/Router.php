@@ -44,14 +44,18 @@ class Router
 
         // --- MANEJO DE MÓDULOS ESPECÍFICOS ---
 
+        // 1. Si alguien entra directamente a ?ruta=dashboard
         if ($modulo === 'dashboard') {
-            $modulo = 'reportes';
-            $controlador_clase = 'ReportesController';
-            $accion = $accion === 'index' ? 'dashboard' : $accion;
+            $controlador_clase = 'DashboardController'; // <-- Cambiado
+            $accion = 'index'; // <-- Cambiado
         }
 
+        // 2. Si alguien entra desde el menú a ?ruta=reportes/dashboard
         if ($modulo === 'reportes') {
-            if ($accion === 'estado_cuenta') {
+            if ($accion === 'dashboard') { // <-- NUEVO: Interceptamos esta acción
+                $controlador_clase = 'DashboardController';
+                $accion = 'index';
+            } elseif ($accion === 'estado_cuenta') {
                 $controlador_clase = 'Estado_Cuenta_ClienteController';
                 $accion = 'index';
             } elseif ($accion === 'estado_cuenta_proveedores') {
@@ -60,7 +64,7 @@ class Router
             } elseif ($accion === 'cxc') {
                 $controlador_clase = 'CxcController';
                 $accion = 'index';
-            } elseif ($accion === 'cxp') { // <-- AGREGA ESTA LÍNEA
+            } elseif ($accion === 'cxp') {
                 $controlador_clase = 'CxpController';
                 $accion = 'index';
             }
