@@ -46,7 +46,6 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body d-flex flex-column justify-content-center">
                     <div class="small text-muted text-uppercase fw-semibold mb-1">Saldo Anterior</div>
-                    <!-- Se asume que el backend enviará 'saldo_inicial' -->
                     <div class="h4 fw-bold mb-0 text-secondary">S/ <?php echo number_format((float)($resumen['saldo_inicial'] ?? 0), 2); ?></div>
                 </div>
             </div>
@@ -137,9 +136,39 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-box-seam me-2 text-primary"></i>Resumen por producto</h5>
-                <div class="input-group input-group-sm w-auto" style="max-width: 260px;">
-                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroEstadoCuentaProducto" placeholder="Buscar producto...">
+                
+                <!-- NUEVO: Contenedor con Flexbox para agrupar Exportar y Buscar en la vista de Productos -->
+                <div class="d-flex align-items-center gap-3">
+                    <!-- Botón Exportar -->
+                    <div class="dropdown">
+                        <button class="btn btn-secondary btn-sm shadow-sm fw-semibold dropdown-toggle" type="button" id="btnMenuExportarProd" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-cloud-download me-1"></i> Exportar
+                        </button>
+                        <ul class="dropdown-menu shadow-sm" aria-labelledby="btnMenuExportarProd">
+                            <li>
+                                <button type="button" class="dropdown-item d-flex align-items-center" id="btnExportarExcel">
+                                    <i class="bi bi-file-earmark-excel-fill text-success me-2"></i> Formato Excel (.xlsx)
+                                </button>
+                            </li>
+                            <li>
+                                <button type="button" class="dropdown-item d-flex align-items-center" id="btnExportarCsv">
+                                    <i class="bi bi-filetype-csv text-secondary me-2"></i> Datos Crudos (.csv)
+                                </button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <button type="button" class="dropdown-item d-flex align-items-center" id="btnExportarPdfLimitado">
+                                    <i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i> Formato PDF (.pdf)
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Buscador -->
+                    <div class="input-group input-group-sm w-auto" style="max-width: 260px;">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroEstadoCuentaProducto" placeholder="Buscar producto...">
+                    </div>
                 </div>
             </div>
             <div class="card-body p-0">

@@ -37,37 +37,65 @@ class Estado_Cuenta_ProveedorController extends Controlador
         }
 
         $accion = $_GET['accion'] ?? '';
+        $esVistaProducto = ($f['vista'] === 'PRODUCTO');
         
-        // --- EXPORTAR EXCEL NATIVO Y CSV ---
-        if ($accion === 'exportar_excel_estado_cuenta_proveedores' || $accion === 'exportar_csv_estado_cuenta_proveedores') {
-            $detalle = $this->tesoreria->historialEstadoCuentaProveedores($f, 1, 999999);
-            $movimientos = $detalle['rows'] ?? [];
+        // --- LÓGICA CENTRAL DE EXPORTACIÓN ---
+        if (in_array($accion, ['exportar_excel_estado_cuenta_proveedores', 'exportar_csv_estado_cuenta_proveedores', 'imprimir_estado_cuenta_proveedores'])) {
+            
+            // Siempre consultamos el historial general porque necesitamos los totales (el resumen)
+            $detalleBase = $this->tesoreria->historialEstadoCuentaProveedores($f, 1, 999999);
+            $resumenExport = $detalleBase['resumen'] ?? ['saldo_inicial' => 0, 'total_facturado' => 0, 'total_pagado' => 0, 'total_saldo' => 0];
+            
+            // Decidimos qué datos enviar dependiendo de la vista
+            if ($esVistaProducto) {
+                $dataExportar = $this->tesoreria->estadoCuentaProveedoresPorProducto($f, 5000);
+            } else {
+                $dataExportar = $detalleBase['rows'] ?? [];
+            }
 
+            // -------------------------------------------------------------
+            // 1. EXPORTAR CSV
+            // -------------------------------------------------------------
             if ($accion === 'exportar_csv_estado_cuenta_proveedores') {
-                $filename = 'Estado_Cuenta_Proveedores_' . date('Ymd_His') . '.csv'; 
+                $filename = ($esVistaProducto ? 'Resumen_Productos_Proveedores_' : 'Estado_Cuenta_Proveedores_') . date('Ymd_His') . '.csv'; 
                 header('Content-Type: text/csv; charset=utf-8');
                 header('Content-Disposition: attachment; filename=' . $filename);
                 echo "\xEF\xBB\xBF"; 
                 
                 $output = fopen('php://output', 'w');
-                fputcsv($output, ['Fecha', 'Proveedor', 'Documento', 'Concepto', 'Tipo', 'Monto'], ',');
                 
-                foreach ($movimientos as $row) {
-                    $esCargo = ($row['tipo_transaccion'] ?? 'CARGO') === 'CARGO';
-                    $signo = $esCargo ? '+' : '-';
-                    fputcsv($output, [
-                        !empty($row['fecha_atencion']) ? date('d-m-Y', strtotime($row['fecha_atencion'])) : '',
-                        $row['proveedor'] ?? '',
-                        $row['documento'] ?? '',
-                        $row['producto'] ?? '',
-                        $esCargo ? 'Deuda/Cargo' : 'Pago/Abono',
-                        $signo . number_format((float)($row['monto_transaccion'] ?? 0), 2, '.', '')
-                    ], ',');
+                if ($esVistaProducto) {
+                    fputcsv($output, ['Producto', 'Cantidad Comprada', 'Total Facturado', 'Deuda Pendiente'], ',');
+                    foreach ($dataExportar as $row) {
+                        fputcsv($output, [
+                            $row['producto'] ?? '',
+                            number_format((float)($row['total_cantidad'] ?? 0), 2, '.', ''),
+                            number_format((float)($row['total_facturado'] ?? 0), 2, '.', ''),
+                            number_format((float)($row['total_saldo'] ?? 0), 2, '.', '')
+                        ], ',');
+                    }
+                } else {
+                    fputcsv($output, ['Fecha', 'Proveedor', 'Documento', 'Concepto', 'Tipo', 'Monto'], ',');
+                    foreach ($dataExportar as $row) {
+                        $esCargo = ($row['tipo_transaccion'] ?? 'CARGO') === 'CARGO';
+                        $signo = $esCargo ? '+' : '-';
+                        fputcsv($output, [
+                            !empty($row['fecha_atencion']) ? date('d-m-Y', strtotime($row['fecha_atencion'])) : '',
+                            $row['proveedor'] ?? '',
+                            $row['documento'] ?? '',
+                            $row['producto'] ?? '',
+                            $esCargo ? 'Deuda/Cargo' : 'Pago/Abono',
+                            $signo . number_format((float)($row['monto_transaccion'] ?? 0), 2, '.', '')
+                        ], ',');
+                    }
                 }
                 fclose($output);
                 exit;
             }
 
+            // -------------------------------------------------------------
+            // 2. EXPORTAR EXCEL (.xlsx)
+            // -------------------------------------------------------------
             if ($accion === 'exportar_excel_estado_cuenta_proveedores') {
                 require_once BASE_PATH . '/vendor/autoload.php';
                 require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
@@ -77,17 +105,19 @@ class Estado_Cuenta_ProveedorController extends Controlador
                 
                 $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
                 $sheet = $spreadsheet->getActiveSheet();
-                $sheet->setTitle('Estado Cuenta Proveedor');
-
-                // --- 1. CONFIGURACIÓN GENERAL DE LA HOJA ---
+                $sheet->setTitle($esVistaProducto ? 'Resumen Productos' : 'Estado Cuenta Proveedor');
                 $sheet->setShowGridlines(false); 
                 $sheet->getColumnDimension('A')->setWidth(3); 
 
-                // --- 2. TÍTULOS Y DATOS DE LA EMPRESA DINÁMICOS ---
+                // Títulos y Empresa
                 $sheet->getRowDimension(1)->setRowHeight(50);
                 $nombreEmpresa = mb_strtoupper((string)($config['nombre_empresa'] ?? 'NUESTRA EMPRESA'));
-                $sheet->setCellValue('B1', $nombreEmpresa . ' - ESTADO DE CUENTA PROVEEDORES');
-                $sheet->mergeCells('B1:G1');
+                $tituloGeneral = $esVistaProducto ? 'RESUMEN DE PRODUCTOS COMPRADOS' : 'ESTADO DE CUENTA PROVEEDORES';
+                
+                $columnaFin = $esVistaProducto ? 'E' : 'G'; 
+
+                $sheet->setCellValue('B1', $nombreEmpresa . ' - ' . $tituloGeneral);
+                $sheet->mergeCells('B1:' . $columnaFin . '1');
                 $sheet->getStyle('B1')->getFont()->setBold(true)->setSize(16)->getColor()->setARGB('FF0B5ED7');
                 $sheet->getStyle('B1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                 $sheet->getStyle('B1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
@@ -102,29 +132,21 @@ class Estado_Cuenta_ProveedorController extends Controlador
                 $sheet->mergeCells('B3:C3');
                 $sheet->getStyle('B3')->getFont()->setBold(true);
 
-                // --- 3. INSERTAR LOGO DINÁMICO (Encima de Columna G) ---
+                // Logo Dinámico
                 $rutaLogo = $config['ruta_logo'] ?? '';
                 if (!empty($rutaLogo)) {
                     $rutaLimpia = ltrim($rutaLogo, '/\\');
-                    
-                    if (strpos($rutaLimpia, 'public/') === 0) {
-                        $logoPath = BASE_PATH . '/' . $rutaLimpia;
-                    } else {
-                        $logoPath = BASE_PATH . '/public/' . $rutaLimpia;
-                    }
-
+                    $logoPath = (strpos($rutaLimpia, 'public/') === 0) ? BASE_PATH . '/' . $rutaLimpia : BASE_PATH . '/public/' . $rutaLimpia;
                     $logoPath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $logoPath);
                     
                     if (file_exists($logoPath)) {
                         $extension = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
-                        
                         if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif'])) {
                             $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
                             $drawing->setName('Logo Empresa');
-                            $drawing->setDescription('Logo');
                             $drawing->setPath($logoPath);
                             $drawing->setHeight(60); 
-                            $drawing->setCoordinates('G1'); 
+                            $drawing->setCoordinates($columnaFin . '1'); 
                             $drawing->setOffsetX(10); 
                             $drawing->setOffsetY(5);
                             $drawing->setWorksheet($sheet);
@@ -132,11 +154,15 @@ class Estado_Cuenta_ProveedorController extends Controlador
                     }
                 }
 
-                // --- 4. CONFIGURACIÓN DEL ENCABEZADO DE TABLA (Fila 5) ---
-                $filaInicioTabla = 5;
-                $cabeceras = ['B' => 'Fecha', 'C' => 'Proveedor', 'D' => 'Documento', 'E' => 'Concepto', 'F' => 'Tipo', 'G' => 'Monto Transacción'];
-                
+                // Encabezados de Tabla
+                $filaInicioTabla = 5; 
                 $sheet->getRowDimension($filaInicioTabla)->setRowHeight(25);
+                
+                if ($esVistaProducto) {
+                    $cabeceras = ['B' => 'Producto', 'C' => 'Cantidad Comprada', 'D' => 'Total Facturado', 'E' => 'Deuda Pendiente'];
+                } else {
+                    $cabeceras = ['B' => 'Fecha', 'C' => 'Proveedor', 'D' => 'Documento', 'E' => 'Concepto', 'F' => 'Tipo', 'G' => 'Monto Transacción'];
+                }
 
                 foreach ($cabeceras as $col => $texto) {
                     $sheet->setCellValue($col . $filaInicioTabla, $texto);
@@ -149,71 +175,115 @@ class Estado_Cuenta_ProveedorController extends Controlador
                         'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
                         'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER
                     ],
-                    'borders' => [
-                        'allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']]
-                    ]
+                    'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']]]
                 ];
-                $sheet->getStyle('B' . $filaInicioTabla . ':G' . $filaInicioTabla)->applyFromArray($estiloEncabezado);
-
-                // --- 5. CONGELAR PANELES Y ACTIVAR AUTOFILTRO NATIVO ---
+                $sheet->getStyle('B' . $filaInicioTabla . ':' . $columnaFin . $filaInicioTabla)->applyFromArray($estiloEncabezado);
                 $sheet->freezePane('A' . ($filaInicioTabla + 1));
-                $sheet->setAutoFilter('B' . $filaInicioTabla . ':G' . $filaInicioTabla);
+                $sheet->setAutoFilter('B' . $filaInicioTabla . ':' . $columnaFin . $filaInicioTabla);
 
-                // --- 6. LLENADO DE DATOS (Fila 6 en adelante) ---
                 $fila = $filaInicioTabla + 1;
-                foreach ($movimientos as $row) {
-                    $esCargo = ($row['tipo_transaccion'] ?? 'CARGO') === 'CARGO';
-                    $multiplicador = $esCargo ? 1 : -1; 
-                    $montoMatematico = (float)($row['monto_transaccion'] ?? 0) * $multiplicador;
 
-                    $sheet->setCellValue('B' . $fila, !empty($row['fecha_atencion']) ? date('d/m/Y', strtotime($row['fecha_atencion'])) : '');
-                    $sheet->setCellValue('C' . $fila, $row['proveedor'] ?? '');
-                    $sheet->setCellValue('D' . $fila, $row['documento'] ?? '');
-                    $sheet->setCellValue('E' . $fila, $row['producto'] ?? '');
-                    $sheet->setCellValue('F' . $fila, $esCargo ? 'Deuda (Cargo)' : 'Pago (Abono)');
-                    $sheet->setCellValue('G' . $fila, $montoMatematico);
+                // --- LLENADO DE DATOS: PRODUCTO ---
+                if ($esVistaProducto) {
+                    foreach ($dataExportar as $row) {
+                        $sheet->setCellValue('B' . $fila, $row['producto'] ?? '');
+                        $sheet->setCellValue('C' . $fila, (float)($row['total_cantidad'] ?? 0));
+                        $sheet->setCellValue('D' . $fila, (float)($row['total_facturado'] ?? 0));
+                        $sheet->setCellValue('E' . $fila, (float)($row['total_saldo'] ?? 0));
+                        
+                        $sheet->getStyle('C' . $fila)->getNumberFormat()->setFormatCode('#,##0.00');
+                        $sheet->getStyle('D' . $fila . ':E' . $fila)->getNumberFormat()->setFormatCode('"S/" #,##0.00');
+                        
+                        $sheet->getStyle('B' . $fila . ':E' . $fila)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+                        $sheet->getStyle('B' . $fila . ':E' . $fila)->getBorders()->getAllBorders()->getColor()->setARGB('FFCCCCCC'); 
+
+                        if ($fila % 2 == 0) {
+                            $sheet->getStyle('B' . $fila . ':E' . $fila)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFF7F7F7'); 
+                        }
+                        $fila++;
+                    }
+
+                    // Fila Totales
+                    $filaTotal = $fila;
+                    $sheet->setCellValue('B' . $filaTotal, 'TOTALES:');
+                    $sheet->getStyle('B' . $filaTotal)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+                    $sheet->mergeCells('B' . $filaTotal . ':C' . $filaTotal);
+                    
+                    $sheet->setCellValue('D' . $filaTotal, (float)($resumenExport['total_facturado'] ?? 0));
+                    $sheet->setCellValue('E' . $filaTotal, (float)($resumenExport['total_saldo'] ?? 0));
+                    
+                    $sheet->getStyle('B' . $filaTotal . ':E' . $filaTotal)->getFont()->setBold(true);
+                    $sheet->getStyle('D' . $filaTotal . ':E' . $filaTotal)->getNumberFormat()->setFormatCode('"S/" #,##0.00');
+                    $sheet->getStyle('B' . $filaTotal . ':E' . $filaTotal)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFEAEAEA');
+                    $sheet->getStyle('B' . $filaTotal . ':E' . $filaTotal)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+
+                    $sheet->getColumnDimension('B')->setWidth(45);
+                    foreach (range('C', 'E') as $col) { $sheet->getColumnDimension($col)->setAutoSize(true); }
+
+                } 
+                // --- LLENADO DE DATOS: DETALLE ---
+                else {
+                    $saldoInicial = (float)($resumenExport['saldo_inicial'] ?? 0);
+                    
+                    $sheet->setCellValue('B' . $fila, '-');
+                    $sheet->setCellValue('C' . $fila, '-');
+                    $sheet->setCellValue('D' . $fila, 'SALDO ANTERIOR AL ' . date('d/m/Y', strtotime($f['fecha_desde'])));
+                    $sheet->setCellValue('E' . $fila, '-');
+                    $sheet->setCellValue('F' . $fila, '-');
+                    $sheet->setCellValue('G' . $fila, $saldoInicial);
                     
                     $sheet->getStyle('G' . $fila)->getNumberFormat()->setFormatCode('"S/" #,##0.00');
-                    
                     $sheet->getStyle('B' . $fila . ':G' . $fila)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-                    $sheet->getStyle('B' . $fila . ':G' . $fila)->getBorders()->getAllBorders()->getColor()->setARGB('FFCCCCCC'); 
-
+                    $sheet->getStyle('B' . $fila . ':G' . $fila)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFEAEAEA');
+                    $sheet->getStyle('B' . $fila . ':G' . $fila)->getFont()->setBold(true);
                     $sheet->getStyle('B' . $fila)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                     $sheet->getStyle('F' . $fila)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-
-                    if ($fila % 2 == 0) {
-                        $sheet->getStyle('B' . $fila . ':G' . $fila)->getFill()
-                              ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                              ->getStartColor()->setARGB('FFF7F7F7'); 
-                    }
+                    
+                    $filaInicialSuma = $fila; 
                     $fila++;
+
+                    foreach ($dataExportar as $row) {
+                        $esCargo = ($row['tipo_transaccion'] ?? 'CARGO') === 'CARGO';
+                        $multiplicador = $esCargo ? 1 : -1; 
+                        $montoMatematico = (float)($row['monto_transaccion'] ?? 0) * $multiplicador;
+
+                        $sheet->setCellValue('B' . $fila, !empty($row['fecha_atencion']) ? date('d/m/Y', strtotime($row['fecha_atencion'])) : '');
+                        $sheet->setCellValue('C' . $fila, $row['proveedor'] ?? '');
+                        $sheet->setCellValue('D' . $fila, $row['documento'] ?? '');
+                        $sheet->setCellValue('E' . $fila, $row['producto'] ?? '');
+                        $sheet->setCellValue('F' . $fila, $esCargo ? 'Deuda (Cargo)' : 'Pago (Abono)');
+                        $sheet->setCellValue('G' . $fila, $montoMatematico);
+                        
+                        $sheet->getStyle('G' . $fila)->getNumberFormat()->setFormatCode('"S/" #,##0.00');
+                        $sheet->getStyle('B' . $fila . ':G' . $fila)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+                        $sheet->getStyle('B' . $fila . ':G' . $fila)->getBorders()->getAllBorders()->getColor()->setARGB('FFCCCCCC'); 
+                        $sheet->getStyle('B' . $fila)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                        $sheet->getStyle('F' . $fila)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+                        if ($fila % 2 == 0) {
+                            $sheet->getStyle('B' . $fila . ':G' . $fila)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFF7F7F7'); 
+                        }
+                        $fila++;
+                    }
+
+                    $filaTotal = $fila;
+                    $sheet->setCellValue('F' . $filaTotal, 'SALDO PENDIENTE FINAL:');
+                    $sheet->getStyle('F' . $filaTotal)->getFont()->setBold(true);
+                    $sheet->getStyle('F' . $filaTotal)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+
+                    $sheet->setCellValue('G' . $filaTotal, '=SUM(G' . $filaInicialSuma . ':G' . ($filaTotal - 1) . ')');
+                    $sheet->getStyle('G' . $filaTotal)->getFont()->setBold(true);
+                    $sheet->getStyle('G' . $filaTotal)->getNumberFormat()->setFormatCode('"S/" #,##0.00');
+                    $sheet->getStyle('F' . $filaTotal . ':G' . $filaTotal)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFEAEAEA');
+                    $sheet->getStyle('F' . $filaTotal . ':G' . $filaTotal)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+
+                    foreach (range('B', 'G') as $col) { $sheet->getColumnDimension($col)->setAutoSize(true); }
+                    $sheet->getColumnDimension('C')->setAutoSize(false)->setWidth(35);
+                    $sheet->getColumnDimension('E')->setAutoSize(false)->setWidth(45);
                 }
 
-                // --- 7. FILA DE TOTALES DINÁMICA ---
-                $filaTotal = $fila;
-                $sheet->setCellValue('F' . $filaTotal, 'TOTAL NETO:');
-                $sheet->getStyle('F' . $filaTotal)->getFont()->setBold(true);
-                $sheet->getStyle('F' . $filaTotal)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
-
-                $sheet->setCellValue('G' . $filaTotal, '=SUM(G6:G' . ($filaTotal - 1) . ')');
-                $sheet->getStyle('G' . $filaTotal)->getFont()->setBold(true);
-                $sheet->getStyle('G' . $filaTotal)->getNumberFormat()->setFormatCode('"S/" #,##0.00');
-                
-                $sheet->getStyle('F' . $filaTotal . ':G' . $filaTotal)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFEAEAEA');
-                $sheet->getStyle('F' . $filaTotal . ':G' . $filaTotal)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-
-                // --- 8. AUTOAJUSTAR ANCHO DE COLUMNAS ---
-                foreach (range('B', 'G') as $col) {
-                    $sheet->getColumnDimension($col)->setAutoSize(true);
-                }
-
-                $sheet->getColumnDimension('C')->setAutoSize(false);
-                $sheet->getColumnDimension('C')->setWidth(35);
-                $sheet->getColumnDimension('E')->setAutoSize(false);
-                $sheet->getColumnDimension('E')->setWidth(45);
-
-                // --- 9. SALIDA DEL ARCHIVO ---
-                $filename = 'Estado_Cuenta_Proveedores_' . date('Ymd_His') . '.xlsx';
+                // Salida de Archivo
+                $filename = ($esVistaProducto ? 'Resumen_Productos_Proveedores_' : 'Estado_Cuenta_Proveedores_') . date('Ymd_His') . '.xlsx';
                 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
                 header('Content-Disposition: attachment;filename="' . $filename . '"');
                 header('Cache-Control: max-age=0');
@@ -222,35 +292,47 @@ class Estado_Cuenta_ProveedorController extends Controlador
                 $writer->save('php://output');
                 exit;
             }
+
+            // -------------------------------------------------------------
+            // 3. EXPORTAR PDF
+            // -------------------------------------------------------------
+            if ($accion === 'imprimir_estado_cuenta_proveedores') {
+                require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
+                require_once BASE_PATH . '/vendor/autoload.php';
+
+                $empresaModel = new EmpresaModel();
+                $config = $empresaModel->obtener();
+
+                $filtros = $f;
+                $resumen = $resumenExport;
+                
+                // Definimos las variables y la vista que se usará para el PDF
+                if ($esVistaProducto) {
+                    $porProducto = $dataExportar;
+                    $vistaPdf = BASE_PATH . '/app/views/reportes/pdf_estado_cuenta_proveedores_producto.php';
+                } else {
+                    $movimientos = $dataExportar;
+                    $vistaPdf = BASE_PATH . '/app/views/reportes/pdf_estado_cuenta_proveedores.php';
+                }
+
+                ob_start();
+                require $vistaPdf;
+                $html = ob_get_clean();
+
+                $dompdf = new \Dompdf\Dompdf();
+                $options = $dompdf->getOptions();
+                $options->set(['isRemoteEnabled' => true]);
+                $dompdf->setOptions($options);
+
+                $dompdf->loadHtml($html);
+                $dompdf->setPaper('A4', 'portrait');
+                $dompdf->render();
+                $dompdf->stream(($esVistaProducto ? 'Resumen_Productos_Proveedores.pdf' : 'Estado_Cuenta_Proveedores.pdf'), ['Attachment' => false]);
+                return;
+            }
         }
 
-        // --- EXPORTAR PDF (EXISTENTE) ---
-        if ($accion === 'imprimir_estado_cuenta_proveedores') {
-            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
-            require_once BASE_PATH . '/vendor/autoload.php';
-
-            $empresaModel = new EmpresaModel();
-            $config = $empresaModel->obtener();
-
-            $detalle = $this->tesoreria->historialEstadoCuentaProveedores($f, 1, 999999);
-
-            ob_start();
-            require BASE_PATH . '/app/views/reportes/pdf_estado_cuenta_proveedores.php';
-            $html = ob_get_clean();
-
-            $dompdf = new \Dompdf\Dompdf();
-            $options = $dompdf->getOptions();
-            $options->set(['isRemoteEnabled' => true]);
-            $dompdf->setOptions($options);
-
-            $dompdf->loadHtml($html);
-            $dompdf->setPaper('A4', 'portrait');
-            $dompdf->render();
-            $dompdf->stream('Estado_Cuenta_Proveedores.pdf', ['Attachment' => false]);
-            return;
-        }
-
-        // --- VALIDACIÓN DE VISTA EN BLANCO ---
+        // --- RENDERIZADO DE LA VISTA WEB NORMAL ---
         if (empty($f['proveedor'])) {
             $detalle = [
                 'rows' => [], 

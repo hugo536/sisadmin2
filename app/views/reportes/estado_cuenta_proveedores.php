@@ -1,4 +1,11 @@
 <?php
+/**
+ * @var array|null $filtros
+ * @var array|null $detalle
+ * @var array|null $porProducto
+ * @var array|null $proveedoresEstadoCuenta
+ */
+
 $filtros = is_array($filtros ?? null) ? $filtros : [];
 $detalle = is_array($detalle ?? null) ? $detalle : ['rows' => [], 'total' => 0, 'resumen' => []];
 $porProducto = is_array($porProducto ?? null) ? $porProducto : [];
@@ -30,7 +37,7 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
         </a>
     </div>
 
-    <!-- Indicadores / KPIs (Ajustado a col-6 para hacer el 2x2 en celular) -->
+    <!-- Indicadores / KPIs -->
     <div class="row g-3 mb-4">
         <!-- Total Movimientos -->
         <div class="col-6 col-md-3">
@@ -70,7 +77,7 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
         </div>
     </div>
 
-    <!-- Barra de Filtros (Ajustada para verse idéntica a Clientes) -->
+    <!-- Barra de Filtros -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3">
             <form class="row g-2 align-items-end" method="get" action="<?php echo e(base_url() . '/'); ?>" id="estadoCuentaProveedoresFiltrosForm">
@@ -125,9 +132,39 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-box-seam me-2 text-primary"></i>Resumen por producto</h5>
-                <div class="input-group input-group-sm w-auto" style="max-width: 260px;">
-                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroEstadoCuentaProveedoresProducto" placeholder="Buscar producto...">
+                
+                <!-- Contenedor con Flexbox para agrupar Exportar y Buscar -->
+                <div class="d-flex align-items-center gap-3">
+                    <!-- Botón Exportar Unificado -->
+                    <div class="dropdown">
+                        <button class="btn btn-secondary btn-sm shadow-sm fw-semibold dropdown-toggle" type="button" id="btnMenuExportarProdProv" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-cloud-download me-1"></i> Exportar
+                        </button>
+                        <ul class="dropdown-menu shadow-sm" aria-labelledby="btnMenuExportarProdProv">
+                            <li>
+                                <button type="button" class="dropdown-item d-flex align-items-center" id="btnExportarExcel">
+                                    <i class="bi bi-file-earmark-excel-fill text-success me-2"></i> Formato Excel (.xlsx)
+                                </button>
+                            </li>
+                            <li>
+                                <button type="button" class="dropdown-item d-flex align-items-center" id="btnExportarCsv">
+                                    <i class="bi bi-filetype-csv text-secondary me-2"></i> Datos Crudos (.csv)
+                                </button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <button type="button" class="dropdown-item d-flex align-items-center" id="btnExportarPdfProveedores">
+                                    <i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i> Formato PDF (.pdf)
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Buscador -->
+                    <div class="input-group input-group-sm w-auto" style="max-width: 260px;">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroEstadoCuentaProveedoresProducto" placeholder="Buscar producto...">
+                    </div>
                 </div>
             </div>
             <div class="card-body p-0">

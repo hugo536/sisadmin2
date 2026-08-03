@@ -118,24 +118,31 @@ if (typeof window.inicializarModuloEstadoCuentas === 'undefined') {
             }
         }
         
-        // --- 5. LÓGICA DE EXPORTACIÓN Y VALIDACIÓN SWEETALERT ---
-        const tablaDetalle = document.getElementById('tablaEstadoCuentaDetalle') || document.querySelector('table');
-        const filasReales = document.querySelectorAll('tbody tr[data-search]').length;
-        const totalRegistros = tablaDetalle ? parseInt(tablaDetalle.getAttribute('data-total-rows') || filasReales, 10) : filasReales;
+        // --- 5. LÓGICA DE EXPORTACIÓN Y VALIDACIÓN ---
+        
+        // Función dinámica para obtener los registros de la tabla que esté actualmente visible
+        const obtenerTotalRegistros = () => {
+            const tablaVisible = document.querySelector('table[data-erp-table="true"]');
+            if (tablaVisible) {
+                return parseInt(tablaVisible.getAttribute('data-total-rows') || '0', 10);
+            }
+            return document.querySelectorAll('tbody tr[data-search]').length;
+        };
 
         const verificarDatosVacios = (e) => {
+            const totalRegistros = obtenerTotalRegistros();
             if (totalRegistros === 0) {
                 e.preventDefault();
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
                         icon: 'warning',
                         title: 'Sin datos para exportar',
-                        text: 'No hay movimientos registrados en el periodo y filtros seleccionados.',
+                        text: 'No hay registros en el periodo y filtros seleccionados.',
                         confirmButtonText: 'Entendido',
                         confirmButtonColor: '#0B5ED7'
                     });
                 } else {
-                    alert('No hay movimientos registrados para exportar.');
+                    alert('No hay registros para exportar.');
                 }
                 return true; 
             }
@@ -150,46 +157,47 @@ if (typeof window.inicializarModuloEstadoCuentas === 'undefined') {
             window.open(urlCompleta, '_blank');
         };
 
-        const btnExportarPdf = document.getElementById(btnPdfId) || document.getElementById('btnExportarPdfLimitado');
-        if (btnExportarPdf) {
-            btnExportarPdf.addEventListener('click', (e) => {
+        // Seleccionamos todos los botones por ID usando querySelectorAll para abarcar cualquier vista
+        const btnsExportarPdf = document.querySelectorAll(`#${btnPdfId}, #btnExportarPdfLimitado`);
+        btnsExportarPdf.forEach(btn => {
+            btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (verificarDatosVacios(e)) return;
 
+                const totalRegistros = obtenerTotalRegistros();
                 if (totalRegistros >= 2500) {
-                    alert(`⚠️ LÍMITE EXCEDIDO: El reporte contiene ${totalRegistros} movimientos.\nPor favor, utiliza la opción de exportar a Excel o CSV.`);
+                    alert(`⚠️ LÍMITE EXCEDIDO: El reporte contiene ${totalRegistros} registros.\nPor favor, utiliza la opción de exportar a Excel o CSV.`);
                     return; 
                 }
                 if (totalRegistros >= 1000) {
-                    const continuar = confirm(`⚠️ ATENCIÓN: Estás intentando exportar ${totalRegistros} movimientos a PDF.\n¿Estás seguro?`);
+                    const continuar = confirm(`⚠️ ATENCIÓN: Estás intentando exportar ${totalRegistros} registros a PDF.\n¿Estás seguro?`);
                     if (!continuar) return;
                 }
                 prepararExportacion(pdfAction);
             });
-        }
+        });
 
-        const btnExportarExcel = document.getElementById('btnExportarExcel');
-        if (btnExportarExcel) {
-            btnExportarExcel.addEventListener('click', (e) => {
+        const btnsExportarExcel = document.querySelectorAll('#btnExportarExcel');
+        btnsExportarExcel.forEach(btn => {
+            btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (verificarDatosVacios(e)) return;
                 prepararExportacion(excelAction);
             });
-        }
+        });
 
-        const btnExportarCsv = document.getElementById('btnExportarCsv');
-        if (btnExportarCsv) {
-            btnExportarCsv.addEventListener('click', (e) => {
+        const btnsExportarCsv = document.querySelectorAll('#btnExportarCsv');
+        btnsExportarCsv.forEach(btn => {
+            btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (verificarDatosVacios(e)) return;
                 prepararExportacion(csvAction);
             });
-        }
+        });
     };
 
     // --- AUTO-INICIALIZACIÓN INTELIGENTE (SOPORTA SPA Y F5) ---
     const autoIniciarEstadoCuentas = () => {
-        // 1. ¿Estamos en la vista de Estado de Cuenta de CLIENTES?
         if (document.getElementById('estadoCuentaFiltrosForm')) {
             window.inicializarModuloEstadoCuentas({
                 formId: 'estadoCuentaFiltrosForm',
@@ -201,7 +209,6 @@ if (typeof window.inicializarModuloEstadoCuentas === 'undefined') {
             });
         }
 
-        // 2. ¿Estamos en la vista de Estado de Cuenta de PROVEEDORES?
         if (document.getElementById('estadoCuentaProveedoresFiltrosForm')) {
             window.inicializarModuloEstadoCuentas({
                 formId: 'estadoCuentaProveedoresFiltrosForm',
@@ -214,9 +221,6 @@ if (typeof window.inicializarModuloEstadoCuentas === 'undefined') {
         }
     };
 
-    // Se ejecuta al hacer F5 o recarga dura
     document.addEventListener('DOMContentLoaded', autoIniciarEstadoCuentas);
-
-    // Se ejecuta cuando navegas por el menú lateral (Tu evento SPA del main.js)
     document.addEventListener('sisadmin:route-loaded', autoIniciarEstadoCuentas);
 }

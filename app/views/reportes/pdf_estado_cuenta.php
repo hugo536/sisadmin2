@@ -1,8 +1,19 @@
+<?php
+/**
+ * Declaración de variables para el editor (Intelephense)
+ * @var array $f
+ * @var array $detalle
+ * @var array $config
+ */
+$fechaDesdeFmt = date('d/m/Y', strtotime((string)($f['fecha_desde'] ?? date('Y-m-d'))));
+$fechaHastaFmt = date('d/m/Y', strtotime((string)($f['fecha_hasta'] ?? date('Y-m-d'))));
+$clienteNombre = !empty($f['cliente']) ? $f['cliente'] : 'General';
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Estado de Cuenta - <?php echo htmlspecialchars($f['cliente'] ?: 'General'); ?></title>
+    <title>Estado de Cuenta - <?php echo htmlspecialchars($clienteNombre); ?></title>
     <style>
         @page { margin: 1.5cm; }
         body { 
@@ -85,7 +96,7 @@
         <tr>
             <td style="width: 70%;">
                 <div class="titulo-empresa"><?php echo htmlspecialchars($nombreEmpresa); ?> - ESTADO DE CUENTA</div>
-                <div class="subtitulo">Periodo del reporte: <?php echo date('d/m/Y', strtotime($f['fecha_desde'])); ?> al <?php echo date('d/m/Y', strtotime($f['fecha_hasta'])); ?></div>
+                <div class="subtitulo">Periodo del reporte: <?php echo $fechaDesdeFmt; ?> al <?php echo $fechaHastaFmt; ?></div>
             </td>
             <td style="width: 30%;" class="logo-container">
                 <?php echo $imgTag; ?>
@@ -97,7 +108,7 @@
     <table class="info-cliente">
         <tr>
             <td class="label">CLIENTE FILTRADO:</td>
-            <td><strong><?php echo htmlspecialchars($f['cliente'] ?: 'TODOS LOS CLIENTES'); ?></strong></td>
+            <td><strong><?php echo htmlspecialchars(!empty($f['cliente']) ? $f['cliente'] : 'TODOS LOS CLIENTES'); ?></strong></td>
         </tr>
     </table>
 
@@ -116,14 +127,14 @@
         <tbody>
             <?php 
                 $rows = array_reverse($detalle['rows'] ?? []); 
-                // CORRECCIÓN: Cambiado a 'saldo_inicial'
                 $saldoEnLinea = (float)($res['saldo_inicial'] ?? 0); 
             ?>
             
             <tr class="fila-saldo-anterior">
                 <td class="text-center">-</td>
                 <td class="text-center">-</td>
-                <td>SALDO ANTERIOR AL <?php echo date('d/m/Y', strtotime($f['fecha_desde'])); ?></td>
+                <!-- Corregido el problema de VS Code aquí: -->
+                <td>SALDO ANTERIOR AL <?php echo $fechaDesdeFmt; ?></td>
                 <td class="text-center">-</td>
                 <td class="text-right">-</td>
                 <td class="text-right">S/ <?php echo number_format($saldoEnLinea, 2); ?></td>
@@ -193,11 +204,9 @@
         </thead>
         <tbody>
             <tr>
-                <!-- CORRECCIÓN: Cambiado a 'saldo_inicial' -->
                 <td>S/ <?php echo number_format((float)($res['saldo_inicial'] ?? 0), 2); ?></td>
                 <td>S/ <?php echo number_format((float)($res['total_facturado'] ?? 0), 2); ?></td>
                 <td>S/ <?php echo number_format((float)($res['total_pagado'] ?? 0), 2); ?></td>
-                <!-- CORRECCIÓN: Usamos directamente 'total_saldo' de la base de datos para asegurar 100% paridad con la web -->
                 <td class="resumen-final-celda">S/ <?php echo number_format((float)($res['total_saldo'] ?? $saldoEnLinea), 2); ?></td>
             </tr>
         </tbody>

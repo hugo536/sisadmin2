@@ -31,7 +31,8 @@ if ($appTimezone === '' || !@date_default_timezone_set($appTimezone)) {
 
 $sessionCookieLifetime = filter_var($_ENV['SESSION_COOKIE_LIFETIME'] ?? getenv('SESSION_COOKIE_LIFETIME'), FILTER_VALIDATE_INT);
 if ($sessionCookieLifetime === false || $sessionCookieLifetime <= 0) {
-    $sessionCookieLifetime = 28800; // 8 horas por defecto
+    // 3 horas exactas por defecto (3 * 60 * 60 = 10800 segundos)
+    $sessionCookieLifetime = 10800; 
 }
 
 $sessionCookieName = trim((string) ($_ENV['SESSION_COOKIE_NAME'] ?? getenv('SESSION_COOKIE_NAME') ?: ''));
@@ -94,10 +95,27 @@ if (session_status() === PHP_SESSION_NONE) {
         $cookieParams['domain'] = $host;
     }
 
+    // --- AISLAR SESIONES PARA QUE DUREN LAS 3 HORAS REALES ---
+    // Creamos una carpeta privada en el proyecto para que el servidor no borre las sesiones
+    $carpetaSesiones = BASE_PATH . '/app/sessions';
+    if (!is_dir($carpetaSesiones)) {
+        @mkdir($carpetaSesiones, 0777, true);
+    }
+    session_save_path($carpetaSesiones);
+    // ---------------------------------------------------------
+
     session_name($sessionCookieName);
     ini_set('session.gc_maxlifetime', (string) $sessionCookieLifetime);
     session_set_cookie_params($cookieParams);
     session_start();
+
+    // --- REFRESCAR LA SESIÓN AUTOMÁTICAMENTE ---
+    if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > $sessionCookieLifetime)) {
+        session_unset();     
+        session_destroy();   
+        session_start(); // Inicia una nueva sesión limpia para evitar errores en la petición
+    }
+    $_SESSION['LAST_ACTIVITY'] = time();
 }
 
 // Configuración de Errores
