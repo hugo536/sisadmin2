@@ -123,9 +123,14 @@ if (typeof window.inicializarModuloEstadoCuentas === 'undefined') {
         // Función dinámica para obtener los registros de la tabla que esté actualmente visible
         const obtenerTotalRegistros = () => {
             const tablaVisible = document.querySelector('table[data-erp-table="true"]');
-            if (tablaVisible) {
-                return parseInt(tablaVisible.getAttribute('data-total-rows') || '0', 10);
+            
+            // 1. Si la tabla tiene el atributo explícito, lo usamos (ej. Vista Productos)
+            if (tablaVisible && tablaVisible.hasAttribute('data-total-rows')) {
+                const total = parseInt(tablaVisible.getAttribute('data-total-rows'), 10);
+                if (!isNaN(total)) return total;
             }
+            
+            // 2. Si no lo tiene (ej. Vista Historial), contamos las filas físicas reales
             return document.querySelectorAll('tbody tr[data-search]').length;
         };
 
