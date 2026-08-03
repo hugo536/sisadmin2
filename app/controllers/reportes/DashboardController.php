@@ -9,6 +9,7 @@ require_once BASE_PATH . '/app/models/reportes/ReporteProduccionModel.php';
 require_once BASE_PATH . '/app/models/reportes/ReporteTesoreriaModel.php';
 require_once BASE_PATH . '/app/models/reportes/ReporteDashboardModel.php';
 require_once BASE_PATH . '/app/models/UsuariosModel.php';
+require_once BASE_PATH . '/app/models/reportes/ReporteDashboardModel.php';
 
 class DashboardController extends Controlador
 {

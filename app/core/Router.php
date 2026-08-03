@@ -44,15 +44,15 @@ class Router
 
         // --- MANEJO DE MÓDULOS ESPECÍFICOS ---
 
-        // 1. Si alguien entra directamente a ?ruta=dashboard
+        // 1. Interceptar entrada directa al dashboard principal
         if ($modulo === 'dashboard') {
-            $controlador_clase = 'DashboardController'; // <-- Cambiado
-            $accion = 'index'; // <-- Cambiado
+            $controlador_clase = 'DashboardController';
+            $accion = 'index';
         }
 
-        // 2. Si alguien entra desde el menú a ?ruta=reportes/dashboard
+        // 2. Interceptar rutas dentro del módulo 'reportes'
         if ($modulo === 'reportes') {
-            if ($accion === 'dashboard') { // <-- NUEVO: Interceptamos esta acción
+            if ($accion === 'dashboard') { 
                 $controlador_clase = 'DashboardController';
                 $accion = 'index';
             } elseif ($accion === 'estado_cuenta') {
@@ -77,12 +77,11 @@ class Router
                 $accion = 'index';
             } elseif ($accion === 'envases') {
                 $controlador_clase = 'EnvasesController';
-                
-                // CORRECCIÓN AQUÍ: Permite leer si la acción es "guardar", sino usa "index"
                 $accion = $partes[2] ?? 'index'; 
             }
         }
 
+        // Rutas de PRODUCCIÓN
         if ($modulo === 'produccion') {
             if ($accion === 'ordenes') {
                 $controlador_clase = 'ProduccionOrdenesController';
@@ -145,11 +144,9 @@ class Router
         // Rutas de COSTOS
         if ($modulo === 'costos') {
             if ($accion === 'cierres') {
-                // Si la url es costos/cierres, usa el nuevo controlador
                 $controlador_clase = 'CierresController';
                 $accion = 'index';
             } else {
-                // Para configuracion o alertas, usa CostosController
                 $controlador_clase = 'CostosController';
                 if ($accion === 'index' || $accion === '') {
                     $accion = 'configuracion';
@@ -166,9 +163,8 @@ class Router
                     $accion = 'index';
                 }
             } elseif ($accion === 'packs') {
-                // 👇 NUEVA REGLA PARA PACKS Y COMBOS 👇
                 $controlador_clase = 'PacksController';
-                $accion = $partes[2] ?? 'index'; // Si la URL es items/packs/guardar, la acción será 'guardar'
+                $accion = $partes[2] ?? 'index';
                 if ($accion === '') {
                     $accion = 'index';
                 }
@@ -225,7 +221,7 @@ class Router
             BASE_PATH . '/app/controllers/produccion/' . $clase . '.php',
             BASE_PATH . '/app/controllers/costos/' . $clase . '.php', 
             BASE_PATH . '/app/controllers/tesoreria/' . $clase . '.php',
-            BASE_PATH . '/app/controllers/reportes/' . $clase . '.php', // <-- ¡AGREGA ESTA LÍNEA PARA TUS NUEVOS CONTROLADORES!
+            BASE_PATH . '/app/controllers/reportes/' . $clase . '.php',
             BASE_PATH . '/app/controladores/' . $clase . '.php',
         ];
 
