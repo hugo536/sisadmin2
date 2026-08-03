@@ -61,8 +61,8 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
                 'compras_pendientes'   => ['color' => 'warning', 'icon' => 'bi-cart-check', 'url' => 'reportes/compras'],
                 'ventas_por_despachar' => ['color' => 'info',    'icon' => 'bi-truck',       'url' => 'reportes/ventas'],
                 'produccion_proceso'   => ['color' => 'primary', 'icon' => 'bi-gear',        'url' => 'reportes/produccion'],
-                'cxc_vencida'          => ['color' => 'danger',  'icon' => 'bi-cash-stack',  'url' => 'reportes/tesoreria'],
-                'cxp_vencida'          => ['color' => 'danger',  'icon' => 'bi-wallet2',     'url' => 'reportes/tesoreria']
+                'cxc_vencida'          => ['color' => 'danger',  'icon' => 'bi-cash-stack',  'url' => 'reportes/cxc'], // <-- Actualizado al nuevo reporte CxC
+                'cxp_vencida'          => ['color' => 'danger',  'icon' => 'bi-wallet2',     'url' => 'reportes/cxp']  // <-- Actualizado al nuevo reporte CxP
             ]; 
             ?>
             
@@ -274,7 +274,6 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
 <style>
 /* Estilos modernos Soft Bento */
 .widget-bento {
-    /* Quita cualquier sombra y confía en el color de fondo para la jerarquía visual */
     box-shadow: none !important;
 }
 
@@ -282,11 +281,10 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 .transition-hover:hover {
-    transform: translateY(-4px) scale(1.02); /* Ligero rebote hacia arriba y al frente */
-    box-shadow: 0 12px 20px rgba(0,0,0,0.06) !important; /* Le añade sombra solo al pasar el mouse */
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 20px rgba(0,0,0,0.06) !important;
 }
 
-/* Animación sutil de entrada para la página */
 .fade-in {
     animation: fadeIn 0.6s ease-in-out;
 }
@@ -295,7 +293,6 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Rediseño de scrollbar invisible para tablas pequeñas */
 .table-responsive::-webkit-scrollbar {
     height: 6px;
 }
@@ -313,7 +310,6 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
 </script>
 
 <script>
-// Función robusta para interceptar el clic de los widgets
 function navegarDesdeDashboard(event, urlString) {
     event.preventDefault(); 
 
@@ -322,20 +318,15 @@ function navegarDesdeDashboard(event, urlString) {
             const urlObjeto = new URL(urlString, window.location.origin);
             window.navigateWithoutReload(urlObjeto, true);
             
-            // --- LÓGICA ANTI-PARPADEO (Bloqueo agresivo) ---
             let intentos = 0;
-            
-            // Usamos setInterval para forzar la selección cada 50 milisegundos
             const candadoMenu = setInterval(() => {
                 const dashboardLink = document.querySelector('.sidebar a[href*="reportes/dashboard"], aside a[href*="reportes/dashboard"]');
                 
                 if(dashboardLink) {
-                    // Quitamos la clase 'active' de cualquier otro lado
                     document.querySelectorAll('.sidebar a.active, aside a.active').forEach(item => {
                         item.classList.remove('active');
                     });
                     
-                    // Aseguramos que el Dashboard esté activo
                     dashboardLink.classList.add('active'); 
                     
                     const parentCollapse = dashboardLink.closest('.collapse');
@@ -343,13 +334,10 @@ function navegarDesdeDashboard(event, urlString) {
                 }
                 
                 intentos++;
-                // Detenemos el candado después de medio segundo (10 intentos x 50ms)
-                // Para este momento la plantilla ya se rindió y el Dashboard quedará fijo.
                 if(intentos >= 10) {
                     clearInterval(candadoMenu);
                 }
             }, 50); 
-            // ----------------------------------------------
             
         } catch (error) {
             console.error("Error al navegar con SPA:", error);

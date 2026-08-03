@@ -57,6 +57,12 @@ class Router
             } elseif ($accion === 'estado_cuenta_proveedores') {
                 $controlador_clase = 'Estado_Cuenta_ProveedorController';
                 $accion = 'index';
+            } elseif ($accion === 'cxc') {
+                $controlador_clase = 'CxcController';
+                $accion = 'index';
+            } elseif ($accion === 'cxp') { // <-- AGREGA ESTA LÍNEA
+                $controlador_clase = 'CxpController';
+                $accion = 'index';
             }
         }
 

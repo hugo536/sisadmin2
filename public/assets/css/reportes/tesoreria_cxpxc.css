@@ -1,0 +1,185 @@
+/* =========================================================
+   MÓDULO DE TESORERÍA: REPORTES GLOBALES CXC Y CXP (RESPONSIVE)
+   Archivo: public/assets/css/tesoreria/tesoreria_cxpxc.css
+   ========================================================= */
+
+@media (max-width: 767.98px) {
+
+    /* Ajuste para que las tarjetas de KPIs en dispositivos móviles no se vean apretadas */
+    #reportesCxcApp .card-body,
+    #reportesCxpApp .card-body {
+        padding: 0.75rem !important; 
+    }
+    #reportesCxcApp .card-body .small,
+    #reportesCxpApp .card-body .small {
+        font-size: 0.65rem !important; 
+        white-space: nowrap; 
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #reportesCxcApp .card-body .h4,
+    #reportesCxpApp .card-body .h4 {
+        font-size: 1.1rem !important; 
+    }
+
+    /* 1. Ocultar cabeceras de las tablas en celulares */
+    #tablaCxcReporteDetalle thead,
+    #tablaCxpReporteDetalle thead {
+        display: none !important;
+    }
+
+    /* 2. Convertir filas en tarjetas flotantes tipo app */
+    #tablaCxcReporteDetalle tbody tr,
+    #tablaCxpReporteDetalle tbody tr {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        padding: 15px 12px !important;
+        border: 1px solid var(--erp-table-border-color, #dee2e6) !important;
+        border-radius: 8px !important;
+        margin-bottom: 15px !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.04) !important;
+    }
+
+    /* Limpiar estilos de celdas normales */
+    #tablaCxcReporteDetalle tbody td,
+    #tablaCxpReporteDetalle tbody td {
+        display: block !important;
+        border: none !important;
+        padding: 4px 0 !important;
+    }
+
+    /* Eliminar pseudo-elementos globales que puedan interferir */
+    #tablaCxcReporteDetalle tbody td::before,
+    #tablaCxpReporteDetalle tbody td::before {
+        display: none !important;
+        content: none !important;
+    }
+
+    /* Si no hay datos, centrar el mensaje de la fila */
+    #tablaCxcReporteDetalle tbody tr td[colspan],
+    #tablaCxpReporteDetalle tbody tr td[colspan] {
+        width: 100% !important;
+        text-align: center !important;
+    }
+
+    /* =========================================================
+       ESTRUCTURA DE LA TARJETA MÓVIL (Look App Bancaria)
+       ========================================================= */
+    
+    /* 1. Cliente / Proveedor (Arriba Izquierda) */
+    #tablaCxcReporteDetalle tbody td:nth-child(1),
+    #tablaCxpReporteDetalle tbody td:nth-child(1) {
+        order: 1 !important;
+        width: 50% !important; 
+        font-size: 0.90rem !important;
+        font-weight: 700 !important;
+        color: #1e293b !important;
+        padding-bottom: 10px !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        text-align: left !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important; 
+    }
+
+    /* 2. Documento de Referencia (Centro) */
+    #tablaCxcReporteDetalle tbody td:nth-child(2),
+    #tablaCxpReporteDetalle tbody td:nth-child(2) {
+        order: 2 !important;
+        width: 25% !important; 
+        text-align: center !important; 
+        font-size: 0.75rem !important;
+        font-weight: 700 !important;
+        color: #64748b !important;
+        padding-bottom: 10px !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        align-self: flex-start !important;
+    }
+
+    /* 3. Fecha de Emisión (Derecha Arriba) */
+    #tablaCxcReporteDetalle tbody td:nth-child(3),
+    #tablaCxpReporteDetalle tbody td:nth-child(3) {
+        order: 3 !important;
+        width: 25% !important; 
+        text-align: right !important; 
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        color: #94a3b8 !important;
+        padding-bottom: 10px !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        align-self: flex-start !important;
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+
+    /* 4. Fecha de Vencimiento / Días de Mora (Abajo Izquierda) */
+    #tablaCxcReporteDetalle tbody td:nth-child(4),
+    #tablaCxpReporteDetalle tbody td:nth-child(4),
+    #tablaCxcReporteDetalle tbody td:nth-child(5),
+    #tablaCxpReporteDetalle tbody td:nth-child(5) {
+        order: 4 !important;
+        width: 50% !important;
+        padding-top: 10px !important;
+        font-size: 0.78rem !important;
+        color: #64748b !important;
+        text-align: left !important;
+    }
+
+    /* 5. Total Emitido y Saldo Pendiente (Abajo Derecha) */
+    #tablaCxcReporteDetalle tbody td:nth-child(6),
+    #tablaCxpReporteDetalle tbody td:nth-child(6) {
+        display: none !important; /* Ocultamos el total emitido en móvil para priorizar el saldo vivo */
+    }
+
+    #tablaCxcReporteDetalle tbody td:nth-child(7),
+    #tablaCxpReporteDetalle tbody td:nth-child(7) {
+        order: 5 !important;
+        width: 50% !important;
+        padding-top: 10px !important;
+        text-align: right !important;
+        font-size: 1.15rem !important;
+        font-weight: 800 !important;
+    }
+
+    /* 6. Estado (Badge) alineado a la derecha abajo si es necesario o integrado */
+    #tablaCxcReporteDetalle tbody td:nth-child(8),
+    #tablaCxpReporteDetalle tbody td:nth-child(8) {
+        order: 6 !important;
+        width: 100% !important;
+        text-align: right !important;
+        padding-top: 8px !important;
+        margin-top: 5px !important;
+        border-top: 1px dashed #f1f5f9 !important;
+    }
+
+    /* Ajuste para el Footer (Totales) en versión móvil */
+    #tablaCxcReporteDetalle tfoot tr,
+    #tablaCxpReporteDetalle tfoot tr {
+        display: flex !important; 
+        flex-direction: row !important; 
+        justify-content: space-between !important; 
+        align-items: center !important; 
+        padding: 15px 20px !important;
+        background-color: #f8f9fa !important;
+        border-radius: 8px !important;
+    }
+    #tablaCxcReporteDetalle tfoot td,
+    #tablaCxpReporteDetalle tfoot td {
+        width: auto !important; 
+        display: block !important; 
+        border: none !important; 
+        padding: 0 !important;
+    }
+    #tablaCxcReporteDetalle tfoot td:nth-child(1),
+    #tablaCxpReporteDetalle tfoot td:nth-child(1) {
+        text-align: left !important;
+        font-size: 0.90rem !important;
+        color: #475569 !important;
+    }
+    #tablaCxcReporteDetalle tfoot td:nth-child(2),
+    #tablaCxpReporteDetalle tfoot td:nth-child(2) {
+        text-align: right !important;
+        font-size: 1.05rem !important;
+    }
+}

@@ -53,6 +53,10 @@
         <link rel="stylesheet" href="<?php echo e(asset_url('css/reportes/estado_cuentas.css')); ?>?v=<?php echo $getAssetVersion('css/reportes/estado_cuentas.css'); ?>">
     <?php endif; ?>
 
+    <?php if (in_array($currentRoute, ['reportes/cxc', 'reportes/cxp'], true)): ?>
+        <link rel="stylesheet" href="<?php echo e(asset_url('css/reportes/tesoreria_cxpxc.css')); ?>?v=<?php echo $getAssetVersion('css/reportes/tesoreria_cxpxc.css'); ?>">
+    <?php endif; ?>
+
     <?php if (str_starts_with($currentRoute, 'tesoreria')): ?>
         <?php if ($currentRoute === 'tesoreria/cuentas'): ?>
             <link rel="stylesheet" href="<?php echo e(asset_url('css/tesoreria/cuentas.css')); ?>?v=<?php echo $getAssetVersion('css/tesoreria/cuentas.css'); ?>">
@@ -214,6 +218,11 @@ if (!str_starts_with($temaElegido, 'theme-')) {
 <?php if (in_array($currentRoute, ['reportes/estado_cuenta', 'reportes/estado_cuenta_proveedores'], true)): ?>
     <!-- 2. Script específico para los Estados de Cuenta -->
     <script src="<?php echo e(asset_url('js/reportes/estado_cuentas.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/estado_cuentas.js'); ?>"></script>
+<?php endif; ?>
+
+<?php if (in_array($currentRoute, ['reportes/cxc', 'reportes/cxp'], true)): ?>
+    <!-- 3. Script global para los Reportes de Tesorería CxC y CxP -->
+    <script src="<?php echo e(asset_url('js/reportes/tesoreria_cxpxc.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/tesoreria_cxpxc.js'); ?>"></script>
 <?php endif; ?>
 
 <?php if ($currentRoute === 'reportes/inventario'): ?>
