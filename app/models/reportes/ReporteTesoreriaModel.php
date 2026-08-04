@@ -233,7 +233,7 @@ class ReporteTesoreriaModel extends Modelo
     }
 
     // ==========================================
-    // MÉTODO HISTORIAL CORREGIDO (CLIENTES)
+    // MÉTODO HISTORIAL CORREGIDO (CLIENTES) - AGRUPANDO PAGOS
     // ==========================================
     public function historialEstadoCuenta(array $f, int $pagina, int $tamano): array
     {
@@ -251,7 +251,8 @@ class ReporteTesoreriaModel extends Modelo
         
         $whereBase = [
             'c.deleted_at IS NULL',
-            'NOT EXISTS (SELECT 1 FROM ventas_documentos v WHERE v.id = c.id_documento_venta AND v.tipo_operacion = "DONACION")'
+            'NOT EXISTS (SELECT 1 FROM ventas_documentos v WHERE v.id = c.id_documento_venta AND v.tipo_operacion = "DONACION")',
+            'NOT EXISTS (SELECT 1 FROM ventas_documentos v2 WHERE v2.id = c.id_documento_venta AND v2.estado IN ("BORRADOR", "ANULADA"))'
         ];
 
         if (!empty($f['cliente'])) {
@@ -308,23 +309,23 @@ class ReporteTesoreriaModel extends Modelo
 
             UNION ALL
 
+            -- MAGIA: Agrupamos los Abonos para fusionar pagos de una misma fecha/cuenta/referencia
             SELECT 
                 'ABONO' AS tipo_transaccion,
                 DATE(m.fecha) AS fecha_atencion,
-                c.cliente_nombre AS cliente,
-                CONCAT('PAGO REF: ', COALESCE(NULLIF(TRIM(m.referencia), ''), m.id)) AS documento,
-                -- NUEVO: Concatenación dinámica de la cuenta bancaria
-                CONCAT('Abono en ', COALESCE(tc.nombre, 'Caja General')) AS producto,
+                MAX(c.cliente_nombre) AS cliente,
+                CONCAT('PAGO REF: ', COALESCE(NULLIF(TRIM(m.referencia), ''), DATE_FORMAT(m.fecha, '%d%m%Y'))) AS documento,
+                CONCAT('Abono en ', COALESCE(MAX(tc.nombre), 'Caja General')) AS producto,
                 1.00 AS cantidad,
-                CAST(m.monto AS DECIMAL(14,4)) AS precio_unitario,
-                CAST(m.monto AS DECIMAL(14,2)) AS monto_transaccion,
-                c.estado
+                CAST(SUM(m.monto) AS DECIMAL(14,4)) AS precio_unitario,
+                CAST(SUM(m.monto) AS DECIMAL(14,2)) AS monto_transaccion,
+                'CONFIRMADO' AS estado
             FROM tesoreria_movimientos m
             INNER JOIN BaseCXC c ON c.id = m.id_origen AND m.origen = 'CXC'
-            -- NUEVO: Unión con la tabla de cuentas
             LEFT JOIN tesoreria_cuentas tc ON tc.id = m.id_cuenta
             WHERE m.tipo = 'COBRO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
               AND DATE(m.fecha) BETWEEN :fd2 AND :fh2
+            GROUP BY DATE(m.fecha), c.id_cliente, m.id_cuenta, m.referencia
             
             ORDER BY fecha_atencion DESC, tipo_transaccion ASC
             LIMIT :limite OFFSET :offset
@@ -340,7 +341,8 @@ class ReporteTesoreriaModel extends Modelo
                 
                 UNION ALL
                 
-                SELECT COUNT(*) AS conteos 
+                -- MAGIA DEL CONTEO: Contamos los grupos unicos para no descuadrar la paginación
+                SELECT COUNT(DISTINCT CONCAT(DATE(m.fecha), '_', c.id_cliente, '_', COALESCE(m.id_cuenta, 0), '_', COALESCE(TRIM(m.referencia), ''))) AS conteos 
                 FROM tesoreria_movimientos m
                 INNER JOIN BaseCXC c ON c.id = m.id_origen AND m.origen = 'CXC'
                 WHERE m.tipo = 'COBRO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
@@ -451,7 +453,8 @@ class ReporteTesoreriaModel extends Modelo
         ];
         
         $whereBase = [
-            'c.deleted_at IS NULL'
+            'c.deleted_at IS NULL',
+            'NOT EXISTS (SELECT 1 FROM compras_ordenes co WHERE co.id = c.id_orden_compra AND co.estado IN ("BORRADOR", "ANULADA"))'
         ];
 
         if (!empty($f['proveedor'])) {
@@ -511,23 +514,23 @@ class ReporteTesoreriaModel extends Modelo
 
             UNION ALL
 
+            -- MAGIA: Agrupamos los Abonos también para los proveedores
             SELECT
                 'ABONO' AS tipo_transaccion,
                 DATE(m.fecha) AS fecha_atencion,
-                c.proveedor_nombre AS proveedor,
-                CONCAT('PAGO REF: ', COALESCE(NULLIF(TRIM(m.referencia), ''), m.id)) AS documento,
-                -- NUEVO: Concatenación dinámica de la cuenta bancaria para proveedores
-                CONCAT('Pago desde ', COALESCE(tc.nombre, 'Caja General')) AS producto,
+                MAX(c.proveedor_nombre) AS proveedor,
+                CONCAT('PAGO REF: ', COALESCE(NULLIF(TRIM(m.referencia), ''), DATE_FORMAT(m.fecha, '%d%m%Y'))) AS documento,
+                CONCAT('Pago desde ', COALESCE(MAX(tc.nombre), 'Caja General')) AS producto,
                 1.00 AS cantidad,
-                CAST(m.monto AS DECIMAL(14,4)) AS precio_unitario,
-                CAST(m.monto AS DECIMAL(14,2)) AS monto_transaccion,
-                c.estado
+                CAST(SUM(m.monto) AS DECIMAL(14,4)) AS precio_unitario,
+                CAST(SUM(m.monto) AS DECIMAL(14,2)) AS monto_transaccion,
+                'CONFIRMADO' AS estado
             FROM tesoreria_movimientos m
             INNER JOIN BaseCXP c ON c.id = m.id_origen AND m.origen = 'CXP'
-            -- NUEVO: Unión con la tabla de cuentas
             LEFT JOIN tesoreria_cuentas tc ON tc.id = m.id_cuenta
             WHERE m.tipo = 'PAGO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
               AND DATE(m.fecha) BETWEEN :fd2 AND :fh2
+            GROUP BY DATE(m.fecha), c.id_proveedor, m.id_cuenta, m.referencia
 
             ORDER BY fecha_atencion DESC, tipo_transaccion ASC
             LIMIT :limite OFFSET :offset
@@ -543,7 +546,7 @@ class ReporteTesoreriaModel extends Modelo
 
                 UNION ALL
 
-                SELECT COUNT(*) AS conteos
+                SELECT COUNT(DISTINCT CONCAT(DATE(m.fecha), '_', c.id_proveedor, '_', COALESCE(m.id_cuenta, 0), '_', COALESCE(TRIM(m.referencia), ''))) AS conteos
                 FROM tesoreria_movimientos m
                 INNER JOIN BaseCXP c ON c.id = m.id_origen AND m.origen = 'CXP'
                 WHERE m.tipo = 'PAGO' AND m.estado = 'CONFIRMADO' AND m.deleted_at IS NULL
@@ -767,7 +770,6 @@ class ReporteTesoreriaModel extends Modelo
         // 1. SALDO INICIAL (Todo lo ocurrido ANTES de la fecha_desde)
         // =======================================================
         
-        // A. Sumar todos los cargos (Deuda) creados antes de la fecha
         $sqlCargosAnt = "
             SELECT COALESCE(SUM(c.monto_total), 0) 
             FROM tesoreria_cxc c
@@ -776,13 +778,13 @@ class ReporteTesoreriaModel extends Modelo
             WHERE c.deleted_at IS NULL 
               AND DATE(COALESCE(v.fecha_emision, c.fecha_emision)) < :fd
               AND NOT EXISTS (SELECT 1 FROM ventas_documentos v2 WHERE v2.id = c.id_documento_venta AND v2.tipo_operacion = 'DONACION')
+              AND NOT EXISTS (SELECT 1 FROM ventas_documentos v3 WHERE v3.id = c.id_documento_venta AND v3.estado IN ('BORRADOR', 'ANULADA'))
               {$filtroCliente}
         ";
         $stmt = $this->db()->prepare($sqlCargosAnt);
         $stmt->execute($paramsAnt);
         $totalCargosAnt = (float) $stmt->fetchColumn();
 
-        // B. Sumar todos los abonos (Pagos) realizados antes de la fecha
         $sqlAbonosAnt = "
             SELECT COALESCE(SUM(m.monto), 0) 
             FROM tesoreria_movimientos m
@@ -804,7 +806,6 @@ class ReporteTesoreriaModel extends Modelo
         // 2. MOVIMIENTOS DEL PERIODO (Entre fecha_desde y fecha_hasta)
         // =======================================================
         
-        // C. Cargos generados en el periodo
         $sqlCargosPer = "
             SELECT COALESCE(SUM(c.monto_total), 0) AS total, COUNT(c.id) AS cant
             FROM tesoreria_cxc c
@@ -813,13 +814,13 @@ class ReporteTesoreriaModel extends Modelo
             WHERE c.deleted_at IS NULL 
               AND DATE(COALESCE(v.fecha_emision, c.fecha_emision)) BETWEEN :fd AND :fh
               AND NOT EXISTS (SELECT 1 FROM ventas_documentos v2 WHERE v2.id = c.id_documento_venta AND v2.tipo_operacion = 'DONACION')
+              AND NOT EXISTS (SELECT 1 FROM ventas_documentos v3 WHERE v3.id = c.id_documento_venta AND v3.estado IN ('BORRADOR', 'ANULADA'))
               {$filtroCliente}
         ";
         $stmt = $this->db()->prepare($sqlCargosPer);
         $stmt->execute($paramsPer);
         $resCargosPer = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // D. Abonos realizados en el periodo
         $sqlAbonosPer = "
             SELECT COALESCE(SUM(m.monto), 0) AS total, COUNT(m.id) AS cant
             FROM tesoreria_movimientos m
@@ -838,9 +839,6 @@ class ReporteTesoreriaModel extends Modelo
         $totalFacturado = (float) ($resCargosPer['total'] ?? 0);
         $totalPagado = (float) ($resAbonosPer['total'] ?? 0);
 
-        // =======================================================
-        // 3. ARMADO DE RESULTADO MATEMÁTICO
-        // =======================================================
         return [
             'saldo_inicial'    => $saldoInicial,
             'total_facturado'  => $totalFacturado,
@@ -870,6 +868,7 @@ class ReporteTesoreriaModel extends Modelo
             LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra
             WHERE c.deleted_at IS NULL 
               AND DATE(COALESCE(co.fecha_emision, c.fecha_emision)) < :fd
+              AND NOT EXISTS (SELECT 1 FROM compras_ordenes co2 WHERE co2.id = c.id_orden_compra AND co2.estado IN ('BORRADOR', 'ANULADA'))
               {$filtroProveedor}
         ";
         $stmt = $this->db()->prepare($sqlCargosAnt);
@@ -901,6 +900,7 @@ class ReporteTesoreriaModel extends Modelo
             LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra
             WHERE c.deleted_at IS NULL 
               AND DATE(COALESCE(co.fecha_emision, c.fecha_emision)) BETWEEN :fd AND :fh
+              AND NOT EXISTS (SELECT 1 FROM compras_ordenes co2 WHERE co2.id = c.id_orden_compra AND co2.estado IN ('BORRADOR', 'ANULADA'))
               {$filtroProveedor}
         ";
         $stmt = $this->db()->prepare($sqlCargosPer);
@@ -925,7 +925,6 @@ class ReporteTesoreriaModel extends Modelo
         $totalFacturado = (float) ($resCargosPer['total'] ?? 0);
         $totalPagado = (float) ($resAbonosPer['total'] ?? 0);
 
-        // 3. RESULTADO
         return [
             'saldo_inicial'    => $saldoInicial,
             'total_facturado'  => $totalFacturado,
@@ -944,9 +943,9 @@ class ReporteTesoreriaModel extends Modelo
 
         $where = [
             'c.deleted_at IS NULL',
-            'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
-            // NUEVO: Candado maestro para ocultar cualquier donación que se haya colado a CxC
-            'NOT EXISTS (SELECT 1 FROM ventas_documentos v WHERE v.id = c.id_documento_venta AND v.tipo_operacion = "DONACION")'
+            'DATE(COALESCE(v.fecha_emision, c.fecha_emision)) BETWEEN :fd AND :fh',
+            'NOT EXISTS (SELECT 1 FROM ventas_documentos v WHERE v.id = c.id_documento_venta AND v.tipo_operacion = "DONACION")',
+            'NOT EXISTS (SELECT 1 FROM ventas_documentos v2 WHERE v2.id = c.id_documento_venta AND v2.estado IN ("BORRADOR", "ANULADA"))'
         ];
 
         if (!empty($f['cliente'])) {
@@ -976,7 +975,8 @@ class ReporteTesoreriaModel extends Modelo
 
         $where = [
             'c.deleted_at IS NULL',
-            'DATE(c.fecha_emision) BETWEEN :fd AND :fh',
+            'DATE(COALESCE(co.fecha_emision, c.fecha_emision)) BETWEEN :fd AND :fh',
+            'NOT EXISTS (SELECT 1 FROM compras_ordenes co2 WHERE co2.id = c.id_orden_compra AND co2.estado IN ("BORRADOR", "ANULADA"))'
         ];
 
         if (!empty($f['proveedor'])) {
@@ -1036,7 +1036,7 @@ class ReporteTesoreriaModel extends Modelo
         $countStmt->execute($params);
         $total = (int) $countStmt->fetchColumn();
 
-        // 2. Consulta principal (Hacemos LEFT JOIN con CxC para obtener el cliente si el pago viene de una factura)
+        // 2. Consulta principal
         $sql = "SELECT 
                     m.id, 
                     m.fecha, 
@@ -1063,7 +1063,7 @@ class ReporteTesoreriaModel extends Modelo
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        // 3. Sumar el total de dinero de esos depósitos (Para mostrarlo en la tabla y en el PDF)
+        // 3. Sumar el total de dinero de esos depósitos
         $sqlTotal = "SELECT ROUND(SUM(m.monto), 2)
                      FROM tesoreria_movimientos m
                      LEFT JOIN tesoreria_cxc cxc ON cxc.id = m.id_origen AND m.origen = 'CXC'
@@ -1076,134 +1076,6 @@ class ReporteTesoreriaModel extends Modelo
             'rows' => $rows,
             'total' => $total,
             'suma_total' => $sumaTotal
-        ];
-    }
-
-    // ==========================================
-    // MÉTODOS PARA REPORTES MACRO (CXC y CXP)
-    // ==========================================
-    public function obtenerCarteraMacroCxC(array $f): array
-    {
-        $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
-        $where = "c.deleted_at IS NULL AND c.saldo > 0 AND c.fecha_emision BETWEEN :fd AND :fh";
-
-        if (!empty($f['estado_factura']) && $f['estado_factura'] !== 'todos') {
-            if ($f['estado_factura'] === 'vencida') {
-                $where .= " AND c.fecha_vencimiento < CURDATE()";
-            } elseif ($f['estado_factura'] === 'corriente') {
-                $where .= " AND c.fecha_vencimiento >= CURDATE()";
-            }
-        }
-
-        if (!empty($f['tipo_tercero']) && $f['tipo_tercero'] !== 'todos') {
-            if ($f['tipo_tercero'] === 'distribuidor') {
-                $where .= " AND d.id_tercero IS NOT NULL";
-            } elseif ($f['tipo_tercero'] === 'cliente') {
-                $where .= " AND d.id_tercero IS NULL";
-            }
-        }
-
-        // 1. Agrupado (Para la vista Web HTML - Aging)
-        $sqlWeb = "
-            SELECT 
-                t.nombre_completo AS cliente,
-                CASE WHEN d.id_tercero IS NOT NULL THEN 'distribuidor' ELSE 'cliente' END AS tipo_tercero,
-                SUM(c.saldo) AS total_deuda,
-                SUM(CASE WHEN c.fecha_vencimiento >= CURDATE() THEN c.saldo ELSE 0 END) AS por_vencer,
-                SUM(CASE WHEN DATEDIFF(CURDATE(), c.fecha_vencimiento) BETWEEN 1 AND 30 THEN c.saldo ELSE 0 END) AS mora_30,
-                SUM(CASE WHEN DATEDIFF(CURDATE(), c.fecha_vencimiento) BETWEEN 31 AND 60 THEN c.saldo ELSE 0 END) AS mora_60,
-                SUM(CASE WHEN DATEDIFF(CURDATE(), c.fecha_vencimiento) > 60 THEN c.saldo ELSE 0 END) AS mora_mas_60
-            FROM tesoreria_cxc c
-            INNER JOIN terceros t ON t.id = c.id_cliente
-            LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
-            WHERE {$where}
-            GROUP BY t.id
-            ORDER BY total_deuda DESC
-        ";
-
-        // 2. Detallado (Para exportación Excel / CSV)
-        $sqlExcel = "
-            SELECT 
-                t.nombre_completo AS cliente,
-                CASE WHEN d.id_tercero IS NOT NULL THEN 'Distribuidor' ELSE 'Cliente' END AS tipo_tercero,
-                COALESCE(c.documento_referencia, CONCAT('CXC-', c.id)) AS documento_referencia,
-                c.fecha_emision,
-                c.fecha_vencimiento,
-                c.monto_total,
-                c.saldo,
-                CASE WHEN c.fecha_vencimiento < CURDATE() THEN 'VENCIDA' ELSE 'AL CORRIENTE' END AS estado
-            FROM tesoreria_cxc c
-            INNER JOIN terceros t ON t.id = c.id_cliente
-            LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
-            WHERE {$where}
-            ORDER BY t.nombre_completo ASC, c.fecha_emision DESC
-        ";
-
-        $stmtWeb = $this->db()->prepare($sqlWeb);
-        $stmtWeb->execute($params);
-        
-        $stmtExcel = $this->db()->prepare($sqlExcel);
-        $stmtExcel->execute($params);
-
-        return [
-            'agrupados' => $stmtWeb->fetchAll(PDO::FETCH_ASSOC) ?: [],
-            'detallados' => $stmtExcel->fetchAll(PDO::FETCH_ASSOC) ?: []
-        ];
-    }
-
-    public function obtenerCarteraMacroCxP(array $f): array
-    {
-        $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
-        $where = "c.deleted_at IS NULL AND c.saldo > 0 AND c.fecha_emision BETWEEN :fd AND :fh";
-
-        if (!empty($f['estado_factura']) && $f['estado_factura'] !== 'todos') {
-            if ($f['estado_factura'] === 'vencida') {
-                $where .= " AND c.fecha_vencimiento < CURDATE()";
-            } elseif ($f['estado_factura'] === 'corriente') {
-                $where .= " AND c.fecha_vencimiento >= CURDATE()";
-            }
-        }
-
-        $sqlWeb = "
-            SELECT 
-                t.nombre_completo AS proveedor,
-                'proveedor' AS tipo_tercero,
-                SUM(c.saldo) AS total_deuda,
-                SUM(CASE WHEN c.fecha_vencimiento >= CURDATE() THEN c.saldo ELSE 0 END) AS por_vencer,
-                SUM(CASE WHEN DATEDIFF(CURDATE(), c.fecha_vencimiento) BETWEEN 1 AND 30 THEN c.saldo ELSE 0 END) AS mora_30,
-                SUM(CASE WHEN DATEDIFF(CURDATE(), c.fecha_vencimiento) BETWEEN 31 AND 60 THEN c.saldo ELSE 0 END) AS mora_60,
-                SUM(CASE WHEN DATEDIFF(CURDATE(), c.fecha_vencimiento) > 60 THEN c.saldo ELSE 0 END) AS mora_mas_60
-            FROM tesoreria_cxp c
-            INNER JOIN terceros t ON t.id = c.id_proveedor
-            WHERE {$where}
-            GROUP BY t.id
-            ORDER BY total_deuda DESC
-        ";
-
-        $sqlExcel = "
-            SELECT 
-                t.nombre_completo AS proveedor,
-                COALESCE(c.documento_referencia, CONCAT('CXP-', c.id)) AS documento_referencia,
-                c.fecha_emision,
-                c.fecha_vencimiento,
-                c.monto_total,
-                c.saldo,
-                CASE WHEN c.fecha_vencimiento < CURDATE() THEN 'VENCIDA' ELSE 'AL CORRIENTE' END AS estado
-            FROM tesoreria_cxp c
-            INNER JOIN terceros t ON t.id = c.id_proveedor
-            WHERE {$where}
-            ORDER BY t.nombre_completo ASC, c.fecha_emision DESC
-        ";
-
-        $stmtWeb = $this->db()->prepare($sqlWeb);
-        $stmtWeb->execute($params);
-        
-        $stmtExcel = $this->db()->prepare($sqlExcel);
-        $stmtExcel->execute($params);
-
-        return [
-            'agrupados' => $stmtWeb->fetchAll(PDO::FETCH_ASSOC) ?: [],
-            'detallados' => $stmtExcel->fetchAll(PDO::FETCH_ASSOC) ?: []
         ];
     }
 }

@@ -2,7 +2,8 @@
 /**
  * Declaración de variables para el editor (Intelephense)
  * @var array $f
- * @var array $detalle
+ * @var array $movimientos
+ * @var array $resumen
  * @var array $config
  */
 $fechaDesdeFmt = date('d/m/Y', strtotime((string)($f['fecha_desde'] ?? date('Y-m-d'))));
@@ -13,7 +14,7 @@ $proveedorNombre = !empty($f['proveedor']) ? $f['proveedor'] : 'TODOS LOS PROVEE
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Estado de Cuenta - <?php echo htmlspecialchars(!empty($f['proveedor']) ? $f['proveedor'] : 'General'); ?></title>
+    <title>Estado de Cuenta - <?php echo htmlspecialchars($proveedorNombre); ?></title>
     <style>
         @page { margin: 1.5cm; }
         body { 
@@ -24,7 +25,6 @@ $proveedorNombre = !empty($f['proveedor']) ? $f['proveedor'] : 'TODOS LOS PROVEE
             padding: 0; 
         }
         
-        /* --- CABECERA Y LOGO --- */
         .cabecera-pdf { width: 100%; border-bottom: 2px solid #0B5ED7; margin-bottom: 15px; padding-bottom: 10px; }
         .cabecera-pdf td { vertical-align: middle; }
         .titulo-empresa { font-size: 16px; font-weight: bold; color: #0B5ED7; text-transform: uppercase; }
@@ -32,16 +32,13 @@ $proveedorNombre = !empty($f['proveedor']) ? $f['proveedor'] : 'TODOS LOS PROVEE
         .logo-container { text-align: right; }
         .logo-container img { max-height: 50px; }
 
-        /* --- DATOS DEL REPORTE --- */
         .info-cliente { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
         .info-cliente td { padding: 4px 0; font-size: 11px; }
         .info-cliente .label { font-weight: bold; color: #000; width: 18%; }
 
-        /* --- TABLA PRINCIPAL (DISEÑO EXCEL) --- */
         .detalle-tabla { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
         .detalle-tabla th, .detalle-tabla td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
         
-        /* Encabezados negros con texto blanco */
         .detalle-tabla th { 
             background-color: #1A1A1A !important; 
             color: #FFFFFF !important; 
@@ -50,18 +47,14 @@ $proveedorNombre = !empty($f['proveedor']) ? $f['proveedor'] : 'TODOS LOS PROVEE
             font-size: 10px;
         }
         
-        /* Filas cebra (Gris suave) */
         .detalle-tabla tbody tr:nth-child(even) { background-color: #F7F7F7 !important; }
-        
         .fila-saldo-anterior td { background-color: #EAEAEA !important; font-weight: bold; color: #000; }
 
         .text-center { text-align: center !important; }
         .text-right { text-align: right !important; }
-        
         .cargo { color: #d32f2f !important; font-weight: bold; }
         .abono { color: #2e7d32 !important; font-weight: bold; }
 
-        /* --- TABLA DE RESUMEN FINAL --- */
         .resumen-tabla { width: 100%; border-collapse: collapse; margin-top: 15px; border: 2px solid #ddd; }
         .resumen-tabla th, .resumen-tabla td { border: 1px solid #ddd; padding: 10px; font-size: 11px; text-align: center; width: 25%; }
         .resumen-tabla th { background-color: #F7F7F7 !important; font-weight: bold; color: #555; }
@@ -73,17 +66,16 @@ $proveedorNombre = !empty($f['proveedor']) ? $f['proveedor'] : 'TODOS LOS PROVEE
 <body>
 
     <?php 
-        $res = $detalle['resumen'] ?? []; 
+        // CORRECCIÓN: Ahora lee la variable $resumen directa que envía el controlador
+        $res = $resumen ?? []; 
         $nombreEmpresa = $config['nombre_empresa'] ?? 'NUESTRA EMPRESA';
         $rutaLogo = $config['ruta_logo'] ?? '';
         
-        // Procesamiento del logo para el PDF
         $imgTag = '';
         if (!empty($rutaLogo)) {
             $rutaLimpia = ltrim($rutaLogo, '/\\');
             $logoPath = (strpos($rutaLimpia, 'public/') === 0) ? BASE_PATH . '/' . $rutaLimpia : BASE_PATH . '/public/' . $rutaLimpia;
             if (file_exists($logoPath)) {
-                // Convertir imagen a Base64 para máxima compatibilidad con DomPDF
                 $imgData = base64_encode(file_get_contents($logoPath));
                 $mime = mime_content_type($logoPath);
                 $imgTag = '<img src="data:' . $mime . ';base64,' . $imgData . '" alt="Logo">';
@@ -91,7 +83,6 @@ $proveedorNombre = !empty($f['proveedor']) ? $f['proveedor'] : 'TODOS LOS PROVEE
         }
     ?>
 
-    <!-- CABECERA DEL REPORTE -->
     <table class="cabecera-pdf">
         <tr>
             <td style="width: 70%;">
@@ -104,7 +95,6 @@ $proveedorNombre = !empty($f['proveedor']) ? $f['proveedor'] : 'TODOS LOS PROVEE
         </tr>
     </table>
     
-    <!-- DATOS DEL PROVEEDOR -->
     <table class="info-cliente">
         <tr>
             <td class="label">PROVEEDOR FILTRADO:</td>
@@ -112,7 +102,6 @@ $proveedorNombre = !empty($f['proveedor']) ? $f['proveedor'] : 'TODOS LOS PROVEE
         </tr>
     </table>
 
-    <!-- TABLA DE MOVIMIENTOS -->
     <table class="detalle-tabla">
         <thead>
             <tr>
@@ -126,7 +115,8 @@ $proveedorNombre = !empty($f['proveedor']) ? $f['proveedor'] : 'TODOS LOS PROVEE
         </thead>
         <tbody>
             <?php 
-                $rows = array_reverse($detalle['rows'] ?? []); 
+                // CORRECCIÓN: Ahora lee la variable $movimientos que envía el controlador
+                $rows = array_reverse($movimientos ?? []); 
                 $saldoEnLinea = (float)($res['saldo_inicial'] ?? 0); 
             ?>
             
@@ -191,7 +181,6 @@ $proveedorNombre = !empty($f['proveedor']) ? $f['proveedor'] : 'TODOS LOS PROVEE
         </tbody>
     </table>
 
-    <!-- RESUMEN FINAL -->
     <table class="resumen-tabla">
         <thead>
             <tr>
