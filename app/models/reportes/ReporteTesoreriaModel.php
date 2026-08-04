@@ -1078,4 +1078,96 @@ class ReporteTesoreriaModel extends Modelo
             'suma_total' => $sumaTotal
         ];
     }
+
+    // ==========================================
+    // REPORTE GLOBAL CXC (AGRUPADO Y DETALLADO)
+    // ==========================================
+    public function obtenerCarteraMacroCxC(array $f): array
+    {
+        $params = [
+            'fd' => $f['fecha_desde'],
+            'fh' => $f['fecha_hasta']
+        ];
+
+        $where = [
+            'c.deleted_at IS NULL',
+            'c.saldo > 0',
+            'DATE(COALESCE(v.fecha_emision, c.fecha_emision)) BETWEEN :fd AND :fh'
+        ];
+
+        // Filtro por Cliente (búsqueda de texto)
+        if (!empty($f['cliente'])) {
+            $where[] = 'COALESCE(NULLIF(TRIM(t.nombre_completo), ""), "") LIKE :cliente';
+            $params['cliente'] = '%' . (string) $f['cliente'] . '%';
+        }
+
+        // Filtro por Estado de Factura
+        if (isset($f['estado_factura'])) {
+            if ($f['estado_factura'] === 'vencida') {
+                $where[] = 'c.fecha_vencimiento < CURDATE()';
+            } elseif ($f['estado_factura'] === 'corriente') {
+                $where[] = 'c.fecha_vencimiento >= CURDATE()';
+            }
+        }
+
+        // Filtro por Tipo de Tercero
+        if (isset($f['tipo_tercero'])) {
+            if ($f['tipo_tercero'] === 'cliente') {
+                $where[] = 't.es_cliente = 1';
+            } elseif ($f['tipo_tercero'] === 'distribuidor') {
+                $where[] = 'd.id_tercero IS NOT NULL';
+            }
+        }
+
+        $whereSql = implode(' AND ', $where);
+
+        // 1. Consulta AGRUPADA (Usada para los KPIs en tiempo real y la vista web)
+        $sqlAgrupados = "SELECT
+            t.id AS id_cliente,
+            COALESCE(NULLIF(TRIM(t.nombre_completo), ''), CONCAT('Cliente #', c.id_cliente)) AS cliente,
+            SUM(c.saldo) AS total_deuda,
+            SUM(CASE WHEN c.fecha_vencimiento >= CURDATE() THEN c.saldo ELSE 0 END) AS por_vencer,
+            SUM(CASE WHEN c.fecha_vencimiento < CURDATE() AND DATEDIFF(CURDATE(), c.fecha_vencimiento) BETWEEN 1 AND 30 THEN c.saldo ELSE 0 END) AS mora_30,
+            SUM(CASE WHEN c.fecha_vencimiento < CURDATE() AND DATEDIFF(CURDATE(), c.fecha_vencimiento) BETWEEN 31 AND 60 THEN c.saldo ELSE 0 END) AS mora_60,
+            SUM(CASE WHEN c.fecha_vencimiento < CURDATE() AND DATEDIFF(CURDATE(), c.fecha_vencimiento) > 60 THEN c.saldo ELSE 0 END) AS mora_mas_60
+        FROM tesoreria_cxc c
+        INNER JOIN terceros t ON t.id = c.id_cliente
+        LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta AND v.deleted_at IS NULL
+        LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
+        WHERE {$whereSql}
+        GROUP BY t.id, t.nombre_completo
+        ORDER BY total_deuda DESC";
+
+        $stmtAgrupados = $this->db()->prepare($sqlAgrupados);
+        $stmtAgrupados->execute($params);
+        $agrupados = $stmtAgrupados->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // 2. Consulta DETALLADA (Usada para exportar el CSV y Excel Nativos)
+        $sqlDetallados = "SELECT
+            COALESCE(NULLIF(TRIM(t.nombre_completo), ''), CONCAT('Cliente #', c.id_cliente)) AS cliente,
+            COALESCE(NULLIF(TRIM(v.codigo), ''), NULLIF(TRIM(c.documento_referencia), ''), CONCAT('CXC-', c.id)) AS documento_referencia,
+            DATE(COALESCE(v.fecha_emision, c.fecha_emision)) AS fecha_emision,
+            c.fecha_vencimiento,
+            c.monto_total,
+            c.saldo,
+            CASE
+                WHEN c.fecha_vencimiento < CURDATE() THEN 'Vencida'
+                ELSE 'Corriente'
+            END AS estado
+        FROM tesoreria_cxc c
+        INNER JOIN terceros t ON t.id = c.id_cliente
+        LEFT JOIN ventas_documentos v ON v.id = c.id_documento_venta AND v.deleted_at IS NULL
+        LEFT JOIN distribuidores d ON d.id_tercero = t.id AND d.deleted_at IS NULL
+        WHERE {$whereSql}
+        ORDER BY cliente ASC, fecha_emision DESC";
+
+        $stmtDetallados = $this->db()->prepare($sqlDetallados);
+        $stmtDetallados->execute($params);
+        $detallados = $stmtDetallados->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'agrupados' => $agrupados,
+            'detallados' => $detallados
+        ];
+    }
 }
