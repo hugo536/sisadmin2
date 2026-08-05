@@ -234,8 +234,13 @@ class TesoreriaCxcModel extends Modelo
 
     public function obtenerCuentasActivas(): array
     {
-        // 👇 AQUÍ AGREGAMOS "metodos_pago" AL SELECT 👇
-        $stmt = $this->db()->query('SELECT id, nombre, moneda, metodos_pago FROM tesoreria_cuentas WHERE estado = 1 AND deleted_at IS NULL');
+        // Consulta corregida: Se retiró "metodos_pago" para evitar el error de SQL
+        $stmt = $this->db()->query('SELECT id, nombre, moneda FROM tesoreria_cuentas WHERE estado = 1 AND deleted_at IS NULL');
+        
+        if (!$stmt) {
+            return []; // Protección por si la consulta falla
+        }
+        
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 

@@ -835,7 +835,7 @@ class AsistenciaModel extends Modelo
 
     public function listarEmpleadosParaIncidencias(): array
     {
-        $sql = 'SELECT t.id, t.nombre_completo
+        $sql = 'SELECT t.id, t.nombre_completo, te.codigo_biometrico
                 FROM terceros t
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
                 WHERE t.es_empleado = 1
