@@ -34,6 +34,10 @@ class CxcController extends Controlador
             $f['tipo_tercero'] = 'todos';
         }
 
+        // ---> LÍNEAS SUGERIDAS PARA MANTENER LA SIMETRÍA CON CXP
+        $f['pagina'] = $pagina;
+        $f['tamano'] = $tamano;
+
         if (!in_array($f['estado_factura'], ['todos', 'vencida', 'corriente'], true)) {
             $f['estado_factura'] = 'todos';
         }
