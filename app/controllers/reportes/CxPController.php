@@ -27,6 +27,10 @@ class CxpController extends Controlador
         $f = $this->filtrosPeriodo();
         $f['proveedor'] = trim((string) ($_GET['proveedor'] ?? ''));
         $f['estado_factura'] = trim((string) ($_GET['estado_factura'] ?? 'todos'));
+        
+        // ---> NUEVO: Aseguramos que la paginación viaje al modelo
+        $f['pagina'] = $pagina;
+        $f['tamano'] = $tamano;
 
         if (!in_array($f['estado_factura'], ['todos', 'vencida', 'corriente'], true)) {
             $f['estado_factura'] = 'todos';

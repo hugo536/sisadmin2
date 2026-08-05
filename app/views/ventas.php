@@ -297,7 +297,7 @@ $formatearFechaDMY = static function ($fecha): string {
                                                     
                                                     <!-- NUEVO BOTÓN AQUÍ -->
                                                     <button type="button" class="btn btn-sm btn-outline-info fw-semibold" id="btnMostrarTablaRegalos">
-                                                        <i class="bi bi-gift me-1"></i>Añadir Regalos
+                                                        <i class="bi bi-gift me-1"></i>Añadir Bonificación
                                                     </button>
                                                     
                                                     <div class="d-none d-sm-flex align-items-center bg-white border border-secondary-subtle rounded-2 px-2 py-1 shadow-sm">

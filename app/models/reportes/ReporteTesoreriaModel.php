@@ -45,7 +45,6 @@ class ReporteTesoreriaModel extends Modelo
 
     public function agingCxc(array $f, int $pagina, int $tamano): array
     {
-        $offset = ($pagina - 1) * $tamano;
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
         $whereTercero = '';
         if (!empty($f['id_tercero'])) {
@@ -69,21 +68,17 @@ class ReporteTesoreriaModel extends Modelo
                   AND c.fecha_emision BETWEEN :fd AND :fh
                   AND c.saldo > 0
                   {$whereTercero}
-                ORDER BY dias_atraso DESC
-                LIMIT :limite OFFSET :offset";
+                ORDER BY dias_atraso DESC";
         $stmt = $this->db()->prepare($sql);
         foreach ($params as $k => $v) {
             $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
-        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
         return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'total' => (int) $count->fetchColumn()];
     }
 
     public function agingCxp(array $f, int $pagina, int $tamano): array
     {
-        $offset = ($pagina - 1) * $tamano;
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
         $whereTercero = '';
         if (!empty($f['id_tercero'])) {
@@ -107,21 +102,17 @@ class ReporteTesoreriaModel extends Modelo
                   AND c.fecha_emision BETWEEN :fd AND :fh
                   AND c.saldo > 0
                   {$whereTercero}
-                ORDER BY dias_atraso DESC
-                LIMIT :limite OFFSET :offset";
+                ORDER BY dias_atraso DESC";
         $stmt = $this->db()->prepare($sql);
         foreach ($params as $k => $v) {
             $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
-        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
         return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'total' => (int) $count->fetchColumn()];
     }
 
     public function flujoPorCuenta(array $f, int $pagina, int $tamano): array
     {
-        $offset = ($pagina - 1) * $tamano;
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
         $whereTercero = '';
         if (!empty($f['id_tercero'])) {
@@ -158,12 +149,9 @@ class ReporteTesoreriaModel extends Modelo
                 WHERE m.deleted_at IS NULL
                   AND m.fecha BETWEEN :fd AND :fh {$whereTercero}
                 GROUP BY m.id_cuenta, c.nombre
-                ORDER BY saldo_neto DESC
-                LIMIT :limite OFFSET :offset";
+                ORDER BY saldo_neto DESC";
         $stmt = $this->db()->prepare($sql);
         foreach ($params as $k => $v) { $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
-        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
 
         return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'total' => (int) $count->fetchColumn()];
@@ -171,7 +159,6 @@ class ReporteTesoreriaModel extends Modelo
 
     public function estadoCuentaClientes(array $f, int $pagina, int $tamano): array
     {
-        $offset = ($pagina - 1) * $tamano;
         [$where, $params] = $this->buildEstadoCuentaWhere($f);
 
         $countSql = "SELECT COUNT(*)
@@ -214,15 +201,12 @@ class ReporteTesoreriaModel extends Modelo
                     GROUP BY m.id_origen
                 ) pagos ON pagos.cxc_id = c.id
                 WHERE {$where}
-                ORDER BY fecha_atencion DESC, c.id DESC, d.id ASC
-                LIMIT :limite OFFSET :offset";
+                ORDER BY fecha_atencion DESC, c.id DESC, d.id ASC";
 
         $stmt = $this->db()->prepare($sql);
         foreach ($params as $k => $v) {
             $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
-        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
 
         return [
@@ -237,7 +221,6 @@ class ReporteTesoreriaModel extends Modelo
     // ==========================================
     public function historialEstadoCuenta(array $f, int $pagina, int $tamano): array
     {
-        $offset = ($pagina - 1) * $tamano;
         $cantidadExpr = $this->cantidadVentasDetalleExpr('d', '1');
         $cantidadExprZero = $this->cantidadVentasDetalleExpr('d', '0');
         $precioExprZero = $this->precioUnitarioVentasDetalleExpr('d', '0');
@@ -328,7 +311,6 @@ class ReporteTesoreriaModel extends Modelo
             GROUP BY DATE(m.fecha), c.id_cliente, m.id_cuenta, m.referencia
             
             ORDER BY fecha_atencion DESC, tipo_transaccion ASC
-            LIMIT :limite OFFSET :offset
         ";
 
         $countSql = $cte . "
@@ -361,8 +343,6 @@ class ReporteTesoreriaModel extends Modelo
         foreach ($params as $k => $v) {
             $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
-        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
 
         return [
@@ -441,7 +421,6 @@ class ReporteTesoreriaModel extends Modelo
 
     public function historialEstadoCuentaProveedores(array $f, int $pagina, int $tamano): array
     {
-        $offset = ($pagina - 1) * $tamano;
         $cantidadExpr = $this->cantidadComprasDetalleExpr('d', '1');
         $cantidadExprZero = $this->cantidadComprasDetalleExpr('d', '0');
         
@@ -533,7 +512,6 @@ class ReporteTesoreriaModel extends Modelo
             GROUP BY DATE(m.fecha), c.id_proveedor, m.id_cuenta, m.referencia
 
             ORDER BY fecha_atencion DESC, tipo_transaccion ASC
-            LIMIT :limite OFFSET :offset
         ";
 
         $countSql = $cte . "
@@ -565,8 +543,6 @@ class ReporteTesoreriaModel extends Modelo
         foreach ($params as $k => $v) {
             $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
-        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
 
         return [
@@ -1009,7 +985,6 @@ class ReporteTesoreriaModel extends Modelo
     // ==========================================
     public function reporteDepositos(array $f, int $pagina, int $tamano): array
     {
-        $offset = ($pagina - 1) * $tamano;
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
 
         // Filtramos solo los ingresos/cobros que no estén eliminados
@@ -1051,15 +1026,12 @@ class ReporteTesoreriaModel extends Modelo
                 LEFT JOIN tesoreria_cxc cxc ON cxc.id = m.id_origen AND m.origen = 'CXC'
                 LEFT JOIN terceros t ON t.id = cxc.id_cliente
                 WHERE {$whereSql}
-                ORDER BY m.fecha DESC, m.id DESC
-                LIMIT :limite OFFSET :offset";
+                ORDER BY m.fecha DESC, m.id DESC";
 
         $stmt = $this->db()->prepare($sql);
         foreach ($params as $k => $v) {
             $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
-        $stmt->bindValue(':limite', $tamano, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 

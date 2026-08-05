@@ -291,8 +291,8 @@
     if (offcanvasEl && window.bootstrap?.Offcanvas) {
       bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).hide();
     }
-
-    navigateWithoutReload(url, true);
+    
+    window.location.href = url.href;
   });
 
   window.addEventListener('popstate', function () {
