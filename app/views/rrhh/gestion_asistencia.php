@@ -1,0 +1,268 @@
+<?php
+$periodo = $periodo ?? 'semana';
+$semana = $semana ?? date('o-\WW');
+$mes = $mes ?? date('Y-m');
+$fechaInicio = $fecha_inicio ?? date('Y-m-d');
+$fechaFin = $fecha_fin ?? date('Y-m-d');
+
+$grupos = $grupos ?? []; 
+$empleados = $empleados ?? [];
+?>
+
+<style>
+    /* Estilos para la "Cuadrícula de Edición" */
+    .grid-asistencia th {
+        background-color: #f8f9fa;
+        color: #495057;
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        border-bottom: 2px solid #dee2e6;
+        white-space: nowrap;
+    }
+    .grid-asistencia td {
+        vertical-align: middle;
+        padding: 0;
+        border: 1px solid #e9ecef;
+        position: relative;
+    }
+    .grid-asistencia td:hover {
+        background-color: #f1f8ff;
+    }
+    
+    /* Input invisible hasta que se hace focus */
+    .cell-input {
+        width: 100%;
+        min-width: 65px;
+        height: 42px;
+        border: 2px solid transparent;
+        background: transparent;
+        text-align: center;
+        font-weight: 600;
+        color: #0b5ed7;
+        outline: none;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+    }
+    .cell-input:focus {
+        background-color: #fff;
+        border-color: #0b5ed7;
+        box-shadow: inset 0 0 5px rgba(11, 94, 215, 0.2);
+        z-index: 10;
+        position: relative;
+    }
+    .cell-input::placeholder { color: #adb5bd; font-weight: normal; }
+
+    /* Barra lateral de empleados */
+    .sidebar-empleados {
+        max-height: calc(100vh - 180px);
+        overflow-y: auto;
+        background-color: #fff;
+    }
+    .empleado-item {
+        cursor: pointer;
+        border-left: 4px solid transparent;
+        transition: all 0.2s;
+    }
+    .empleado-item:hover { background-color: #f8f9fa; }
+    .empleado-item.active {
+        background-color: #e9ecef;
+        border-left-color: #0b5ed7;
+    }
+</style>
+
+<div class="container-fluid p-4" id="gestionAsistenciaApp">
+
+    <!-- CABECERA -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in">
+        <div>
+            <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
+                <i class="bi bi-calendar3-range me-2 text-primary"></i> Control de Marcaciones
+            </h1>
+            <p class="text-muted small mb-0 ms-1">Edición directa con autoguardado y gestión de justificaciones.</p>
+        </div>
+
+        <div class="d-flex gap-3 flex-wrap justify-content-end align-items-center">
+            
+            <!-- Controles de Periodo -->
+            <div class="d-flex bg-white border border-secondary-subtle rounded-2 p-1 shadow-sm align-items-center">
+                <select class="form-select form-select-sm border-0 shadow-none fw-bold text-secondary bg-transparent" id="tipoPeriodo" style="width: 110px;">
+                    <option value="semana" <?php echo $periodo === 'semana' ? 'selected' : ''; ?>>Semana</option>
+                    <option value="mes" <?php echo $periodo === 'mes' ? 'selected' : ''; ?>>Mes</option>
+                    <option value="rango" <?php echo $periodo === 'rango' ? 'selected' : ''; ?>>Rango</option>
+                </select>
+                
+                <div class="vr mx-1 bg-secondary-subtle"></div>
+
+                <!-- Input Semana -->
+                <input type="week" class="form-control form-control-sm border-0 shadow-none fw-bold text-primary filter-input <?php echo $periodo !== 'semana' ? 'd-none' : ''; ?>" id="filtroSemana" value="<?php echo e($semana); ?>">
+                
+                <!-- Input Mes -->
+                <input type="month" class="form-control form-control-sm border-0 shadow-none fw-bold text-primary filter-input <?php echo $periodo !== 'mes' ? 'd-none' : ''; ?>" id="filtroMes" value="<?php echo e($mes); ?>">
+                
+                <!-- Inputs Rango -->
+                <div class="d-flex align-items-center filter-input <?php echo $periodo !== 'rango' ? 'd-none' : ''; ?>" id="filtroRango">
+                    <input type="date" class="form-control form-control-sm border-0 shadow-none fw-bold text-primary px-1" id="filtroDesde" value="<?php echo e($fechaInicio); ?>" title="Desde">
+                    <span class="text-muted small mx-1">al</span>
+                    <input type="date" class="form-control form-control-sm border-0 shadow-none fw-bold text-primary px-1" id="filtroHasta" value="<?php echo e($fechaFin); ?>" title="Hasta">
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ÁREA DE TRABAJO -->
+    <div class="card border-0 shadow-sm overflow-hidden">
+        <div class="row g-0">
+            
+            <!-- Columna Izquierda: Buscador y Lista de Empleados -->
+            <div class="col-md-3 border-end bg-white d-flex flex-column" style="height: calc(100vh - 180px);">
+                <div class="p-3 border-bottom bg-light">
+                    <select class="form-select form-select-sm shadow-none border-secondary-subtle mb-2 fw-semibold text-dark" id="filtroGrupo">
+                        <option value="">Todos los grupos de trabajo</option>
+                        <?php foreach ($grupos as $grupo): ?>
+                            <option value="<?php echo (int)$grupo['id']; ?>"><?php echo e($grupo['nombre']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" class="form-control border-start-0 shadow-none" id="buscarEmpleado" placeholder="Buscar empleado...">
+                    </div>
+                </div>
+                
+                <div class="list-group list-group-flush rounded-0 sidebar-empleados flex-grow-1" id="listaEmpleados">
+                    <!-- Ejemplo estático de Empleados (Llenar con foreach en PHP) -->
+                    <?php foreach ($empleados as $index => $emp): ?>
+                        <div class="list-group-item empleado-item border-bottom py-3 <?php echo $index === 0 ? 'active' : ''; ?>" data-id="<?php echo (int)$emp['id']; ?>">
+                            <div class="fw-bold text-dark mb-1" style="font-size: 0.85rem; line-height: 1.2;"><?php echo e($emp['nombre_completo']); ?></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-light text-secondary border fw-normal" style="font-size: 0.7rem;">Cód: <?php echo e($emp['codigo_biometrico'] ?? 'N/A'); ?></span>
+                                <i class="bi bi-exclamation-circle text-warning d-none" title="Inconsistencias"></i>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Cuadrícula de Edición -->
+            <div class="col-md-9 bg-white d-flex flex-column" style="height: calc(100vh - 180px);">
+                
+                <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0 fw-bold text-dark" id="nombreEmpleadoActivo">Selecciona un empleado en la lista</h5>
+                        <small class="text-muted fw-semibold" id="rangoActivoLabel">Mostrando periodo...</small>
+                    </div>
+                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-3 py-2 rounded-pill shadow-sm">
+                        Total Horas: <strong id="totalHorasCalculadas">0h 0m</strong>
+                    </span>
+                </div>
+
+                <div class="p-0 overflow-auto flex-grow-1 bg-white position-relative" id="gridContainer">
+                    <table class="table table-hover grid-asistencia mb-0 text-center">
+                        <thead class="sticky-top z-2 shadow-sm">
+                            <tr>
+                                <th style="width: 12%; background: #f8f9fa;" class="align-middle" rowspan="2">Fecha</th>
+                                <th colspan="2" style="background: #e9ecef;" class="border-start">Tramo 1</th>
+                                <th colspan="2" style="background: #f8f9fa;" class="border-start">Tramo 2</th>
+                                <th colspan="2" style="background: #e9ecef;" class="border-start">Tramo 3</th>
+                                <th style="width: 20%; background: #f8f9fa;" class="align-middle border-start" rowspan="2">Estado / Observación</th>
+                            </tr>
+                            <tr>
+                                <th class="py-2 border-start" style="background: #e9ecef; font-size: 0.7rem;">Ingreso</th>
+                                <th class="py-2" style="background: #e9ecef; font-size: 0.7rem;">Salida</th>
+                                <th class="py-2 border-start" style="background: #f8f9fa; font-size: 0.7rem;">Ingreso</th>
+                                <th class="py-2" style="background: #f8f9fa; font-size: 0.7rem;">Salida</th>
+                                <th class="py-2 border-start" style="background: #e9ecef; font-size: 0.7rem;">Ingreso</th>
+                                <th class="py-2" style="background: #e9ecef; font-size: 0.7rem;">Salida</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gridAsistenciaCuerpo">
+                            <!-- Ejemplo Estático (Maquetación inicial) -->
+                            <?php 
+                            $dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+                            foreach ($dias as $i => $dia): 
+                            ?>
+                            <tr data-fecha="2026-08-0<?php echo $i+3; ?>">
+                                <td class="bg-light align-middle text-start ps-3 border-end">
+                                    <span class="fw-bold text-dark d-block" style="font-size: 0.85rem;"><?php echo $dia; ?></span>
+                                    <span class="text-muted fw-medium" style="font-size: 0.7rem;">0<?php echo $i+3; ?>/08/2026</span>
+                                </td>
+                                
+                                <!-- TRAMO 1 -->
+                                <td><input type="time" class="cell-input" data-tipo="t1_in" placeholder="--:--"></td>
+                                <td class="border-end"><input type="time" class="cell-input" data-tipo="t1_out" placeholder="--:--"></td>
+                                
+                                <!-- TRAMO 2 -->
+                                <td><input type="time" class="cell-input" data-tipo="t2_in" placeholder="--:--"></td>
+                                <td class="border-end"><input type="time" class="cell-input" data-tipo="t2_out" placeholder="--:--"></td>
+                                
+                                <!-- TRAMO 3 -->
+                                <td><input type="time" class="cell-input" data-tipo="t3_in" placeholder="--:--"></td>
+                                <td class="border-end"><input type="time" class="cell-input" data-tipo="t3_out" placeholder="--:--"></td>
+                                
+                                <!-- ESTADO -->
+                                <td class="align-middle px-2 text-start">
+                                    <div class="d-flex justify-content-between align-items-center w-100">
+                                        <span class="badge bg-secondary-subtle text-secondary border-0 px-2 fw-semibold" style="font-size: 0.7rem;">Sin datos</span>
+                                        <button type="button" class="btn btn-sm btn-light text-secondary border border-secondary-subtle p-1 rounded-2 transition-hover" 
+                                                data-bs-toggle="modal" data-bs-target="#modalJustificar" 
+                                                title="Justificar / Comentar">
+                                            <i class="bi bi-chat-left-text" style="font-size: 0.8rem;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL DE JUSTIFICACIONES / PERMISOS        -->
+<!-- ========================================== -->
+<div class="modal fade" id="modalJustificar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-warning text-dark border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold"><i class="bi bi-shield-check me-2"></i>Estado y Justificación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            
+            <div class="modal-body p-4 bg-light" style="margin-top: -10px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary-subtle">
+                    <strong class="text-dark small text-uppercase">Fecha seleccionada:</strong>
+                    <span class="badge bg-white text-primary border fs-6 px-3" id="modalJustificarFecha">--/--/----</span>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small text-muted fw-bold mb-1">Estado Forzado <span class="text-danger">*</span></label>
+                    <select class="form-select bg-white border-secondary-subtle shadow-none fw-medium" id="selectEstadoJustificacion">
+                        <option value="ASISTENCIA">Automático (Según marcación)</option>
+                        <option value="FALTA_JUSTIFICADA">Falta Justificada</option>
+                        <option value="PERMISO">Permiso (Salida Temprano)</option>
+                        <option value="OLVIDO">Olvido de Marcación</option>
+                        <option value="DESCANSO_MEDICO">Descanso Médico</option>
+                        <option value="FERIADO">Día Feriado / Libre</option>
+                    </select>
+                </div>
+
+                <div class="mb-0">
+                    <label class="form-label small text-muted fw-bold mb-1">Observación (Opcional)</label>
+                    <textarea class="form-control bg-white border-secondary-subtle shadow-none" id="txtObservacionJustificacion" rows="3" placeholder="Ej: Autorizado por gerencia para apoyar en planta..."></textarea>
+                </div>
+            </div>
+            
+            <div class="modal-footer bg-white border-top shadow-sm">
+                <button type="button" class="btn btn-light fw-bold text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning fw-bold shadow-sm px-4" id="btnAplicarJustificacion">
+                    Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

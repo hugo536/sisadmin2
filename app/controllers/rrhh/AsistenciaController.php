@@ -19,6 +19,129 @@ class AsistenciaController extends Controlador
         $this->importar();
     }
 
+    // ===============================================================
+    // GESTIÓN DE ASISTENCIA (MODO EXCEL) - VISTA Y AJAX
+    // ===============================================================
+    public function gestion_asistencia(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('terceros.ver');
+
+        // --- 1. INTERCEPTAR PETICIONES AJAX DEL AUTOGUARDADO ---
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            $accion = (string) ($_POST['accion'] ?? '');
+
+            if ($accion === 'obtener_grid_excel') {
+                $this->ajaxObtenerGridExcel();
+                return;
+            }
+
+            if ($accion === 'guardar_celda_excel') {
+                $this->ajaxGuardarCeldaExcel();
+                return;
+            }
+
+            if ($accion === 'guardar_justificacion_excel') {
+                $this->ajaxGuardarJustificacionExcel();
+                return;
+            }
+        }
+        // -------------------------------------------------------
+
+        // --- 2. CARGAR VISTA NORMAL SI NO ES AJAX ---
+        $semana = (string) ($_GET['semana'] ?? date('o-\WW'));
+        if (!preg_match('/^\d{4}-W\d{2}$/', $semana)) {
+            $semana = date('o-\WW');
+        }
+
+        $grupos = (method_exists($this->asistenciaModel, 'listarGruposExcepcion')) 
+            ? $this->asistenciaModel->listarGruposExcepcion() 
+            : [];
+            
+        $empleados = $this->asistenciaModel->listarEmpleadosParaIncidencias();
+
+        $this->render('rrhh/gestion_asistencia', [
+            'ruta_actual' => 'asistencia/gestion_asistencia',
+            'semana'      => $semana,
+            'grupos'      => $grupos,
+            'empleados'   => $empleados
+        ]);
+    }
+
+    // ===============================================================
+    // ENDPOINTS PRIVADOS PARA EL GRID EXCEL
+    // ===============================================================
+    private function ajaxObtenerGridExcel(): void
+    {
+        header('Content-Type: application/json');
+        $idTercero = (int) ($_POST['id_tercero'] ?? 0);
+        $periodo = (string) ($_POST['periodo'] ?? 'semana'); 
+        
+        if ($idTercero <= 0) {
+            echo json_encode(['ok' => false, 'mensaje' => 'Empleado no válido.']);
+            exit;
+        }
+
+        $datos = $this->asistenciaModel->obtenerDatosParaGridExcel($idTercero, $periodo, $_POST);
+        
+        echo json_encode([
+            'ok' => true,
+            'total_horas_str' => $datos['total_horas_str'],
+            'rango_label' => $datos['rango_label'],
+            'dias' => $datos['dias']
+        ]);
+        exit;
+    }
+
+    private function ajaxGuardarCeldaExcel(): void
+    {
+        header('Content-Type: application/json');
+        $idTercero = (int) ($_POST['id_tercero'] ?? 0);
+        $fecha = (string) ($_POST['fecha'] ?? '');
+        $campo = (string) ($_POST['campo'] ?? ''); 
+        $valor = (string) ($_POST['valor'] ?? ''); 
+        $userId = (int) ($_SESSION['id'] ?? 0);
+
+        if ($idTercero <= 0 || empty($fecha) || empty($campo)) {
+            echo json_encode(['ok' => false, 'mensaje' => 'Faltan parámetros.']);
+            exit;
+        }
+
+        // Guarda la celda
+        $res = $this->asistenciaModel->actualizarCeldaAsistencia($idTercero, $fecha, $campo, $valor, $userId);
+        
+        // Recalcula el total de horas de la semana en tiempo real
+        $datosGrid = $this->asistenciaModel->obtenerDatosParaGridExcel($idTercero, $_POST['periodo'] ?? 'semana', $_POST);
+
+        echo json_encode([
+            'ok' => true,
+            'nuevo_estado_html' => true,
+            'nuevo_estado_label' => $res['nuevo_estado_label'],
+            'badge_class' => $res['badge_class'],
+            'total_horas_str' => $datosGrid['total_horas_str']
+        ]);
+        exit;
+    }
+
+    private function ajaxGuardarJustificacionExcel(): void
+    {
+        header('Content-Type: application/json');
+        $idTercero = (int) ($_POST['id_tercero'] ?? 0);
+        $fecha = (string) ($_POST['fecha'] ?? '');
+        $estado = (string) ($_POST['estado'] ?? '');
+        $observacion = trim((string) ($_POST['observacion'] ?? ''));
+        $userId = (int) ($_SESSION['id'] ?? 0);
+
+        if ($idTercero <= 0 || empty($fecha) || empty($estado)) {
+            echo json_encode(['ok' => false, 'mensaje' => 'Datos incompletos.']);
+            exit;
+        }
+
+        $ok = $this->asistenciaModel->forzarEstadoAsistencia($idTercero, $fecha, $estado, $observacion, $userId);
+        echo json_encode(['ok' => $ok]);
+        exit;
+    }
+
     public function importar(): void
     {
         AuthMiddleware::handle();
@@ -26,8 +149,15 @@ class AsistenciaController extends Controlador
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? 'subir_txt');
+            
             if ($accion === 'procesar_asistencia') {
                 $this->procesarAsistenciaPendiente();
+                return;
+            }
+
+            // NUEVA ACCIÓN
+            if ($accion === 'descartar_huerfanos') {
+                $this->descartarLogsHuerfanos();
                 return;
             }
 
@@ -565,7 +695,7 @@ class AsistenciaController extends Controlador
         }
 
         $procesados = 0;
-        $ignorados = 0; // NUEVO CONTADOR PARA DÍAS LIBRES
+        $ignorados = 0; 
         $logsProcesados = [];
 
         foreach ($grupos as $idTercero => $fechas) {
@@ -653,6 +783,38 @@ class AsistenciaController extends Controlador
         }
 
         redirect('asistencia/importar?tipo=success&msg=' . urlencode($msgFinal));
+    }
+
+    private function descartarLogsHuerfanos(): void
+    {
+        require_permiso('terceros.editar');
+
+        $logs = $this->asistenciaModel->obtenerLogsPendientes();
+        if (empty($logs)) {
+            redirect('asistencia/importar?tipo=success&msg=' . urlencode('No hay registros pendientes por limpiar.'));
+            return;
+        }
+
+        $mapaEmpleados = $this->asistenciaModel->mapearEmpleadoPorCodigoBiometrico();
+        $logsADescartar = [];
+
+        // Filtramos solo los logs que NO están en el mapa de empleados
+        foreach ($logs as $log) {
+            $codigo = (string) ($log['codigo_biometrico'] ?? '');
+            if (!isset($mapaEmpleados[$codigo])) {
+                $logsADescartar[] = (int) $log['id'];
+            }
+        }
+
+        if (empty($logsADescartar)) {
+            redirect('asistencia/importar?tipo=success&msg=' . urlencode('No se encontraron marcas huérfanas. Todas las pendientes pertenecen a empleados registrados.'));
+            return;
+        }
+
+        // Reutilizamos la función que ya tienes en el modelo para marcarlos como procesados
+        $this->asistenciaModel->marcarLogsProcesados($logsADescartar);
+
+        redirect('asistencia/importar?tipo=success&msg=' . urlencode('Se limpiaron ' . count($logsADescartar) . ' marcas huérfanas (sin empleado).'));
     }
 
     private function guardarIncidencia(): void

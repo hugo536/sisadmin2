@@ -169,4 +169,28 @@ class AuthController extends Controlador
     {
         return (string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown');
     }
+
+    public function renovar_sesion(): void
+    {
+        // 1. Iniciamos sesión si no está iniciada para este request
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        // 2. Comprobamos que haya un usuario logueado
+        if (isset($_SESSION['id'])) {
+            $ahora = time();
+            $_SESSION['LAST_ACTIVITY'] = $ahora; 
+            $_SESSION['ultimo_acceso'] = $ahora; 
+            
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
+        // Si llegó aquí es porque ya no había sesión
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false]);
+        exit;
+    }
 }

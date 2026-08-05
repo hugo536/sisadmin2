@@ -101,10 +101,11 @@
   const isSidebarNavLink = function (link) {
     return !!link && (
       link.classList.contains('sb-link') ||
-      link.classList.contains('sb-bottom-item')
+      link.classList.contains('sb-bottom-item') ||
+      link.classList.contains('spa-link')
     );
   };
-
+  
   const NAV_LOADING_DELAY_MS = 180;
   let loadingTimerId = null;
   let loadingStateVisible = false;
@@ -172,6 +173,10 @@
       if (scriptEl.src) {
         await new Promise((resolve) => {
           const js = document.createElement('script');
+          // Respetamos si es módulo, pero sin alterar la caché
+          if (scriptEl.getAttribute('type') === 'module') {
+              js.type = 'module';
+          }
           js.src = scriptEl.src;
           js.async = false;
           js.setAttribute(ROUTE_SCRIPT_MARKER, '1');
@@ -186,6 +191,7 @@
         const code = (scriptEl.textContent || '').trim();
         if (code === '') continue;
         const inline = document.createElement('script');
+        if (scriptEl.getAttribute('type') === 'module') inline.type = 'module';
         inline.textContent = code;
         inline.setAttribute(ROUTE_SCRIPT_MARKER, '1');
         document.body.appendChild(inline);
@@ -292,7 +298,8 @@
       bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).hide();
     }
     
-    window.location.href = url.href;
+    // Restauramos la navegación silenciosa y profesional (SPA)
+    navigateWithoutReload(url, true);
   });
 
   window.addEventListener('popstate', function () {

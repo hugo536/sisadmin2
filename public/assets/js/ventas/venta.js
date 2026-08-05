@@ -1,91 +1,66 @@
 // ==============================================================
-// MÓDULO VENTAS: venta.js (Creación y Edición de Pedidos)
+// MÓDULO VENTAS: venta.js (Creación y Edición de Pedidos SPA)
 // ==============================================================
 
-import { app, urls, recargarTabla } from './config.js';
-import { DOM_PAGOS, calcularTotalCobroInmediato, renderAlertaSaldoFavor } from './pagos.js';
+import { urls, recargarTabla } from './config.js';
+import { calcularTotalCobroInmediato, renderAlertaSaldoFavor } from './pagos.js';
 import { getJson, postJson, obtenerFechaLocalISO, esperarTomSelect, initSelectAjax } from '../api.js';
 
 // --- ESTADO GLOBAL LOCAL ---
 let bloqueoEdicionVenta = false;
 const estadoBusquedaItems = { tieneAcuerdo: false, listaVacia: false };
 
-// --- REFERENCIAS DOM: MODAL VENTA ---
-const modalVentaEl = document.getElementById('modalVenta');
-let modalVenta = null; 
-if (modalVentaEl && typeof bootstrap !== 'undefined') {
-    modalVenta = new bootstrap.Modal(modalVentaEl, { focus: false });
-}
-
-modalVentaEl?.addEventListener('hidden.bs.modal', () => {
-    const hayModalesAbiertos = document.querySelectorAll('.modal.show').length > 0;
-    if (!hayModalesAbiertos) {
-        document.body.classList.remove('modal-open');
-        document.body.style.removeProperty('padding-right');
-        document.body.style.removeProperty('overflow');
-        document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
-    }
-});
-
-const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
-const templateFilaVenta = document.getElementById('templateFilaVenta');
-const tbodyRegalos = document.querySelector('#tablaDetalleRegalos tbody');
-const templateFilaRegalo = document.getElementById('templateFilaRegalo');
-const seccionRegalos = document.getElementById('seccionRegalos');
-const btnMostrarTablaRegalos = document.getElementById('btnMostrarTablaRegalos');
-const btnCerrarTablaRegalos = document.getElementById('btnCerrarTablaRegalos');
-const btnAgregarFilaRegalo = document.getElementById('btnAgregarFilaRegalo');
-
-const ventaId = document.getElementById('ventaId');
-const idClienteEl = document.getElementById('idCliente');
-const fechaEmision = document.getElementById('fechaEmision');
-const ventaObservaciones = document.getElementById('ventaObservaciones');
-const tipoOperacion = document.getElementById('tipoOperacion');
-const tipoImpuesto = document.getElementById('tipoImpuesto');
-const ventaSubtotal = document.getElementById('ventaSubtotal');
-const ventaIgv = document.getElementById('ventaIgv');
-const ventaTotal = document.getElementById('ventaTotal');
-const ventaPesoTotal = document.getElementById('ventaPesoTotal');
-
 // --- TOM SELECT GLOBAL ---
 let tomSelectCliente = null;
 let tomSelectListo = false;
-
 
 // ==========================================
 // 1. UTILIDADES Y LÓGICA DE FILAS
 // ==========================================
 
 function clienteSeleccionado() {
-    return Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl.value || 0) > 0;
+    const idClienteEl = document.getElementById('idCliente');
+    return Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0) > 0;
 }
 
 function actualizarBloqueoFormularioPorCliente() {
     const bloquearControlesVenta = bloqueoEdicionVenta || !clienteSeleccionado();
+    const tipoOperacion = document.getElementById('tipoOperacion');
     const esDonacion = tipoOperacion && tipoOperacion.value === 'DONACION';
     
+    const ventaTotal = document.getElementById('ventaTotal');
     const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
     const totalActual = parseFloat(totalTexto) || 0;
 
     const btnAgregarFilaVenta = document.getElementById('btnAgregarFilaVenta');
     const btnGuardarVenta = document.getElementById('btnGuardarVenta');
+    const btnMostrarTablaRegalos = document.getElementById('btnMostrarTablaRegalos');
+    const btnAgregarFilaRegalo = document.getElementById('btnAgregarFilaRegalo');
 
     if (btnAgregarFilaVenta) btnAgregarFilaVenta.disabled = bloquearControlesVenta;
     if (btnGuardarVenta) btnGuardarVenta.disabled = bloquearControlesVenta;
+    if (btnMostrarTablaRegalos) btnMostrarTablaRegalos.disabled = bloquearControlesVenta;
+    if (btnAgregarFilaRegalo) btnAgregarFilaRegalo.disabled = bloquearControlesVenta;
 
-    if (DOM_PAGOS.switchCobroContainer) {
-        DOM_PAGOS.switchCobroContainer.style.display = (bloqueoEdicionVenta || esDonacion) ? 'none' : 'block';
+    // Componentes de Pago Inmediato
+    const switchCobroContainer = document.getElementById('switchCobroContainer');
+    const switchCobroInmediato = document.getElementById('switchCobroInmediato');
+    const seccionCobroInmediato = document.getElementById('seccionCobroInmediato');
+    const contenedorMetodosPago = document.getElementById('contenedorMetodosPago');
+
+    if (switchCobroContainer) {
+        switchCobroContainer.style.display = (bloqueoEdicionVenta || esDonacion) ? 'none' : 'block';
     }
 
-    if (DOM_PAGOS.switchCobroInmediato) {
+    if (switchCobroInmediato) {
         const bloquearSwitch = bloquearControlesVenta || esDonacion || totalActual <= 0;
-        DOM_PAGOS.switchCobroInmediato.disabled = bloquearSwitch;
-        if (bloquearSwitch) DOM_PAGOS.switchCobroInmediato.checked = false;
+        switchCobroInmediato.disabled = bloquearSwitch;
+        if (bloquearSwitch) switchCobroInmediato.checked = false;
     }
 
-    if (DOM_PAGOS.seccionCobroInmediato && (bloquearControlesVenta || esDonacion || totalActual <= 0)) {
-        DOM_PAGOS.seccionCobroInmediato.classList.add('d-none');
-        if (esDonacion && DOM_PAGOS.contenedorMetodosPago) DOM_PAGOS.contenedorMetodosPago.innerHTML = '';
+    if (seccionCobroInmediato && (bloquearControlesVenta || esDonacion || totalActual <= 0)) {
+        seccionCobroInmediato.classList.add('d-none');
+        if (esDonacion && contenedorMetodosPago) contenedorMetodosPago.innerHTML = '';
     }
 
     const procesarFilas = (tbody) => {
@@ -104,14 +79,12 @@ function actualizarBloqueoFormularioPorCliente() {
         });
     };
 
-    procesarFilas(tbodyVenta);
-    procesarFilas(tbodyRegalos);
-
-    if (btnMostrarTablaRegalos) btnMostrarTablaRegalos.disabled = bloquearControlesVenta;
-    if (btnAgregarFilaRegalo) btnAgregarFilaRegalo.disabled = bloquearControlesVenta;
+    procesarFilas(document.querySelector('#tablaDetalleVenta tbody'));
+    procesarFilas(document.querySelector('#tablaDetalleRegalos tbody'));
 }
 
 function configurarInputCantidad(inputCantidad, permiteDecimales, valor = null) {
+    if (!inputCantidad) return;
     const decimalesHabilitados = Number(permiteDecimales) === 1;
     inputCantidad.dataset.permiteDecimales = decimalesHabilitados ? '1' : '0';
     inputCantidad.step = decimalesHabilitados ? '0.01' : '1';
@@ -131,10 +104,15 @@ function configurarInputCantidad(inputCantidad, permiteDecimales, valor = null) 
 }
 
 function actualizarNumeracionFilas() {
-    tbodyVenta.querySelectorAll('tr').forEach((fila, index) => {
-        const celdaNumero = fila.querySelector('.fila-numero');
-        if (celdaNumero) celdaNumero.textContent = index + 1;
-    });
+    const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
+    const tbodyRegalos = document.querySelector('#tablaDetalleRegalos tbody');
+
+    if (tbodyVenta) {
+        tbodyVenta.querySelectorAll('tr').forEach((fila, index) => {
+            const celdaNumero = fila.querySelector('.fila-numero');
+            if (celdaNumero) celdaNumero.textContent = index + 1;
+        });
+    }
     
     if (tbodyRegalos) {
         tbodyRegalos.querySelectorAll('tr').forEach((fila, index) => {
@@ -166,42 +144,56 @@ function obtenerPesoUnitarioFila(fila) {
 }
 
 function recalcularTotalVenta() {
+    const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
+    const tbodyRegalos = document.querySelector('#tablaDetalleRegalos tbody');
+    const tipoOperacion = document.getElementById('tipoOperacion');
+    const tipoImpuesto = document.getElementById('tipoImpuesto');
+    const ventaSubtotal = document.getElementById('ventaSubtotal');
+    const ventaIgv = document.getElementById('ventaIgv');
+    const ventaTotal = document.getElementById('ventaTotal');
+    const ventaPesoTotal = document.getElementById('ventaPesoTotal');
+    const switchCobroInmediato = document.getElementById('switchCobroInmediato');
+    const seccionCobroInmediato = document.getElementById('seccionCobroInmediato');
+    const contenedorMetodosPago = document.getElementById('contenedorMetodosPago');
+
     let sumaLineas = 0;
     let pesoTotalKg = 0;
     const esDonacion = tipoOperacion && tipoOperacion.value === 'DONACION'; 
 
-    tbodyVenta.querySelectorAll('tr').forEach((fila) => {
-        const data = filaVentaPayload(fila);
-        const subtotal = data.cantidad * data.precio_unitario;
-        const pesoUnitarioKg = obtenerPesoUnitarioFila(fila);
-        const pesoLineaKg = data.cantidad * pesoUnitarioKg;
-        
-        sumaLineas += subtotal;
-        pesoTotalKg += pesoLineaKg;
-        
-        const infoPeso = fila.querySelector('.detalle-peso-info');
-        if (infoPeso) {
-            if (pesoUnitarioKg > 0) {
-                infoPeso.classList.remove('d-none');
-                infoPeso.querySelector('.peso-unitario').textContent = pesoUnitarioKg.toFixed(3);
-                infoPeso.querySelector('.peso-subtotal').textContent = pesoLineaKg.toFixed(3);
-            } else {
-                infoPeso.classList.add('d-none');
+    if (tbodyVenta) {
+        tbodyVenta.querySelectorAll('tr').forEach((fila) => {
+            const data = filaVentaPayload(fila);
+            const subtotal = data.cantidad * data.precio_unitario;
+            const pesoUnitarioKg = obtenerPesoUnitarioFila(fila);
+            const pesoLineaKg = data.cantidad * pesoUnitarioKg;
+            
+            sumaLineas += subtotal;
+            pesoTotalKg += pesoLineaKg;
+            
+            const infoPeso = fila.querySelector('.detalle-peso-info');
+            if (infoPeso) {
+                if (pesoUnitarioKg > 0) {
+                    infoPeso.classList.remove('d-none');
+                    infoPeso.querySelector('.peso-unitario').textContent = pesoUnitarioKg.toFixed(3);
+                    infoPeso.querySelector('.peso-subtotal').textContent = pesoLineaKg.toFixed(3);
+                } else {
+                    infoPeso.classList.add('d-none');
+                }
             }
-        }
 
-        const celdaSubtotal = fila.querySelector('.detalle-subtotal');
-        if (esDonacion) {
-            celdaSubtotal.innerHTML = `
-                <div class="d-flex flex-column align-items-end" style="line-height: 1.2;">
-                    <span class="text-decoration-line-through text-muted opacity-75" style="font-size: 0.75rem;">Ref: S/ ${subtotal.toFixed(2)}</span>
-                    <span class="text-success fw-bold mt-1">S/ 0.00</span>
-                </div>
-            `;
-        } else {
-            celdaSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
-        }
-    });
+            const celdaSubtotal = fila.querySelector('.detalle-subtotal');
+            if (esDonacion) {
+                celdaSubtotal.innerHTML = `
+                    <div class="d-flex flex-column align-items-end" style="line-height: 1.2;">
+                        <span class="text-decoration-line-through text-muted opacity-75" style="font-size: 0.75rem;">Ref: S/ ${subtotal.toFixed(2)}</span>
+                        <span class="text-success fw-bold mt-1">S/ 0.00</span>
+                    </div>
+                `;
+            } else {
+                celdaSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
+            }
+        });
+    }
 
     if (tbodyRegalos) {
         tbodyRegalos.querySelectorAll('tr').forEach((fila) => {
@@ -259,28 +251,30 @@ function recalcularTotalVenta() {
     if (ventaTotal) ventaTotal.textContent = esDonacion ? 'S/ 0.00 (GRATUITO)' : `S/ ${total.toFixed(2)}`;
     if (ventaPesoTotal) ventaPesoTotal.textContent = `${pesoTotalKg.toFixed(3)} kg`;
 
-    if (DOM_PAGOS.switchCobroInmediato) {
+    if (switchCobroInmediato) {
         if (total <= 0) {
-            DOM_PAGOS.switchCobroInmediato.disabled = true;
-            if (DOM_PAGOS.switchCobroInmediato.checked) {
-                DOM_PAGOS.switchCobroInmediato.checked = false;
-                DOM_PAGOS.seccionCobroInmediato.classList.add('d-none');
-                DOM_PAGOS.contenedorMetodosPago.innerHTML = '';
+            switchCobroInmediato.disabled = true;
+            if (switchCobroInmediato.checked) {
+                switchCobroInmediato.checked = false;
+                if(seccionCobroInmediato) seccionCobroInmediato.classList.add('d-none');
+                if(contenedorMetodosPago) contenedorMetodosPago.innerHTML = '';
                 calcularTotalCobroInmediato();
             }
         } else {
             if (!bloqueoEdicionVenta && !esDonacion) {
-                DOM_PAGOS.switchCobroInmediato.disabled = false;
+                switchCobroInmediato.disabled = false;
             }
         }
     }
 
-    if (DOM_PAGOS.switchCobroInmediato && DOM_PAGOS.switchCobroInmediato.checked && !esDonacion) {
-        const filasPago = DOM_PAGOS.contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato');
-        const btnUsarSaldo = document.getElementById('btnAplicarSaldoFavor');
-        
-        if (filasPago.length === 1 && (!btnUsarSaldo || !btnUsarSaldo.disabled)) { 
-            filasPago[0].querySelector('.input-monto-inmediato').value = total.toFixed(2);
+    if (switchCobroInmediato && switchCobroInmediato.checked && !esDonacion) {
+        if (contenedorMetodosPago) {
+            const filasPago = contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato');
+            const btnUsarSaldo = document.getElementById('btnAplicarSaldoFavor');
+            
+            if (filasPago.length === 1 && (!btnUsarSaldo || !btnUsarSaldo.disabled)) { 
+                filasPago[0].querySelector('.input-monto-inmediato').value = total.toFixed(2);
+            }
         }
         calcularTotalCobroInmediato();
     }
@@ -320,7 +314,8 @@ function obtenerItemsSeleccionados(excluirFila = null) {
 }
 
 async function obtenerPrecioItem(idItem, cantidad) {
-    const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl.value || 0);
+    const idClienteEl = document.getElementById('idCliente');
+    const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0);
     if (!idItem || !idClienteActual) return null;
 
     const url = `${urls.index}&accion=precio_item&id_cliente=${idClienteActual}&id_item=${idItem}&cantidad=${encodeURIComponent(cantidad || 1)}`;
@@ -344,6 +339,8 @@ async function refrescarPrecioFila(fila) {
 }
 
 async function refrescarFilasPorCambioCliente() {
+    const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
+    if(!tbodyVenta) return;
     const filas = [...tbodyVenta.querySelectorAll('tr')];
     for (const fila of filas) {
         await refrescarPrecioFila(fila);
@@ -352,10 +349,13 @@ async function refrescarFilasPorCambioCliente() {
 }
 
 async function agregarFilaVenta(item = null, esBorrador = true) {
+    const templateFilaVenta = document.getElementById('templateFilaVenta');
+    const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
+    if(!templateFilaVenta || !tbodyVenta) return;
+
     const fragment = templateFilaVenta.content.cloneNode(true);
-    const fila = fragment.querySelector('tr');
+    const filaReal = fragment.querySelector('tr');
     tbodyVenta.appendChild(fragment);
-    const filaReal = tbodyVenta.lastElementChild;
 
     const inputCantidad = filaReal.querySelector('.detalle-cantidad');
     const inputPrecio = filaReal.querySelector('.detalle-precio');
@@ -394,7 +394,8 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
         placeholder: "Buscar producto...",
         dropdownParent: 'body', 
         load: function(query, callback) {
-            const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl.value || 0);
+            const idClienteEl = document.getElementById('idCliente');
+            const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0);
             const cantidadActual = Number(inputCantidad.value || 1) || 1;
             const url = `${urls.index}&accion=buscar_items&q=${encodeURIComponent(query)}&id_cliente=${idClienteActual}&cantidad=${encodeURIComponent(cantidadActual)}`;
             fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -513,7 +514,10 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
 }
 
 async function agregarFilaRegalo(item = null, esBorrador = true) {
-    if (!templateFilaRegalo) return;
+    const templateFilaRegalo = document.getElementById('templateFilaRegalo');
+    const tbodyRegalos = document.querySelector('#tablaDetalleRegalos tbody');
+    if (!templateFilaRegalo || !tbodyRegalos) return;
+
     const fragment = templateFilaRegalo.content.cloneNode(true);
     const filaReal = fragment.querySelector('tr');
     tbodyRegalos.appendChild(fragment);
@@ -551,7 +555,8 @@ async function agregarFilaRegalo(item = null, esBorrador = true) {
         placeholder: "Buscar producto de regalo...",
         dropdownParent: 'body', 
         load: function(query, callback) {
-            const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl.value || 0);
+            const idClienteEl = document.getElementById('idCliente');
+            const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0);
             const cantidadActual = Number(inputCantidad.value || 1) || 1;
             const url = `${urls.index}&accion=buscar_items&q=${encodeURIComponent(query)}&id_cliente=${idClienteActual}&cantidad=${encodeURIComponent(cantidadActual)}`;
             fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -635,7 +640,10 @@ async function agregarFilaRegalo(item = null, esBorrador = true) {
 }
 
 async function mostrarTablaRegalos() {
+    const seccionRegalos = document.getElementById('seccionRegalos');
+    const tbodyRegalos = document.querySelector('#tablaDetalleRegalos tbody');
     if (!seccionRegalos || !tbodyRegalos) return;
+
     seccionRegalos.classList.remove('d-none');
     if (tbodyRegalos.children.length === 0) {
         await agregarFilaRegalo();
@@ -645,7 +653,9 @@ async function mostrarTablaRegalos() {
 
 function limpiarModalVenta() {
     bloqueoEdicionVenta = false;
-    ventaId.value = 0;
+    const ventaId = document.getElementById('ventaId');
+    if (ventaId) ventaId.value = 0;
+
     renderAlertaSaldoFavor(0);
     
     if (tomSelectCliente) {
@@ -654,9 +664,13 @@ function limpiarModalVenta() {
         tomSelectCliente.load('');
     }
     
-    fechaEmision.value = obtenerFechaLocalISO();
-    ventaObservaciones.value = '';
+    const fechaEmision = document.getElementById('fechaEmision');
+    const ventaObservaciones = document.getElementById('ventaObservaciones');
+    if(fechaEmision) fechaEmision.value = obtenerFechaLocalISO();
+    if(ventaObservaciones) ventaObservaciones.value = '';
     
+    const tipoOperacion = document.getElementById('tipoOperacion');
+    const tipoImpuesto = document.getElementById('tipoImpuesto');
     if (tipoOperacion) {
         tipoOperacion.value = 'VENTA';
         tipoOperacion.disabled = false;
@@ -667,19 +681,30 @@ function limpiarModalVenta() {
         tipoImpuesto.removeAttribute('data-readonly');
     }
 
-    tbodyVenta.querySelectorAll('.detalle-item').forEach((select) => {
-        if (select.tomselect) select.tomselect.destroy();
-    });
-    tbodyVenta.innerHTML = '';
+    const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
+    if (tbodyVenta) {
+        tbodyVenta.querySelectorAll('.detalle-item').forEach((select) => {
+            if (select.tomselect) select.tomselect.destroy();
+        });
+        tbodyVenta.innerHTML = '';
+    }
 
+    const tbodyRegalos = document.querySelector('#tablaDetalleRegalos tbody');
     if (tbodyRegalos) {
         tbodyRegalos.querySelectorAll('.detalle-item').forEach((select) => {
             if (select.tomselect) select.tomselect.destroy();
         });
         tbodyRegalos.innerHTML = '';
     }
+
+    const seccionRegalos = document.getElementById('seccionRegalos');
     if (seccionRegalos) seccionRegalos.classList.add('d-none');
 
+    const ventaSubtotal = document.getElementById('ventaSubtotal');
+    const ventaIgv = document.getElementById('ventaIgv');
+    const ventaTotal = document.getElementById('ventaTotal');
+    const ventaPesoTotal = document.getElementById('ventaPesoTotal');
+    
     if (ventaSubtotal) ventaSubtotal.textContent = 'S/ 0.00';
     if (ventaIgv) ventaIgv.textContent = 'S/ 0.00';
     if (ventaTotal) {
@@ -705,11 +730,17 @@ function limpiarModalVenta() {
         if (tbodyDevHistorico) tbodyDevHistorico.innerHTML = '';
     }
 
-    if (DOM_PAGOS.switchCobroContainer) DOM_PAGOS.switchCobroContainer.style.display = 'block';
-    if (DOM_PAGOS.switchCobroInmediato) DOM_PAGOS.switchCobroInmediato.checked = false;
-    if (DOM_PAGOS.seccionCobroInmediato) DOM_PAGOS.seccionCobroInmediato.classList.add('d-none');
-    if (DOM_PAGOS.contenedorMetodosPago) DOM_PAGOS.contenedorMetodosPago.innerHTML = '';
-    if (DOM_PAGOS.totalPagadoInmediato) DOM_PAGOS.totalPagadoInmediato.textContent = 'S/ 0.00';
+    const switchCobroContainer = document.getElementById('switchCobroContainer');
+    const switchCobroInmediato = document.getElementById('switchCobroInmediato');
+    const seccionCobroInmediato = document.getElementById('seccionCobroInmediato');
+    const contenedorMetodosPago = document.getElementById('contenedorMetodosPago');
+    const totalPagadoInmediato = document.getElementById('totalPagadoInmediato');
+
+    if (switchCobroContainer) switchCobroContainer.style.display = 'block';
+    if (switchCobroInmediato) switchCobroInmediato.checked = false;
+    if (seccionCobroInmediato) seccionCobroInmediato.classList.add('d-none');
+    if (contenedorMetodosPago) contenedorMetodosPago.innerHTML = '';
+    if (totalPagadoInmediato) totalPagadoInmediato.textContent = 'S/ 0.00';
 
     actualizarBloqueoFormularioPorCliente();
 }
@@ -721,7 +752,8 @@ function limpiarModalVenta() {
 
 export async function abrirModalVenta(id, tr = null) {
     try {
-        const payload = await getJson(`${urls.index}&accion=ver&id=${id}`);
+        const separador = urls.index.includes('?') ? '&' : '?';
+        const payload = await getJson(`${urls.index}${separador}accion=ver&id=${id}`);
         const venta = payload.data;
         if (!venta || !venta.id) throw new Error('No se encontró información del pedido seleccionado.');
         renderAlertaSaldoFavor(venta.saldo_favor_cliente || 0);
@@ -809,9 +841,9 @@ export async function abrirModalVenta(id, tr = null) {
             const pesoTotalResumenEl = document.getElementById('resumenVentaPesoTotal');
             let pesoTotalResumen = 0;
             let sumaTotalDespachada = 0;
-            tbodyResumen.innerHTML = '';
+            if(tbodyResumen) tbodyResumen.innerHTML = '';
 
-            if (venta.detalle && venta.detalle.length > 0) {
+            if (venta.detalle && venta.detalle.length > 0 && tbodyResumen) {
                 venta.detalle.forEach(item => {
                     const cantSol = Number(item.cantidad || 0);
                     const cantDesp = Number(item.cantidad_despachada || 0);
@@ -852,13 +884,14 @@ export async function abrirModalVenta(id, tr = null) {
                     `;
                     tbodyResumen.appendChild(trRes);
                 });
-            } else {
+            } else if (tbodyResumen) {
                 tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
             }
 
             if (pesoTotalResumenEl) pesoTotalResumenEl.textContent = `Peso total: ${pesoTotalResumen.toFixed(3)} kg`;
             const totalFinalReal = Number.isFinite(sumaTotalDespachada) ? sumaTotalDespachada : 0;
-            document.getElementById('resumenVentaTotalFinal').textContent = `S/ ${totalFinalReal.toFixed(2)}`;
+            const resVentaTotalFinal = document.getElementById('resumenVentaTotalFinal');
+            if(resVentaTotalFinal) resVentaTotalFinal.textContent = `S/ ${totalFinalReal.toFixed(2)}`;
 
             bootstrap.Modal.getOrCreateInstance(modalResumenEl).show();
             return; 
@@ -866,25 +899,38 @@ export async function abrirModalVenta(id, tr = null) {
 
         // Si es < 3 (Borrador o Edición), abrimos el Modal principal de Venta
         limpiarModalVenta();
-        ventaId.value = venta.id;
+        const ventaId = document.getElementById('ventaId');
+        if (ventaId) ventaId.value = venta.id;
         
         const esBorrador = estadoDoc === 0;
         bloqueoEdicionVenta = !esBorrador;
         
         const nombreCliente = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente';
+        const idClienteEl = document.getElementById('idCliente');
         if (tomSelectCliente) {
             tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente, saldo_favor: Number(venta.saldo_favor_cliente || 0) });
             tomSelectCliente.setValue(venta.id_cliente);
             if (!esBorrador) tomSelectCliente.disable();
             else tomSelectCliente.enable();
-        } else {
+        } else if (idClienteEl) {
             idClienteEl.innerHTML = `<option value="${venta.id_cliente}">${nombreCliente}</option>`;
             idClienteEl.value = venta.id_cliente;
             idClienteEl.disabled = !esBorrador;
         }
         
-        fechaEmision.value = venta.fecha_emision ? venta.fecha_emision.split(' ')[0] : '';
-        ventaObservaciones.value = venta.observaciones || '';
+        const fechaEmision = document.getElementById('fechaEmision');
+        const ventaObservaciones = document.getElementById('ventaObservaciones');
+        const tipoOperacion = document.getElementById('tipoOperacion');
+        const tipoImpuesto = document.getElementById('tipoImpuesto');
+
+        if(fechaEmision) {
+            fechaEmision.value = venta.fecha_emision ? venta.fecha_emision.split(' ')[0] : '';
+            fechaEmision.readOnly = !esBorrador;
+        }
+        if(ventaObservaciones) {
+            ventaObservaciones.value = venta.observaciones || '';
+            ventaObservaciones.readOnly = !esBorrador;
+        }
         
         if (tipoOperacion) {
             tipoOperacion.value = venta.tipo_operacion || 'VENTA';
@@ -899,9 +945,6 @@ export async function abrirModalVenta(id, tr = null) {
             }
         }
         
-        fechaEmision.readOnly = !esBorrador;
-        ventaObservaciones.readOnly = !esBorrador;
-
         const btnGlobalAdd = document.getElementById('btnAgregarFilaVenta');
         if (btnGlobalAdd) btnGlobalAdd.style.display = esBorrador ? 'inline-block' : 'none';
 
@@ -919,19 +962,25 @@ export async function abrirModalVenta(id, tr = null) {
             await agregarFilaVenta(null, esBorrador);
         }
 
+        const seccionRegalos = document.getElementById('seccionRegalos');
         if (tieneRegalos && seccionRegalos) seccionRegalos.classList.remove('d-none');
         
         const btnGuardar = document.getElementById('btnGuardarVenta');
+        const switchCobroContainer = document.getElementById('switchCobroContainer');
+
         if (esBorrador) {
             if (btnGuardar) {
                 btnGuardar.style.display = 'block';
                 btnGuardar.textContent = 'Actualizar Pedido';
             }
-            document.getElementById('alertaBorradorContenedor').innerHTML = `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
-            if (DOM_PAGOS.switchCobroContainer) DOM_PAGOS.switchCobroContainer.style.display = 'block';
+            const alertaContenedor = document.getElementById('alertaBorradorContenedor');
+            if (alertaContenedor) {
+                alertaContenedor.innerHTML = `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
+            }
+            if (switchCobroContainer) switchCobroContainer.style.display = 'block';
         } else {
             if (btnGuardar) btnGuardar.style.display = 'none';
-            if (DOM_PAGOS.switchCobroContainer) DOM_PAGOS.switchCobroContainer.style.display = 'none';
+            if (switchCobroContainer) switchCobroContainer.style.display = 'none';
         }
 
         actualizarBloqueoFormularioPorCliente();
@@ -974,7 +1023,8 @@ export async function abrirModalVenta(id, tr = null) {
             }
         }
         
-        modalVenta.show();
+        const modalVentaEl = document.getElementById('modalVenta');
+        if(modalVentaEl) bootstrap.Modal.getOrCreateInstance(modalVentaEl).show();
     } catch (err) {
         console.error('Error al abrir pedido:', err);
         Swal.fire('Error', err.message || 'No se pudo cargar', 'error');
@@ -1005,8 +1055,14 @@ export async function revertirBorrador(id) {
 
 export async function initVentas() {
     tomSelectListo = await esperarTomSelect();
+    
+    const idClienteEl = document.getElementById('idCliente');
+    // Destruimos el TomSelect anterior si estamos recargando por AJAX
+    if (tomSelectCliente && idClienteEl && !idClienteEl.tomselect) {
+        tomSelectCliente = null; 
+    }
 
-    if (idClienteEl && tomSelectListo) {
+    if (idClienteEl && tomSelectListo && !tomSelectCliente) {
         tomSelectCliente = initSelectAjax('#idCliente', `${urls.index}&accion=buscar_clientes`, {
             allowEmptyOption: true,
             placeholder: "Buscar cliente por nombre o documento...",
@@ -1052,74 +1108,125 @@ export async function initVentas() {
         });
     }
 
-    // --- EVENTOS DEL MODAL Y BOTONES ---
-    document.getElementById('btnNuevaVenta')?.addEventListener('click', async () => {
-        try {
-            limpiarModalVenta();
-            await agregarFilaVenta(); 
-            actualizarBloqueoFormularioPorCliente();
+    // --- EVENTOS DEL MODAL Y BOTONES (Usamos removeEventListener viejo indirectamente mediante el orquestador o buscando clics limpios) ---
+    const btnNuevaVenta = document.getElementById('btnNuevaVenta');
+    if (btnNuevaVenta) {
+        // Clonamos para evitar duplicar el evento al navegar por AJAX
+        const nuevoBtnVenta = btnNuevaVenta.cloneNode(true);
+        btnNuevaVenta.parentNode.replaceChild(nuevoBtnVenta, btnNuevaVenta);
+        nuevoBtnVenta.addEventListener('click', async () => {
+            try {
+                limpiarModalVenta();
+                await agregarFilaVenta(); 
+                actualizarBloqueoFormularioPorCliente();
 
-            const btnGuardar = document.getElementById('btnGuardarVenta');
-            if (btnGuardar) {
-                btnGuardar.style.display = 'block';
-                btnGuardar.textContent = 'Guardar Pedido';
-            }
-
-            if (!document.getElementById('alertaBorradorInfo')) {
-                const contenedor = document.getElementById('alertaBorradorContenedor');
-                if (contenedor) {
-                    contenedor.innerHTML = `<span id="alertaBorradorInfo" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
+                const btnGuardar = document.getElementById('btnGuardarVenta');
+                if (btnGuardar) {
+                    btnGuardar.style.display = 'block';
+                    btnGuardar.textContent = 'Guardar Pedido';
                 }
-            }
-            modalVenta.show();
-        } catch (error) {
-            Swal.fire('Error', 'No se pudo abrir el formulario de pedido.', 'error');
-        }
-    });
 
-    document.getElementById('btnMostrarTablaRegalos')?.addEventListener('click', async () => await mostrarTablaRegalos());
-    document.getElementById('btnCerrarTablaRegalos')?.addEventListener('click', () => {
+                if (!document.getElementById('alertaBorradorInfo')) {
+                    const contenedor = document.getElementById('alertaBorradorContenedor');
+                    if (contenedor) {
+                        contenedor.innerHTML = `<span id="alertaBorradorInfo" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1"><i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico</span>`;
+                    }
+                }
+                const modalVentaEl = document.getElementById('modalVenta');
+                if(modalVentaEl) bootstrap.Modal.getOrCreateInstance(modalVentaEl).show();
+            } catch (error) {
+                Swal.fire('Error', 'No se pudo abrir el formulario de pedido.', 'error');
+            }
+        });
+    }
+
+    const modalVentaEl = document.getElementById('modalVenta');
+    if (modalVentaEl) {
+        modalVentaEl.addEventListener('hidden.bs.modal', () => {
+            const hayModalesAbiertos = document.querySelectorAll('.modal.show').length > 0;
+            if (!hayModalesAbiertos) {
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('padding-right');
+                document.body.style.removeProperty('overflow');
+                document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
+            }
+        });
+    }
+
+    const rebindClick = (id, callback) => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.addEventListener('click', callback);
+        }
+    };
+
+    rebindClick('btnMostrarTablaRegalos', async () => await mostrarTablaRegalos());
+    rebindClick('btnCerrarTablaRegalos', () => {
+        const seccionRegalos = document.getElementById('seccionRegalos');
         if (seccionRegalos) seccionRegalos.classList.add('d-none');
     });
 
-    document.getElementById('btnAgregarFilaVenta')?.addEventListener('click', async () => {
+    rebindClick('btnAgregarFilaVenta', async () => {
         await agregarFilaVenta();
         actualizarBloqueoFormularioPorCliente();
     });
     
-    document.getElementById('btnAgregarFilaRegalo')?.addEventListener('click', async () => {
+    rebindClick('btnAgregarFilaRegalo', async () => {
         await agregarFilaRegalo();
         actualizarBloqueoFormularioPorCliente();
     });
 
-    tipoImpuesto?.addEventListener('change', recalcularTotalVenta);
+    const tipoImpuesto = document.getElementById('tipoImpuesto');
+    if(tipoImpuesto) {
+        const newTipoImpuesto = tipoImpuesto.cloneNode(true);
+        tipoImpuesto.parentNode.replaceChild(newTipoImpuesto, tipoImpuesto);
+        newTipoImpuesto.addEventListener('change', recalcularTotalVenta);
+    }
     
-    tipoOperacion?.addEventListener('change', () => {
-        if (tipoOperacion.value === 'DONACION') {
-            if (tipoImpuesto) {
-                tipoImpuesto.value = 'exonerado';
-                tipoImpuesto.disabled = true;
+    const tipoOperacion = document.getElementById('tipoOperacion');
+    if(tipoOperacion) {
+        const newTipoOperacion = tipoOperacion.cloneNode(true);
+        tipoOperacion.parentNode.replaceChild(newTipoOperacion, tipoOperacion);
+        newTipoOperacion.addEventListener('change', () => {
+            const tImpuesto = document.getElementById('tipoImpuesto');
+            if (newTipoOperacion.value === 'DONACION') {
+                if (tImpuesto) {
+                    tImpuesto.value = 'exonerado';
+                    tImpuesto.disabled = true;
+                }
+                const switchCobroInmediato = document.getElementById('switchCobroInmediato');
+                const seccionCobroInmediato = document.getElementById('seccionCobroInmediato');
+                const contenedorMetodosPago = document.getElementById('contenedorMetodosPago');
+                const totalPagadoInmediato = document.getElementById('totalPagadoInmediato');
+                
+                if (switchCobroInmediato) switchCobroInmediato.checked = false;
+                if (seccionCobroInmediato) seccionCobroInmediato.classList.add('d-none');
+                if (contenedorMetodosPago) contenedorMetodosPago.innerHTML = '';
+                if (totalPagadoInmediato) totalPagadoInmediato.textContent = 'S/ 0.00';
+            } else {
+                if (tImpuesto && !tImpuesto.hasAttribute('data-readonly')) {
+                    tImpuesto.disabled = false;
+                }
             }
-            if (DOM_PAGOS.switchCobroInmediato) DOM_PAGOS.switchCobroInmediato.checked = false;
-            if (DOM_PAGOS.seccionCobroInmediato) DOM_PAGOS.seccionCobroInmediato.classList.add('d-none');
-            if (DOM_PAGOS.contenedorMetodosPago) DOM_PAGOS.contenedorMetodosPago.innerHTML = '';
-            if (DOM_PAGOS.totalPagadoInmediato) DOM_PAGOS.totalPagadoInmediato.textContent = 'S/ 0.00';
-        } else {
-            if (tipoImpuesto && !tipoImpuesto.hasAttribute('data-readonly')) {
-                tipoImpuesto.disabled = false;
-            }
-        }
-        actualizarBloqueoFormularioPorCliente();
-        recalcularTotalVenta();
-    });
+            actualizarBloqueoFormularioPorCliente();
+            recalcularTotalVenta();
+        });
+    }
 
     // --- GUARDADO ---
-    document.getElementById('btnGuardarVenta')?.addEventListener('click', async () => {
+    rebindClick('btnGuardarVenta', async () => {
         try {
-            const clienteIdActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl.value || 0);
+            const idClienteEl = document.getElementById('idCliente');
+            const clienteIdActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0);
             if (!clienteIdActual) throw new Error('Debe seleccionar Cliente / Beneficiario antes de continuar.');
 
-            const filasVentaArray = [...tbodyVenta.querySelectorAll('tr')];
+            const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
+            const tbodyRegalos = document.querySelector('#tablaDetalleRegalos tbody');
+            const seccionRegalos = document.getElementById('seccionRegalos');
+
+            const filasVentaArray = tbodyVenta ? [...tbodyVenta.querySelectorAll('tr')] : [];
             const filasRegaloArray = tbodyRegalos ? [...tbodyRegalos.querySelectorAll('tr')] : [];
             const seccionRegalosVisible = seccionRegalos && !seccionRegalos.classList.contains('d-none');
 
@@ -1180,18 +1287,23 @@ export async function initVentas() {
 
             let esCobroInmediato = false;
             const metodosPagoFinales = [];
+            const switchCobroInmediato = document.getElementById('switchCobroInmediato');
+            const tipoOp = document.getElementById('tipoOperacion');
 
-            if (DOM_PAGOS.switchCobroInmediato && DOM_PAGOS.switchCobroInmediato.checked && tipoOperacion.value !== 'DONACION') {
+            if (switchCobroInmediato && switchCobroInmediato.checked && tipoOp?.value !== 'DONACION' && !bloqueoEdicionVenta) {
                 esCobroInmediato = true;
-                DOM_PAGOS.contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato').forEach(fila => {
-                    const idCuenta = fila.querySelector('.select-cuenta-inmediato').value;
-                    const idMetodo = fila.querySelector('.select-metodo-inmediato').value;
-                    const monto = parseFloat(fila.querySelector('.input-monto-inmediato').value) || 0;
-                    
-                    if (idCuenta && idMetodo && monto > 0) {
-                        metodosPagoFinales.push({ id_cuenta: idCuenta, id_metodo: idMetodo, monto: monto });
-                    }
-                });
+                const contenedorMetodosPago = document.getElementById('contenedorMetodosPago');
+                if (contenedorMetodosPago) {
+                    contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato').forEach(fila => {
+                        const idCuenta = fila.querySelector('.select-cuenta-inmediato').value;
+                        const idMetodo = fila.querySelector('.select-metodo-inmediato').value;
+                        const monto = parseFloat(fila.querySelector('.input-monto-inmediato').value) || 0;
+                        
+                        if (idCuenta && idMetodo && monto > 0) {
+                            metodosPagoFinales.push({ id_cuenta: idCuenta, id_metodo: idMetodo, monto: monto });
+                        }
+                    });
+                }
 
                 if (metodosPagoFinales.length === 0) {
                     throw new Error("Debe completar Cuenta, Método y Monto para el cobro inmediato.");
@@ -1202,6 +1314,7 @@ export async function initVentas() {
                 let sumaPagos = 0;
                 metodosPagoFinales.forEach(p => sumaPagos += p.monto);
                 
+                const ventaTotal = document.getElementById('ventaTotal');
                 const totalPedTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
                 const totalPedNumerico = parseFloat(totalPedTexto) || 0;
 
@@ -1241,20 +1354,27 @@ export async function initVentas() {
                 if (!confirmacion.isConfirmed) return; 
             }
 
+            const btnGuardarVenta = document.getElementById('btnGuardarVenta');
+            const ventaIdEl = document.getElementById('ventaId');
+            const fechaEmisionEl = document.getElementById('fechaEmision');
+            const ventaObsEl = document.getElementById('ventaObservaciones');
+            const tipoImpuestoEl = document.getElementById('tipoImpuesto');
+
             const payload = await postJson(urls.guardar, {
-                id: Number(ventaId.value || 0),
+                id: Number(ventaIdEl?.value || 0),
                 id_cliente: clienteIdActual,
-                tipo_operacion: tipoOperacion ? tipoOperacion.value : 'VENTA', 
-                fecha_emision: fechaEmision.value,
-                observaciones: ventaObservaciones.value,
-                tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'exonerado',
+                tipo_operacion: tipoOp ? tipoOp.value : 'VENTA', 
+                fecha_emision: fechaEmisionEl?.value || '',
+                observaciones: ventaObsEl?.value || '',
+                tipo_impuesto: tipoImpuestoEl ? tipoImpuestoEl.value : 'exonerado',
                 detalle: detalle,
                 cobro_inmediato: esCobroInmediato,
                 metodos_pago: metodosPagoFinales
             });
 
             await Swal.fire('Guardado', payload.mensaje, 'success');
-            modalVenta.hide();
+            const modalVentaEl = document.getElementById('modalVenta');
+            if (modalVentaEl) bootstrap.Modal.getOrCreateInstance(modalVentaEl).hide();
             recargarTabla();
         } catch (error) {
             Swal.fire('Error', error.message, 'error');

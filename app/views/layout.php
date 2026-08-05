@@ -29,12 +29,10 @@
     <link rel="stylesheet" href="<?php echo e(asset_url('css/modales.css')); ?>?v=<?php echo $getAssetVersion('css/modales.css'); ?>">
 
     <?php if (str_starts_with($currentRoute, 'ventas')): ?>
-        <!-- Módulo principal de Ventas -->
         <script type="module" src="<?php echo e(asset_url('js/ventas/app.js')); ?>?v=<?php echo $getAssetVersion('js/ventas/app.js'); ?>"></script>
     <?php endif; ?>
 
     <?php if (str_starts_with($currentRoute, 'compras')): ?>
-        <!-- Módulo principal de Compras -->
         <script type="module" src="<?php echo e(asset_url('js/compras/app.js')); ?>?v=<?php echo $getAssetVersion('js/compras/app.js'); ?>"></script>
     <?php endif; ?>
 
@@ -261,7 +259,11 @@ if (!str_starts_with($temaElegido, 'theme-')) {
     <script src="<?php echo e(asset_url('js/configuracion/series.js')); ?>?v=<?php echo $getAssetVersion('js/configuracion/series.js'); ?>"></script>
 <?php endif; ?>
 
-<?php if (str_starts_with($currentRoute, 'asistencia')): ?>
+<?php if ($currentRoute === 'asistencia/gestion_asistencia'): ?>
+    <script src="<?php echo e(asset_url('js/rrhh/gestion_asistencia.js')); ?>?v=<?php echo $getAssetVersion('js/rrhh/gestion_asistencia.js'); ?>"></script>
+<?php elseif ($currentRoute === 'asistencia/importar'): ?>
+    <script src="<?php echo e(asset_url('js/rrhh/importar_asistencia.js')); ?>?v=<?php echo $getAssetVersion('js/rrhh/importar_asistencia.js'); ?>"></script>
+<?php elseif (str_starts_with($currentRoute, 'asistencia')): ?>
     <script src="<?php echo e(asset_url('js/rrhh/asistencia.js')); ?>?v=<?php echo $getAssetVersion('js/rrhh/asistencia.js'); ?>"></script>
 <?php endif; ?>
 
@@ -331,6 +333,8 @@ Swal.fire({
         <script src="<?php echo e(asset_url('js/tesoreria/saldos_iniciales.js')); ?>?v=<?php echo $getAssetVersion('js/tesoreria/saldos_iniciales.js'); ?>"></script>
     <?php endif; ?>
 <?php endif; ?>
+
+<script src="<?php echo e(asset_url('js/inactividad.js')); ?>?v=<?php echo $getAssetVersion('js/inactividad.js'); ?>"></script>
 
 </body>
 </html>

@@ -1,20 +1,31 @@
 // ==============================================================
-// MÓDULO PRINCIPAL: app.js (Orquestador)
+// MÓDULO PRINCIPAL VENTAS: app.js (Orquestador SPA)
 // ==============================================================
 
-import { app, urls, recargarTabla } from './config.js';
+import { recargarTabla } from './config.js'; 
 import { postJson } from '../api.js';
 import { initVentas, abrirModalVenta, revertirBorrador } from './venta.js';
 import { initPagos } from './pagos.js';
 import { abrirModalDespacho, abrirModalDevolucionVenta } from './logistica.js';
 
-// Si no estamos en la vista de ventas, abortamos la ejecución
-if (app) {
+// Envolvemos todo en una función de "Arranque"
+function arrancarModuloVentas() {
+    const app = document.getElementById('ventasApp');
+    if (!app) return; // Si estamos en otra vista (ej. Compras), se detiene aquí.
+
+    // Extraemos las URLs directamente del DOM "fresco"
+    const urls = {
+        index: app.dataset.urlIndex,
+        anular: app.dataset.urlAnular,
+        aprobar: app.dataset.urlAprobar
+    };
+
     // ==========================================
     // 1. INICIALIZACIÓN DE SUBMÓDULOS
     // ==========================================
     initVentas();
     initPagos();
+    // NOTA: Si en ventas/logistica.js creas un initLogistica(), puedes llamarlo aquí también.
 
     // ==========================================
     // 2. IMPRESIÓN (Expuesto a window para modales)
@@ -37,7 +48,11 @@ if (app) {
 
     const btnConfirmarImpresion = document.getElementById('btnConfirmarImpresionPedido');
     if (btnConfirmarImpresion) {
-        btnConfirmarImpresion.addEventListener('click', () => {
+        // En SPA clonamos el botón para evitar que se acumulen múltiples "clics" ocultos
+        const nuevoBtnConfirmar = btnConfirmarImpresion.cloneNode(true);
+        btnConfirmarImpresion.parentNode.replaceChild(nuevoBtnConfirmar, btnConfirmarImpresion);
+        
+        nuevoBtnConfirmar.addEventListener('click', () => {
             const inputPaginas = document.getElementById('cantidadPaginasPedido');
             const selectTipo = document.getElementById('tipoDocumentoImprimir');
             
@@ -82,7 +97,6 @@ if (app) {
         filtroFechaDesde.addEventListener('change', () => {
             if (filtroFechaDesde.value) {
                 filtroFechaHasta.min = filtroFechaDesde.value; 
-                // Fix aplicado: filstroFechaHasta -> filtroFechaHasta
                 if (filtroFechaHasta.value && filtroFechaHasta.value < filtroFechaDesde.value) {
                     filtroFechaHasta.value = filtroFechaDesde.value;
                 }
@@ -101,9 +115,6 @@ if (app) {
                 filtroFechaDesde.max = '';
             }
         });
-
-        if (filtroFechaDesde.value) filtroFechaHasta.min = filtroFechaDesde.value;
-        if (filtroFechaHasta.value) filtroFechaDesde.max = filtroFechaHasta.value;
     }
 
     // ==========================================
@@ -114,6 +125,13 @@ if (app) {
         tablaVentas.addEventListener('click', async (e) => {
             const btn = e.target.closest('button');
             if (!btn) return;
+
+            btn.blur();
+            // Limpiamos los tooltips de bootstrap para que no se queden congelados en pantalla
+            if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+                const tooltip = bootstrap.Tooltip.getInstance(btn);
+                if (tooltip) tooltip.hide();
+            }
             
             const tr = btn.closest('tr');
             const id = Number(btn.dataset.id || tr?.dataset.id || 0);
@@ -124,12 +142,8 @@ if (app) {
             }
 
             // A. Acciones del módulo VENTA (venta.js)
-            if (btn.classList.contains('btn-editar')) {
-                abrirModalVenta(id, tr);
-            }
-            if (btn.classList.contains('btn-revertir')) {
-                revertirBorrador(id);
-            }
+            if (btn.classList.contains('btn-editar')) abrirModalVenta(id, tr);
+            if (btn.classList.contains('btn-revertir')) revertirBorrador(id);
 
             // B. Acciones Rápidas (Aprobar / Anular)
             if (btn.classList.contains('btn-anular')) {
@@ -168,3 +182,9 @@ if (app) {
         });
     }
 }
+
+// MAGIA SPA: Corremos la función si entraste con F5
+document.addEventListener('DOMContentLoaded', arrancarModuloVentas);
+
+// MAGIA SPA: Corremos la función cada vez que el menú lateral carga la vista por AJAX
+document.addEventListener('sisadmin:route-loaded', arrancarModuloVentas);

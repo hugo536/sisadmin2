@@ -1283,4 +1283,255 @@ class AsistenciaModel extends Modelo
 
         return $grupo;
     }
+
+    // ===============================================================
+    // LÓGICA DE BASE DE DATOS PARA MODO EXCEL
+    // ===============================================================
+
+    public function obtenerDatosParaGridExcel(int $idTercero, string $periodo, array $filtros): array
+    {
+        $desde = date('Y-m-d');
+        $hasta = date('Y-m-d');
+        $rangoLabel = '';
+
+        if ($periodo === 'semana') {
+            $semana = $filtros['semana'] ?? date('o-\WW');
+            if (preg_match('/^(\d{4})-W(\d{2})$/', $semana, $m)) {
+                $fechaSemana = new DateTimeImmutable();
+                $fechaSemana = $fechaSemana->setISODate((int) $m[1], (int) $m[2], 1);
+                $desde = $fechaSemana->format('Y-m-d');
+                $hasta = $fechaSemana->modify('+6 days')->format('Y-m-d');
+                $rangoLabel = 'Semana ' . $m[2] . ', ' . $m[1];
+            }
+        } elseif ($periodo === 'mes') {
+            $mes = $filtros['mes'] ?? date('Y-m');
+            if (preg_match('/^(\d{4})-(\d{2})$/', $mes, $m)) {
+                $inicioMes = DateTimeImmutable::createFromFormat('Y-m-d', sprintf('%s-%s-01', $m[1], $m[2]));
+                if ($inicioMes instanceof DateTimeImmutable) {
+                    $desde = $inicioMes->format('Y-m-d');
+                    $hasta = $inicioMes->modify('last day of this month')->format('Y-m-d');
+                    $rangoLabel = 'Mes: ' . $inicioMes->format('m/Y');
+                }
+            }
+        } elseif ($periodo === 'rango') {
+            $desde = $filtros['fecha_inicio'] ?? date('Y-m-d');
+            $hasta = $filtros['fecha_fin'] ?? date('Y-m-d');
+            if ($desde > $hasta) {
+                [$desde, $hasta] = [$hasta, $desde];
+            }
+            $rangoLabel = 'Rango: ' . date('d/m/Y', strtotime($desde)) . ' al ' . date('d/m/Y', strtotime($hasta));
+        }
+
+        $sql = "SELECT * FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha BETWEEN :desde AND :hasta ORDER BY fecha ASC";
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_tercero' => $idTercero, 'desde' => $desde, 'hasta' => $hasta]);
+        
+        $registrosBD = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $registrosBD[$row['fecha']] = $row;
+        }
+
+        $dias = [];
+        $fechaActual = strtotime($desde);
+        $fechaFinTs = strtotime($hasta);
+        $diasSemanaNombres = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        $totalHorasSemanales = 0;
+
+        while ($fechaActual <= $fechaFinTs) {
+            $fechaStr = date('Y-m-d', $fechaActual);
+            $diaW = (int) date('w', $fechaActual);
+            $nombreDia = $diasSemanaNombres[$diaW];
+            
+            $reg = $registrosBD[$fechaStr] ?? null;
+            
+            $ingresos = $reg && $reg['marcas_ingresos'] ? explode('|', $reg['marcas_ingresos']) : [];
+            $salidas = $reg && $reg['marcas_salidas'] ? explode('|', $reg['marcas_salidas']) : [];
+            
+            $estadoStr = $reg['estado_asistencia'] ?? 'Sin datos';
+            $badgeClass = 'bg-secondary-subtle text-secondary';
+            if ($estadoStr === 'PUNTUAL') $badgeClass = 'bg-success-subtle text-success';
+            if ($estadoStr === 'TARDANZA') $badgeClass = 'bg-warning-subtle text-warning-emphasis';
+            if ($estadoStr === 'FALTA') $badgeClass = 'bg-danger-subtle text-danger';
+            if (strpos($estadoStr, 'JUSTIFICADA') !== false || strpos($estadoStr, 'PERMISO') !== false || strpos($estadoStr, 'MEDICO') !== false) {
+                $badgeClass = 'bg-info-subtle text-info-emphasis';
+            }
+
+            if ($reg) {
+                $totalHorasSemanales += (float) ($reg['horas_trabajadas'] ?? 0);
+            }
+
+            $dias[] = [
+                'fecha' => $fechaStr,
+                'nombre_dia' => $nombreDia,
+                'fecha_formateada' => date('d/m/Y', $fechaActual),
+                't1_in' => isset($ingresos[0]) && $ingresos[0] !== 'null' ? substr($ingresos[0], 11, 5) : '',
+                't1_out' => isset($salidas[0]) && $salidas[0] !== 'null' ? substr($salidas[0], 11, 5) : '',
+                't2_in' => isset($ingresos[1]) && $ingresos[1] !== 'null' ? substr($ingresos[1], 11, 5) : '',
+                't2_out' => isset($salidas[1]) && $salidas[1] !== 'null' ? substr($salidas[1], 11, 5) : '',
+                't3_in' => isset($ingresos[2]) && $ingresos[2] !== 'null' ? substr($ingresos[2], 11, 5) : '',
+                't3_out' => isset($salidas[2]) && $salidas[2] !== 'null' ? substr($salidas[2], 11, 5) : '',
+                'estado_label' => $estadoStr,
+                'badge_class' => $badgeClass
+            ];
+            
+            $fechaActual = strtotime('+1 day', $fechaActual);
+        }
+
+        $horasStr = floor($totalHorasSemanales) . 'h ' . round(($totalHorasSemanales - floor($totalHorasSemanales)) * 60) . 'm';
+
+        return [
+            'dias' => $dias,
+            'rango_label' => $rangoLabel,
+            'total_horas_str' => $horasStr
+        ];
+    }
+
+    public function actualizarCeldaAsistencia(int $idTercero, string $fecha, string $campo, string $valor, int $userId): array
+    {
+        $sql = "SELECT * FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1";
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_tercero' => $idTercero, 'fecha' => $fecha]);
+        $registro = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $ingresos = $registro && !empty($registro['marcas_ingresos']) ? explode('|', $registro['marcas_ingresos']) : ['', '', ''];
+        $salidas = $registro && !empty($registro['marcas_salidas']) ? explode('|', $registro['marcas_salidas']) : ['', '', ''];
+
+        $ingresos = array_pad($ingresos, 3, '');
+        $salidas = array_pad($salidas, 3, '');
+
+        $valorDb = $valor !== '' ? $fecha . ' ' . $valor . ':00' : '';
+        
+        switch ($campo) {
+            case 't1_in': $ingresos[0] = $valorDb; break;
+            case 't1_out': $salidas[0] = $valorDb; break;
+            case 't2_in': $ingresos[1] = $valorDb; break;
+            case 't2_out': $salidas[1] = $valorDb; break;
+            case 't3_in': $ingresos[2] = $valorDb; break;
+            case 't3_out': $salidas[2] = $valorDb; break;
+        }
+
+        // Reconstruir marcas cronológicas para el Motor
+        $todasLasMarcas = [];
+        for ($i = 0; $i < 3; $i++) {
+            if ($ingresos[$i] !== '' && $ingresos[$i] !== 'null') $todasLasMarcas[] = $ingresos[$i];
+            if ($salidas[$i] !== '' && $salidas[$i] !== 'null') $todasLasMarcas[] = $salidas[$i];
+        }
+
+        $resumenMotor = $this->calcularResumenDesdeMarcas($idTercero, $fecha, $todasLasMarcas);
+
+        $obsAnterior = $registro['observaciones'] ?? '';
+        if (strpos($obsAnterior, '[Modificado Excel]') === false && $valorDb !== '') {
+            $obsAnterior .= empty($obsAnterior) ? '[Modificado Excel]' : ' | [Modificado Excel]';
+        }
+
+        $upsertData = [
+            'id_tercero' => $idTercero,
+            'fecha' => $fecha,
+            'hora_ingreso' => $resumenMotor['hora_ingreso'],
+            'hora_salida' => $resumenMotor['hora_salida'],
+            'marcas_ingresos' => implode('|', $ingresos),
+            'marcas_salidas' => implode('|', $salidas),
+            'hora_entrada_esperada' => $resumenMotor['hora_entrada_esperada'],
+            'hora_salida_esperada' => $resumenMotor['hora_salida_esperada'],
+            'tolerancia_minutos' => $resumenMotor['tolerancia_minutos'],
+            'estado_asistencia' => $resumenMotor['estado_asistencia'],
+            'minutos_tardanza' => $resumenMotor['minutos_tardanza'],
+            'horas_trabajadas' => $resumenMotor['horas_trabajadas'],
+            'horas_extras' => $resumenMotor['horas_extras'],
+            'observaciones' => $obsAnterior,
+        ];
+
+        $this->upsertRegistroAsistencia($upsertData, $userId);
+
+        $estadoStr = $resumenMotor['estado_asistencia'];
+        $badgeClass = 'bg-secondary-subtle text-secondary';
+        if ($estadoStr === 'PUNTUAL') $badgeClass = 'bg-success-subtle text-success';
+        if ($estadoStr === 'TARDANZA') $badgeClass = 'bg-warning-subtle text-warning-emphasis';
+        if ($estadoStr === 'FALTA') $badgeClass = 'bg-danger-subtle text-danger';
+        if (strpos($estadoStr, 'JUSTIFICADA') !== false || strpos($estadoStr, 'PERMISO') !== false || strpos($estadoStr, 'MEDICO') !== false) {
+            $badgeClass = 'bg-info-subtle text-info-emphasis';
+        }
+
+        return [
+            'nuevo_estado_label' => $estadoStr,
+            'badge_class' => $badgeClass
+        ];
+    }
+
+    public function forzarEstadoAsistencia(int $idTercero, string $fecha, string $estado, string $observacion, int $userId): bool
+    {
+        $sql = "SELECT * FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1";
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_tercero' => $idTercero, 'fecha' => $fecha]);
+        $registro = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $obsNueva = '[Justificado]: ' . $observacion;
+
+        if (!$registro) {
+            $upsertData = [
+                'id_tercero' => $idTercero,
+                'fecha' => $fecha,
+                'hora_ingreso' => null,
+                'hora_salida' => null,
+                'marcas_ingresos' => null,
+                'marcas_salidas' => null,
+                'hora_entrada_esperada' => null,
+                'hora_salida_esperada' => null,
+                'tolerancia_minutos' => 0,
+                'estado_asistencia' => $estado,
+                'minutos_tardanza' => 0,
+                'horas_trabajadas' => 0,
+                'horas_extras' => 0,
+                'observaciones' => $obsNueva,
+            ];
+            return $this->upsertRegistroAsistencia($upsertData, $userId);
+        } else {
+            $obsActual = $registro['observaciones'] ?? '';
+            $obsGuardar = empty($obsActual) ? $obsNueva : $obsActual . ' | ' . $obsNueva;
+
+            $minTardanza = $registro['minutos_tardanza'];
+            $horasExtras = $registro['horas_extras'];
+
+            if ($estado === 'ASISTENCIA') {
+                $todasLasMarcas = [];
+                $ingresos = !empty($registro['marcas_ingresos']) ? explode('|', $registro['marcas_ingresos']) : [];
+                $salidas = !empty($registro['marcas_salidas']) ? explode('|', $registro['marcas_salidas']) : [];
+                $maxT = max(count($ingresos), count($salidas));
+                for ($i = 0; $i < $maxT; $i++) {
+                    if (!empty($ingresos[$i]) && $ingresos[$i] !== 'null') $todasLasMarcas[] = $ingresos[$i];
+                    if (!empty($salidas[$i]) && $salidas[$i] !== 'null') $todasLasMarcas[] = $salidas[$i];
+                }
+                $resumen = $this->calcularResumenDesdeMarcas($idTercero, $fecha, $todasLasMarcas);
+                
+                $estado = $resumen['estado_asistencia'];
+                $minTardanza = $resumen['minutos_tardanza'];
+                $horasExtras = $resumen['horas_extras'];
+                $obsGuardar = $obsActual . ' | [Cálculo Restaurado]';
+            } else {
+                if (in_array($estado, ['TARDANZA JUSTIFICADA', 'FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO_MEDICO'])) {
+                    $minTardanza = 0; 
+                }
+                if (in_array($estado, ['FALTA JUSTIFICADA', 'VACACIONES', 'DESCANSO_MEDICO'])) {
+                    $horasExtras = 0;
+                }
+            }
+
+            $sqlUpd = "UPDATE asistencia_registros 
+                       SET estado_asistencia = :estado,
+                           minutos_tardanza = :min_tar,
+                           horas_extras = :h_ext,
+                           observaciones = :obs,
+                           updated_by = :uid,
+                           updated_at = NOW()
+                       WHERE id = :id";
+            return $this->db()->prepare($sqlUpd)->execute([
+                'estado' => $estado,
+                'min_tar' => $minTardanza,
+                'h_ext' => $horasExtras,
+                'obs' => $obsGuardar,
+                'uid' => $userId,
+                'id' => $registro['id']
+            ]);
+        }
+    }
 }

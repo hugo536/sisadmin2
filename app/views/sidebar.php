@@ -235,8 +235,8 @@
                     <a class="sb-link sb-sub<?= $activo('asistencia/importar') ?>" href="<?= e(route_url('asistencia/importar')) ?>">
                         <span class="sb-link-icon"><i class="bi bi-file-earmark-arrow-up"></i></span><span class="sb-link-text">Importar Biométrico</span>
                     </a>
-                    <a class="sb-link sb-sub<?= $activo('asistencia/dashboard') ?>" href="<?= e(route_url('asistencia/dashboard')) ?>">
-                        <span class="sb-link-icon"><i class="bi bi-bar-chart-line"></i></span><span class="sb-link-text">Dashboard RRHH</span>
+                    <a class="sb-link sb-sub<?= $activo('asistencia/gestion_asistencia') ?>" href="<?= e(route_url('asistencia/gestion_asistencia')) ?>">
+                        <span class="sb-link-icon"><i class="bi bi-calendar-week"></i></span><span class="sb-link-text">Gestión de Asistencia</span>
                     </a>
                     <a class="sb-link sb-sub<?= $activo('asistencia/incidencias') ?>" href="<?= e(route_url('asistencia/incidencias')) ?>">
                         <span class="sb-link-icon"><i class="bi bi-clipboard2-pulse"></i></span><span class="sb-link-text">Incidencias</span>

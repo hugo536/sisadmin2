@@ -49,7 +49,9 @@ $formatearFechaDMY = static function ($fecha): string {
      data-url-anular="<?= e(route_url('compras/anular')) ?>"
      data-url-recepcionar="<?= e(route_url('compras/recepcionar')) ?>"
      data-url-unidades-item="<?= e(route_url('compras')) ?>"
-     data-url-precio-sugerido="<?= e(route_url('compras')) ?>">
+     data-url-precio-sugerido="<?= e(route_url('compras')) ?>"
+     data-cuentas="<?php echo htmlspecialchars(json_encode($cuentas ?? []), ENT_QUOTES, 'UTF-8'); ?>"
+     data-metodos="<?php echo htmlspecialchars(json_encode($metodos ?? []), ENT_QUOTES, 'UTF-8'); ?>">
 
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
         <div>
@@ -86,23 +88,31 @@ $formatearFechaDMY = static function ($fecha): string {
                     </select>
                 </div>
                 
-                <div class="col-12 col-lg-5">
-                    <div class="input-group shadow-sm">
-                        <span class="input-group-text bg-light border-secondary-subtle text-muted fw-semibold" style="font-size: 0.85rem;">Desde</span>
-                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control shadow-none border-secondary-subtle text-secondary" value="<?= e((string) ($filtros['fecha_desde'] ?? date('Y-m-01'))) ?>">
-                        
-                        <span class="input-group-text bg-light border-secondary-subtle border-start-0 border-end-0 text-muted fw-semibold" style="font-size: 0.85rem;">Hasta</span>
-                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control shadow-none border-secondary-subtle text-secondary" value="<?= e((string) ($filtros['fecha_hasta'] ?? date('Y-m-t'))) ?>">
-                        
-                        <button type="button" id="btnFiltrarFechas" class="btn btn-secondary shadow-sm"><i class="bi bi-filter"></i></button>
-                    </div>
-                </div>
-                
                 <div class="col-12 col-lg-2">
                     <select name="orden_fecha" class="form-select bg-light border-secondary-subtle shadow-sm text-secondary" id="filtroOrdenFecha" title="Ordenar por fecha">
                         <option value="orden" <?= (($filtros['orden_fecha'] ?? 'orden') === 'orden') ? 'selected' : '' ?>>Orden: Pedido</option>
                         <option value="recepcion" <?= (($filtros['orden_fecha'] ?? '') === 'recepcion') ? 'selected' : '' ?>>Orden: Recepción</option>
                     </select>
+                </div>
+
+                <div class="col-12 col-lg-5">
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
+                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0" value="<?= e((string) ($filtros['fecha_desde'] ?? date('Y-m-01'))) ?>">
+                        
+                        <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
+                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0" value="<?= e((string) ($filtros['fecha_hasta'] ?? date('Y-m-t'))) ?>">
+                        
+                        <!-- Botón de Filtrar -->
+                        <button type="button" id="btnFiltrarFechas" class="btn btn-light border text-primary px-3 transition-hover" title="Aplicar filtros" style="z-index: 0;">
+                            <i class="bi bi-funnel-fill"></i>
+                        </button>
+                        
+                        <!-- Botón de Limpiar apuntando a la ruta de compras -->
+                        <a href="<?= e(route_url('compras')) ?>" class="btn btn-light border text-danger px-3 transition-hover d-flex align-items-center spa-link" title="Limpiar filtros" style="z-index: 0;">
+                            <i class="bi bi-eraser-fill"></i>
+                        </a>
+                    </div>
                 </div>
             </form>
         </div>
@@ -666,8 +676,3 @@ $formatearFechaDMY = static function ($fecha): string {
     </tr>
 </template>
 
-<script>
-    // Variables globales inyectadas para la lógica de Cobro/Pago Inmediato y filtrado (Opción B)
-    window.TESORERIA_CUENTAS = <?php echo json_encode($cuentas ?? []); ?>;
-    window.TESORERIA_METODOS = <?php echo json_encode($metodos ?? []); ?>;
-</script>

@@ -52,7 +52,7 @@ export function recargarPagina() {
     if (filtroFechaHasta && filtroFechaHasta.value) params.set('fecha_hasta', filtroFechaHasta.value); else params.delete('fecha_hasta');
 
     if (typeof window.navigateWithoutReload === 'function') {
-        window.navigateWithoutReload(nextUrl, false);
+        window.navigateWithoutReload(nextUrl, true);
         return;
     }
 

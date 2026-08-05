@@ -1142,4 +1142,85 @@ class ReporteTesoreriaModel extends Modelo
             'detallados' => $detallados
         ];
     }
+
+    // ==========================================
+    // REPORTE GLOBAL CXP (AGRUPADO Y DETALLADO)
+    // ==========================================
+    public function obtenerCarteraMacroCxP(array $f): array
+    {
+        $params = [
+            'fd' => $f['fecha_desde'],
+            'fh' => $f['fecha_hasta']
+        ];
+
+        $where = [
+            'c.deleted_at IS NULL',
+            'c.saldo > 0',
+            'DATE(COALESCE(co.fecha_emision, c.fecha_emision)) BETWEEN :fd AND :fh'
+        ];
+
+        // Filtro por Proveedor (búsqueda de texto)
+        if (!empty($f['proveedor'])) {
+            $where[] = 'COALESCE(NULLIF(TRIM(t.nombre_completo), ""), "") LIKE :proveedor';
+            $params['proveedor'] = '%' . (string) $f['proveedor'] . '%';
+        }
+
+        // Filtro por Estado de Factura
+        if (isset($f['estado_factura'])) {
+            if ($f['estado_factura'] === 'vencida') {
+                $where[] = 'c.fecha_vencimiento < CURDATE()';
+            } elseif ($f['estado_factura'] === 'corriente') {
+                $where[] = 'c.fecha_vencimiento >= CURDATE()';
+            }
+        }
+
+        $whereSql = implode(' AND ', $where);
+
+        // 1. Consulta AGRUPADA (Usada para los KPIs en tiempo real y la vista web)
+        $sqlAgrupados = "SELECT
+            t.id AS id_proveedor,
+            COALESCE(NULLIF(TRIM(t.nombre_completo), ''), CONCAT('Proveedor #', c.id_proveedor)) AS proveedor,
+            SUM(c.saldo) AS total_deuda,
+            SUM(CASE WHEN c.fecha_vencimiento >= CURDATE() THEN c.saldo ELSE 0 END) AS por_vencer,
+            SUM(CASE WHEN c.fecha_vencimiento < CURDATE() AND DATEDIFF(CURDATE(), c.fecha_vencimiento) BETWEEN 1 AND 30 THEN c.saldo ELSE 0 END) AS mora_30,
+            SUM(CASE WHEN c.fecha_vencimiento < CURDATE() AND DATEDIFF(CURDATE(), c.fecha_vencimiento) BETWEEN 31 AND 60 THEN c.saldo ELSE 0 END) AS mora_60,
+            SUM(CASE WHEN c.fecha_vencimiento < CURDATE() AND DATEDIFF(CURDATE(), c.fecha_vencimiento) > 60 THEN c.saldo ELSE 0 END) AS mora_mas_60
+        FROM tesoreria_cxp c
+        INNER JOIN terceros t ON t.id = c.id_proveedor
+        LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra AND co.deleted_at IS NULL
+        WHERE {$whereSql}
+        GROUP BY t.id, t.nombre_completo
+        ORDER BY total_deuda DESC";
+
+        $stmtAgrupados = $this->db()->prepare($sqlAgrupados);
+        $stmtAgrupados->execute($params);
+        $agrupados = $stmtAgrupados->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // 2. Consulta DETALLADA (Usada para exportar el CSV y Excel Nativos)
+        $sqlDetallados = "SELECT
+            COALESCE(NULLIF(TRIM(t.nombre_completo), ''), CONCAT('Proveedor #', c.id_proveedor)) AS proveedor,
+            COALESCE(NULLIF(TRIM(co.codigo), ''), NULLIF(TRIM(c.documento_referencia), ''), CONCAT('CXP-', c.id)) AS documento_referencia,
+            DATE(COALESCE(co.fecha_emision, c.fecha_emision)) AS fecha_emision,
+            c.fecha_vencimiento,
+            c.monto_total,
+            c.saldo,
+            CASE
+                WHEN c.fecha_vencimiento < CURDATE() THEN 'Vencida'
+                ELSE 'Corriente'
+            END AS estado
+        FROM tesoreria_cxp c
+        INNER JOIN terceros t ON t.id = c.id_proveedor
+        LEFT JOIN compras_ordenes co ON co.id = c.id_orden_compra AND co.deleted_at IS NULL
+        WHERE {$whereSql}
+        ORDER BY proveedor ASC, fecha_emision DESC";
+
+        $stmtDetallados = $this->db()->prepare($sqlDetallados);
+        $stmtDetallados->execute($params);
+        $detallados = $stmtDetallados->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        return [
+            'agrupados' => $agrupados,
+            'detallados' => $detallados
+        ];
+    }
 }

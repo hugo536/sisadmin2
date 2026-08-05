@@ -4,7 +4,7 @@
 
 import { getJson, obtenerFechaLocalISO, esperarTomSelect } from '../api.js';
 import { urls, postJsonConCarga, recargarPagina } from './config.js';
-import { DOM_PAGOS_COMPRAS, calcularTotalPagoInmediatoCompra, agregarFilaPagoInmediatoCompra, filtrarMetodosPorCuentaCompras } from './pagos.js';
+import { calcularTotalPagoInmediatoCompra, agregarFilaPagoInmediatoCompra, filtrarMetodosPorCuentaCompras } from './pagos.js';
 
 // --- ESTADO LOCAL ---
 let ordenEnEdicionId = 0;
@@ -12,41 +12,6 @@ let modalSoloLecturaActiva = false;
 let tomSelectProveedor = null;
 let tomSelectListo = false;
 const cacheUnidades = new Map();
-
-// --- REFERENCIAS DOM: ORDEN DE COMPRA ---
-const modalOrdenElement = document.getElementById('modalOrdenCompra');
-let modalOrden = null;
-if (modalOrdenElement && typeof bootstrap !== 'undefined') {
-    modalOrden = new bootstrap.Modal(modalOrdenElement, { focus: false });
-}
-
-modalOrdenElement?.addEventListener('hidden.bs.modal', () => {
-    const hayModalesAbiertos = document.querySelectorAll('.modal.show').length > 0;
-    if (!hayModalesAbiertos) {
-        document.body.classList.remove('modal-open');
-        document.body.style.removeProperty('padding-right');
-        document.body.style.removeProperty('overflow');
-        document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
-    }
-});
-
-const formOrden = document.getElementById('formOrdenCompra');
-const ordenId = document.getElementById('ordenId');
-const idProveedor = document.getElementById('idProveedor');
-const fechaEntrega = document.getElementById('fechaEntrega');
-const observaciones = document.getElementById('observaciones');
-const tipoImpuesto = document.getElementById('tipoImpuesto');
-const ordenMoneda = document.getElementById('ordenMoneda');
-
-const ordenSubtotal = document.getElementById('ordenSubtotal');
-const ordenIgv = document.getElementById('ordenIgv');
-const ordenTotal = document.getElementById('ordenTotal');
-const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
-const templateFila = document.getElementById('templateFilaDetalle');
-
-const btnGuardarOrden = document.getElementById('btnGuardarOrden');
-const tituloModalOrden = document.querySelector('#modalOrdenCompra .modal-title');
-const btnAgregarFila = document.getElementById('btnAgregarFila');
 
 // ==========================================
 // 1. UTILIDADES LOCALES Y TOMSELECT
@@ -76,6 +41,7 @@ function initSelectLocal(target, options = {}) {
 function setOrdenEnEdicion(id = 0) {
     const parsedId = Number(id || 0);
     ordenEnEdicionId = Number.isFinite(parsedId) ? parsedId : 0;
+    const ordenId = document.getElementById('ordenId');
     if (ordenId) ordenId.value = String(ordenEnEdicionId);
 }
 
@@ -100,7 +66,8 @@ async function obtenerUnidadesItem(idItem) {
 
 async function aplicarPrecioSugeridoProveedor(fila) {
     if (modalSoloLecturaActiva) return;
-    const idProv = Number(idProveedor.value || 0);
+    const idProveedor = document.getElementById('idProveedor');
+    const idProv = Number(idProveedor?.value || 0);
     const inputItem = fila.querySelector('.detalle-item');
     const inputUnidad = fila.querySelector('.detalle-unidad-compra');
     const inputCosto = fila.querySelector('.detalle-costo');
@@ -172,6 +139,7 @@ function filaToPayload(fila) {
 }
 
 function recalcularFila(fila) {
+    const ordenMoneda = document.getElementById('ordenMoneda');
     const { cantidad, costo_unitario } = filaToPayload(fila);
     const subtotal = cantidad * costo_unitario;
     const sim = ordenMoneda?.value === 'USD' ? '$' : 'S/';
@@ -180,12 +148,14 @@ function recalcularFila(fila) {
 }
 
 function recalcularTotalGeneral() {
+    const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
     let sumaLineas = 0;
     tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
         const item = filaToPayload(fila);
         sumaLineas += item.cantidad * item.costo_unitario;
     });
 
+    const tipoImpuesto = document.getElementById('tipoImpuesto');
     let subtotal = 0;
     let igv = 0;
     let total = 0;
@@ -204,30 +174,38 @@ function recalcularTotalGeneral() {
         igv = 0;
     }
 
+    const ordenMoneda = document.getElementById('ordenMoneda');
     const sim = ordenMoneda?.value === 'USD' ? '$' : 'S/';
+    
+    const ordenSubtotal = document.getElementById('ordenSubtotal');
+    const ordenIgv = document.getElementById('ordenIgv');
+    const ordenTotal = document.getElementById('ordenTotal');
     if (ordenSubtotal) ordenSubtotal.innerHTML = `<span class="simbolo-moneda">${sim}</span> ${subtotal.toFixed(2)}`;
     if (ordenIgv) ordenIgv.innerHTML = `<span class="simbolo-moneda">${sim}</span> ${igv.toFixed(2)}`;
     if (ordenTotal) ordenTotal.innerHTML = `<span class="simbolo-moneda">${sim}</span> ${total.toFixed(2)}`;
 
-    // Lógica del Switch de Cobro Inmediato
-    if (DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra) {
+    const switchCobroInmediatoCompra = document.getElementById('switchCobroInmediatoCompra');
+    if (switchCobroInmediatoCompra) {
         if (total <= 0) {
-            DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra.disabled = true;
-            if (DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra.checked) {
-                DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra.checked = false;
-                if (DOM_PAGOS_COMPRAS.seccionCobroInmediatoCompra) DOM_PAGOS_COMPRAS.seccionCobroInmediatoCompra.classList.add('d-none');
-                if (DOM_PAGOS_COMPRAS.contenedorMetodosPagoCompra) DOM_PAGOS_COMPRAS.contenedorMetodosPagoCompra.innerHTML = '';
+            switchCobroInmediatoCompra.disabled = true;
+            if (switchCobroInmediatoCompra.checked) {
+                switchCobroInmediatoCompra.checked = false;
+                const seccion = document.getElementById('seccionCobroInmediatoCompra');
+                const contenedor = document.getElementById('contenedorMetodosPagoCompra');
+                if (seccion) seccion.classList.add('d-none');
+                if (contenedor) contenedor.innerHTML = '';
                 calcularTotalPagoInmediatoCompra();
             }
         } else {
             if (!modalSoloLecturaActiva) {
-                DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra.disabled = false;
+                switchCobroInmediatoCompra.disabled = false;
             }
         }
     }
     
-    if (DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra && DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra.checked) {
-        const filasPago = DOM_PAGOS_COMPRAS.contenedorMetodosPagoCompra.querySelectorAll('.fila-pago-inmediato');
+    if (switchCobroInmediatoCompra && switchCobroInmediatoCompra.checked) {
+        const contenedor = document.getElementById('contenedorMetodosPagoCompra');
+        const filasPago = contenedor.querySelectorAll('.fila-pago-inmediato');
         if (filasPago.length === 1) { 
             const inputMonto = filasPago[0].querySelector('.input-monto-inmediato');
             inputMonto.value = total.toFixed(2);
@@ -303,7 +281,10 @@ async function actualizarUnidadPorItem(fila, itemGuardado = null) {
 }
 
 function agregarFila(item = null) {
-    if(!templateFila) return;
+    const templateFila = document.getElementById('templateFilaDetalle');
+    const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
+    if(!templateFila || !tbodyDetalle) return;
+
     const clone = templateFila.content.cloneNode(true);
     const fila = clone.querySelector('tr');
 
@@ -364,11 +345,8 @@ function agregarFila(item = null) {
         await actualizarUnidadPorItem(fila, null);
     };
 
-    if (tomSelectItem) {
-        tomSelectItem.on('change', onCambioItem);
-    } else {
-        inputItem.addEventListener('change', (e) => onCambioItem(e.target.value));
-    }
+    if (tomSelectItem) tomSelectItem.on('change', onCambioItem);
+    else inputItem.addEventListener('change', (e) => onCambioItem(e.target.value));
 
     btnQuitar?.addEventListener('click', () => {
         if (tomSelectItem) tomSelectItem.destroy();
@@ -419,6 +397,9 @@ function setModoSoloLectura(esSoloLectura = false, estado = 0) {
     const deshabilitar = Boolean(esSoloLectura);
     modalSoloLecturaActiva = deshabilitar;
 
+    const modalOrdenElement = document.getElementById('modalOrdenCompra');
+    const tituloModalOrden = document.querySelector('#modalOrdenCompra .modal-title');
+
     if (modalOrdenElement) modalOrdenElement.classList.toggle('modal-orden-solo-lectura', deshabilitar);
 
     if (tituloModalOrden) {
@@ -431,7 +412,14 @@ function setModoSoloLectura(esSoloLectura = false, estado = 0) {
         }
     }
 
-    [idProveedor, fechaEntrega, observaciones, ordenMoneda].forEach((el) => {
+    const arrInputs = [
+        document.getElementById('idProveedor'),
+        document.getElementById('fechaEntrega'),
+        document.getElementById('observaciones'),
+        document.getElementById('ordenMoneda')
+    ];
+
+    arrInputs.forEach((el) => {
         if (!el) return;
         el.disabled = deshabilitar;
         if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.readOnly = deshabilitar;
@@ -447,7 +435,7 @@ function setModoSoloLectura(esSoloLectura = false, estado = 0) {
         }
     }
 
-    tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
+    document.querySelector('#tablaDetalleCompra tbody')?.querySelectorAll('tr').forEach((fila) => {
         fila.querySelectorAll('input, select, button').forEach((control) => {
             if (control.classList.contains('btn-quitar-fila')) {
                 control.style.display = deshabilitar ? 'none' : '';
@@ -461,47 +449,67 @@ function setModoSoloLectura(esSoloLectura = false, estado = 0) {
         sincronizarBloqueoFilaDetalle(fila);
     });
 
+    const btnAgregarFila = document.getElementById('btnAgregarFila');
     if (btnAgregarFila) {
         btnAgregarFila.style.display = deshabilitar ? 'none' : 'inline-block';
         btnAgregarFila.disabled = deshabilitar;
     }
 
-    if (DOM_PAGOS_COMPRAS.switchCobroContainerCompra) {
-        DOM_PAGOS_COMPRAS.switchCobroContainerCompra.style.display = deshabilitar ? 'none' : 'block';
+    const switchCobroContainerCompra = document.getElementById('switchCobroContainerCompra');
+    const switchCobroInmediatoCompra = document.getElementById('switchCobroInmediatoCompra');
+
+    if (switchCobroContainerCompra) {
+        switchCobroContainerCompra.style.display = deshabilitar ? 'none' : 'block';
     }
-    if (DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra) {
-        DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra.disabled = deshabilitar;
-        if (deshabilitar) DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra.checked = false;
+    if (switchCobroInmediatoCompra) {
+        switchCobroInmediatoCompra.disabled = deshabilitar;
+        if (deshabilitar) switchCobroInmediatoCompra.checked = false;
     }
 
+    const btnGuardarOrden = document.getElementById('btnGuardarOrden');
     if (btnGuardarOrden) btnGuardarOrden.style.display = deshabilitar ? 'none' : 'block';
 }
 
 function limpiarModalOrden() {
+    const formOrden = document.getElementById('formOrdenCompra');
     formOrden?.reset();
     setOrdenEnEdicion(0);
+    
+    const idProveedor = document.getElementById('idProveedor');
     if (tomSelectProveedor) tomSelectProveedor.clear();
     else if(idProveedor) idProveedor.value = '';
 
-    tbodyDetalle.querySelectorAll('.detalle-item').forEach((select) => {
-        if (select.tomselect) select.tomselect.destroy();
-    });
-    tbodyDetalle.innerHTML = '';
+    const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
+    if(tbodyDetalle) {
+        tbodyDetalle.querySelectorAll('.detalle-item').forEach((select) => {
+            if (select.tomselect) select.tomselect.destroy();
+        });
+        tbodyDetalle.innerHTML = '';
+    }
     
+    const ordenMoneda = document.getElementById('ordenMoneda');
     if (ordenMoneda) ordenMoneda.value = 'PEN';
-    if(ordenTotal) ordenTotal.innerHTML = `<span class="simbolo-moneda">S/</span> 0.00`;
-    if (ordenSubtotal) ordenSubtotal.innerHTML = `<span class="simbolo-moneda">S/</span> 0.00`;
-    if (ordenIgv) ordenIgv.innerHTML = `<span class="simbolo-moneda">S/</span> 0.00`;
+
+    ['ordenTotal', 'ordenSubtotal', 'ordenIgv'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.innerHTML = `<span class="simbolo-moneda">S/</span> 0.00`;
+    });
     
+    const fechaEntrega = document.getElementById('fechaEntrega');
     if(fechaEntrega) fechaEntrega.value = obtenerFechaLocalISO();
     
-    if (DOM_PAGOS_COMPRAS.switchCobroContainerCompra) DOM_PAGOS_COMPRAS.switchCobroContainerCompra.style.display = 'block';
-    if (DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra) {
-        DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra.checked = false;
-        DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra.disabled = true;
+    const switchCont = document.getElementById('switchCobroContainerCompra');
+    const switchCobro = document.getElementById('switchCobroInmediatoCompra');
+    const seccionCobro = document.getElementById('seccionCobroInmediatoCompra');
+    const contMetodos = document.getElementById('contenedorMetodosPagoCompra');
+
+    if (switchCont) switchCont.style.display = 'block';
+    if (switchCobro) {
+        switchCobro.checked = false;
+        switchCobro.disabled = true;
     }
-    if (DOM_PAGOS_COMPRAS.seccionCobroInmediatoCompra) DOM_PAGOS_COMPRAS.seccionCobroInmediatoCompra.classList.add('d-none');
-    if (DOM_PAGOS_COMPRAS.contenedorMetodosPagoCompra) DOM_PAGOS_COMPRAS.contenedorMetodosPagoCompra.innerHTML = '';
+    if (seccionCobro) seccionCobro.classList.add('d-none');
+    if (contMetodos) contMetodos.innerHTML = '';
     
     calcularTotalPagoInmediatoCompra();
     setModoSoloLectura(false, 0);
@@ -519,7 +527,6 @@ export async function abrirModalCompra(id, target) {
             const d = json.data;
             const estadoDoc = Number(d.estado || 0);
 
-            // Vista de Resumen (No editable)
             if (estadoDoc >= 3) {
                 const modalResumenEl = document.getElementById('modalResumenCompra');
                 if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
@@ -539,56 +546,64 @@ export async function abrirModalCompra(id, target) {
                 document.getElementById('resumenCompraTotalFinal').textContent = `${sim} ${Number(d.total || 0).toFixed(2)}`;
 
                 const tbodyResumen = document.querySelector('#tablaResumenProductosCompra tbody');
-                tbodyResumen.innerHTML = '';
+                if (tbodyResumen) {
+                    tbodyResumen.innerHTML = '';
 
-                if (d.detalle && d.detalle.length > 0) {
-                    d.detalle.forEach(item => {
-                        const factor = Number(item.factor_conversion_aplicado || 1);
-                        const cantPedidaCompra = Number(item.cantidad || 0); 
-                        const cantPedidaBase = cantPedidaCompra * factor;    
-                        const cantRecibidaBase = Number(item.cantidad_recibida || 0); 
-                        const cantRecibidaCompra = factor > 0 ? (cantRecibidaBase / factor) : cantRecibidaBase; 
+                    if (d.detalle && d.detalle.length > 0) {
+                        d.detalle.forEach(item => {
+                            const factor = Number(item.factor_conversion_aplicado || 1);
+                            const cantPedidaCompra = Number(item.cantidad || 0); 
+                            const cantPedidaBase = cantPedidaCompra * factor;    
+                            const cantRecibidaBase = Number(item.cantidad_recibida || 0); 
+                            const cantRecibidaCompra = factor > 0 ? (cantRecibidaBase / factor) : cantRecibidaBase; 
 
-                        const unidadCompra = item.unidad_nombre || 'UND';
-                        const unidadBase = item.unidad_base || 'UND';
-                        const requiereSubtitulo = factor > 1; 
+                            const unidadCompra = item.unidad_nombre || 'UND';
+                            const unidadBase = item.unidad_base || 'UND';
+                            const requiereSubtitulo = factor > 1; 
 
-                        const precio = Number(item.costo_unitario || 0);
-                        const subtotal = cantRecibidaCompra * precio; 
+                            const precio = Number(item.costo_unitario || 0);
+                            const subtotal = cantRecibidaCompra * precio; 
 
-                        let htmlPedida = `<span class="d-block fw-bold text-dark">${cantPedidaCompra.toFixed(2)} ${unidadCompra}</span>`;
-                        if (requiereSubtitulo) {
-                            htmlPedida += `<small class="text-muted">(${cantPedidaBase.toFixed(2)} ${unidadBase})</small>`;
-                        }
+                            let htmlPedida = `<span class="d-block fw-bold text-dark">${cantPedidaCompra.toFixed(2)} ${unidadCompra}</span>`;
+                            if (requiereSubtitulo) {
+                                htmlPedida += `<small class="text-muted">(${cantPedidaBase.toFixed(2)} ${unidadBase})</small>`;
+                            }
 
-                        let htmlRecibida = `<span class="d-block fw-bold text-success">${cantRecibidaCompra.toFixed(2)} ${unidadCompra}</span>`;
-                        if (requiereSubtitulo) {
-                            htmlRecibida += `<small class="text-muted">(${cantRecibidaBase.toFixed(2)} ${unidadBase})</small>`;
-                        }
+                            let htmlRecibida = `<span class="d-block fw-bold text-success">${cantRecibidaCompra.toFixed(2)} ${unidadCompra}</span>`;
+                            if (requiereSubtitulo) {
+                                htmlRecibida += `<small class="text-muted">(${cantRecibidaBase.toFixed(2)} ${unidadBase})</small>`;
+                            }
 
-                        const trItem = document.createElement('tr');
-                        trItem.innerHTML = `
-                            <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
-                            <td class="text-center py-2 align-middle">${htmlPedida}</td>
-                            <td class="text-center py-2 align-middle">${htmlRecibida}</td>
-                            <td class="text-end py-2 text-muted align-middle">${sim} ${precio.toFixed(2)}</td>
-                            <td class="text-end pe-3 py-2 fw-bold text-dark align-middle">${sim} ${subtotal.toFixed(2)}</td>
-                        `;
-                        tbodyResumen.appendChild(trItem);
-                    });
-                } else {
-                    tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
+                            const trItem = document.createElement('tr');
+                            trItem.innerHTML = `
+                                <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
+                                <td class="text-center py-2 align-middle">${htmlPedida}</td>
+                                <td class="text-center py-2 align-middle">${htmlRecibida}</td>
+                                <td class="text-end py-2 text-muted align-middle">${sim} ${precio.toFixed(2)}</td>
+                                <td class="text-end pe-3 py-2 fw-bold text-dark align-middle">${sim} ${subtotal.toFixed(2)}</td>
+                            `;
+                            tbodyResumen.appendChild(trItem);
+                        });
+                    } else {
+                        tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
+                    }
                 }
 
                 bootstrap.Modal.getOrCreateInstance(modalResumenEl).show();
                 return; 
             }
             
-            // Vista de Edición (Borrador o Pendiente)
             limpiarModalOrden();
             setOrdenEnEdicion(d.id);
+            
+            const idProveedor = document.getElementById('idProveedor');
             if (tomSelectProveedor) tomSelectProveedor.setValue(d.id_proveedor);
             else if(idProveedor) idProveedor.value = d.id_proveedor;
+
+            const fechaEntrega = document.getElementById('fechaEntrega');
+            const observaciones = document.getElementById('observaciones');
+            const tipoImpuesto = document.getElementById('tipoImpuesto');
+            const ordenMoneda = document.getElementById('ordenMoneda');
 
             if(fechaEntrega) fechaEntrega.value = d.fecha_orden || d.fecha_entrega || '';
             if(observaciones) observaciones.value = d.observaciones || '';
@@ -603,9 +618,11 @@ export async function abrirModalCompra(id, target) {
             else agregarFila();
 
             if (d.cobro_inmediato == 1 || d.cobro_inmediato === true) {
-                if (DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra) {
-                    DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra.checked = true;
-                    if (DOM_PAGOS_COMPRAS.seccionCobroInmediatoCompra) DOM_PAGOS_COMPRAS.seccionCobroInmediatoCompra.classList.remove('d-none');
+                const switchCobroInmediatoCompra = document.getElementById('switchCobroInmediatoCompra');
+                if (switchCobroInmediatoCompra) {
+                    switchCobroInmediatoCompra.checked = true;
+                    const seccionCobroInmediatoCompra = document.getElementById('seccionCobroInmediatoCompra');
+                    if (seccionCobroInmediatoCompra) seccionCobroInmediatoCompra.classList.remove('d-none');
                     
                     if (d.metodos_pago && Array.isArray(d.metodos_pago)) {
                         d.metodos_pago.forEach(pago => {
@@ -626,7 +643,9 @@ export async function abrirModalCompra(id, target) {
                 }
             }
             setModoSoloLectura(estadoDoc !== 0, estadoDoc);
-            modalOrden.show();
+            
+            const modalOrdenElement = document.getElementById('modalOrdenCompra');
+            bootstrap.Modal.getOrCreateInstance(modalOrdenElement).show();
         }
     } catch (error) {
         console.error(error);
@@ -649,23 +668,30 @@ export async function initCompras() {
         setOrdenEnEdicion(0);
         agregarFila();
         setModoSoloLectura(false, 0);
-        modalOrden.show();
+        const modalOrdenElement = document.getElementById('modalOrdenCompra');
+        bootstrap.Modal.getOrCreateInstance(modalOrdenElement).show();
     });
 
+    const btnAgregarFila = document.getElementById('btnAgregarFila');
     if (btnAgregarFila) btnAgregarFila.addEventListener('click', () => agregarFila());
 
     const refrescarPreciosSugeridos = async () => {
+        const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
+        if(!tbodyDetalle) return;
         const filas = [...tbodyDetalle.querySelectorAll('tr')];
         for (const fila of filas) {
             await aplicarPrecioSugeridoProveedor(fila);
         }
     };
 
+    const idProveedor = document.getElementById('idProveedor');
     if (tomSelectProveedor) tomSelectProveedor.on('change', refrescarPreciosSugeridos);
     else if (idProveedor) idProveedor.addEventListener('change', refrescarPreciosSugeridos);
 
+    const tipoImpuesto = document.getElementById('tipoImpuesto');
     if (tipoImpuesto) tipoImpuesto.addEventListener('change', recalcularTotalGeneral);
     
+    const ordenMoneda = document.getElementById('ordenMoneda');
     if (ordenMoneda) {
         ordenMoneda.addEventListener('change', () => {
             recalcularTotalGeneral();
@@ -674,16 +700,23 @@ export async function initCompras() {
         });
     }
 
+    const fechaEntrega = document.getElementById('fechaEntrega');
     if (fechaEntrega && !fechaEntrega.value) fechaEntrega.value = obtenerFechaLocalISO();
 
-    // Guardar Orden
+    const btnGuardarOrden = document.getElementById('btnGuardarOrden');
     btnGuardarOrden?.addEventListener('click', async () => {
-        if (!idProveedor.value) return Swal.fire('Falta Proveedor', 'Debe seleccionar un proveedor.', 'warning');
-        if (!fechaEntrega.value) return Swal.fire('Falta Fecha', 'La fecha de emisión es obligatoria.', 'warning');
+        const idProv = document.getElementById('idProveedor');
+        if (!idProv || !idProv.value) return Swal.fire('Falta Proveedor', 'Debe seleccionar un proveedor.', 'warning');
+        
+        const fEntrega = document.getElementById('fechaEntrega');
+        if (!fEntrega || !fEntrega.value) return Swal.fire('Falta Fecha', 'La fecha de emisión es obligatoria.', 'warning');
 
         const detalle = [];
         let errorDetalle = false;
         let errorCentroCosto = false;
+
+        const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
+        if(!tbodyDetalle) return;
 
         tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
             const datos = filaToPayload(fila);
@@ -705,16 +738,18 @@ export async function initCompras() {
             }
         });
 
-        if (detalle.length === 0) return Swal.fire({ icon: 'error', title: 'Orden vacía', text: 'Debe agregar al menos un producto a la orden de compra.' });
-        if (errorCentroCosto) return Swal.fire('Falta Centro de Costo', 'Debe seleccionar un Centro de Costo para todos los ítems de la orden.', 'warning');
+        if (detalle.length === 0) return Swal.fire({ icon: 'error', title: 'Orden vacía', text: 'Debe agregar al menos un producto.' });
+        if (errorCentroCosto) return Swal.fire('Falta Centro de Costo', 'Debe seleccionar un Centro de Costo.', 'warning');
         if (errorDetalle) return Swal.fire('Verifique cantidades', 'Hay líneas con conversión o cantidad inválida.', 'warning');
 
         let esCobroInmediato = false;
         let metodosPagoFinales = [];
 
-        if (DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra && DOM_PAGOS_COMPRAS.switchCobroInmediatoCompra.checked && !modalSoloLecturaActiva) {
+        const switchCobro = document.getElementById('switchCobroInmediatoCompra');
+        if (switchCobro && switchCobro.checked && !modalSoloLecturaActiva) {
             esCobroInmediato = true;
-            const filasPago = DOM_PAGOS_COMPRAS.contenedorMetodosPagoCompra.querySelectorAll('.fila-pago-inmediato');
+            const contenedorMetodos = document.getElementById('contenedorMetodosPagoCompra');
+            const filasPago = contenedorMetodos.querySelectorAll('.fila-pago-inmediato');
             let montosPorCuenta = {};
             let saldosPorCuenta = {};
             let nombresCuentas = {};
@@ -737,7 +772,7 @@ export async function initCompras() {
                 const optCuenta = selCuenta.options[selCuenta.selectedIndex];
                 const saldoDisp = parseFloat(optCuenta.getAttribute('data-saldo')) || 0;
                 const monedaCuenta = String(optCuenta.getAttribute('data-moneda') || 'PEN').toUpperCase();
-                const monedaOrdenSel = String(ordenMoneda?.value || 'PEN').toUpperCase();
+                const monedaOrdenSel = String(document.getElementById('ordenMoneda')?.value || 'PEN').toUpperCase();
                 const nombreCuenta = optCuenta.text.split('(')[0].trim();
 
                 if (monto <= 0) errorPagos = true;
@@ -772,9 +807,7 @@ export async function initCompras() {
                 });
             });
 
-            if (errorPagos) {
-                return Swal.fire('Error en Pagos', 'Complete la cuenta, el método y un monto mayor a cero en el pago rápido.', 'warning');
-            }
+            if (errorPagos) return Swal.fire('Error en Pagos', 'Complete la cuenta, el método y un monto mayor a cero.', 'warning');
 
             let erroresSaldo = [];
             for (const idC in montosPorCuenta) {
@@ -783,25 +816,22 @@ export async function initCompras() {
                 }
             }
 
-            if (erroresSaldo.length > 0) {
-                return Swal.fire({ icon: 'error', title: 'Fondos insuficientes', html: erroresSaldo.join('<br><br>') });
-            }
+            if (erroresSaldo.length > 0) return Swal.fire({ icon: 'error', title: 'Fondos insuficientes', html: erroresSaldo.join('<br><br>') });
 
+            const ordenTotal = document.getElementById('ordenTotal');
             const totalTexto = ordenTotal ? ordenTotal.textContent.replace(/[^\d.-]/g, '') : '0';
             const totalPedido = parseFloat(totalTexto) || 0;
-            if (sumaTotalPagos > totalPedido) {
-                return Swal.fire('Aviso', 'El total pagado no puede superar el total de la orden de compra.', 'warning');
-            }
+            if (sumaTotalPagos > totalPedido) return Swal.fire('Aviso', 'El total pagado no puede superar el total de la orden.', 'warning');
         }
 
         try {
             const payload = {
                 id: Number(ordenEnEdicionId || 0),
-                id_proveedor: Number(idProveedor.value),
-                fecha_emision: fechaEntrega.value,
-                observaciones: observaciones.value,
-                tipo_impuesto: tipoImpuesto ? tipoImpuesto.value : 'incluido',
-                moneda: ordenMoneda?.value || 'PEN', 
+                id_proveedor: Number(idProv.value),
+                fecha_emision: fEntrega.value,
+                observaciones: document.getElementById('observaciones')?.value || '',
+                tipo_impuesto: document.getElementById('tipoImpuesto') ? document.getElementById('tipoImpuesto').value : 'incluido',
+                moneda: document.getElementById('ordenMoneda')?.value || 'PEN', 
                 detalle,
                 cobro_inmediato: esCobroInmediato,
                 metodos_pago: metodosPagoFinales 
@@ -809,7 +839,8 @@ export async function initCompras() {
 
             const res = await postJsonConCarga(urls.guardar, payload, btnGuardarOrden);
             await Swal.fire('Guardado', res.mensaje, 'success');
-            modalOrden.hide();
+            const modalOrdenElement = document.getElementById('modalOrdenCompra');
+            bootstrap.Modal.getOrCreateInstance(modalOrdenElement).hide();
             recargarPagina();
         } catch (e) {
             Swal.fire('Error', e.message, 'error');
