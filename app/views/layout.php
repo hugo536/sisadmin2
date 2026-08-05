@@ -29,11 +29,13 @@
     <link rel="stylesheet" href="<?php echo e(asset_url('css/modales.css')); ?>?v=<?php echo $getAssetVersion('css/modales.css'); ?>">
 
     <?php if (str_starts_with($currentRoute, 'ventas')): ?>
-        <link rel="stylesheet" href="<?php echo e(asset_url('css/ventas.css')); ?>?v=<?php echo $getAssetVersion('css/ventas.css'); ?>"> 
+        <!-- Módulo principal de Ventas -->
+        <script type="module" src="<?php echo e(asset_url('js/ventas/app.js')); ?>?v=<?php echo $getAssetVersion('js/ventas/app.js'); ?>"></script>
     <?php endif; ?>
 
     <?php if (str_starts_with($currentRoute, 'compras')): ?>
-        <link rel="stylesheet" href="<?php echo e(asset_url('css/compras.css')); ?>?v=<?php echo $getAssetVersion('css/compras.css'); ?>"> 
+        <!-- Módulo principal de Compras -->
+        <script type="module" src="<?php echo e(asset_url('js/compras/app.js')); ?>?v=<?php echo $getAssetVersion('js/compras/app.js'); ?>"></script>
     <?php endif; ?>
 
     <?php if (str_starts_with($currentRoute, 'inventario')): ?>
@@ -192,14 +194,6 @@ if (!str_starts_with($temaElegido, 'theme-')) {
 
 <?php if ($currentRoute === 'terceros/perfil'): ?>
     <script src="<?php echo e(asset_url('js/terceros/terceros_perfil.js')); ?>?v=<?php echo $getAssetVersion('js/terceros/terceros_perfil.js'); ?>"></script>
-<?php endif; ?>
-
-<?php if (str_starts_with($currentRoute, 'compras')): ?>
-    <script src="<?php echo e(asset_url('js/compras.js')); ?>?v=<?php echo $getAssetVersion('js/compras.js'); ?>"></script>
-<?php endif; ?>
-
-<?php if (str_starts_with($currentRoute, 'ventas')): ?>
-    <script src="<?php echo e(asset_url('js/ventas.js')); ?>?v=<?php echo $getAssetVersion('js/ventas.js'); ?>"></script>
 <?php endif; ?>
 
 <?php if (str_starts_with($currentRoute, 'produccion')): ?>
