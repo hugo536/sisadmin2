@@ -2,14 +2,11 @@
 // MÓDULO LOGÍSTICA: logistica.js (Despachos y Devoluciones)
 // ==============================================================
 
-import { urls, recargarTabla } from './config.js';
+import { urls, recargarTabla, cuentasDisponibles, metodosDisponibles } from './config.js';
 import { renderAlertaSaldoFavor, filtrarMetodosPorCuentaVentas } from './pagos.js';
 // Importamos las herramientas globales desde la raíz
 import { getJson, postJson, obtenerFechaLocalISO } from '../api.js';
 
-// --- VARIABLES GLOBALES INYECTADAS ---
-const cuentasDisponibles = window.TESORERIA_CUENTAS || [];
-const metodosDisponibles = window.TESORERIA_METODOS || [];
 
 // --- VARIABLES DE ESTADO LOGÍSTICA ---
 let envasesRequeridosActuales = []; 

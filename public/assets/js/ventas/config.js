@@ -13,6 +13,21 @@ export const urls = app ? {
     despachar: app.dataset.urlDespachar,
 } : {};
 
+
+function parseDatasetJson(value, fallback = []) {
+    if (!value) return fallback;
+    try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : Object.values(parsed || {});
+    } catch (error) {
+        console.warn('No se pudo leer datos de tesorería para ventas:', error);
+        return fallback;
+    }
+}
+
+export const cuentasDisponibles = parseDatasetJson(app?.dataset.cuentas, []);
+export const metodosDisponibles = parseDatasetJson(app?.dataset.metodos, []);
+
 // Extraemos la lógica de recarga para que pueda ser llamada desde cualquier módulo
 export function recargarTabla() {
     const nextUrl = new URL(window.location.href);

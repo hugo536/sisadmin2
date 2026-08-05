@@ -2,9 +2,9 @@
 // MÓDULO PAGOS: pagos.js (Tesorería, Cobros Inmediatos y Saldos)
 // ==============================================================
 
-// --- VARIABLES GLOBALES INYECTADAS DESDE PHP ---
-export const cuentasDisponibles = window.TESORERIA_CUENTAS || [];
-export const metodosDisponibles = window.TESORERIA_METODOS || [];
+// --- DATOS DE TESORERÍA INYECTADOS EN EL CONTENEDOR DE LA VISTA ---
+import { cuentasDisponibles, metodosDisponibles } from './config.js';
+export { cuentasDisponibles, metodosDisponibles };
 
 // --- REFERENCIAS DOM: COBRO INMEDIATO (VENTAS) ---
 // Las exportamos para que venta.js pueda bloquear/desbloquear controles según el total o tipo de operación
