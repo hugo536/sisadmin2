@@ -568,9 +568,10 @@ export async function abrirModalResumenCompra(id, target = null) {
 
                 const precio = Number(item.costo_unitario || 0);
                 
-                // Calcular subtotal solo de lo que realmente te quedas (Recibido - Devuelto)
-                const cantidadNetaCompra = cantRecibidaCompra - cantDevueltaCompra;
-                const subtotal = cantidadNetaCompra * precio; 
+                // La cantidad_recibida de la orden ya queda descontada cuando se registra una devolución.
+                // Por eso el subtotal del resumen debe usar la cantidad recibida actual, sin restar
+                // nuevamente la cantidad devuelta (evita mostrar S/ 0.00 cuando quedó saldo recibido).
+                const subtotal = Math.max(cantRecibidaCompra, 0) * precio;
                 
                 totalNetoOrden += subtotal; // Sumamos al Total Final
 
