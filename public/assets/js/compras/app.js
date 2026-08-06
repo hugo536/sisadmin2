@@ -7,6 +7,9 @@ import { postJson } from '../api.js';
 import { initCompras, abrirModalCompra } from './compra.js';
 import { initPagosCompras } from './pagos.js';
 import { abrirModalRecepcion, abrirModalDevolucion, initLogistica } from './logistica.js';
+// Importamos la función del resumen que creamos hace un momento (asuminedo que la pusiste en logistica.js o compra.js, 
+// o puedes ajustarla según el archivo donde la hayas guardado)
+import { abrirModalResumenCompra } from './logistica.js'; 
 
 // Envolvemos todo en una función de "Arranque"
 function arrancarModuloCompras() {
@@ -77,12 +80,19 @@ function arrancarModuloCompras() {
 
             const fila = target.closest('tr');
             const id = Number(target.dataset.id || fila?.dataset?.id || 0);
+            // Obtenemos el estado actual de la fila desde el atributo data-estado que pusimos en la vista
+            const estadoFila = Number(fila?.dataset?.estado || 0);
             
             if (!id) return Swal.fire('Error', 'Identificador no encontrado.', 'error');
 
-            // A. Módulo Compra
+            // A. Módulo Compra / Resumen
             if (target.classList.contains('btn-editar')) {
-                abrirModalCompra(id, target);
+                // Si la orden ya está recepcionada (3) o anulada (9), abrimos el Resumen en lugar de la edición
+                if (estadoFila === 3 || estadoFila === 9) {
+                    abrirModalResumenCompra(id);
+                } else {
+                    abrirModalCompra(id, target);
+                }
                 return;
             }
 

@@ -18,7 +18,6 @@ $cuentas = $cuentas ?? [];
 $metodos = $metodos ?? []; 
 
 // Configuración de Estados (Estilo Subtle)
-// Configuración de Estados (Estilo Subtle)
 $estadoLabels = [
     0 => ['texto' => 'Borrador', 'clase' => 'bg-secondary-subtle text-secondary border border-secondary-subtle'],
     1 => ['texto' => 'Pendiente', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'],
@@ -143,6 +142,12 @@ $formatearFechaDMY = static function ($fecha): string {
                             <?php foreach ($ordenes as $orden): ?>
                                 <?php 
                                     $estado = (int) ($orden['estado'] ?? 0); 
+                                    
+                                    // Parche de migración: Si viene un 4 antiguo de la BD, lo transformamos en 3 ("Recepcionada")
+                                    if ($estado === 4) {
+                                        $estado = 3;
+                                    }
+
                                     if ($estado === 9 && (!isset($filtros['estado']) || $filtros['estado'] !== '9')) {
                                         continue; 
                                     }
@@ -467,6 +472,11 @@ $formatearFechaDMY = static function ($fecha): string {
             </div>
             <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 <input type="hidden" id="devolucionOrdenId" value="0">
+
+                <!-- Alerta de devoluciones pasadas agregada aquí -->
+                <div id="alertaDevolucionesPrevias" class="alert alert-info border-info-subtle d-none shadow-sm mb-4">
+                    <i class="bi bi-info-circle-fill me-2"></i><strong>Atención:</strong> Esta orden ya tiene devoluciones pasadas. La columna "Cant. Recibida" te muestra el <strong>stock neto actual</strong> que aún tienes disponible para devolver.
+                </div>
                 
                 <div class="row mb-4 g-3">
                     <div class="col-md-6">
@@ -550,34 +560,43 @@ $formatearFechaDMY = static function ($fecha): string {
                 <h5 class="modal-title fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Resumen de Compra Recepcionada</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+            <div class="modal-body bg-light p-3 p-md-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 
                 <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-body">
+                    <div class="card-body p-3 p-md-4">
                         <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                             <h6 class="fw-bold text-dark mb-0">Información de la Orden</h6>
-                            <span class="badge bg-success-subtle text-success fs-6 px-3" id="resumenCompraCodigo">OC-0000</span>
+                            <span class="badge bg-success-subtle text-success fs-6 px-3 py-2 rounded-pill" id="resumenCompraCodigo">OC-0000</span>
                         </div>
                         
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <small class="text-muted fw-bold d-block mb-1">Proveedor</small>
-                                <div class="fw-semibold text-dark" id="resumenCompraProveedor">-</div>
+                                <div class="fw-semibold text-dark text-break" id="resumenCompraProveedor">-</div>
                             </div>
                             <div class="col-md-6">
                                 <small class="text-muted fw-bold d-block mb-1">Estado</small>
                                 <div class="fw-semibold text-success" id="resumenCompraEstado">Recepcionada</div>
                             </div>
+                            <div class="col-12"><hr class="text-muted opacity-25 my-1"></div>
                             <div class="col-md-6">
                                 <small class="text-muted fw-bold d-block mb-1">Fechas</small>
-                                <div><i class="bi bi-calendar3 text-muted me-1"></i> Orden: <span class="fw-semibold" id="resumenCompraFechaOrden">-</span></div>
-                                <div class="mt-1"><i class="bi bi-box-arrow-in-down text-info me-1"></i> Recepción: <span class="fw-semibold text-info" id="resumenCompraFechaRecepcion">-</span></div>
+                                <div class="small mb-1"><i class="bi bi-calendar3 text-muted me-1"></i> Orden: <span class="fw-semibold text-dark" id="resumenCompraFechaOrden">-</span></div>
+                                <div class="small"><i class="bi bi-box-arrow-in-down text-info me-1"></i> Recepción: <span class="fw-semibold text-info" id="resumenCompraFechaRecepcion">-</span></div>
                             </div>
                             <div class="col-md-6">
                                 <small class="text-muted fw-bold d-block mb-1">Observaciones</small>
-                                <div class="text-secondary" id="resumenCompraObservaciones">Sin observaciones.</div>
+                                <div class="text-secondary small text-break" id="resumenCompraObservaciones">Sin observaciones.</div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Historial de devoluciones agregado aquí -->
+                <div id="contenedorHistorialDevoluciones" class="d-none mb-4">
+                    <div class="alert alert-warning border-warning-subtle shadow-sm mb-0 p-3">
+                        <h6 class="fw-bold text-warning-emphasis mb-2"><i class="bi bi-clock-history me-2"></i>Historial de Devoluciones Realizadas</h6>
+                        <ul class="mb-0 small text-dark" id="listaHistorialDevoluciones" style="padding-left: 1.2rem;"></ul>
                     </div>
                 </div>
 
@@ -588,22 +607,26 @@ $formatearFechaDMY = static function ($fecha): string {
                             <h6 class="mb-0 fw-bold text-dark">Productos Recepcionados</h6>
                         </div>
                         <div class="table-responsive">
-                            <table class="table align-middle mb-0 table-hover" id="tablaResumenProductosCompra">
+                            <table class="table table-sm align-middle mb-0 table-hover" id="tablaResumenProductosCompra">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="ps-3 text-secondary small fw-bold">Producto</th>
-                                        <th class="text-center text-secondary small fw-bold">Cant. Pedida</th>
-                                        <th class="text-center text-secondary small fw-bold">Cant. Recibida</th>
-                                        <th class="text-end text-secondary small fw-bold">Costo Unit.</th>
-                                        <th class="text-end pe-3 text-secondary small fw-bold">Subtotal</th>
+                                        <th class="ps-3 text-secondary small fw-bold" style="min-width: 180px;">Producto</th>
+                                        <th class="text-center text-secondary small fw-bold text-nowrap" style="min-width: 130px;">Cant. Pedida</th>
+                                        <th class="text-center text-secondary small fw-bold text-nowrap" style="min-width: 130px;">Cant. Recibida</th>
+                                        <!-- Nueva columna de Devuelto agregada aquí -->
+                                        <th class="text-center text-danger small fw-bold text-nowrap" style="width: 100px;">Devuelto</th>
+                                        <th class="text-end text-secondary small fw-bold text-nowrap" style="width: 100px;">Costo Unit.</th>
+                                        <th class="text-end pe-3 text-secondary small fw-bold text-nowrap" style="width: 110px;">Subtotal</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white">
-                                    </tbody>
+                                    <!-- Contenido inyectado por JS -->
+                                </tbody>
                                 <tfoot class="bg-light border-top">
                                     <tr>
-                                        <td colspan="4" class="text-end fw-bold py-3 text-secondary">TOTAL FINAL:</td>
-                                        <td class="text-end fw-bold py-3 fs-5 text-primary pe-3" id="resumenCompraTotalFinal">S/ 0.00</td>
+                                        <!-- colspan="5" para alinear con la nueva columna -->
+                                        <td colspan="5" class="text-end fw-bold py-3 text-secondary align-middle">TOTAL FINAL:</td>
+                                        <td class="text-end fw-bold py-3 fs-5 text-primary pe-3 text-nowrap align-middle" id="resumenCompraTotalFinal">S/ 0.00</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -612,7 +635,7 @@ $formatearFechaDMY = static function ($fecha): string {
                 </div>
 
             </div>
-            <div class="modal-footer bg-white border-top-0">
+            <div class="modal-footer bg-white border-top-0 rounded-bottom">
                 <button type="button" class="btn btn-secondary fw-semibold px-4" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -712,4 +735,3 @@ $formatearFechaDMY = static function ($fecha): string {
         </button>
     </div>
 </template>
-

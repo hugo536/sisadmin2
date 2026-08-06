@@ -96,6 +96,12 @@ async function agregarFilaDevolucion(linea, cantRecibidaBase) {
     tr.dataset.costoBase = costoBaseReal; 
     tr.dataset.maxBase = cantRecibidaBase; 
 
+    // Aquí inyectamos el historial de devoluciones en la celda
+    const devueltoPrevio = parseFloat(linea.cantidad_devuelta || 0);
+    const htmlDevolucionPrevia = devueltoPrevio > 0 
+        ? `<div class="text-danger small mt-2 fw-bold"><i class="bi bi-arrow-return-left"></i> Ya devolviste: ${devueltoPrevio.toFixed(2)} ${linea.unidad_base}</div>` 
+        : '';
+
     tr.innerHTML = `
         <td class="align-middle py-3 ps-3">
             <div class="fw-bold text-dark" style="font-size: 0.95rem;">${linea.item_nombre || ''}</div>
@@ -104,6 +110,7 @@ async function agregarFilaDevolucion(linea, cantRecibidaBase) {
         <td class="text-center align-middle">
             ${mostrarResumenUnidadCompra ? `<div class="fw-semibold text-dark">${cantidadRecibidaEnUnidadCompra.toFixed(2)} ${unidadCompraLabel}</div>` : ''}
             <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 fw-bold mt-1">${cantRecibidaBase.toFixed(2)} ${linea.unidad_base}</span>
+            ${htmlDevolucionPrevia}
         </td>
         <td class="text-center align-middle">
             <div class="fw-semibold text-secondary">S/ ${costoCompraDisplay.toFixed(2)}</div>
@@ -192,6 +199,16 @@ export async function abrirModalDevolucion(idOrden) {
         const separador = urls.index.includes('?') ? '&' : '?';
         const res = await getJson(`${urls.index}${separador}accion=ver&id=${idOrden}`);
         const orden = res.data;
+
+        // Mostrar alerta de devoluciones previas si existe el historial
+        const alertaPrevias = document.getElementById('alertaDevolucionesPrevias');
+        if (alertaPrevias) {
+            if (orden.devoluciones_historial && orden.devoluciones_historial.length > 0) {
+                alertaPrevias.classList.remove('d-none');
+            } else {
+                alertaPrevias.classList.add('d-none');
+            }
+        }
 
         document.getElementById('devolucionOrdenId').value = orden.id;
         document.getElementById('devolucionMotivo').value = '';

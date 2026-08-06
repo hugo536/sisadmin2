@@ -84,7 +84,7 @@ class ComprasOrdenModel extends Modelo
                        t.nombre_completo AS proveedor,
                        o.fecha_emision AS fecha_orden, 
                        o.fecha_entrega_estimada AS fecha_entrega, 
-                       o.moneda, /* <--- CAMBIO BIMONETARIO */
+                       o.moneda, 
                        o.observaciones, o.subtotal, o.total, o.estado,
                        o.cobro_inmediato, o.metodos_pago 
                 FROM compras_ordenes o
@@ -102,10 +102,9 @@ class ComprasOrdenModel extends Modelo
         
         $orden['metodos_pago'] = !empty($orden['metodos_pago']) ? json_decode($orden['metodos_pago'], true) : [];
         $orden['fecha_recepcion_sugerida'] = date('Y-m-d');
-        // Aseguramos un fallback en caso de registros antiguos que no tengan moneda
         $orden['moneda'] = !empty($orden['moneda']) ? $orden['moneda'] : 'PEN';
 
-        // El detalle se mantiene igual
+        // Detalle mejorado: Calculamos dinámicamente la cantidad devuelta por ítem
         $detalleSql = 'SELECT d.id,
                               d.id_item,
                               i.sku,
@@ -121,7 +120,14 @@ class ComprasOrdenModel extends Modelo
                               (COALESCE(d.cantidad_base_solicitada, d.cantidad_solicitada) - COALESCE(d.cantidad_recibida, 0)) AS cantidad_pendiente,
                               d.id_centro_costo,
                               d.costo_unitario_pactado AS costo_unitario,
-                              (COALESCE(d.cantidad_conversion, d.cantidad_solicitada) * d.costo_unitario_pactado) AS subtotal
+                              (COALESCE(d.cantidad_conversion, d.cantidad_solicitada) * d.costo_unitario_pactado) AS subtotal,
+                              -- Subconsulta para saber cuánto se devolvió de esta línea
+                              COALESCE((
+                                  SELECT SUM(cdd.cantidad)
+                                  FROM compras_devoluciones_detalle cdd
+                                  INNER JOIN compras_devoluciones cd ON cd.id = cdd.id_devolucion
+                                  WHERE cd.id_orden = d.id_orden AND cdd.id_item = d.id_item
+                              ), 0) AS cantidad_devuelta
                        FROM compras_ordenes_detalle d
                        INNER JOIN items i ON i.id = d.id_item AND i.deleted_at IS NULL
                        WHERE d.id_orden = :id_orden
@@ -131,6 +137,15 @@ class ComprasOrdenModel extends Modelo
         $stmtDetalle = $this->db()->prepare($detalleSql);
         $stmtDetalle->execute(['id_orden' => $id]);
         $orden['detalle'] = $stmtDetalle->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // NUEVO: Traemos el historial de devoluciones para mostrarlo en el resumen
+        $sqlDev = 'SELECT id, motivo, tipo_resolucion, total_devuelto, created_at 
+                   FROM compras_devoluciones 
+                   WHERE id_orden = :id_orden 
+                   ORDER BY created_at ASC';
+        $stmtDev = $this->db()->prepare($sqlDev);
+        $stmtDev->execute(['id_orden' => $id]);
+        $orden['devoluciones_historial'] = $stmtDev->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         return $orden;
     }
