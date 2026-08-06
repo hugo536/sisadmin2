@@ -518,6 +518,77 @@ function limpiarModalOrden() {
 // ==========================================
 // 4. EXPORTACIONES Y EVENTOS PRINCIPALES
 // ==========================================
+export async function abrirModalResumenCompra(id, target = null) {
+    const separador = urls.index.includes('?') ? '&' : '?';
+    const json = await getJson(`${urls.index}${separador}accion=ver&id=${id}`);
+
+    if (!json.ok || !json.data) return;
+
+    const d = json.data;
+    const modalResumenEl = document.getElementById('modalResumenCompra');
+    if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
+
+    document.getElementById('resumenCompraCodigo').textContent = d.codigo || '-';
+    
+    const filaTabla = target?.closest('tr');
+    const nombreProveedor = filaTabla?.querySelector('td:nth-child(2)')?.textContent?.trim() || d.proveedor || 'Proveedor';
+    const fechaRecepcionTabla = filaTabla?.querySelector('.bi-box-arrow-in-down')?.parentElement?.textContent?.trim() || formatearFechaDMY(d.fecha_recepcion || d.fecha_entrega || d.fecha_orden) || '-';
+    
+    document.getElementById('resumenCompraProveedor').textContent = nombreProveedor;
+    document.getElementById('resumenCompraFechaOrden').textContent = formatearFechaDMY(d.fecha_orden);
+    document.getElementById('resumenCompraFechaRecepcion').textContent = fechaRecepcionTabla;
+    document.getElementById('resumenCompraObservaciones').textContent = d.observaciones || 'Sin observaciones.';
+    
+    const sim = d.moneda === 'USD' ? '$' : 'S/';
+    document.getElementById('resumenCompraTotalFinal').textContent = `${sim} ${Number(d.total || 0).toFixed(2)}`;
+
+    const tbodyResumen = document.querySelector('#tablaResumenProductosCompra tbody');
+    if (tbodyResumen) {
+        tbodyResumen.innerHTML = '';
+
+        if (d.detalle && d.detalle.length > 0) {
+            d.detalle.forEach(item => {
+                const factor = Number(item.factor_conversion_aplicado || 1);
+                const cantPedidaCompra = Number(item.cantidad || 0); 
+                const cantPedidaBase = cantPedidaCompra * factor;    
+                const cantRecibidaBase = Number(item.cantidad_recibida || 0); 
+                const cantRecibidaCompra = factor > 0 ? (cantRecibidaBase / factor) : cantRecibidaBase; 
+
+                const unidadCompra = item.unidad_nombre || 'UND';
+                const unidadBase = item.unidad_base || 'UND';
+                const requiereSubtitulo = factor > 1; 
+
+                const precio = Number(item.costo_unitario || 0);
+                const subtotal = cantRecibidaCompra * precio; 
+
+                let htmlPedida = `<span class="d-block fw-bold text-dark">${cantPedidaCompra.toFixed(2)} ${unidadCompra}</span>`;
+                if (requiereSubtitulo) {
+                    htmlPedida += `<small class="text-muted">(${cantPedidaBase.toFixed(2)} ${unidadBase})</small>`;
+                }
+
+                let htmlRecibida = `<span class="d-block fw-bold text-success">${cantRecibidaCompra.toFixed(2)} ${unidadCompra}</span>`;
+                if (requiereSubtitulo) {
+                    htmlRecibida += `<small class="text-muted">(${cantRecibidaBase.toFixed(2)} ${unidadBase})</small>`;
+                }
+
+                const trItem = document.createElement('tr');
+                trItem.innerHTML = `
+                    <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
+                    <td class="text-center py-2 align-middle">${htmlPedida}</td>
+                    <td class="text-center py-2 align-middle">${htmlRecibida}</td>
+                    <td class="text-end py-2 text-muted align-middle">${sim} ${precio.toFixed(2)}</td>
+                    <td class="text-end pe-3 py-2 fw-bold text-dark align-middle">${sim} ${subtotal.toFixed(2)}</td>
+                `;
+                tbodyResumen.appendChild(trItem);
+            });
+        } else {
+            tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
+        }
+    }
+
+    bootstrap.Modal.getOrCreateInstance(modalResumenEl).show();
+}
+
 export async function abrirModalCompra(id, target) {
     try {
         const separador = urls.index.includes('?') ? '&' : '?';
@@ -528,69 +599,8 @@ export async function abrirModalCompra(id, target) {
             const estadoDoc = Number(d.estado || 0);
 
             if (estadoDoc >= 3) {
-                const modalResumenEl = document.getElementById('modalResumenCompra');
-                if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
-
-                document.getElementById('resumenCompraCodigo').textContent = d.codigo || '-';
-                
-                const filaTabla = target?.closest('tr');
-                const nombreProveedor = filaTabla?.querySelector('td:nth-child(2)')?.textContent?.trim() || 'Proveedor';
-                const fechaRecepcionTabla = filaTabla?.querySelector('.bi-box-arrow-in-down')?.parentElement?.textContent?.trim() || '-';
-                
-                document.getElementById('resumenCompraProveedor').textContent = nombreProveedor;
-                document.getElementById('resumenCompraFechaOrden').textContent = formatearFechaDMY(d.fecha_orden);
-                document.getElementById('resumenCompraFechaRecepcion').textContent = fechaRecepcionTabla;
-                document.getElementById('resumenCompraObservaciones').textContent = d.observaciones || 'Sin observaciones.';
-                
-                const sim = d.moneda === 'USD' ? '$' : 'S/';
-                document.getElementById('resumenCompraTotalFinal').textContent = `${sim} ${Number(d.total || 0).toFixed(2)}`;
-
-                const tbodyResumen = document.querySelector('#tablaResumenProductosCompra tbody');
-                if (tbodyResumen) {
-                    tbodyResumen.innerHTML = '';
-
-                    if (d.detalle && d.detalle.length > 0) {
-                        d.detalle.forEach(item => {
-                            const factor = Number(item.factor_conversion_aplicado || 1);
-                            const cantPedidaCompra = Number(item.cantidad || 0); 
-                            const cantPedidaBase = cantPedidaCompra * factor;    
-                            const cantRecibidaBase = Number(item.cantidad_recibida || 0); 
-                            const cantRecibidaCompra = factor > 0 ? (cantRecibidaBase / factor) : cantRecibidaBase; 
-
-                            const unidadCompra = item.unidad_nombre || 'UND';
-                            const unidadBase = item.unidad_base || 'UND';
-                            const requiereSubtitulo = factor > 1; 
-
-                            const precio = Number(item.costo_unitario || 0);
-                            const subtotal = cantRecibidaCompra * precio; 
-
-                            let htmlPedida = `<span class="d-block fw-bold text-dark">${cantPedidaCompra.toFixed(2)} ${unidadCompra}</span>`;
-                            if (requiereSubtitulo) {
-                                htmlPedida += `<small class="text-muted">(${cantPedidaBase.toFixed(2)} ${unidadBase})</small>`;
-                            }
-
-                            let htmlRecibida = `<span class="d-block fw-bold text-success">${cantRecibidaCompra.toFixed(2)} ${unidadCompra}</span>`;
-                            if (requiereSubtitulo) {
-                                htmlRecibida += `<small class="text-muted">(${cantRecibidaBase.toFixed(2)} ${unidadBase})</small>`;
-                            }
-
-                            const trItem = document.createElement('tr');
-                            trItem.innerHTML = `
-                                <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
-                                <td class="text-center py-2 align-middle">${htmlPedida}</td>
-                                <td class="text-center py-2 align-middle">${htmlRecibida}</td>
-                                <td class="text-end py-2 text-muted align-middle">${sim} ${precio.toFixed(2)}</td>
-                                <td class="text-end pe-3 py-2 fw-bold text-dark align-middle">${sim} ${subtotal.toFixed(2)}</td>
-                            `;
-                            tbodyResumen.appendChild(trItem);
-                        });
-                    } else {
-                        tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
-                    }
-                }
-
-                bootstrap.Modal.getOrCreateInstance(modalResumenEl).show();
-                return; 
+                await abrirModalResumenCompra(id, target);
+                return;
             }
             
             limpiarModalOrden();
