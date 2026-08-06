@@ -79,6 +79,17 @@
   const MAIN_CONTENT_SELECTOR = '.main-content > .p-3.p-lg-4';
   const ROUTE_SCRIPT_MARKER = 'data-route-script';
   const DYNAMIC_CSS_MARKER = 'data-route-css';
+  const PERSISTENT_STYLESHEETS = [
+    'bootstrap.min.css',
+    'bootstrap-icons',
+    'font-awesome',
+    'tom-select.bootstrap5.min.css',
+    'fonts.googleapis.com',
+    '/assets/css/app.css',
+    '/assets/css/tablas-custom.css',
+    '/assets/css/sidebar.css',
+    '/assets/css/modales.css'
+  ];
   const PERSISTENT_SCRIPTS = [
     '/assets/js/main.js',
     '/assets/js/tablas/renderizadores.js',
@@ -138,14 +149,23 @@
     document.querySelectorAll(`link[${DYNAMIC_CSS_MARKER}="1"]`).forEach((node) => node.remove());
   };
 
+  const isPersistentStylesheet = function (linkEl) {
+    if (!linkEl) return true;
+    const href = linkEl.getAttribute('href') || '';
+    return PERSISTENT_STYLESHEETS.some((needle) => href.includes(needle));
+  };
+
   const syncDynamicCss = function (nextDoc) {
-    const routeCss = Array.from(nextDoc.querySelectorAll('head link[rel="stylesheet"][href]'))
-      .filter((link) => (link.getAttribute('href') || '').includes('/assets/css/terceros_perfil.css'));
+    const routeCss = Array.from(nextDoc.querySelectorAll('link[rel="stylesheet"][href]'))
+      .filter((link) => !isPersistentStylesheet(link));
 
     routeCss.forEach((link) => {
+      const href = link.href;
+      if (document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) return;
+
       const css = document.createElement('link');
       css.rel = 'stylesheet';
-      css.href = link.href;
+      css.href = href;
       css.setAttribute(DYNAMIC_CSS_MARKER, '1');
       document.head.appendChild(css);
     });
@@ -166,7 +186,7 @@
   };
 
   const runRouteScripts = async function (nextDoc) {
-    const scriptNodes = Array.from(nextDoc.querySelectorAll('body script'));
+    const scriptNodes = Array.from(nextDoc.querySelectorAll('head script, body script'));
     const routeScripts = scriptNodes.filter((scriptEl) => !isPersistentScript(scriptEl));
 
     for (const scriptEl of routeScripts) {
