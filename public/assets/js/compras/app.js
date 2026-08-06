@@ -4,12 +4,9 @@
 
 import { recargarPagina, postJsonConCarga } from './config.js';
 import { postJson } from '../api.js';
-import { initCompras, abrirModalCompra } from './compra.js';
+import { initCompras, abrirModalCompra, abrirModalResumenCompra } from './compra.js';
 import { initPagosCompras } from './pagos.js';
 import { abrirModalRecepcion, abrirModalDevolucion, initLogistica } from './logistica.js';
-// Importamos la función del resumen que creamos hace un momento (asuminedo que la pusiste en logistica.js o compra.js, 
-// o puedes ajustarla según el archivo donde la hayas guardado)
-import { abrirModalResumenCompra } from './logistica.js'; 
 
 // Envolvemos todo en una función de "Arranque"
 function arrancarModuloCompras() {
