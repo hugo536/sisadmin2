@@ -2,13 +2,11 @@
 // MÓDULO COMPRAS: pagos.js (Tesorería, Pagos Inmediatos y T.C.)
 // ==============================================================
 
-export const cuentasDisponibles = Array.isArray(window.TESORERIA_CUENTAS) 
-    ? window.TESORERIA_CUENTAS 
-    : Object.values(window.TESORERIA_CUENTAS || {});
+// IMPORTAMOS LOS DATOS SEGUROS DESDE CONFIG.JS EN LUGAR DE WINDOW
+import { cuentasDisponibles, metodosDisponibles } from './config.js';
 
-export const metodosDisponibles = Array.isArray(window.TESORERIA_METODOS) 
-    ? window.TESORERIA_METODOS 
-    : Object.values(window.TESORERIA_METODOS || {});
+// Las re-exportamos por si algún otro archivo (como compra.js) las necesita
+export { cuentasDisponibles, metodosDisponibles };
 
 // ==========================================
 // 1. FILTRADO DINÁMICO DE MÉTODOS DE PAGO

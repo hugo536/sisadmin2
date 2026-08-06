@@ -676,3 +676,39 @@ $formatearFechaDMY = static function ($fecha): string {
     </tr>
 </template>
 
+<!-- TEMPLATE PARA FILAS DE PAGO RÁPIDO (COMPRAS) -->
+<template id="templateFilaPagoCompra">
+    <div class="d-flex align-items-center gap-2 mb-2 fila-pago fade-in">
+        <!-- Select de Cuentas (El JS lo llenará usando cuentasDisponibles) -->
+        <select class="form-select form-select-sm shadow-none pago-cuenta border-success-subtle" required>
+            <option value="">Cuenta Origen...</option>
+            <?php foreach ($cuentas as $cuenta): ?>
+                <option value="<?= (int) ($cuenta['id'] ?? 0) ?>">
+                    <?= e($cuenta['nombre'] ?? '') ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        
+        <!-- Select de Métodos (El JS lo llenará usando metodosDisponibles) -->
+        <select class="form-select form-select-sm shadow-none pago-metodo border-success-subtle" required>
+            <option value="">Método...</option>
+            <?php foreach ($metodos as $metodo): ?>
+                <option value="<?= (int) ($metodo['id'] ?? 0) ?>">
+                    <?= e($metodo['nombre'] ?? '') ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        
+        <!-- Monto -->
+        <div class="input-group input-group-sm" style="width: 150px;">
+            <span class="input-group-text bg-success-subtle text-success border-success-subtle fw-bold">S/</span>
+            <input type="number" class="form-control text-end shadow-none pago-monto border-success-subtle fw-bold text-dark" min="0.01" step="0.01" placeholder="0.00" required>
+        </div>
+        
+        <!-- Botón Eliminar Fila -->
+        <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-pago p-1" data-bs-toggle="tooltip" title="Quitar método" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+            <i class="bi bi-trash-fill"></i>
+        </button>
+    </div>
+</template>
+

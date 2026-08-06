@@ -17,6 +17,22 @@ export const urls = app ? {
     precioSugerido: app.dataset.urlPrecioSugerido,
 } : {};
 
+// Auxiliar para parsear de forma segura el JSON enviado en data-attributes
+function parseDatasetJson(value, fallback = []) {
+    if (!value) return fallback;
+    try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : Object.values(parsed || {});
+    } catch (error) {
+        console.warn('No se pudo leer datos de tesorería para compras:', error);
+        return fallback;
+    }
+}
+
+// Exportamos las cuentas y métodos parseados desde el HTML de compras
+export const cuentasDisponibles = parseDatasetJson(app?.dataset.cuentas, []);
+export const metodosDisponibles = parseDatasetJson(app?.dataset.metodos, []);
+
 export async function postJsonConCarga(url, data, btnElement = null) {
     let originalText = '';
     if (btnElement) {
