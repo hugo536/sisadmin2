@@ -554,7 +554,8 @@ $formatearFechaDMY = static function ($fecha): string {
 </div>
 
 <div class="modal fade" id="modalResumenCompra" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <!-- CAMBIO 1: Cambiamos modal-lg por modal-xl para darle más anchura a las 6 columnas -->
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-success text-white border-bottom-0 pb-4">
                 <h5 class="modal-title fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Resumen de Compra Recepcionada</h5>
@@ -592,7 +593,6 @@ $formatearFechaDMY = static function ($fecha): string {
                     </div>
                 </div>
 
-                <!-- Historial de devoluciones agregado aquí -->
                 <div id="contenedorHistorialDevoluciones" class="d-none mb-4">
                     <div class="alert alert-warning border-warning-subtle shadow-sm mb-0 p-3">
                         <h6 class="fw-bold text-warning-emphasis mb-2"><i class="bi bi-clock-history me-2"></i>Historial de Devoluciones Realizadas</h6>
@@ -610,13 +610,13 @@ $formatearFechaDMY = static function ($fecha): string {
                             <table class="table table-sm align-middle mb-0 table-hover" id="tablaResumenProductosCompra">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="ps-3 text-secondary small fw-bold" style="min-width: 180px;">Producto</th>
-                                        <th class="text-center text-secondary small fw-bold text-nowrap" style="min-width: 130px;">Cant. Pedida</th>
-                                        <th class="text-center text-secondary small fw-bold text-nowrap" style="min-width: 130px;">Cant. Recibida</th>
-                                        <!-- Nueva columna de Devuelto agregada aquí -->
-                                        <th class="text-center text-danger small fw-bold text-nowrap" style="width: 100px;">Devuelto</th>
-                                        <th class="text-end text-secondary small fw-bold text-nowrap" style="width: 100px;">Costo Unit.</th>
-                                        <th class="text-end pe-3 text-secondary small fw-bold text-nowrap" style="width: 110px;">Subtotal</th>
+                                        <!-- CAMBIO 2: Relajamos los min-width excesivos y dejamos que flex/Bootstrap manejen el espacio -->
+                                        <th class="ps-3 text-secondary small fw-bold" style="min-width: 250px;">Producto</th>
+                                        <th class="text-center text-secondary small fw-bold text-nowrap">Cant. Pedida</th>
+                                        <th class="text-center text-secondary small fw-bold text-nowrap">Cant. Recibida</th>
+                                        <th class="text-center text-danger small fw-bold text-nowrap">Devuelto</th>
+                                        <th class="text-end text-secondary small fw-bold text-nowrap">Costo Unit.</th>
+                                        <th class="text-end pe-3 text-secondary small fw-bold text-nowrap">Subtotal</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white">
@@ -624,7 +624,6 @@ $formatearFechaDMY = static function ($fecha): string {
                                 </tbody>
                                 <tfoot class="bg-light border-top">
                                     <tr>
-                                        <!-- colspan="5" para alinear con la nueva columna -->
                                         <td colspan="5" class="text-end fw-bold py-3 text-secondary align-middle">TOTAL FINAL:</td>
                                         <td class="text-end fw-bold py-3 fs-5 text-primary pe-3 text-nowrap align-middle" id="resumenCompraTotalFinal">S/ 0.00</td>
                                     </tr>
