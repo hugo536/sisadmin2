@@ -93,6 +93,17 @@ class Router
             }
         }
 
+        // Rutas de TESORERÍA
+        if ($modulo === 'tesoreria') {
+            if ($accion === 'ingresos') {
+                $controlador_clase = 'TesoreriaIngresosController';
+                $accion = $partes[2] ?? 'index';
+                if ($accion === '') {
+                    $accion = 'index';
+                }
+            }
+        }
+
         // Rutas RRHH
         if ($modulo === 'rrhh') {
             if ($accion === 'config_rrhh') {

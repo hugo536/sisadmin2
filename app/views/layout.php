@@ -332,6 +332,10 @@ Swal.fire({
     <?php if (str_starts_with($currentRoute, 'tesoreria/saldos_iniciales')): ?>
         <script src="<?php echo e(asset_url('js/tesoreria/saldos_iniciales.js')); ?>?v=<?php echo $getAssetVersion('js/tesoreria/saldos_iniciales.js'); ?>"></script>
     <?php endif; ?>
+
+    <?php if (str_starts_with($currentRoute, 'tesoreria/ingresos')): ?>
+        <script src="<?php echo e(asset_url('js/tesoreria/ingresos.js')); ?>?v=<?php echo $getAssetVersion('js/tesoreria/ingresos.js'); ?>"></script>
+    <?php endif; ?>
 <?php endif; ?>
 
 <script src="<?php echo e(asset_url('js/inactividad.js')); ?>?v=<?php echo $getAssetVersion('js/inactividad.js'); ?>"></script>
