@@ -693,9 +693,9 @@ class ComprasOrdenModel extends Modelo
             $devolucionTotalCompletada = $lineasConRecepcionPendiente === 0;
 
             if ($esperarReemplazo) {
-                $nuevoEstado = 2; 
+                $nuevoEstado = 2;
             } else {
-                $nuevoEstado = $devolucionTotalCompletada ? 9 : 4; 
+                $nuevoEstado = $devolucionTotalCompletada ? 9 : 3; 
             }
 
             $db->prepare("UPDATE compras_ordenes SET estado = ?, updated_at = NOW() WHERE id = ?")->execute([$nuevoEstado, $idOrden]);

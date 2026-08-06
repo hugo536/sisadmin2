@@ -51,7 +51,8 @@ class ComprasController extends Controlador
         if ($filtros['fecha_desde'] === '' && $filtros['fecha_hasta'] === '') {
             $hoy = new DateTimeImmutable('today');
             $filtros['fecha_hasta'] = $hoy->format('Y-m-d');
-            $filtros['fecha_desde'] = $hoy->sub(new DateInterval('P6D'))->format('Y-m-d');
+            // Cambiamos P6D por P30D para que retroceda 30 días por defecto
+            $filtros['fecha_desde'] = $hoy->sub(new DateInterval('P30D'))->format('Y-m-d');
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'guardar_devolucion') {

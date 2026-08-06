@@ -18,12 +18,12 @@ $cuentas = $cuentas ?? [];
 $metodos = $metodos ?? []; 
 
 // Configuración de Estados (Estilo Subtle)
+// Configuración de Estados (Estilo Subtle)
 $estadoLabels = [
     0 => ['texto' => 'Borrador', 'clase' => 'bg-secondary-subtle text-secondary border border-secondary-subtle'],
     1 => ['texto' => 'Pendiente', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'],
     2 => ['texto' => 'Aprobada', 'clase' => 'bg-primary-subtle text-primary border border-primary-subtle'],
     3 => ['texto' => 'Recepcionada', 'clase' => 'bg-success-subtle text-success border border-success-subtle'],
-    4 => ['texto' => 'Cerrada', 'clase' => 'bg-dark-subtle text-dark border border-dark-subtle'],
     9 => ['texto' => 'Anulada', 'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
 ];
 
@@ -98,10 +98,11 @@ $formatearFechaDMY = static function ($fecha): string {
                 <div class="col-12 col-lg-5">
                     <div class="input-group shadow-sm">
                         <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
-                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0" value="<?= e((string) ($filtros['fecha_desde'] ?? date('Y-m-01'))) ?>">
+                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0" value="<?= e((string) ($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-30 days')))) ?>">
                         
                         <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
-                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0" value="<?= e((string) ($filtros['fecha_hasta'] ?? date('Y-m-t'))) ?>">
+                        
+                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0" value="<?= e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d'))) ?>">
                         
                         <!-- Botón de Filtrar -->
                         <button type="button" id="btnFiltrarFechas" class="btn btn-light border text-primary px-3 transition-hover" title="Aplicar filtros" style="z-index: 0;">

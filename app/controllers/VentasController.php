@@ -31,7 +31,7 @@ class VentasController extends Controlador
         require_permiso('ventas.ver');
 
         $fechaHastaDef = date('Y-m-d');
-        $fechaDesdeDef = date('Y-m-d', strtotime('-7 days'));
+        $fechaDesdeDef = date('Y-m-d', strtotime('-30 days'));
 
         $esVistaInicial = empty($_GET['q']) && !isset($_GET['estado']) && empty($_GET['fecha_desde']) && empty($_GET['fecha_hasta']);
 

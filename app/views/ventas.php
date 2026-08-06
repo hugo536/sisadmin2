@@ -86,11 +86,10 @@ $formatearFechaDMY = static function ($fecha): string {
                     <div class="input-group shadow-sm">
                         <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
                         <!-- JS intercepta este ID: filtroFechaDesde -->
-                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0" value="<?php echo e($filtros['fecha_desde'] ?? date('Y-m-01')); ?>">
-                        
+                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0" value="<?php echo e($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-30 days'))); ?>">
                         <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
                         <!-- JS intercepta este ID: filtroFechaHasta -->
-                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0" value="<?php echo e($filtros['fecha_hasta'] ?? date('Y-m-t')); ?>">
+                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0" value="<?php echo e($filtros['fecha_hasta'] ?? date('Y-m-d')); ?>">
                         
                         <!-- Botón cambiado a type="button" con id="btnFiltrarFechas" -->
                         <button type="button" id="btnFiltrarFechas" class="btn btn-light border text-primary px-3 transition-hover" title="Aplicar filtros" style="z-index: 0;">

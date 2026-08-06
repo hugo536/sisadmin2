@@ -74,7 +74,6 @@ export function filtrarMetodosPorCuentaVentas(selectCuenta, selectMetodo) {
     }
 
     const permitidosNormalizados = metodosPermitidos.map(m => String(m).trim().toLowerCase());
-    let primerValido = null;
     let encontroPrevio = false;
 
     arrayMetodos.forEach(m => {
@@ -87,16 +86,25 @@ export function filtrarMetodosPorCuentaVentas(selectCuenta, selectMetodo) {
             opt.textContent = m.nombre;
             selectMetodo.appendChild(opt);
 
-            if (!primerValido) primerValido = m.id;
             if (String(m.id) === String(valorPrevio)) encontroPrevio = true;
         }
     });
 
+    // ========================================================
+    // LÓGICA DE SELECCIÓN AUTOMÁTICA
+    // ========================================================
     if (selectMetodo.options.length <= 1) {
+        // No hay métodos válidos
         selectMetodo.innerHTML = '<option value="" selected disabled>Sin métodos configurados</option>';
+    } else if (selectMetodo.options.length === 2) {
+        // Solo hay 1 método válido (Opción 0 es "Método...", Opción 1 es el método real como "Efectivo")
+        selectMetodo.selectedIndex = 1;
+        // IMPORTANTE: Disparamos el evento 'change' para que se desbloquee el input del monto
+        selectMetodo.dispatchEvent(new Event('change'));
     } else {
+        // Hay 2 o más métodos válidos. Mantenemos el previo o forzamos al usuario a elegir.
         if (encontroPrevio) selectMetodo.value = valorPrevio;
-        else if (primerValido) selectMetodo.value = primerValido;
+        else selectMetodo.value = ""; 
     }
 }
 
