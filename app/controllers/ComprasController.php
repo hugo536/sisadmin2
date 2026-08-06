@@ -64,12 +64,13 @@ class ComprasController extends Controlador
                     throw new RuntimeException('Faltan datos obligatorios para la devolución.');
                 }
 
-                $esperarReemplazo = isset($payload['esperar_reemplazo']) ? (bool) $payload['esperar_reemplazo'] : true;
+                // El frontend ahora manda esperar_reemplazo en false por defecto
+                $esperarReemplazo = isset($payload['esperar_reemplazo']) ? (bool) $payload['esperar_reemplazo'] : false;
 
                 $this->ordenModel->registrarDevolucion(
                     (int) $payload['id_orden'], 
                     $payload['motivo'], 
-                    $payload['resolucion'], 
+                    'descuento_cxp', // <-- HARDCODEADO: Siempre aplica nota de crédito (descuento a CxP)
                     $payload['detalle'], 
                     $userId,
                     $esperarReemplazo

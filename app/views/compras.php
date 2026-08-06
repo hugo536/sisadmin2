@@ -173,8 +173,12 @@ $formatearFechaDMY = static function ($fecha): string {
                                     </td>
 
                                     <td class="text-end fw-bold text-dark fs-6">
-                                        <?= strtoupper($orden['moneda'] ?? 'PEN') === 'USD' ? '$' : 'S/' ?> 
-                                        <?= number_format((float) ($orden['total'] ?? 0), 2) ?>
+                                        <?php 
+                                            $simbolo = strtoupper($orden['moneda'] ?? 'PEN') === 'USD' ? '$' : 'S/';
+                                            // Busca si el backend envió el total neto. Si no, usa el total original.
+                                            $montoMostrar = $orden['total_neto'] ?? $orden['total_recepcionado'] ?? $orden['total'] ?? 0;
+                                        ?>
+                                        <?= $simbolo ?> <?= number_format((float) $montoMostrar, 2) ?>
                                     </td>
 
                                     <td class="text-center">
@@ -479,41 +483,16 @@ $formatearFechaDMY = static function ($fecha): string {
                 </div>
                 
                 <div class="row mb-4 g-3">
-                    <div class="col-md-6">
+                    <div class="col-md-12">
                         <label class="form-label fw-bold small text-muted">Motivo de Devolución <span class="text-danger">*</span></label>
                         <select id="devolucionMotivo" class="form-select border-warning-subtle" required>
                             <option value="">Seleccione un motivo...</option>
-                            <option value="Error de conteo / Auditoría">Error de conteo al recibir (Auditoría)</option>
-                            <option value="Producto defectuoso / Garantía">Producto defectuoso o dañado (Garantía)</option>
-                            <option value="Vencimiento corto">Fecha de vencimiento muy corta</option>
+                            <option value="Producto defectuoso o dañado">Producto defectuoso o dañado</option>
                             <option value="Producto incorrecto">Llegó un producto diferente al solicitado</option>
+                            <option value="Diferencia de conteo / Sobrante">Diferencia de conteo / Sobrante</option>
+                            <option value="Vencimiento corto o mala calidad">Vencimiento corto o mala calidad</option>
+                            <option value="Otro motivo">Otro motivo</option>
                         </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold small text-muted">Resolución con el Proveedor <span class="text-danger">*</span></label>
-                        <select id="devolucionResolucion" class="form-select border-warning-subtle" required>
-                            <option value="descuento_cxp" selected>Aplicar NOTA DE CRÉDITO (baja tu deuda con el proveedor)</option>
-                            <option value="reembolso_dinero">Pedir REEMBOLSO (el proveedor te devuelve dinero)</option>
-                        </select>
-                        <div id="devolucionResolucionHint" class="form-text text-secondary mt-1">
-                            ✅ Recomendado cuando tienes facturas pendientes: reduce tu cuenta por pagar automáticamente.
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mb-4" id="filaSwitchReemplazoCompra">
-                    <div class="col-12">
-                        <div class="form-check form-switch bg-white border rounded-3 p-3 d-flex align-items-center shadow-sm">
-                            <input class="form-check-input ms-0 me-3" type="checkbox" id="devolucionEsperarReemplazo" checked style="cursor: pointer; transform: scale(1.3); margin-top: 0;">
-                            <div>
-                                <label class="form-check-label fw-bold text-dark d-block" for="devolucionEsperarReemplazo" style="cursor: pointer;">
-                                    Esperar mercadería de reemplazo
-                                </label>
-                                <small class="text-muted" id="devolucionEsperarReemplazoHint">
-                                    La orden volverá a estado "Aprobada" para que puedas recepcionar los productos faltantes después.
-                                </small>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 <div class="card border-0 shadow-sm">

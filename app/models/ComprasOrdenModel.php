@@ -26,6 +26,20 @@ class ComprasOrdenModel extends Modelo
                     NULLIF(TRIM(o.observaciones), '')
                 ) AS observacion_subtitulo,
                 o.total,
+                
+                /* 👇 NUEVO: Cálculo dinámico del total neto para la tabla principal 👇 */
+                CASE 
+                    WHEN o.estado >= 3 THEN (
+                        COALESCE((
+                            SELECT SUM((COALESCE(cod.cantidad_recibida, 0) / COALESCE(NULLIF(cod.factor_conversion_aplicado, 0), 1)) * cod.costo_unitario_pactado)
+                            FROM compras_ordenes_detalle cod
+                            WHERE cod.id_orden = o.id AND cod.deleted_at IS NULL
+                        ), 0) * CASE WHEN o.tipo_impuesto = 'mas_igv' THEN 1.18 ELSE 1 END
+                    )
+                    ELSE o.total
+                END AS total_neto,
+                /* 👆 FIN NUEVO 👆 */
+
                 o.estado,
                 o.created_at
             FROM compras_ordenes o
@@ -123,7 +137,7 @@ class ComprasOrdenModel extends Modelo
                               (COALESCE(d.cantidad_conversion, d.cantidad_solicitada) * d.costo_unitario_pactado) AS subtotal,
                               -- Subconsulta para saber cuánto se devolvió de esta línea
                               COALESCE((
-                                  SELECT SUM(cdd.cantidad)
+                                  SELECT SUM(cdd.cantidad_base) /* <-- AQUÍ ESTÁ LA MAGIA: se suma cantidad_base */
                                   FROM compras_devoluciones_detalle cdd
                                   INNER JOIN compras_devoluciones cd ON cd.id = cdd.id_devolucion
                                   WHERE cd.id_orden = d.id_orden AND cdd.id_item = d.id_item

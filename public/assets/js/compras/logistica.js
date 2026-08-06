@@ -29,37 +29,6 @@ async function obtenerUnidadesItem(idItem) {
     return items;
 }
 
-function actualizarHintResolucionDevolucion() {
-    const devolucionResolucion = document.getElementById('devolucionResolucion');
-    const devolucionResolucionHint = document.getElementById('devolucionResolucionHint');
-    if (!devolucionResolucionHint || !devolucionResolucion) return;
-
-    const resolucion = devolucionResolucion.value;
-    if (resolucion === 'descuento_cxp') {
-        devolucionResolucionHint.textContent = '✅ Recomendado cuando tienes facturas pendientes: reduce tu cuenta por pagar automáticamente.';
-        devolucionResolucionHint.className = 'form-text text-secondary mt-1';
-        return;
-    }
-    devolucionResolucionHint.textContent = '💸 Úsalo cuando el proveedor te devolverá dinero (caja/transferencia). No descuenta la deuda automáticamente.';
-    devolucionResolucionHint.className = 'form-text text-secondary mt-1';
-}
-
-function actualizarLogicaDevolucionCompra() {
-    const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazoCompra');
-    const checkReemplazo = document.getElementById('devolucionEsperarReemplazo');
-    const devolucionMotivo = document.getElementById('devolucionMotivo');
-    const motivoActual = devolucionMotivo?.value || '';
-
-    if (filaSwitchReemplazo && checkReemplazo) {
-        if (motivoActual === 'Producto defectuoso / Garantía' || motivoActual === 'Producto incorrecto') {
-            filaSwitchReemplazo.classList.remove('d-none');
-        } else {
-            filaSwitchReemplazo.classList.add('d-none');
-            checkReemplazo.checked = false;
-        }
-    }
-}
-
 function recalcularTotalDevolucion() {
     const tbodyDevolucion = document.querySelector('#tablaDetalleDevolucion tbody');
     const devolucionTotal = document.getElementById('devolucionTotal');
@@ -212,12 +181,6 @@ export async function abrirModalDevolucion(idOrden) {
 
         document.getElementById('devolucionOrdenId').value = orden.id;
         document.getElementById('devolucionMotivo').value = '';
-        
-        const devolucionResolucion = document.getElementById('devolucionResolucion');
-        if (devolucionResolucion) {
-            devolucionResolucion.value = 'descuento_cxp';
-            actualizarHintResolucionDevolucion();
-        }
         
         const tbodyDevolucion = document.querySelector('#tablaDetalleDevolucion tbody');
         if(tbodyDevolucion) tbodyDevolucion.innerHTML = '';
@@ -395,11 +358,7 @@ export async function abrirModalRecepcion(idOrden) {
 export function initLogistica() {
     // Enganches de Devolución
     const devolucionMotivo = document.getElementById('devolucionMotivo');
-    const devolucionResolucion = document.getElementById('devolucionResolucion');
     const btnConfirmarDevolucion = document.getElementById('btnConfirmarDevolucion');
-
-    devolucionMotivo?.addEventListener('change', actualizarLogicaDevolucionCompra);
-    devolucionResolucion?.addEventListener('change', actualizarHintResolucionDevolucion);
 
     btnConfirmarDevolucion?.addEventListener('click', async () => {
         if (!devolucionMotivo.value) return Swal.fire('Aviso', 'Seleccione un motivo.', 'warning');
@@ -439,8 +398,7 @@ export function initLogistica() {
             const payload = {
                 id_orden: Number(document.getElementById('devolucionOrdenId').value),
                 motivo: devolucionMotivo.value,
-                resolucion: devolucionResolucion.value,
-                esperar_reemplazo: esperarReemplazo, 
+                esperar_reemplazo: false, // Forzado a falso
                 detalle: detalle
             };
 

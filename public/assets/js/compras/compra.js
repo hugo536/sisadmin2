@@ -546,34 +546,36 @@ export async function abrirModalResumenCompra(id, target = null) {
     if (tbodyResumen) {
         tbodyResumen.innerHTML = '';
 
-        let totalNetoOrden = 0; // Agregamos un acumulador para recalcular el Total Final real
+        let totalNetoOrden = 0; 
 
         if (d.detalle && d.detalle.length > 0) {
             d.detalle.forEach(item => {
                 const factor = Number(item.factor_conversion_aplicado || 1);
+                const precio = Number(item.costo_unitario || 0);
                 
-                // Cantidades pedidas y recibidas
+                // 1. Lo pedido originalmente
                 const cantPedidaCompra = Number(item.cantidad || 0); 
                 const cantPedidaBase = cantPedidaCompra * factor;    
-                const cantRecibidaBase = Number(item.cantidad_recibida || 0); 
-                const cantRecibidaCompra = factor > 0 ? (cantRecibidaBase / factor) : cantRecibidaBase; 
 
-                // Capturar cantidad devuelta de la BD
+                // 2. Lo que quedó NETO en almacén (Tu BD ya lo restó al hacer la devolución)
+                const cantNetaBase = Number(item.cantidad_recibida || 0); 
+                const cantNetaCompra = factor > 0 ? (cantNetaBase / factor) : cantNetaBase; 
+
+                // 3. Lo devuelto
                 const cantDevueltaBase = Number(item.cantidad_devuelta || 0);
                 const cantDevueltaCompra = factor > 0 ? (cantDevueltaBase / factor) : cantDevueltaBase;
+
+                // 4. Lo recibido HISTÓRICO (Sumamos lo neto + lo devuelto para que visualmente cuadre)
+                const cantRecibidaHistoricaBase = cantNetaBase + cantDevueltaBase;
+                const cantRecibidaHistoricaCompra = cantNetaCompra + cantDevueltaCompra;
+
+                // 5. El subtotal es estrictamente sobre lo neto que nos quedamos
+                const subtotal = cantNetaCompra * precio; 
+                totalNetoOrden += subtotal;
 
                 const unidadCompra = item.unidad_nombre || 'UND';
                 const unidadBase = item.unidad_base || 'UND';
                 const requiereSubtitulo = factor > 1; 
-
-                const precio = Number(item.costo_unitario || 0);
-                
-                // La cantidad_recibida de la orden ya queda descontada cuando se registra una devolución.
-                // Por eso el subtotal del resumen debe usar la cantidad recibida actual, sin restar
-                // nuevamente la cantidad devuelta (evita mostrar S/ 0.00 cuando quedó saldo recibido).
-                const subtotal = Math.max(cantRecibidaCompra, 0) * precio;
-                
-                totalNetoOrden += subtotal; // Sumamos al Total Final
 
                 // HTML Pedido
                 let htmlPedida = `<span class="d-block fw-bold text-dark">${cantPedidaCompra.toFixed(2)} ${unidadCompra}</span>`;
@@ -581,13 +583,13 @@ export async function abrirModalResumenCompra(id, target = null) {
                     htmlPedida += `<small class="text-muted">(${cantPedidaBase.toFixed(2)} ${unidadBase})</small>`;
                 }
 
-                // HTML Recibido
-                let htmlRecibida = `<span class="d-block fw-bold text-success">${cantRecibidaCompra.toFixed(2)} ${unidadCompra}</span>`;
+                // HTML Recibido (Mostramos la cantidad histórica)
+                let htmlRecibida = `<span class="d-block fw-bold text-success">${cantRecibidaHistoricaCompra.toFixed(2)} ${unidadCompra}</span>`;
                 if (requiereSubtitulo) {
-                    htmlRecibida += `<small class="text-muted">(${cantRecibidaBase.toFixed(2)} ${unidadBase})</small>`;
+                    htmlRecibida += `<small class="text-muted">(${cantRecibidaHistoricaBase.toFixed(2)} ${unidadBase})</small>`;
                 }
 
-                // HTML Devuelto (Si hay devolución, lo pinta de rojo, sino pone el guion)
+                // HTML Devuelto
                 let htmlDevuelto = `<span class="fw-bold text-danger">-</span>`;
                 if (cantDevueltaCompra > 0) {
                     htmlDevuelto = `<span class="d-block fw-bold text-danger">${cantDevueltaCompra.toFixed(2)} ${unidadCompra}</span>`;
@@ -608,7 +610,6 @@ export async function abrirModalResumenCompra(id, target = null) {
                 tbodyResumen.appendChild(trItem);
             });
             
-            // Reemplazamos el Total Final estático por la suma real calculada
             document.getElementById('resumenCompraTotalFinal').textContent = `${sim} ${totalNetoOrden.toFixed(2)}`;
             
         } else {
