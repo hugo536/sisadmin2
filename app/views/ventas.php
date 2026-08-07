@@ -227,7 +227,7 @@ $formatearFechaDMY = static function ($fecha): string {
 </div>
 
 <!-- Modal Pedido de Venta -->
-<div class="modal fade" id="modalVenta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+<div class="modal fade" id="modalVenta" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white border-bottom-0 pb-4">

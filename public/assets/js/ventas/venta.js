@@ -4,13 +4,12 @@
 
 import { urls, recargarTabla, postJsonConCarga } from './config.js';
 import { calcularTotalCobroInmediato, renderAlertaSaldoFavor } from './pagos.js';
-import { getJson, postJson, obtenerFechaLocalISO, esperarTomSelect, initSelectAjax } from '../api.js';
+import { getJson, postJson, obtenerFechaLocalISO, esperarTomSelect } from '../api.js';
 
-// --- ESTADO GLOBAL LOCAL ---
 let bloqueoEdicionVenta = false;
 const estadoBusquedaItems = { tieneAcuerdo: false, listaVacia: false };
+const separadorAjax = (urls.index && urls.index.includes('?')) ? '&' : '?';
 
-// --- TOM SELECT GLOBAL ---
 let tomSelectCliente = null;
 let tomSelectListo = false;
 
@@ -18,12 +17,13 @@ let tomSelectListo = false;
 // 1. UTILIDADES Y LÓGICA DE FILAS
 // ==========================================
 
+function clienteSeleccionado() {
+    const idClienteEl = document.getElementById('idCliente');
+    return Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0) > 0;
+}
+
 function actualizarBloqueoFormularioPorCliente() {
-    // A diferencia de compras, ventas usa búsquedas AJAX y puede cargar el catálogo
-    // general sin cliente (id_cliente=0). No bloqueamos el detalle por falta de
-    // cliente para que TomSelect permanezca usable; la validación de cliente sigue
-    // ocurriendo al guardar y los precios se refrescan cuando se selecciona cliente.
-    const bloquearControlesVenta = bloqueoEdicionVenta;
+    const bloquearControlesVenta = bloqueoEdicionVenta || !clienteSeleccionado();
     const tipoOperacion = document.getElementById('tipoOperacion');
     const esDonacion = tipoOperacion && tipoOperacion.value === 'DONACION';
     
@@ -95,29 +95,22 @@ function configurarInputCantidad(inputCantidad, permiteDecimales, valor = null) 
         }
         const numero = Number(valor || 0);
         const normalizado = Math.max(0, numero);
-        inputCantidad.value = decimalesHabilitados
-            ? normalizado.toFixed(2)
-            : String(Math.round(normalizado));
+        inputCantidad.value = decimalesHabilitados ? normalizado.toFixed(2) : String(Math.round(normalizado));
     }
 }
 
 function actualizarNumeracionFilas() {
-    const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
-    const tbodyRegalos = document.querySelector('#tablaDetalleRegalos tbody');
-
-    if (tbodyVenta) {
-        tbodyVenta.querySelectorAll('tr').forEach((fila, index) => {
-            const celdaNumero = fila.querySelector('.fila-numero');
-            if (celdaNumero) celdaNumero.textContent = index + 1;
-        });
-    }
-    
-    if (tbodyRegalos) {
-        tbodyRegalos.querySelectorAll('tr').forEach((fila, index) => {
-            const celdaNumero = fila.querySelector('.fila-numero');
-            if (celdaNumero) celdaNumero.textContent = index + 1;
-        });
-    }
+    const updateNumeracion = (selector) => {
+        const tbody = document.querySelector(selector);
+        if (tbody) {
+            tbody.querySelectorAll('tr').forEach((fila, index) => {
+                const celda = fila.querySelector('.fila-numero');
+                if (celda) celda.textContent = index + 1;
+            });
+        }
+    };
+    updateNumeracion('#tablaDetalleVenta tbody');
+    updateNumeracion('#tablaDetalleRegalos tbody');
 }
 
 function filaVentaPayload(fila) {
@@ -141,6 +134,13 @@ function obtenerPesoUnitarioFila(fila) {
     return Number(fila.dataset.pesoKg || 0);
 }
 
+function emitirAlertaSaldoFavor(saldo) {
+    const div = document.getElementById('alertaSaldoFavorContenedor');
+    if (div && typeof window.renderAlertaSaldoFavor === 'function') {
+        window.renderAlertaSaldoFavor(saldo);
+    }
+}
+
 function recalcularTotalVenta() {
     const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
     const tbodyRegalos = document.querySelector('#tablaDetalleRegalos tbody');
@@ -158,14 +158,15 @@ function recalcularTotalVenta() {
     let pesoTotalKg = 0;
     const esDonacion = tipoOperacion && tipoOperacion.value === 'DONACION'; 
 
-    if (tbodyVenta) {
-        tbodyVenta.querySelectorAll('tr').forEach((fila) => {
+    const procesarTabla = (tbody, esRegalo) => {
+        if (!tbody) return;
+        tbody.querySelectorAll('tr').forEach((fila) => {
             const data = filaVentaPayload(fila);
             const subtotal = data.cantidad * data.precio_unitario;
             const pesoUnitarioKg = obtenerPesoUnitarioFila(fila);
             const pesoLineaKg = data.cantidad * pesoUnitarioKg;
             
-            sumaLineas += subtotal;
+            if (!esRegalo) sumaLineas += subtotal;
             pesoTotalKg += pesoLineaKg;
             
             const infoPeso = fila.querySelector('.detalle-peso-info');
@@ -179,56 +180,35 @@ function recalcularTotalVenta() {
                 }
             }
 
-            const celdaSubtotal = fila.querySelector('.detalle-subtotal');
-            if (esDonacion) {
-                celdaSubtotal.innerHTML = `
-                    <div class="d-flex flex-column align-items-end" style="line-height: 1.2;">
-                        <span class="text-decoration-line-through text-muted opacity-75" style="font-size: 0.75rem;">Ref: S/ ${subtotal.toFixed(2)}</span>
-                        <span class="text-success fw-bold mt-1">S/ 0.00</span>
-                    </div>
-                `;
-            } else {
-                celdaSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
-            }
-        });
-    }
-
-    if (tbodyRegalos) {
-        tbodyRegalos.querySelectorAll('tr').forEach((fila) => {
-            const cantidad = parseFloat(fila.querySelector('.detalle-cantidad').value || 0);
-            const pesoUnitarioKg = obtenerPesoUnitarioFila(fila);
-            const pesoLineaKg = cantidad * pesoUnitarioKg;
-            
-            pesoTotalKg += pesoLineaKg;
-
-            const infoPeso = fila.querySelector('.detalle-peso-info');
-            if (infoPeso) {
-                if (pesoUnitarioKg > 0) {
-                    infoPeso.classList.remove('d-none');
-                    infoPeso.querySelector('.peso-unitario').textContent = pesoUnitarioKg.toFixed(3);
-                    infoPeso.querySelector('.peso-subtotal').textContent = pesoLineaKg.toFixed(3);
+            if (!esRegalo) {
+                const celdaSubtotal = fila.querySelector('.detalle-subtotal');
+                if (esDonacion) {
+                    celdaSubtotal.innerHTML = `
+                        <div class="d-flex flex-column align-items-end" style="line-height: 1.2;">
+                            <span class="text-decoration-line-through text-muted opacity-75" style="font-size: 0.75rem;">Ref: S/ ${subtotal.toFixed(2)}</span>
+                            <span class="text-success fw-bold mt-1">S/ 0.00</span>
+                        </div>
+                    `;
                 } else {
-                    infoPeso.classList.add('d-none');
+                    celdaSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
                 }
             }
         });
-    }
+    };
 
-    let subtotal = 0;
-    let igv = 0;
-    let total = 0;
+    procesarTabla(tbodyVenta, false);
+    procesarTabla(tbodyRegalos, true);
+
+    let subtotal = 0, igv = 0, total = 0;
     const tipo = tipoImpuesto ? tipoImpuesto.value : 'exonerado';
 
     if (esDonacion) {
-        subtotal = igv = total = 0;
         if (ventaTotal) {
-            ventaTotal.classList.remove('text-primary');
-            ventaTotal.classList.add('text-success');
+            ventaTotal.classList.replace('text-primary', 'text-success');
         }
     } else {
         if (ventaTotal) {
-            ventaTotal.classList.add('text-primary');
-            ventaTotal.classList.remove('text-success');
+            ventaTotal.classList.replace('text-success', 'text-primary');
         }
         if (tipo === 'incluido') {
             total = sumaLineas;
@@ -240,7 +220,6 @@ function recalcularTotalVenta() {
             total = subtotal + igv;
         } else { 
             subtotal = total = sumaLineas;
-            igv = 0;
         }
     }
 
@@ -256,25 +235,23 @@ function recalcularTotalVenta() {
                 switchCobroInmediato.checked = false;
                 if(seccionCobroInmediato) seccionCobroInmediato.classList.add('d-none');
                 if(contenedorMetodosPago) contenedorMetodosPago.innerHTML = '';
-                calcularTotalCobroInmediato();
             }
-        } else {
-            if (!bloqueoEdicionVenta && !esDonacion) {
-                switchCobroInmediato.disabled = false;
+        } else if (!bloqueoEdicionVenta && !esDonacion) {
+            switchCobroInmediato.disabled = false;
+        }
+
+        if (switchCobroInmediato.checked && !esDonacion && contenedorMetodosPago) {
+            const filasPago = contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato');
+            const btnUsarSaldo = document.getElementById('btnAplicarSaldoFavor');
+            if (filasPago.length === 1 && (!btnUsarSaldo || !btnUsarSaldo.disabled)) { 
+                const inputMontoIn = filasPago[0].querySelector('.input-monto-inmediato');
+                if(inputMontoIn) inputMontoIn.value = total.toFixed(2);
             }
         }
     }
-
-    if (switchCobroInmediato && switchCobroInmediato.checked && !esDonacion) {
-        if (contenedorMetodosPago) {
-            const filasPago = contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato');
-            const btnUsarSaldo = document.getElementById('btnAplicarSaldoFavor');
-            
-            if (filasPago.length === 1 && (!btnUsarSaldo || !btnUsarSaldo.disabled)) { 
-                filasPago[0].querySelector('.input-monto-inmediato').value = total.toFixed(2);
-            }
-        }
-        calcularTotalCobroInmediato();
+    
+    if (typeof window.calcularTotalCobroInmediato === 'function') {
+        window.calcularTotalCobroInmediato();
     }
 }
 
@@ -288,7 +265,6 @@ function validarCantidadVsStock(fila) {
         inputCantidad.title = `Stock disponible: ${stock.toFixed(2)}`;
         return false;
     }
-
     inputCantidad.classList.remove('is-invalid');
     inputCantidad.title = '';
     return true;
@@ -301,8 +277,7 @@ function obtenerItemsSeleccionados(excluirFila = null) {
     const tbodyPadre = excluirFila.closest('tbody');
     if (!tbodyPadre) return seleccionados;
 
-    const filas = [...tbodyPadre.querySelectorAll('tr')];
-    filas.forEach((fila) => {
+    tbodyPadre.querySelectorAll('tr').forEach((fila) => {
         if (fila === excluirFila) return;
         const selectEl = fila.querySelector('.detalle-item');
         const idItem = selectEl && selectEl.tomselect ? selectEl.tomselect.getValue() : (selectEl?.value || '');
@@ -316,7 +291,7 @@ async function obtenerPrecioItem(idItem, cantidad) {
     const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0);
     if (!idItem || !idClienteActual) return null;
 
-    const url = `${urls.index}&accion=precio_item&id_cliente=${idClienteActual}&id_item=${idItem}&cantidad=${encodeURIComponent(cantidad || 1)}`;
+    const url = `${urls.index}${separadorAjax}accion=precio_item&id_cliente=${idClienteActual}&id_item=${idItem}&cantidad=${encodeURIComponent(cantidad || 1)}`;
     const json = await getJson(url);
     return Number(json.data?.precio || 0);
 }
@@ -339,8 +314,7 @@ async function refrescarPrecioFila(fila) {
 async function refrescarFilasPorCambioCliente() {
     const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
     if(!tbodyVenta) return;
-    const filas = [...tbodyVenta.querySelectorAll('tr')];
-    for (const fila of filas) {
+    for (const fila of [...tbodyVenta.querySelectorAll('tr')]) {
         await refrescarPrecioFila(fila);
     }
     recalcularTotalVenta();
@@ -382,56 +356,48 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
         recalcularTotalVenta();
     });
 
-    if (!tomSelectListo) {
-        selectItem.innerHTML = '<option value="">Tom Select no disponible</option>';
+    if (!tomSelectListo || typeof window.AppSelects === 'undefined') {
+        selectItem.innerHTML = '<option value="">Cargando API...</option>';
         selectItem.disabled = true;
         return;
     }
 
-    const tom = initSelectAjax(selectItem, `${urls.index}&accion=buscar_items`, {
+    // 👇 USO SEGURO DE APPSELECTS CON PRELOAD 👇
+    window.AppSelects.initAjax(selectItem, `${urls.index}${separadorAjax}accion=buscar_items`, {
         placeholder: "Buscar producto...",
-        dropdownParent: 'body', 
-        preload: true, // <-- REQUERIDO: Carga las opciones al abrir el menú sin necesidad de teclear
-        shouldLoad: () => true,
-        onDropdownOpen: function() {
-            if (Object.keys(this.options || {}).length === 0) this.load('');
-        },
-        onFocus: function() {
-            if (Object.keys(this.options || {}).length === 0) this.load('');
-        },
-        valueField: 'id', // <-- REQUERIDO: Le dice a TomSelect cuál es la llave
-        labelField: 'text', // <-- REQUERIDO: Le dice a TomSelect cuál es el texto visual
-        searchField: ['text'],
+        preload: true,
+        // 👇 LA LÍNEA MÁGICA QUE FALTABA 👇
+        onDropdownOpen: function(dropdown) { dropdown.style.zIndex = '9999'; },
         load: function(query, callback) {
-            const idClienteEl = document.getElementById('idCliente');
-            const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0);
-            const cantidadActual = Number(inputCantidad.value || 1) || 1;
-            const url = `${urls.index}&accion=buscar_items&q=${encodeURIComponent(query)}&id_cliente=${idClienteActual}&cantidad=${encodeURIComponent(cantidadActual)}`;
+            const termino = encodeURIComponent((query || '').trim());
             
-            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(response => response.json())
-                .then(json => {
-                    estadoBusquedaItems.tieneAcuerdo = !!json.meta?.tiene_acuerdo;
-                    estadoBusquedaItems.listaVacia = !!json.meta?.lista_vacia;
-
-                    const items = (json.data || []).map(prod => ({
-                        id: prod.id,
-                        text: `${prod.nombre || ''}`,
-                        stock: parseFloat(prod.stock_actual || 0),
-                        precio: parseFloat(prod.precio_venta || 0),
-                        permiteDecimales: Number(prod.permite_decimales || 0),
-                        pesoKg: Number(prod.peso_kg || 0)
-                    }));
-                    callback(items);
-                }).catch(() => callback());
+            // 👇 LA SOLUCIÓN: Quitamos '/index' de la ruta para que PHP responda el JSON 👇
+            const urlBaseLimpia = urls.index.replace('ventas/index', 'ventas');
+            const urlFetch = `${urlBaseLimpia}${separadorAjax}accion=buscar_clientes&q=${termino}`;
+            
+            fetch(urlFetch, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.json(); // Si llega HTML de nuevo, fallará aquí
+            })
+            .then(json => {
+                const items = (json.data || []).map(item => ({
+                    id: item.id,
+                    text: `${item.nombre_completo} (${item.num_doc || 'S/D'})`,
+                    saldo_favor: Number(item.saldo_favor || 0)
+                }));
+                callback(items);
+            }).catch((err) => {
+                console.error("Error capturado en TomSelect:", err); // Añadido para que nunca más falle en silencio
+                callback();
+            });
         },
         onChange: function(value) {
             const selectedOption = this.options[value];
             if (selectedOption) {
-                const idSeleccionado = value || '';
-                const repetido = idSeleccionado !== '' && obtenerItemsSeleccionados(filaReal).has(idSeleccionado);
+                const repetido = value !== '' && obtenerItemsSeleccionados(filaReal).has(value);
                 if (repetido) {
-                    this.clear(true); // <-- True silencia el evento para evitar bucles
+                    this.clear(true); 
                     filaReal.querySelector('.detalle-stock').textContent = '0.00';
                     Swal.fire('Producto repetido', 'Este producto ya está en la lista.', 'warning');
                     recalcularTotalVenta();
@@ -453,22 +419,16 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
         render: {
             no_results: () => {
                 if (estadoBusquedaItems.tieneAcuerdo && estadoBusquedaItems.listaVacia) {
-                    return '<div class="no-results">Lista de productos vacía para este cliente</div>';
+                    return '<div class="no-results p-2 text-danger">Lista vacía para este cliente</div>';
                 }
-                return '<div class="no-results">No se encontraron productos disponibles</div>';
+                return '<div class="no-results p-2 text-muted">No se encontraron productos</div>';
             },
-            loading: () => '<div class="spinner-border spinner-border-sm text-primary m-2"></div> buscando...',
             option: function(data, escape) {
                 const stockColor = data.stock <= 0 ? 'text-danger fw-bold' : 'text-success';
-                let stockLabel = 'SIN STOCK';
-                if (data.stock > 0) {
-                    stockLabel = (data.permiteDecimales === 1) 
-                        ? Number(data.stock).toFixed(2) 
-                        : String(Math.round(data.stock)); 
-                }
-                return `<div class="py-2 d-flex justify-content-between align-items-center">
-                    <div><div class="fw-bold text-dark">${escape(data.text)}</div></div>
-                    <div class="text-end">
+                let stockLabel = data.stock <= 0 ? 'SIN STOCK' : (data.permiteDecimales === 1 ? Number(data.stock).toFixed(2) : String(Math.round(data.stock))); 
+                return `<div class="py-2 d-flex justify-content-between align-items-center px-2">
+                    <div><div class="fw-bold text-dark" style="font-size:0.9rem;">${escape(data.text)}</div></div>
+                    <div class="text-end ps-3">
                         <div class="small ${stockColor}">Stock: ${stockLabel}</div>
                         <div class="fw-bold text-primary">S/ ${escape(Number(data.precio).toFixed(2))}</div>
                     </div>
@@ -477,8 +437,8 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
         }
     });
 
-    if (item) {
-        tom.addOption({
+    if (item && selectItem.tomselect) {
+        selectItem.tomselect.addOption({
             id: item.id_item, 
             text: `${item.item_nombre || ''}`,
             stock: Number(item.stock_actual || 0), 
@@ -486,9 +446,9 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
             permiteDecimales: Number(item.permite_decimales || 0),
             pesoKg: Number(item.peso_kg || 0)
         });
-        tom.setValue(item.id_item);
+        selectItem.tomselect.setValue(item.id_item);
         filaReal.dataset.pesoKg = String(Number(item.peso_kg || 0));
-        if (!esBorrador) tom.disable(); 
+        if (!esBorrador) selectItem.tomselect.disable(); 
 
         configurarInputCantidad(inputCantidad, item.permite_decimales, item.cantidad || 0);
         inputPrecio.value = Number(item.precio_unitario || 0).toFixed(4);
@@ -515,7 +475,7 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
         configurarInputCantidad(inputCantidad, 0, '');
         setTimeout(() => {
             filaReal.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            if (tom) tom.focus(); 
+            if (selectItem.tomselect) selectItem.tomselect.focus(); 
         }, 100);
     }
 
@@ -555,35 +515,36 @@ async function agregarFilaRegalo(item = null, esBorrador = true) {
         recalcularTotalVenta();
     });
 
-    if (!tomSelectListo) {
-        selectItem.innerHTML = '<option value="">Tom Select no disponible</option>';
+    if (!tomSelectListo || typeof window.AppSelects === 'undefined') {
+        selectItem.innerHTML = '<option value="">Cargando API...</option>';
         selectItem.disabled = true;
         return;
     }
 
-    const tom = initSelectAjax(selectItem, `${urls.index}&accion=buscar_items`, {
-        placeholder: "Buscar producto de regalo...",
-        dropdownParent: 'body', 
-        preload: true, // <-- REQUERIDO
-        shouldLoad: () => true,
-        onDropdownOpen: function() {
-            if (Object.keys(this.options || {}).length === 0) this.load('');
-        },
-        onFocus: function() {
-            if (Object.keys(this.options || {}).length === 0) this.load('');
-        },
-        valueField: 'id', // <-- REQUERIDO
-        labelField: 'text', // <-- REQUERIDO
+    // 👇 IMPLEMENTACIÓN NATIVA ESTILO CHECK.PHP 👇
+    // 👇 IMPLEMENTACIÓN NATIVA PARA LOS REGALOS 👇
+    new TomSelect(selectItem, {
+        valueField: 'id',
+        labelField: 'text',
         searchField: ['text'],
+        loadThrottle: 300,
+        placeholder: "Buscar producto de regalo...",
+        preload: true,
+        // ANCLAJE INTELIGENTE
+        dropdownParent: document.querySelector('#modalVenta .modal-content') || document.body,
+        onDropdownOpen: function(dropdown) { 
+            dropdown.style.zIndex = '1060'; 
+        },
         load: function(query, callback) {
-            const idClienteEl = document.getElementById('idCliente');
-            const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0);
+            const termino = encodeURIComponent((query || '').trim());
+            const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : document.getElementById('idCliente')?.value || 0);
             const cantidadActual = Number(inputCantidad.value || 1) || 1;
-            const url = `${urls.index}&accion=buscar_items&q=${encodeURIComponent(query)}&id_cliente=${idClienteActual}&cantidad=${encodeURIComponent(cantidadActual)}`;
-            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(response => response.json())
+            const urlFetch = `${urls.index}${separadorAjax}accion=buscar_items&q=${termino}&id_cliente=${idClienteActual}&cantidad=${encodeURIComponent(cantidadActual)}`;
+            
+            fetch(urlFetch, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.json())
                 .then(json => {
-                    const items = (json.data || []).map(prod => ({
+                    const dataFormatted = (json.data || []).map(prod => ({
                         id: prod.id,
                         text: `${prod.nombre || ''}`,
                         stock: parseFloat(prod.stock_actual || 0),
@@ -591,16 +552,15 @@ async function agregarFilaRegalo(item = null, esBorrador = true) {
                         permiteDecimales: Number(prod.permite_decimales || 0),
                         pesoKg: Number(prod.peso_kg || 0)
                     }));
-                    callback(items);
+                    callback(dataFormatted);
                 }).catch(() => callback());
         },
         onChange: function(value) {
             const selectedOption = this.options[value];
             if (selectedOption) {
-                const idSeleccionado = value || '';
-                const repetido = idSeleccionado !== '' && obtenerItemsSeleccionados(filaReal).has(idSeleccionado);
+                const repetido = value !== '' && obtenerItemsSeleccionados(filaReal).has(value);
                 if (repetido) {
-                    this.clear(true); // <-- Silenciar evento preventivo
+                    this.clear(true); 
                     filaReal.querySelector('.detalle-stock').textContent = '0.00';
                     Swal.fire('Producto repetido', 'Este producto ya está seleccionado en la venta principal o en los regalos.', 'warning');
                     return;
@@ -619,14 +579,13 @@ async function agregarFilaRegalo(item = null, esBorrador = true) {
             recalcularTotalVenta();
         },
         render: {
-            no_results: () => '<div class="no-results">No se encontraron productos</div>',
-            loading: () => '<div class="spinner-border spinner-border-sm text-info m-2"></div> buscando...',
+            no_results: () => '<div class="no-results p-2 text-muted">No se encontraron productos</div>',
             option: function(data, escape) {
                 const stockColor = data.stock <= 0 ? 'text-danger fw-bold' : 'text-success';
                 let stockLabel = data.stock <= 0 ? 'SIN STOCK' : (data.permiteDecimales === 1 ? Number(data.stock).toFixed(2) : String(Math.round(data.stock))); 
-                return `<div class="py-2 d-flex justify-content-between align-items-center">
-                    <div><div class="fw-bold text-dark">${escape(data.text)}</div></div>
-                    <div class="text-end">
+                return `<div class="py-2 d-flex justify-content-between align-items-center px-2">
+                    <div><div class="fw-bold text-dark" style="font-size:0.9rem;">${escape(data.text)}</div></div>
+                    <div class="text-end ps-3">
                         <div class="small ${stockColor}">Stock: ${stockLabel}</div>
                         <div class="fw-bold text-muted small">Ref: S/ ${escape(Number(data.precio).toFixed(2))}</div>
                     </div>
@@ -635,8 +594,8 @@ async function agregarFilaRegalo(item = null, esBorrador = true) {
         }
     });
 
-    if (item) {
-        tom.addOption({
+    if (item && selectItem.tomselect) {
+        selectItem.tomselect.addOption({
             id: item.id_item, 
             text: `${item.item_nombre || ''}`,
             stock: Number(item.stock_actual || 0), 
@@ -644,9 +603,9 @@ async function agregarFilaRegalo(item = null, esBorrador = true) {
             permiteDecimales: Number(item.permite_decimales || 0),
             pesoKg: Number(item.peso_kg || 0)
         });
-        tom.setValue(item.id_item);
+        selectItem.tomselect.setValue(item.id_item);
         filaReal.dataset.pesoKg = String(Number(item.peso_kg || 0));
-        if (!esBorrador) tom.disable(); 
+        if (!esBorrador) selectItem.tomselect.disable(); 
 
         configurarInputCantidad(inputCantidad, item.permite_decimales, item.cantidad || 0);
         inputPrecioRef.value = Number(item.precio_unitario || 0).toFixed(4);
@@ -677,7 +636,7 @@ function limpiarModalVenta() {
     const ventaId = document.getElementById('ventaId');
     if (ventaId) ventaId.value = 0;
 
-    renderAlertaSaldoFavor(0);
+    emitirAlertaSaldoFavor(0);
     
     if (tomSelectCliente) {
         tomSelectCliente.clear();
@@ -919,7 +878,7 @@ export async function abrirModalVenta(id, tr = null) {
         const payload = await getJson(`${urls.index}${separador}accion=ver&id=${id}`);
         const venta = payload.data;
         if (!venta || !venta.id) throw new Error('No se encontró información del pedido seleccionado.');
-        renderAlertaSaldoFavor(venta.saldo_favor_cliente || 0);
+        emitirAlertaSaldoFavor(venta.saldo_favor_cliente || 0);
 
         const estadoDoc = Number(venta.estado || 0);
 
@@ -937,6 +896,7 @@ export async function abrirModalVenta(id, tr = null) {
         
         const nombreCliente = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || venta.cliente || 'Cliente';
         const idClienteEl = document.getElementById('idCliente');
+        
         if (tomSelectCliente) {
             tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente, saldo_favor: Number(venta.saldo_favor_cliente || 0) });
             tomSelectCliente.setValue(venta.id_cliente);
@@ -1074,7 +1034,7 @@ export async function revertirBorrador(id) {
     
     if (ok.isConfirmed) {
         try {
-            const res = await postJson(`${urls.index}&accion=revertir`, { id });
+            const res = await postJson(`${urls.index}${separadorAjax}accion=revertir`, { id });
             await Swal.fire('Revertido', res.mensaje, 'success');
             recargarTabla();
         } catch (err) { 
@@ -1086,69 +1046,68 @@ export async function revertirBorrador(id) {
 export async function initVentas() {
     tomSelectListo = await esperarTomSelect();
     
+    // 👇 SOLUCIÓN DEFINITIVA: Datos conectados + Capa visual corregida 👇
     const idClienteEl = document.getElementById('idCliente');
-    // Destruimos el TomSelect anterior si estamos recargando por AJAX
-    if (tomSelectCliente && idClienteEl && !idClienteEl.tomselect) {
-        tomSelectCliente = null; 
-    }
-
+    
     if (idClienteEl && tomSelectListo && !tomSelectCliente) {
-        tomSelectCliente = initSelectAjax('#idCliente', `${urls.index}&accion=buscar_clientes`, {
-            allowEmptyOption: true,
+        tomSelectCliente = new TomSelect(idClienteEl, {
+            valueField: 'id',
+            labelField: 'text',
+            searchField: ['text'],
+            loadThrottle: 300,
             placeholder: "Buscar cliente por nombre o documento...",
-            dropdownParent: 'body', 
             preload: true,
-            shouldLoad: () => true,
-            onDropdownOpen: function() {
-                if (Object.keys(this.options || {}).length === 0) this.load('');
+            
+            // 🎨 SOLUCIÓN VISUAL: Forzamos a que se dibuje en el body y encima de todo
+            dropdownParent: 'body',
+            onDropdownOpen: function(dropdown) { 
+                dropdown.style.zIndex = '99999'; 
             },
-            onFocus: function() {
-                if (Object.keys(this.options || {}).length === 0) this.load('');
-            },
-            loadThrottle: 250,
+
             load: function(query, callback) {
-                const termino = (query || '').trim();
-                const url = `${urls.index}&accion=buscar_clientes&q=${encodeURIComponent(termino)}`;
+                const termino = encodeURIComponent((query || '').trim());
+                
+                // 🔌 SOLUCIÓN COMUNICACIÓN: La ruta limpia que ya te funcionó
+                const urlBaseLimpia = urls.index.replace('ventas/index', 'ventas');
+                const url = `${urlBaseLimpia}${separadorAjax}accion=buscar_clientes&q=${termino}`;
                 
                 fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(response => {
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    if (!response.ok) throw new Error("HTTP " + response.status);
                     return response.json();
                 })
                 .then(json => {
+                    // Mapeo seguro de datos
                     const items = (json.data || []).map(item => ({
                         id: item.id,
                         text: `${item.nombre_completo} (${item.num_doc || 'S/D'})`,
                         saldo_favor: Number(item.saldo_favor || 0)
                     }));
+                    
+                    // Console log para que confirmes con tus propios ojos que los datos llegan
+                    console.log("✅ Clientes cargados en TomSelect:", items.length);
                     callback(items);
-                }).catch(() => callback());
+                }).catch((err) => {
+                    console.error("❌ Error al cargar clientes:", err);
+                    callback();
+                });
+            },
+            onChange: function(value) {
+                const opt = this.options[value];
+                emitirAlertaSaldoFavor(opt?.saldo_favor || 0);
+                refrescarFilasPorCambioCliente();
+                actualizarBloqueoFormularioPorCliente();
             },
             render: {
-                no_results: () => '<div class="no-results">No se encontraron coincidencias</div>',
+                no_results: () => '<div class="no-results p-2 text-muted">No se encontraron clientes</div>',
                 loading: () => '<div class="spinner-border spinner-border-sm text-primary m-2"></div> Buscando...'
             }
-        });
-        
-        tomSelectCliente?.on('change', (value) => {
-            const opt = tomSelectCliente?.options?.[value];
-            renderAlertaSaldoFavor(opt?.saldo_favor || 0);
-            refrescarFilasPorCambioCliente();
-            actualizarBloqueoFormularioPorCliente();
-        });
-    }
-
-    if (idClienteEl && !tomSelectCliente) {
-        idClienteEl.addEventListener('change', () => {
-            refrescarFilasPorCambioCliente();
-            actualizarBloqueoFormularioPorCliente();
         });
     }
 
     // --- EVENTOS DEL MODAL Y BOTONES ---
     const btnNuevaVenta = document.getElementById('btnNuevaVenta');
     if (btnNuevaVenta) {
-        // Clonamos para evitar duplicar el evento al navegar por AJAX
         const nuevoBtnVenta = btnNuevaVenta.cloneNode(true);
         btnNuevaVenta.parentNode.replaceChild(nuevoBtnVenta, btnNuevaVenta);
         nuevoBtnVenta.addEventListener('click', async () => {
@@ -1259,7 +1218,7 @@ export async function initVentas() {
         formVenta.parentNode.replaceChild(newFormVenta, formVenta);
         
         newFormVenta.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Evitamos recarga
+            e.preventDefault(); 
 
             const btnGuardarVenta = document.getElementById('btnGuardarVenta');
 

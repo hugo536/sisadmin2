@@ -1,197 +1,81 @@
 <?php
 /**
- * 🔍 SUPER CHECKER V5 - El Veredicto Final
- * Diagnóstico de Filtros Tesorería
+ * 🔍 SUPER CHECKER V6 - El Cazador de TomSelect
+ * Diagnóstico de APIs AJAX, JSON y renderizado de Dropdowns.
  */
 declare(strict_types=1);
 error_reporting(E_ALL); ini_set('display_errors', '1');
 
-echo "<!DOCTYPE html><html><head><title>Debugger Tesorería V5</title>";
-echo '<meta name="viewport" content="width=device-width, initial-scale=1">';
-echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">';
-echo '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">';
+// Detectamos la ruta base automáticamente
+$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
+$host = $_SERVER['HTTP_HOST'];
+$uri = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+$baseUrl = $protocol . "://" . $host . $uri;
 ?>
-<style>
-    body { background: #f8f9fa; padding: 20px; font-family: 'Segoe UI', system-ui, sans-serif; }
-    .terminal { background-color: #0d1117; color: #58a6ff; font-family: monospace; font-size: 13.5px; padding: 15px; border-radius: 8px; overflow-x: auto; border: 1px solid #30363d; }
-    .terminal-comment { color: #8b949e; font-style: italic; }
-    .terminal-keyword { color: #ff7b72; }
-    .terminal-string { color: #a5d6ff; }
-    .terminal-var { color: #79c0ff; }
-</style>
-</head><body>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Debugger TomSelect V6</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Cargar TomSelect nativo para la prueba -->
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+    <style>
+        body { background: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', system-ui, sans-serif; padding: 20px; }
+        .card { background-color: #161b22; border: 1px solid #30363d; }
+        .card-header { background-color: #21262d; border-bottom: 1px solid #30363d; color: #fff; font-weight: bold; }
+        .terminal { background-color: #010409; color: #58a6ff; font-family: monospace; font-size: 13.5px; padding: 15px; border-radius: 8px; height: 400px; overflow-y: auto; border: 1px solid #30363d; }
+        .log-error { color: #ff7b72; }
+        .log-success { color: #3fb950; }
+        .log-warning { color: #d29922; }
+        .log-info { color: #a5d6ff; }
+        .ts-wrapper { background: #fff !important; border-radius: 5px; } /* Fondo blanco para aislar el input de prueba */
+    </style>
+</head>
+<body>
 
-<div class="container" style="max-width: 1200px;">
-    <h2 class="text-primary mb-3 fw-bold"><i class="bi bi-radar"></i> DIAGNÓSTICO V5: El Veredicto Final</h2>
-    <p class="lead text-muted">¿Por qué seguía sin funcionar? Aquí está el motivo exacto (Spoiler: el JS estaba enviando la petición al lugar equivocado) y la solución definitiva.</p>
+<div class="container-fluid" style="max-width: 1400px;">
+    <h2 class="mb-3 fw-bold text-white"><i class="bi bi-bug text-danger"></i> DIAGNÓSTICO V6: Cazador de TomSelect</h2>
+    <p class="text-muted">Aislamiento de entorno para detectar por qué falla la búsqueda AJAX en el módulo de Ventas.</p>
 
     <div class="row g-4 mt-2">
+        <!-- COLUMNA IZQUIERDA: Controles y Sandbox -->
         <div class="col-lg-5">
-            <div class="card shadow-sm border-0 border-start border-danger border-4 mb-4">
-                <div class="card-header bg-white fw-bold text-danger"><i class="bi bi-bug"></i> Los 2 Culpables Restantes</div>
-                <div class="card-body p-4 bg-light">
-                    <ol class="mb-0">
-                        <li class="mb-3">
-                            <strong>El Asesino Silencioso de Subcarpetas (JavaScript):</strong> En la versión anterior, el código <code>new URL(action, window.location.origin)</code> ignoraba tu carpeta <code>/sisadmin2/</code>. La petición de filtro se enviaba a <code>http://localhost/tesoreria...</code>, generando un Error 404 invisible. La tabla no se actualizaba porque nunca recibía datos nuevos.<br>
-                            <span class="badge bg-success mt-2">Solución:</span> Usar la propiedad nativa <code>form.action</code>, que el navegador ya resuelve automáticamente con la ruta absoluta correcta.
-                        </li>
-                        <li class="mb-3">
-                            <strong>Sintaxis MySQL Estricta (Modelo):</strong> En algunas versiones de MySQL/MariaDB, envolver subconsultas <code>UNION ALL</code> entre paréntesis <code>($sql) UNION ALL ($sql)</code> arroja un error de sintaxis silencioso al combinarlo con <code>ORDER BY</code>.<br>
-                            <span class="badge bg-success mt-2">Solución:</span> Quitar los paréntesis al concatenar la consulta final.
-                        </li>
-                    </ol>
+            <div class="card shadow-sm mb-4">
+                <div class="card-header"><i class="bi bi-play-circle"></i> Panel de Pruebas</div>
+                <div class="card-body p-4">
+                    <button id="btnRunAll" class="btn btn-primary w-100 fw-bold mb-3 py-2">
+                        <i class="bi bi-rocket-takeoff me-2"></i> Iniciar Diagnóstico Completo
+                    </button>
+                    <hr class="border-secondary opacity-25">
+                    <p class="small text-muted mb-2"><strong>Sandbox de TomSelect</strong> (Debería funcionar si la API responde bien):</p>
+                    <div class="mb-3 bg-white p-3 rounded">
+                        <select id="sandboxCliente" class="form-select" placeholder="Escribe para buscar..."></select>
+                    </div>
                 </div>
             </div>
-
-            <div class="alert alert-warning border-0 shadow-sm">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i> <strong>Recuerda borrar tu caché (Ctrl + F5)</strong> después de actualizar tu JavaScript.
+            
+            <div class="alert alert-info border-info-subtle bg-transparent">
+                <h6 class="fw-bold"><i class="bi bi-info-circle"></i> ¿Qué busca este test?</h6>
+                <ul class="small mb-0 ps-3">
+                    <li>Si la ruta <code>index.php?ruta=ventas&accion=buscar_clientes</code> da Error 404 o 500.</li>
+                    <li>Si PHP está inyectando HTML/Errores ocultos que rompen el formato <code>JSON</code>.</li>
+                    <li>Si la librería de TomSelect está colisionando.</li>
+                </ul>
             </div>
         </div>
 
+        <!-- COLUMNA DERECHA: Terminal de logs -->
         <div class="col-lg-7">
-            <div class="card shadow border-0 h-100">
-                <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-tools"></i> Código de Solución Definitiva (Copia esto)</span>
+            <div class="card shadow-sm h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-terminal"></i> Terminal de Diagnóstico</span>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('terminal').innerHTML=''">Limpiar</button>
                 </div>
                 <div class="card-body p-0">
-                    <div class="accordion accordion-flush" id="accordionFixes">
-                        
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button bg-light fw-bold text-warning" type="button" data-bs-toggle="collapse" data-bs-target="#fix3">
-                                    1. Actualizar JS (movimientos.js)
-                                </button>
-                            </h2>
-                            <div id="fix3" class="accordion-collapse collapse show" data-bs-parent="#accordionFixes">
-                                <div class="accordion-body">
-                                    <p class="small text-muted mb-2">Reemplaza tu función <code>procesarFiltros</code> por esta versión infalible. Extrae la URL absoluta directamente del DOM:</p>
-                                    <div class="terminal">
-const procesarFiltros = () => {
-    const formData = new FormData(formFiltros);
-    
-    <span class="terminal-comment">// Propiedad DOM nativa: obtiene la ruta ABSOLUTA garantizada</span>
-    <span class="terminal-comment">// (ej: http://localhost/sisadmin2/index.php?ruta=...)</span>
-    const urlObj = new URL(formFiltros.action);
-    
-    formData.forEach((value, key) => {
-        if (value.trim() !== '') {
-            urlObj.searchParams.set(key, value.trim());
-        } else {
-            urlObj.searchParams.delete(key); <span class="terminal-comment">// Limpia filtros vacíos</span>
-        }
-    });
-    
-    const finalUrlStr = urlObj.toString();
-    console.log("📍 AJAX Enviado a:", finalUrlStr);
-    
-    cargarDatosAjax(finalUrlStr);
-};
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed bg-light fw-bold text-success" type="button" data-bs-toggle="collapse" data-bs-target="#fix2">
-                                    2. Actualizar TesoreriaMovimientoModel.php
-                                </button>
-                            </h2>
-                            <div id="fix2" class="accordion-collapse collapse" data-bs-parent="#accordionFixes">
-                                <div class="accordion-body">
-                                    <p class="small text-muted mb-2">Reemplaza la función <code>listarRecientes</code>. Hemos eliminado los paréntesis del UNION ALL para máxima compatibilidad:</p>
-                                    <div class="terminal" style="max-height: 350px;">
-<span class="terminal-keyword">public function</span> listarRecientes(array $filtros = [], int $limite = 50): array
-{
-    $origenFilter = strtoupper(trim((string) ($filtros['origen'] ?? '')));
-    $idOrigenFilter = (int) ($filtros['id_origen'] ?? 0);
-    $idTerceroFilter = (int) ($filtros['id_tercero'] ?? 0);
-    $idCuentaFilter = (int) ($filtros['id_cuenta'] ?? 0);
-    $fechaDesdeFilter = (string) ($filtros['fecha_desde'] ?? '');
-    $fechaHastaFilter = (string) ($filtros['fecha_hasta'] ?? '');
-
-    $paramsFinal = [];
-    $whereMov = ['m.deleted_at IS NULL'];
-    
-    if (in_array($origenFilter, ['CXC', 'CXP'], true)) {
-        $whereMov[] = 'm.origen = :origen_mov';
-        $paramsFinal['origen_mov'] = $origenFilter;
-    }
-    if ($idOrigenFilter > 0) {
-        $whereMov[] = 'm.id_origen = :id_origen_mov';
-        $paramsFinal['id_origen_mov'] = $idOrigenFilter;
-    }
-    if ($idTerceroFilter > 0) {
-        $whereMov[] = 'm.id_tercero = :id_tercero_mov';
-        $paramsFinal['id_tercero_mov'] = $idTerceroFilter;
-    }
-    if ($idCuentaFilter > 0) {
-        $whereMov[] = 'm.id_cuenta = :id_cuenta_mov';
-        $paramsFinal['id_cuenta_mov'] = $idCuentaFilter;
-    }
-    if ($fechaDesdeFilter !== '') {
-        $whereMov[] = 'm.fecha >= :fecha_desde_mov';
-        $paramsFinal['fecha_desde_mov'] = $fechaDesdeFilter . ' 00:00:00';
-    }
-    if ($fechaHastaFilter !== '') {
-        $whereMov[] = 'm.fecha <= :fecha_hasta_mov';
-        $paramsFinal['fecha_hasta_mov'] = $fechaHastaFilter . ' 23:59:59';
-    }
-
-    $sqlMov = 'SELECT m.id, m.fecha, m.tipo, m.origen, m.id_origen, m.monto, m.estado, 
-                      COALESCE(c.codigo, "S/C") AS cuenta_codigo, COALESCE(c.nombre, "Cuenta Eliminada") AS cuenta_nombre, 
-                      COALESCE(t.nombre_completo, "Tercero Eliminado") AS tercero_nombre, m.created_at
-               FROM tesoreria_movimientos m
-               LEFT JOIN tesoreria_cuentas c ON c.id = m.id_cuenta
-               LEFT JOIN terceros t ON t.id = m.id_tercero
-               WHERE ' . implode(' AND ', $whereMov);
-
-    $addTransfers = true;
-    if ($origenFilter !== '' && $origenFilter !== 'TRANSFERENCIA') $addTransfers = false;
-    if ($idTerceroFilter > 0) $addTransfers = false;
-    
-    if ($addTransfers) {
-        $whereTrfOut = ['trf.deleted_at IS NULL'];
-        $whereTrfIn  = ['trf.deleted_at IS NULL'];
-
-        if ($idOrigenFilter > 0) {
-            $whereTrfOut[] = 'trf.id = :id_origen_out'; $paramsFinal['id_origen_out'] = $idOrigenFilter;
-            $whereTrfIn[] = 'trf.id = :id_origen_in'; $paramsFinal['id_origen_in'] = $idOrigenFilter;
-        }
-        if ($idCuentaFilter > 0) {
-            $whereTrfOut[] = 'trf.id_cuenta_origen = :id_cuenta_out'; $paramsFinal['id_cuenta_out'] = $idCuentaFilter;
-            $whereTrfIn[] = 'trf.id_cuenta_destino = :id_cuenta_in'; $paramsFinal['id_cuenta_in'] = $idCuentaFilter;
-        }
-        if ($fechaDesdeFilter !== '') {
-            $whereTrfOut[] = 'trf.fecha >= :fecha_desde_out'; $paramsFinal['fecha_desde_out'] = $fechaDesdeFilter . ' 00:00:00';
-            $whereTrfIn[] = 'trf.fecha >= :fecha_desde_in'; $paramsFinal['fecha_desde_in'] = $fechaDesdeFilter . ' 00:00:00';
-        }
-        if ($fechaHastaFilter !== '') {
-            $whereTrfOut[] = 'trf.fecha <= :fecha_hasta_out'; $paramsFinal['fecha_hasta_out'] = $fechaHastaFilter . ' 23:59:59';
-            $whereTrfIn[] = 'trf.fecha <= :fecha_hasta_in'; $paramsFinal['fecha_hasta_in'] = $fechaHastaFilter . ' 23:59:59';
-        }
-
-        $sqlTrfOut = 'SELECT trf.id, trf.fecha, "PAGO" AS tipo, "TRANSFERENCIA" AS origen, trf.id AS id_origen, trf.monto, trf.estado, COALESCE(co.codigo, "S/C") AS cuenta_codigo, COALESCE(co.nombre, "Cuenta Eliminada") AS cuenta_nombre, "Cuentas Propias" AS tercero_nombre, trf.created_at FROM tesoreria_transferencias trf LEFT JOIN tesoreria_cuentas co ON co.id = trf.id_cuenta_origen WHERE ' . implode(' AND ', $whereTrfOut);
-        $sqlTrfIn = 'SELECT trf.id, trf.fecha, "COBRO" AS tipo, "TRANSFERENCIA" AS origen, trf.id AS id_origen, trf.monto, trf.estado, COALESCE(cd.codigo, "S/C") AS cuenta_codigo, COALESCE(cd.nombre, "Cuenta Eliminada") AS cuenta_nombre, "Cuentas Propias" AS tercero_nombre, trf.created_at FROM tesoreria_transferencias trf LEFT JOIN tesoreria_cuentas cd ON cd.id = trf.id_cuenta_destino WHERE ' . implode(' AND ', $whereTrfIn);
-
-        <span class="terminal-comment">// CORRECCIÓN: Quitamos los paréntesis alrededor de las subconsultas</span>
-        $sqlFinal = $sqlMov . " UNION ALL " . $sqlTrfOut . " UNION ALL " . $sqlTrfIn . " ORDER BY fecha DESC, created_at DESC LIMIT :limite";
-    } else {
-        $sqlFinal = $sqlMov . " ORDER BY fecha DESC, created_at DESC LIMIT :limite";
-    }
-
-    $stmt = $this->db()->prepare($sqlFinal);
-    foreach ($paramsFinal as $k => $v) { $stmt->bindValue(':' . $k, $v); }
-    $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
-    $stmt->execute();
-    
-    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
+                    <div id="terminal" class="terminal">
+                        <div class="log-info">> Esperando inicio de diagnóstico...</div>
                     </div>
                 </div>
             </div>
@@ -199,5 +83,123 @@ const procesarFiltros = () => {
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body></html>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+
+<script>
+    const terminal = document.getElementById('terminal');
+    const baseUrl = "<?php echo $baseUrl; ?>";
+
+    function logTerminal(msg, type = 'info') {
+        const div = document.createElement('div');
+        div.className = `log-${type} mb-1`;
+        
+        let icon = 'bi-chevron-right';
+        if(type === 'error') icon = 'bi-x-circle-fill';
+        if(type === 'success') icon = 'bi-check-circle-fill';
+        if(type === 'warning') icon = 'bi-exclamation-triangle-fill';
+
+        div.innerHTML = `<i class="bi ${icon} me-2"></i>${msg}`;
+        terminal.appendChild(div);
+        terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    async function runDiagnostics() {
+        terminal.innerHTML = '';
+        logTerminal('Iniciando batería de pruebas V6...', 'info');
+
+        // PRUEBA 1: Verificar TomSelect
+        logTerminal('Prueba 1: Verificando instancia de TomSelect...', 'info');
+        if (typeof TomSelect === 'undefined') {
+            logTerminal('FATAL: TomSelect no está cargado en el entorno.', 'error');
+            return;
+        }
+        logTerminal(`TomSelect detectado correctamente (versión presumida 2.x).`, 'success');
+
+        // PRUEBA 2: Ping al backend (buscar_clientes)
+        logTerminal('Prueba 2: Lanzando petición AJAX pura a buscar_clientes (Simulando "suy")...', 'info');
+        const urlCliente = `${baseUrl}/index.php?ruta=ventas&accion=buscar_clientes&q=suy`;
+        logTerminal(`URL destino: <a href="${urlCliente}" target="_blank" class="text-info">${urlCliente}</a>`, 'warning');
+
+        try {
+            const response = await fetch(urlCliente, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            logTerminal(`Estado HTTP de respuesta: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
+            const textData = await response.text(); // Capturamos como texto primero para ver si hay basura PHP
+            
+            if (!textData.trim().startsWith('{') && !textData.trim().startsWith('[')) {
+                logTerminal(`FATAL: El servidor no devolvió un JSON limpio. Devolvió esto:`, 'error');
+                logTerminal(textData.substring(0, 150) + '...', 'error');
+                logTerminal(`Solución: Hay un 'echo' o un error PHP imprimiéndose antes del 'json_response()' en VentasController.php`, 'warning');
+                return;
+            }
+
+            const jsonData = JSON.parse(textData);
+            logTerminal(`JSON parseado con éxito.`, 'success');
+
+            if (!jsonData.ok) {
+                logTerminal(`El backend respondió con ok=false. Mensaje: ${jsonData.mensaje}`, 'error');
+            } else {
+                logTerminal(`El backend encontró ${jsonData.data ? jsonData.data.length : 0} registros para 'suy'.`, 'success');
+            }
+
+        } catch (error) {
+            logTerminal(`FATAL: La petición Fetch falló estrepitosamente: ${error.message}`, 'error');
+            return;
+        }
+
+        // PRUEBA 3: Ping al backend (buscar_items)
+        logTerminal('Prueba 3: Lanzando petición AJAX a buscar_items (Cargando catálogo vacío)...', 'info');
+        const urlItem = `${baseUrl}/index.php?ruta=ventas&accion=buscar_items&q=&id_cliente=1&cantidad=1`;
+        
+        try {
+            const response = await fetch(urlItem, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const textData = await response.text(); 
+            const jsonData = JSON.parse(textData);
+            logTerminal(`JSON Items parseado con éxito. Encontró ${jsonData.data ? jsonData.data.length : 0} ítems.`, 'success');
+        } catch (error) {
+            logTerminal(`FATAL en buscar_items: ${error.message}. Puede que el JSON esté corrupto.`, 'error');
+            return;
+        }
+
+        // PRUEBA 4: Aislamiento TomSelect en el Sandbox
+        logTerminal('Prueba 4: Construyendo el TomSelect en el Sandbox HTML...', 'info');
+        try {
+            const sandboxSelect = document.getElementById('sandboxCliente');
+            new TomSelect(sandboxSelect, {
+                valueField: 'id',
+                labelField: 'text',
+                searchField: ['text'],
+                loadThrottle: 300,
+                load: function(query, callback) {
+                    const termino = encodeURIComponent(query.trim());
+                    const fetchUrl = `${baseUrl}/index.php?ruta=ventas&accion=buscar_clientes&q=${termino}`;
+                    logTerminal(`[TomSelect Fetch] Solicitando: ${termino || '<vacío>'}`, 'warning');
+                    
+                    fetch(fetchUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(r => r.json())
+                        .then(json => {
+                            const mapData = (json.data || []).map(item => ({
+                                id: item.id,
+                                text: `${item.nombre_completo} (${item.num_doc})`
+                            }));
+                            logTerminal(`[TomSelect Fetch] Insertando ${mapData.length} opciones en la UI.`, 'success');
+                            callback(mapData);
+                        }).catch(e => {
+                            logTerminal(`[TomSelect Fetch] Error en el render: ${e.message}`, 'error');
+                            callback();
+                        });
+                }
+            });
+            logTerminal(`TomSelect instanciado correctamente en la interfaz. ¡Prueba a escribir "suy" en el recuadro blanco de la izquierda!`, 'success');
+        } catch (error) {
+            logTerminal(`FATAL al instanciar TomSelect: ${error.message}`, 'error');
+        }
+
+        logTerminal('--- DIAGNÓSTICO FINALIZADO ---', 'info');
+    }
+
+    document.getElementById('btnRunAll').addEventListener('click', runDiagnostics);
+</script>
+
+</body>
+</html>

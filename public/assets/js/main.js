@@ -367,7 +367,12 @@
      * Inicializa un Select AJAX (Para buscar en la base de datos)
      * Ej: Clientes, Productos, etc.
      */
+
     initAjax: function(selector, urlBackend, customOptions = {}) {
+      // 1. Detectamos inteligentemente si el select vive dentro de un modal
+      const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+      const modalPadre = el ? el.closest('.modal') : null;
+
       const defaultOptions = {
         valueField: 'id',
         labelField: 'text',
@@ -375,8 +380,11 @@
         plugins: ['clear_button'],
         preload: false,
         loadThrottle: 300,
-        // Comportamiento esperado: mostrar solo coincidencias reales según el término buscado.
-        // Si algún módulo necesita anular este filtro, puede sobreescribir `score` en customOptions.
+        
+        // 👇 SOLUCIÓN: Si está en un modal, lo anclamos al modal. Si no, al body.
+        dropdownParent: modalPadre ? modalPadre : 'body',
+        
+        dropdownClass: 'ts-dropdown ts-modal-fix', 
         load: function(query, callback) {
           const termino = (query || '').trim();
           if (!termino && !this.settings.preload) return callback();
@@ -390,7 +398,6 @@
               return response.json();
             })
             .then(json => {
-              // Asumimos que tu backend devuelve un array en json.data
               callback(json.data || []);
             }).catch((error) => {
               console.error('Error cargando datos para TomSelect:', error);
@@ -403,7 +410,6 @@
         }
       };
 
-      // Si pasas un render personalizado o load personalizado en customOptions, sobreescribirá al por defecto
       const config = Object.assign({}, defaultOptions, customOptions);
       return new TomSelect(selector, config);
     }
@@ -421,15 +427,16 @@
   };
 
   const handleTomSelectScrollUX = function(event) {
-      // Ignorar si el usuario está haciendo scroll DENTRO de la lista de resultados
-      if (event && event.target && event.target.classList) {
-          if (event.target.classList.contains('ts-dropdown-content') ||
-              event.target.classList.contains('ts-dropdown')) {
+      if (event && event.target && typeof event.target.closest === 'function') {
+          if (event.target.closest('.ts-wrapper') || event.target.closest('.ts-dropdown')) {
+              return;
+          }
+          // 👇 SOLUCIÓN 2: Ignorar si el scroll ocurre en *cualquier* hijo de un modal
+          if (event.target.closest('.modal')) {
               return;
           }
       }
-
-      // Si el usuario scrollea fuera del dropdown, cerramos los TomSelect abiertos.
+      
       closeOpenTomSelects();
   };
 
