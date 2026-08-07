@@ -388,11 +388,17 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
         return;
     }
 
-    // 👇 AQUÍ ESTÁ LA MAGIA CORREGIDA 👇
     const tom = initSelectAjax(selectItem, `${urls.index}&accion=buscar_items`, {
         placeholder: "Buscar producto...",
         dropdownParent: 'body', 
         preload: true, // <-- REQUERIDO: Carga las opciones al abrir el menú sin necesidad de teclear
+        shouldLoad: () => true,
+        onDropdownOpen: function() {
+            if (Object.keys(this.options || {}).length === 0) this.load('');
+        },
+        onFocus: function() {
+            if (Object.keys(this.options || {}).length === 0) this.load('');
+        },
         valueField: 'id', // <-- REQUERIDO: Le dice a TomSelect cuál es la llave
         labelField: 'text', // <-- REQUERIDO: Le dice a TomSelect cuál es el texto visual
         searchField: ['text'],
@@ -555,11 +561,17 @@ async function agregarFilaRegalo(item = null, esBorrador = true) {
         return;
     }
 
-    // 👇 TAMBIÉN CORREGIDO AQUÍ 👇
     const tom = initSelectAjax(selectItem, `${urls.index}&accion=buscar_items`, {
         placeholder: "Buscar producto de regalo...",
         dropdownParent: 'body', 
         preload: true, // <-- REQUERIDO
+        shouldLoad: () => true,
+        onDropdownOpen: function() {
+            if (Object.keys(this.options || {}).length === 0) this.load('');
+        },
+        onFocus: function() {
+            if (Object.keys(this.options || {}).length === 0) this.load('');
+        },
         valueField: 'id', // <-- REQUERIDO
         labelField: 'text', // <-- REQUERIDO
         searchField: ['text'],
@@ -1086,6 +1098,13 @@ export async function initVentas() {
             placeholder: "Buscar cliente por nombre o documento...",
             dropdownParent: 'body', 
             preload: true,
+            shouldLoad: () => true,
+            onDropdownOpen: function() {
+                if (Object.keys(this.options || {}).length === 0) this.load('');
+            },
+            onFocus: function() {
+                if (Object.keys(this.options || {}).length === 0) this.load('');
+            },
             loadThrottle: 250,
             load: function(query, callback) {
                 const termino = (query || '').trim();
