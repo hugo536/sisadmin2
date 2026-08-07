@@ -69,6 +69,11 @@ $empleados = $empleados ?? [];
         background-color: #e9ecef;
         border-left-color: #0b5ed7;
     }
+    .empleado-sin-horario-icon {
+        color: #ffc107;
+        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18));
+        flex-shrink: 0;
+    }
 </style>
 
 <div class="container-fluid p-4" id="gestionAsistenciaApp">
@@ -133,7 +138,12 @@ $empleados = $empleados ?? [];
                 <div class="list-group list-group-flush rounded-0 sidebar-empleados flex-grow-1" id="listaEmpleados">
                     <?php foreach ($empleados as $emp): ?>
                         <div class="list-group-item empleado-item border-bottom py-3" data-id="<?php echo (int)$emp['id']; ?>">
-                            <div class="fw-bold text-dark mb-1" style="font-size: 0.85rem; line-height: 1.2;"><?php echo e($emp['nombre_completo']); ?></div>
+                            <div class="d-flex align-items-center gap-1 mb-1">
+                                <div class="fw-bold text-dark flex-grow-1" style="font-size: 0.85rem; line-height: 1.2;"><?php echo e($emp['nombre_completo']); ?></div>
+                                <?php if (!empty($emp['sin_horario'])): ?>
+                                    <i class="bi bi-exclamation-triangle-fill empleado-sin-horario-icon" title="Falta asignar un horario a este trabajador" aria-label="Falta asignar un horario a este trabajador"></i>
+                                <?php endif; ?>
+                            </div>
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="badge bg-light text-secondary border fw-normal" style="font-size: 0.7rem;">Cód: <?php echo e($emp['codigo_biometrico'] ?? 'N/A'); ?></span>
                                 <i class="bi bi-exclamation-circle text-warning d-none" title="Inconsistencias"></i>

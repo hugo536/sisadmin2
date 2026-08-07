@@ -835,11 +835,16 @@ class AsistenciaModel extends Modelo
 
     public function listarEmpleadosParaIncidencias(): array
     {
-        $sql = 'SELECT t.id, t.nombre_completo, te.codigo_biometrico
+        $sql = 'SELECT t.id,
+                       t.nombre_completo,
+                       te.codigo_biometrico,
+                       CASE WHEN COUNT(aeh.id) = 0 THEN 1 ELSE 0 END AS sin_horario
                 FROM terceros t
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
+                LEFT JOIN asistencia_empleado_horario aeh ON aeh.id_tercero = t.id
                 WHERE t.es_empleado = 1
                   AND t.deleted_at IS NULL
+                GROUP BY t.id, t.nombre_completo, te.codigo_biometrico
                 ORDER BY t.nombre_completo ASC';
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
