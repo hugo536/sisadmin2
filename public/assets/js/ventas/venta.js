@@ -18,13 +18,12 @@ let tomSelectListo = false;
 // 1. UTILIDADES Y LÓGICA DE FILAS
 // ==========================================
 
-function clienteSeleccionado() {
-    const idClienteEl = document.getElementById('idCliente');
-    return Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0) > 0;
-}
-
 function actualizarBloqueoFormularioPorCliente() {
-    const bloquearControlesVenta = bloqueoEdicionVenta || !clienteSeleccionado();
+    // A diferencia de compras, ventas usa búsquedas AJAX y puede cargar el catálogo
+    // general sin cliente (id_cliente=0). No bloqueamos el detalle por falta de
+    // cliente para que TomSelect permanezca usable; la validación de cliente sigue
+    // ocurriendo al guardar y los precios se refrescan cuando se selecciona cliente.
+    const bloquearControlesVenta = bloqueoEdicionVenta;
     const tipoOperacion = document.getElementById('tipoOperacion');
     const esDonacion = tipoOperacion && tipoOperacion.value === 'DONACION';
     
