@@ -42,7 +42,6 @@ function actualizarBloqueoFormularioPorCliente() {
     if (btnMostrarTablaRegalos) btnMostrarTablaRegalos.disabled = bloquearControlesVenta;
     if (btnAgregarFilaRegalo) btnAgregarFilaRegalo.disabled = bloquearControlesVenta;
 
-    // Componentes de Pago Inmediato
     const switchCobroContainer = document.getElementById('switchCobroContainer');
     const switchCobroInmediato = document.getElementById('switchCobroInmediato');
     const seccionCobroInmediato = document.getElementById('seccionCobroInmediato');
@@ -390,14 +389,20 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
         return;
     }
 
+    // 👇 AQUÍ ESTÁ LA MAGIA CORREGIDA 👇
     const tom = initSelectAjax(selectItem, `${urls.index}&accion=buscar_items`, {
         placeholder: "Buscar producto...",
         dropdownParent: 'body', 
+        preload: true, // <-- REQUERIDO: Carga las opciones al abrir el menú sin necesidad de teclear
+        valueField: 'id', // <-- REQUERIDO: Le dice a TomSelect cuál es la llave
+        labelField: 'text', // <-- REQUERIDO: Le dice a TomSelect cuál es el texto visual
+        searchField: ['text'],
         load: function(query, callback) {
             const idClienteEl = document.getElementById('idCliente');
             const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0);
             const cantidadActual = Number(inputCantidad.value || 1) || 1;
             const url = `${urls.index}&accion=buscar_items&q=${encodeURIComponent(query)}&id_cliente=${idClienteActual}&cantidad=${encodeURIComponent(cantidadActual)}`;
+            
             fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(response => response.json())
                 .then(json => {
@@ -421,7 +426,7 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
                 const idSeleccionado = value || '';
                 const repetido = idSeleccionado !== '' && obtenerItemsSeleccionados(filaReal).has(idSeleccionado);
                 if (repetido) {
-                    this.clear(true);
+                    this.clear(true); // <-- True silencia el evento para evitar bucles
                     filaReal.querySelector('.detalle-stock').textContent = '0.00';
                     Swal.fire('Producto repetido', 'Este producto ya está en la lista.', 'warning');
                     recalcularTotalVenta();
@@ -551,9 +556,14 @@ async function agregarFilaRegalo(item = null, esBorrador = true) {
         return;
     }
 
+    // 👇 TAMBIÉN CORREGIDO AQUÍ 👇
     const tom = initSelectAjax(selectItem, `${urls.index}&accion=buscar_items`, {
         placeholder: "Buscar producto de regalo...",
         dropdownParent: 'body', 
+        preload: true, // <-- REQUERIDO
+        valueField: 'id', // <-- REQUERIDO
+        labelField: 'text', // <-- REQUERIDO
+        searchField: ['text'],
         load: function(query, callback) {
             const idClienteEl = document.getElementById('idCliente');
             const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0);
@@ -579,7 +589,7 @@ async function agregarFilaRegalo(item = null, esBorrador = true) {
                 const idSeleccionado = value || '';
                 const repetido = idSeleccionado !== '' && obtenerItemsSeleccionados(filaReal).has(idSeleccionado);
                 if (repetido) {
-                    this.clear(true);
+                    this.clear(true); // <-- Silenciar evento preventivo
                     filaReal.querySelector('.detalle-stock').textContent = '0.00';
                     Swal.fire('Producto repetido', 'Este producto ya está seleccionado en la venta principal o en los regalos.', 'warning');
                     return;
@@ -1377,7 +1387,6 @@ export async function initVentas() {
                 const ventaObsEl = document.getElementById('ventaObservaciones');
                 const tipoImpuestoEl = document.getElementById('tipoImpuesto');
 
-                // Usamos postJsonConCarga para mostrar el spinner en el botón al guardar
                 const payload = await postJsonConCarga(urls.guardar, {
                     id: Number(ventaIdEl?.value || 0),
                     id_cliente: clienteIdActual,
