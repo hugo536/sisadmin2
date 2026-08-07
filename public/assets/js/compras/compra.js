@@ -745,8 +745,12 @@ export async function initCompras() {
     const fechaEntrega = document.getElementById('fechaEntrega');
     if (fechaEntrega && !fechaEntrega.value) fechaEntrega.value = obtenerFechaLocalISO();
 
-    const btnGuardarOrden = document.getElementById('btnGuardarOrden');
-    btnGuardarOrden?.addEventListener('click', async () => {
+    const formOrdenCompra = document.getElementById('formOrdenCompra');
+    formOrdenCompra?.addEventListener('submit', async (e) => {
+        e.preventDefault(); // Evita que la página se recargue
+
+        const btnGuardarOrden = document.getElementById('btnGuardarOrden'); // Lo obtenemos para el botón de carga
+
         const idProv = document.getElementById('idProveedor');
         if (!idProv || !idProv.value) return Swal.fire('Falta Proveedor', 'Debe seleccionar un proveedor.', 'warning');
         

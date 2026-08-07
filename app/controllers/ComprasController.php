@@ -55,34 +55,6 @@ class ComprasController extends Controlador
             $filtros['fecha_desde'] = $hoy->sub(new DateInterval('P30D'))->format('Y-m-d');
         }
 
-        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'guardar_devolucion') {
-            try {
-                $payload = $this->leerJson();
-                $userId = $this->obtenerUsuarioId();
-
-                if (empty($payload['id_orden']) || empty($payload['motivo']) || empty($payload['detalle'])) {
-                    throw new RuntimeException('Faltan datos obligatorios para la devolución.');
-                }
-
-                // El frontend ahora manda esperar_reemplazo en false por defecto
-                $esperarReemplazo = isset($payload['esperar_reemplazo']) ? (bool) $payload['esperar_reemplazo'] : false;
-
-                $this->ordenModel->registrarDevolucion(
-                    (int) $payload['id_orden'], 
-                    $payload['motivo'], 
-                    'descuento_cxp', // <-- HARDCODEADO: Siempre aplica nota de crédito (descuento a CxP)
-                    $payload['detalle'], 
-                    $userId,
-                    $esperarReemplazo
-                );
-
-                json_response(['ok' => true, 'mensaje' => 'Devolución registrada correctamente. La cuenta por pagar y el inventario han sido actualizados.']);
-            } catch (Throwable $e) {
-                json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
-            }
-            exit; 
-        }
-
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar') {
             json_response([
                 'ok' => true,
@@ -455,6 +427,41 @@ class ComprasController extends Controlador
                 'id' => $idRecepcion,
             ]);
 
+        } catch (Throwable $e) {
+            json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
+        }
+    }
+
+    public function devolver(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('compras.devolver'); // Asegúrate de tener este permiso configurado o cámbialo al que uses
+
+        if (!es_ajax()) {
+            json_response(['ok' => false, 'mensaje' => 'Solicitud inválida.'], 400);
+            return;
+        }
+
+        try {
+            $payload = $this->leerJson();
+            $userId = $this->obtenerUsuarioId();
+
+            if (empty($payload['id_orden']) || empty($payload['motivo']) || empty($payload['detalle'])) {
+                throw new RuntimeException('Faltan datos obligatorios para la devolución.');
+            }
+
+            $esperarReemplazo = isset($payload['esperar_reemplazo']) ? (bool) $payload['esperar_reemplazo'] : false;
+
+            $this->ordenModel->registrarDevolucion(
+                (int) $payload['id_orden'], 
+                $payload['motivo'], 
+                'descuento_cxp', 
+                $payload['detalle'], 
+                $userId,
+                $esperarReemplazo
+            );
+
+            json_response(['ok' => true, 'mensaje' => 'Devolución registrada correctamente. La cuenta por pagar y el inventario han sido actualizados.']);
         } catch (Throwable $e) {
             json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
         }

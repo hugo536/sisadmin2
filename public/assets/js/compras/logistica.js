@@ -356,11 +356,17 @@ export async function abrirModalRecepcion(idOrden) {
 }
 
 export function initLogistica() {
-    // Enganches de Devolución
-    const devolucionMotivo = document.getElementById('devolucionMotivo');
-    const btnConfirmarDevolucion = document.getElementById('btnConfirmarDevolucion');
+    // ==========================================
+    // ENGANCHES DE DEVOLUCIÓN (Ahora con submit)
+    // ==========================================
+    const formDevolucionCompra = document.getElementById('formDevolucionCompra');
+    
+    formDevolucionCompra?.addEventListener('submit', async (e) => {
+        e.preventDefault(); // Evita que recargue la página
+        
+        const devolucionMotivo = document.getElementById('devolucionMotivo');
+        const btnConfirmarDevolucion = document.getElementById('btnConfirmarDevolucion');
 
-    btnConfirmarDevolucion?.addEventListener('click', async () => {
         if (!devolucionMotivo.value) return Swal.fire('Aviso', 'Seleccione un motivo.', 'warning');
         
         const detalle = [];
@@ -389,8 +395,8 @@ export function initLogistica() {
         if (detalle.length === 0 || totalDevolverBase <= 0) return Swal.fire('Aviso', 'Ingrese al menos una cantidad.', 'warning');
 
         try {
-            const separador = urls.index.includes('?') ? '&' : '?';
-            const urlPost = `${urls.index}${separador}accion=guardar_devolucion`;
+            // Usamos la nueva ruta MVC limpia que agregamos en config.js
+            const urlPost = urls.devolver;
 
             const checkReemplazo = document.getElementById('devolucionEsperarReemplazo');
             const esperarReemplazo = checkReemplazo ? checkReemplazo.checked : true;
@@ -411,9 +417,16 @@ export function initLogistica() {
         }
     });
 
-    // Enganches de Recepción
-    const btnConfirmarRecepcion = document.getElementById('btnConfirmarRecepcion');
-    btnConfirmarRecepcion?.addEventListener('click', async () => {
+    // ==========================================
+    // ENGANCHES DE RECEPCIÓN (Ahora con submit)
+    // ==========================================
+    const formRecepcionCompra = document.getElementById('formRecepcionCompra');
+    
+    formRecepcionCompra?.addEventListener('submit', async (e) => {
+        e.preventDefault(); // Evita que recargue la página
+        
+        const btnConfirmarRecepcion = document.getElementById('btnConfirmarRecepcion');
+
         try {
             const filas = [...document.querySelector('#tablaDetalleRecepcion tbody').querySelectorAll('tr')];
             const detalle = filas.map(fila => {

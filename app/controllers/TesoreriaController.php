@@ -9,7 +9,7 @@ require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMovimientoModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaCuentaModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaTransferenciaModel.php';
 require_once BASE_PATH . '/app/models/tesoreria/TesoreriaPrestamoModel.php';
-require_once BASE_PATH . '/app/models/tesoreria/TesoreriaSaldosModel.php'; // <-- Nuevo modelo
+require_once BASE_PATH . '/app/models/tesoreria/TesoreriaSaldosModel.php'; 
 require_once BASE_PATH . '/app/models/contabilidad/ContaCuentaModel.php';
 require_once BASE_PATH . '/app/models/contabilidad/CentroCostoModel.php';
 
@@ -21,7 +21,7 @@ class TesoreriaController extends Controlador
     private TesoreriaCuentaModel $cuentaModel;
     private TesoreriaTransferenciaModel $transferenciaModel;
     private TesoreriaPrestamoModel $prestamoModel;
-    private TesoreriaSaldosModel $saldosModel; // <-- Nueva propiedad
+    private TesoreriaSaldosModel $saldosModel; 
     private ContaCuentaModel $planContableModel;
     private CentroCostoModel $centroCostoModel;
 
@@ -34,7 +34,7 @@ class TesoreriaController extends Controlador
         $this->cuentaModel = new TesoreriaCuentaModel();
         $this->transferenciaModel = new TesoreriaTransferenciaModel();
         $this->prestamoModel = new TesoreriaPrestamoModel();
-        $this->saldosModel = new TesoreriaSaldosModel(); // <-- Inicialización
+        $this->saldosModel = new TesoreriaSaldosModel(); 
         $this->planContableModel = new ContaCuentaModel();
         $this->centroCostoModel = new CentroCostoModel();
     }
@@ -83,7 +83,6 @@ class TesoreriaController extends Controlador
             $idDestino = (int) ($_POST['id_cuenta_destino'] ?? 0);
             $monto = round((float) ($_POST['monto'] ?? 0), 4);
 
-            // --- INICIO DE VALIDACIONES BÁSICAS ---
             if ($idOrigen <= 0 || $idDestino <= 0) {
                 throw new RuntimeException('Debe seleccionar la cuenta origen y destino.');
             }
@@ -94,7 +93,6 @@ class TesoreriaController extends Controlador
                 throw new RuntimeException('El monto de la transferencia debe ser mayor a cero.');
             }
 
-            // --- INICIO DE VALIDACIONES DE NEGOCIO (SEGURIDAD FINANCIERA) ---
             $cuentaOrigen = $this->cuentaModel->obtenerPorId($idOrigen);
             $cuentaDestino = $this->cuentaModel->obtenerPorId($idDestino);
 
@@ -102,15 +100,12 @@ class TesoreriaController extends Controlador
                 throw new RuntimeException('Una de las cuentas seleccionadas no existe o está inactiva.');
             }
 
-            // Obtener las monedas reales de las cuentas desde la BD
             $monedaOrigen = strtoupper(trim((string) ($cuentaOrigen['moneda'] ?? '')));
             $monedaDestino = strtoupper(trim((string) ($cuentaDestino['moneda'] ?? '')));
             
-            // Valores por defecto si las monedas son iguales
             $montoDestino = $monto; 
             $tipoCambio = 1.0000;
 
-            // NUEVA LÓGICA: Si las monedas son distintas, validamos el convertidor enviado desde el frontend
             if ($monedaOrigen !== $monedaDestino) {
                 $tipoCambio = round((float) ($_POST['tipo_cambio'] ?? 0), 6);
                 $montoDestino = round((float) ($_POST['monto_destino'] ?? 0), 4);
@@ -123,14 +118,11 @@ class TesoreriaController extends Controlador
                 }
             }
 
-            // Validar que la cuenta origen tenga saldo suficiente (siempre en su propia moneda)
             $saldoDisponible = round((float) ($cuentaOrigen['saldo_actual'] ?? 0), 4);
             if ($monto > $saldoDisponible) {
                 throw new RuntimeException("Saldo insuficiente. La cuenta de origen solo dispone de {$monedaOrigen} " . number_format($saldoDisponible, 2));
             }
-            // --- FIN DE VALIDACIONES ---
 
-            // Registramos la transferencia enviando los nuevos parámetros al modelo actualizado
             $this->transferenciaModel->registrar([
                 'id_cuenta_origen'  => $idOrigen,
                 'id_cuenta_destino' => $idDestino,
@@ -214,7 +206,6 @@ class TesoreriaController extends Controlador
         AuthMiddleware::handle();
         require_permiso('tesoreria.cxc.ver');
 
-        // CAMBIO: Fechas proyectadas para flujo de caja (Mes actual + 30 días)
         $fechaDesdeDefault = date('Y-m-01');
         $fechaHastaDefault = date('Y-m-d', strtotime('+30 days'));
 
@@ -263,7 +254,56 @@ class TesoreriaController extends Controlador
         try {
             AuthMiddleware::handle();
             require_permiso('tesoreria.cobros.registrar');
-            $this->registrarMovimientoDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
+            
+            // 👇 NUEVO INTERCEPTOR: SALDO A FAVOR (CXC) 👇
+            $idOrigen = (int) ($_POST['id_origen'] ?? 0);
+            $cuentasIds = $_POST['cuenta_destino_ids'] ?? [];
+            $metodoMontos = $_POST['metodo_montos'] ?? [];
+            $montoTotalOriginal = round((float)($_POST['monto'] ?? 0), 4);
+            $userId = $this->obtenerUsuarioId();
+
+            $montoCruce = 0.0;
+            $hayOtrasCuentas = false;
+
+            if (is_array($cuentasIds) && count($cuentasIds) > 0) {
+                foreach ($cuentasIds as $idx => $cta) {
+                    if ($cta === 'SALDO_FAVOR') {
+                        $montoCruce += round((float)($metodoMontos[$idx] ?? 0), 4);
+                        unset($_POST['cuenta_destino_ids'][$idx]);
+                        unset($_POST['metodo_pago_ids'][$idx]);
+                        unset($_POST['metodo_montos'][$idx]);
+                    } else {
+                        $hayOtrasCuentas = true;
+                    }
+                }
+            } else {
+                if (($_POST['id_cuenta'] ?? '') === 'SALDO_FAVOR') {
+                    $montoCruce = $montoTotalOriginal;
+                } else {
+                    $hayOtrasCuentas = true;
+                }
+            }
+
+            if ($montoCruce > 0) {
+                $this->cxcModel->aplicarCruceDeCuentas($idOrigen, $montoCruce, $userId);
+                
+                $_POST['monto'] = round($montoTotalOriginal - $montoCruce, 4);
+
+                if (isset($_POST['cuenta_destino_ids'])) $_POST['cuenta_destino_ids'] = array_values($_POST['cuenta_destino_ids']);
+                if (isset($_POST['metodo_pago_ids'])) $_POST['metodo_pago_ids'] = array_values($_POST['metodo_pago_ids']);
+                if (isset($_POST['metodo_montos'])) $_POST['metodo_montos'] = array_values($_POST['metodo_montos']);
+            }
+
+            if (round((float)$_POST['monto'], 4) > 0 && $hayOtrasCuentas) {
+                $this->registrarMovimientoDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
+            } elseif ($montoCruce > 0) {
+                redirect('tesoreria/cxc?ok=1&action=cruce');
+            } else {
+                $this->registrarMovimientoDesdePost('CXC', 'COBRO', 'tesoreria/cxc'); 
+            }
+            return;
+            // 👆 FIN NUEVO INTERCEPTOR 👆
+
         } catch (Throwable $e) {
             $this->mostrarErrorFatal($e, 'Error al registrar cobro');
         }
@@ -274,11 +314,137 @@ class TesoreriaController extends Controlador
         try {
             AuthMiddleware::handle();
             require_permiso('tesoreria.cobros.registrar');
+            
+            // 👇 NUEVO INTERCEPTOR: COBRO MANUAL/GLOBAL CON SALDO A FAVOR 👇
+            if (($_POST['id_cuenta'] ?? '') === 'SALDO_FAVOR') {
+                $idTercero = (int) ($_POST['id_tercero'] ?? 0);
+                $montoCruzar = round((float) ($_POST['monto'] ?? 0), 4);
+                $moneda = strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN')));
+                $userId = $this->obtenerUsuarioId();
+
+                if ($idTercero <= 0 || $montoCruzar <= 0) {
+                    throw new RuntimeException("Datos inválidos para cruzar el saldo a favor.");
+                }
+
+                $idsOrigen = $this->cxcModel->listarPendientesPorAntiguedad($idTercero, $moneda);
+                
+                if (empty($idsOrigen)) {
+                    throw new RuntimeException("No hay facturas pendientes para cruzar en {$moneda}.");
+                }
+
+                $db = Conexion::get();
+                $db->beginTransaction();
+
+                try {
+                    $montoRestante = $montoCruzar;
+
+                    foreach ($idsOrigen as $idCxcDestino) {
+                        if ($montoRestante <= 0) break;
+
+                        $stmt = $db->prepare("SELECT saldo FROM tesoreria_cxc WHERE id = ? FOR UPDATE");
+                        $stmt->execute([$idCxcDestino]);
+                        $saldoDoc = (float) $stmt->fetchColumn();
+
+                        if ($saldoDoc > 0) {
+                            $montoAAplicar = min($saldoDoc, $montoRestante);
+                            $this->cxcModel->aplicarCruceDeCuentas((int)$idCxcDestino, $montoAAplicar, $userId);
+                            $montoRestante -= $montoAAplicar;
+                        }
+                    }
+
+                    $db->commit();
+                    redirect('tesoreria/cxc?ok=1&action=cruce_global');
+                    return;
+
+                } catch (Throwable $e) {
+                    $db->rollBack();
+                    throw $e;
+                }
+            }
+            // 👆 FIN NUEVO INTERCEPTOR 👆
+
             $this->registrarMovimientoManualDesdePost('CXC', 'COBRO', 'tesoreria/cxc');
         } catch (Throwable $e) {
             $this->mostrarErrorFatal($e, 'Error al registrar cobro manual');
         }
     }
+
+    // 👇 NUEVO BLOQUE: REEMBOLSO A CLIENTE (CxC) 👇
+    public function registrar_reembolso_cliente(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.cobros.registrar'); 
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('tesoreria/cxc');
+        }
+
+        try {
+            $idCxc = (int) ($_POST['id_origen'] ?? 0);
+            $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
+            $idMetodo = (int) ($_POST['id_metodo_pago'] ?? 0);
+            $monto = round((float) ($_POST['monto'] ?? 0), 4);
+            $referencia = trim((string) ($_POST['referencia'] ?? ''));
+            $moneda = strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN')));
+            $userId = $this->obtenerUsuarioId();
+
+            if ($idCxc <= 0 || $idCuenta <= 0 || $idMetodo <= 0 || $monto <= 0) {
+                throw new RuntimeException('Datos incompletos para procesar el reembolso.');
+            }
+
+            $db = Conexion::get();
+            $db->beginTransaction();
+
+            // 1. Obtener datos de la Nota de Crédito (Saldo a favor del cliente)
+            $stmtCxc = $db->prepare('SELECT id_cliente, saldo FROM tesoreria_cxc WHERE id = ? FOR UPDATE');
+            $stmtCxc->execute([$idCxc]);
+            $cxc = $stmtCxc->fetch(PDO::FETCH_ASSOC);
+
+            if (!$cxc || (float)$cxc['saldo'] < $monto) {
+                throw new RuntimeException('El monto a reembolsar supera el saldo a favor disponible de este cliente.');
+            }
+
+            // Validar que la cuenta bancaria de donde sale la plata tenga fondos suficientes
+            $cuentaInfo = $this->cuentaModel->obtenerPorId($idCuenta);
+            $saldoDisp = round((float) ($cuentaInfo['saldo_actual'] ?? 0), 4);
+            if ($monto > $saldoDisp) {
+                throw new RuntimeException("Saldo insuficiente en la cuenta bancaria '{$cuentaInfo['nombre']}' para realizar este reembolso. Dispone de " . number_format($saldoDisp, 2));
+            }
+
+            // 2. Registrar el EGRESO en movimientos de banco (El dinero sale hacia el cliente)
+            $stmtMov = $db->prepare('INSERT INTO tesoreria_movimientos 
+                (id_cuenta, id_metodo_pago, id_tercero, tipo, monto, moneda, fecha, observaciones, referencia, origen, id_origen, estado, created_by, updated_by, created_at, updated_at) 
+                VALUES (?, ?, ?, "EGRESO", ?, ?, CURDATE(), "Reembolso de efectivo por saldo a favor", ?, "CXC", ?, "CONFIRMADO", ?, ?, NOW(), NOW())');
+            
+            $stmtMov->execute([
+                $idCuenta, $idMetodo, $cxc['id_cliente'], $monto, $moneda, $referencia, $idCxc, $userId, $userId
+            ]);
+
+            $idMovimiento = (int) $db->lastInsertId();
+
+            // 3. Cruzar el cobro para la auditoría (Registro puente)
+            $stmtPago = $db->prepare('INSERT INTO tesoreria_cxc_cobros (id_cxc, id_movimiento, monto_aplicado, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())');
+            $stmtPago->execute([$idCxc, $idMovimiento, $monto, $userId, $userId]);
+
+            // 4. Descontar el saldo de la Nota de Crédito (La reducimos sumándole a lo pagado)
+            $stmtUpd = $db->prepare('UPDATE tesoreria_cxc SET monto_pagado = monto_pagado + ?, updated_by = ?, updated_at = NOW() WHERE id = ?');
+            $stmtUpd->execute([$monto, $userId, $idCxc]);
+
+            // Actualizamos estados
+            $this->cxcModel->recalcularEstado($idCxc, $userId);
+
+            $db->commit();
+            redirect('tesoreria/cxc?ok=1&action=refund');
+
+        } catch (Throwable $e) {
+            if (Conexion::get()->inTransaction()) {
+                Conexion::get()->rollBack();
+            }
+            redirect('tesoreria/cxc?error=' . urlencode($e->getMessage()));
+        }
+    }
+    // 👆 FIN NUEVO BLOQUE 👆
+
 
     // ========================================================================
     // MÓDULO: CUENTAS POR PAGAR (CXP)
@@ -288,7 +454,6 @@ class TesoreriaController extends Controlador
         AuthMiddleware::handle();
         require_permiso('tesoreria.cxp.ver');
 
-        // CAMBIO: Fechas proyectadas para flujo de caja (Mes actual + 30 días)
         $fechaDesdeDefault = date('Y-m-01');
         $fechaHastaDefault = date('Y-m-d', strtotime('+30 days'));
 
@@ -331,6 +496,193 @@ class TesoreriaController extends Controlador
             'proveedores' => $this->listarProveedoresActivos(),
             'centros_costo' => $this->centroCostoModel->listarActivos(),
         ]);
+    }
+
+    public function registrar_pago(): void
+    {
+        try {
+            AuthMiddleware::handle();
+            require_permiso('tesoreria.pagos.registrar');
+            
+            // =======================================================
+            // INICIO INTERCEPTOR: SALDO A FAVOR (INDIVIDUAL O MIXTO)
+            // =======================================================
+            $idOrigen = (int) ($_POST['id_origen'] ?? 0);
+            $cuentasIds = $_POST['cuenta_origen_ids'] ?? [];
+            $metodoMontos = $_POST['metodo_montos'] ?? [];
+            $montoTotalOriginal = round((float)($_POST['monto'] ?? 0), 4);
+            $userId = $this->obtenerUsuarioId();
+
+            $montoCruce = 0.0;
+            $hayOtrasCuentas = false;
+
+            if (is_array($cuentasIds) && count($cuentasIds) > 0) {
+                foreach ($cuentasIds as $idx => $cta) {
+                    if ($cta === 'SALDO_FAVOR') {
+                        $montoCruce += round((float)($metodoMontos[$idx] ?? 0), 4);
+                        unset($_POST['cuenta_origen_ids'][$idx]);
+                        unset($_POST['metodo_pago_ids'][$idx]);
+                        unset($_POST['metodo_montos'][$idx]);
+                    } else {
+                        $hayOtrasCuentas = true;
+                    }
+                }
+            } else {
+                if (($_POST['id_cuenta'] ?? '') === 'SALDO_FAVOR') {
+                    $montoCruce = $montoTotalOriginal;
+                } else {
+                    $hayOtrasCuentas = true;
+                }
+            }
+
+            if ($montoCruce > 0) {
+                $this->cxpModel->aplicarCruceDeCuentas($idOrigen, $montoCruce, $userId);
+                
+                $_POST['monto'] = round($montoTotalOriginal - $montoCruce, 4);
+
+                if (isset($_POST['cuenta_origen_ids'])) $_POST['cuenta_origen_ids'] = array_values($_POST['cuenta_origen_ids']);
+                if (isset($_POST['metodo_pago_ids'])) $_POST['metodo_pago_ids'] = array_values($_POST['metodo_pago_ids']);
+                if (isset($_POST['metodo_montos'])) $_POST['metodo_montos'] = array_values($_POST['metodo_montos']);
+            }
+
+            if (round((float)$_POST['monto'], 4) > 0 && $hayOtrasCuentas) {
+                $this->registrarMovimientoDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
+            } elseif ($montoCruce > 0) {
+                redirect('tesoreria/cxp?ok=1&action=cruce');
+            } else {
+                $this->registrarMovimientoDesdePost('CXP', 'PAGO', 'tesoreria/cxp'); 
+            }
+            return;
+            // ================= FIN INTERCEPTOR ===================
+
+        } catch (Throwable $e) {
+            $this->mostrarErrorFatal($e, "Error al acceder a Registrar Pago");
+        }
+    }
+
+    public function registrar_pago_manual(): void
+    {
+        try {
+            AuthMiddleware::handle();
+            require_permiso('tesoreria.pagos.registrar');
+            
+            // =======================================================
+            // INICIO INTERCEPTOR: PAGO MANUAL/GLOBAL CON SALDO A FAVOR
+            // =======================================================
+            if (($_POST['id_cuenta'] ?? '') === 'SALDO_FAVOR') {
+                $idTercero = (int) ($_POST['id_tercero'] ?? 0);
+                $montoCruzar = round((float) ($_POST['monto'] ?? 0), 4);
+                $moneda = strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN')));
+                $userId = $this->obtenerUsuarioId();
+
+                if ($idTercero <= 0 || $montoCruzar <= 0) {
+                    throw new RuntimeException("Datos inválidos para cruzar el saldo a favor.");
+                }
+
+                $idsOrigen = $this->cxpModel->listarPendientesPorAntiguedad($idTercero, $moneda);
+                
+                if (empty($idsOrigen)) {
+                    throw new RuntimeException("No hay documentos pendientes para cruzar en {$moneda}.");
+                }
+
+                $db = Conexion::get();
+                $db->beginTransaction();
+
+                try {
+                    $montoRestante = $montoCruzar;
+
+                    foreach ($idsOrigen as $idCxpDestino) {
+                        if ($montoRestante <= 0) break;
+
+                        $stmt = $db->prepare("SELECT saldo FROM tesoreria_cxp WHERE id = ? FOR UPDATE");
+                        $stmt->execute([$idCxpDestino]);
+                        $saldoDoc = (float) $stmt->fetchColumn();
+
+                        if ($saldoDoc > 0) {
+                            $montoAAplicar = min($saldoDoc, $montoRestante);
+                            $this->cxpModel->aplicarCruceDeCuentas((int)$idCxpDestino, $montoAAplicar, $userId);
+                            $montoRestante -= $montoAAplicar;
+                        }
+                    }
+
+                    $db->commit();
+                    redirect('tesoreria/cxp?ok=1&action=cruce_global');
+                    return;
+
+                } catch (Throwable $e) {
+                    $db->rollBack();
+                    throw $e;
+                }
+            }
+            // ================= FIN INTERCEPTOR ===================
+
+            $this->registrarMovimientoManualDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
+
+        } catch (Throwable $e) {
+            $this->mostrarErrorFatal($e, "Error al acceder a Pago Manual");
+        }
+    }
+
+    public function registrar_reembolso_proveedor(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.pagos.registrar'); 
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            redirect('tesoreria/cxp');
+        }
+
+        try {
+            $idCxp = (int) ($_POST['id_origen'] ?? 0);
+            $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
+            $idMetodo = (int) ($_POST['id_metodo_pago'] ?? 0);
+            $monto = round((float) ($_POST['monto'] ?? 0), 4);
+            $referencia = trim((string) ($_POST['referencia'] ?? ''));
+            $moneda = strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN')));
+            $userId = $this->obtenerUsuarioId();
+
+            if ($idCxp <= 0 || $idCuenta <= 0 || $idMetodo <= 0 || $monto <= 0) {
+                throw new RuntimeException('Datos incompletos para procesar el reembolso.');
+            }
+
+            $db = Conexion::get();
+            $db->beginTransaction();
+
+            $stmtCxp = $db->prepare('SELECT id_proveedor, saldo FROM tesoreria_cxp WHERE id = ? FOR UPDATE');
+            $stmtCxp->execute([$idCxp]);
+            $cxp = $stmtCxp->fetch(PDO::FETCH_ASSOC);
+
+            if (!$cxp || (float)$cxp['saldo'] < $monto) {
+                throw new RuntimeException('El monto a reembolsar supera el saldo a favor disponible.');
+            }
+
+            $stmtMov = $db->prepare('INSERT INTO tesoreria_movimientos 
+                (id_cuenta, id_metodo_pago, id_tercero, tipo, monto, moneda, fecha, observaciones, referencia, origen, id_origen, estado, created_by, updated_by, created_at, updated_at) 
+                VALUES (?, ?, ?, "INGRESO", ?, ?, CURDATE(), "Reembolso de efectivo por saldo a favor", ?, "CXP", ?, "CONFIRMADO", ?, ?, NOW(), NOW())');
+            
+            $stmtMov->execute([
+                $idCuenta, $idMetodo, $cxp['id_proveedor'], $monto, $moneda, $referencia, $idCxp, $userId, $userId
+            ]);
+
+            $idMovimiento = (int) $db->lastInsertId();
+
+            $stmtPago = $db->prepare('INSERT INTO tesoreria_cxp_pagos (id_cxp, id_movimiento, monto_aplicado, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())');
+            $stmtPago->execute([$idCxp, $idMovimiento, $monto, $userId, $userId]);
+
+            $stmtUpd = $db->prepare('UPDATE tesoreria_cxp SET monto_pagado = monto_pagado + ?, updated_by = ?, updated_at = NOW() WHERE id = ?');
+            $stmtUpd->execute([$monto, $userId, $idCxp]);
+
+            $this->cxpModel->recalcularEstado($idCxp, $userId);
+
+            $db->commit();
+            redirect('tesoreria/cxp?ok=1&action=refund');
+
+        } catch (Throwable $e) {
+            if (Conexion::get()->inTransaction()) {
+                Conexion::get()->rollBack();
+            }
+            redirect('tesoreria/cxp?error=' . urlencode($e->getMessage()));
+        }
     }
 
     // ========================================================================
@@ -513,7 +865,7 @@ class TesoreriaController extends Controlador
                 throw new RuntimeException('Las fechas deben tener formato YYYY-MM-DD.');
             }
 
-            // === NUEVA LÓGICA: CAPTURAR EL DETALLE DE ÍTEMS ===
+            // === LÓGICA: CAPTURAR EL DETALLE DE ÍTEMS ===
             $idsItems = $_POST['detalle_item_id'] ?? [];
             $nombresItems = $_POST['detalle_item_nombre'] ?? [];
             $cantidades = $_POST['detalle_cantidad'] ?? [];
@@ -536,12 +888,10 @@ class TesoreriaController extends Controlador
                 foreach ($amortFecha as $idx => $fechaAmort) {
                     $fechaAmort = trim((string) $fechaAmort);
                     $montoAmort = round((float) ($amortMonto[$idx] ?? 0), 4);
-                    if ($fechaAmort === '' || $montoAmort <= 0) {
-                        continue;
-                    }
-                    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaAmort)) {
-                        continue;
-                    }
+                    if ($fechaAmort === '' || $montoAmort <= 0) continue;
+                    
+                    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaAmort)) continue;
+                    
                     $amortizacionesLocales[] = [
                         'fecha' => $fechaAmort,
                         'referencia' => trim((string) ($amortReferencia[$idx] ?? '')),
@@ -580,7 +930,6 @@ class TesoreriaController extends Controlador
                 }
             }
 
-            // Si el usuario llenó la tabla, el monto total DEBE SER la suma exacta de la tabla.
             if ($modoRegistro === 'DETALLE') {
                 if (empty($detalleJson)) {
                     throw new RuntimeException('Debe agregar al menos un ítem al detalle o cambiar a "Monto directo".');
@@ -590,7 +939,6 @@ class TesoreriaController extends Controlador
                     throw new RuntimeException('El monto calculado del detalle debe ser mayor a cero.');
                 }
                 
-                // Guardamos el JSON dentro de las observaciones
                 $observacionesFinal = json_encode([
                     'modo_registro' => $modoRegistro,
                     'nota_manual' => $observacionesText,
@@ -598,7 +946,6 @@ class TesoreriaController extends Controlador
                     'amortizaciones_previas' => $amortizacionesLocales
                 ], JSON_UNESCAPED_UNICODE);
             } else {
-                // Si no hay tabla de detalle, validamos el monto digitado manualmente
                 if ($monto <= 0) {
                     throw new RuntimeException('El monto debe ser mayor a cero.');
                 }
@@ -609,15 +956,14 @@ class TesoreriaController extends Controlador
                 ], JSON_UNESCAPED_UNICODE);
             }
 
-            // Armamos el payload con la data limpia para enviarlo al modelo
             $payload = [
                 'id_tercero'           => $idTercero,
                 'documento_referencia' => $docRef,
                 'fecha_emision'        => $fechaEmision,
-                'fecha_vencimiento'    => $fechaEmision, // Según requerimiento, no se usa vencimiento extra
+                'fecha_vencimiento'    => $fechaEmision, 
                 'moneda'               => $moneda,
                 'monto_total'          => $monto,
-                'estado'               => 'ABIERTA', // Como quitamos Vencimiento, siempre nace ABIERTA
+                'estado'               => 'ABIERTA', 
                 'observaciones'        => $observacionesFinal,
             ];
 
@@ -644,28 +990,6 @@ class TesoreriaController extends Controlador
             redirect('tesoreria/saldos_iniciales?ok=1');
         } catch (Throwable $e) {
             redirect('tesoreria/saldos_iniciales?error=' . urlencode($e->getMessage()));
-        }
-    }
-
-    public function registrar_pago(): void
-    {
-        try {
-            AuthMiddleware::handle();
-            require_permiso('tesoreria.pagos.registrar');
-            $this->registrarMovimientoDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
-        } catch (Throwable $e) {
-            $this->mostrarErrorFatal($e, "Error al acceder a Registrar Pago");
-        }
-    }
-
-    public function registrar_pago_manual(): void
-    {
-        try {
-            AuthMiddleware::handle();
-            require_permiso('tesoreria.pagos.registrar');
-            $this->registrarMovimientoManualDesdePost('CXP', 'PAGO', 'tesoreria/cxp');
-        } catch (Throwable $e) {
-            $this->mostrarErrorFatal($e, "Error al acceder a Pago Manual");
         }
     }
 
@@ -749,7 +1073,6 @@ class TesoreriaController extends Controlador
         AuthMiddleware::handle();
         require_permiso('tesoreria.ver');
 
-        // CAMBIO APLICADO: Ahora capturamos las fechas y la cuenta desde el $_GET
         $filtros = [
             'origen'      => strtoupper(trim((string) ($_GET['origen'] ?? ''))),
             'id_origen'   => (int) ($_GET['id_origen'] ?? 0),
@@ -782,22 +1105,17 @@ class TesoreriaController extends Controlador
             $origen       = strtoupper(trim((string) ($_POST['origen'] ?? '')));
             $userId       = $this->obtenerUsuarioId();
 
-            // CORRECCIÓN: Agregamos 'TRANSFERENCIA' a los orígenes permitidos
             if ($idMovimiento <= 0 || !in_array($origen, ['CXC', 'CXP', 'TRANSFERENCIA'], true)) {
                 throw new RuntimeException('Datos inválidos para anular el movimiento.');
             }
 
-            // Anulamos el movimiento en el ledger principal
             $this->movModel->anular($idMovimiento, $userId);
             
-            // Recalculamos estados dependiendo del origen
             if ($origen === 'CXC') {
                 $this->cxcModel->recalcularEstado($idOrigen, $userId);
             } elseif ($origen === 'CXP') {
                 $this->cxpModel->recalcularEstado($idOrigen, $userId);
             } elseif ($origen === 'TRANSFERENCIA') {
-                // NOTA: Si en tu 'transferenciaModel' tienes un método para cambiar el estado 
-                // de la transferencia a 'ANULADO', deberías llamarlo aquí.
                 if (method_exists($this->transferenciaModel, 'anular')) {
                     $this->transferenciaModel->anular($idOrigen, $userId);
                 }
@@ -836,6 +1154,7 @@ class TesoreriaController extends Controlador
         ], $extra), JSON_UNESCAPED_UNICODE);
         exit;
     }
+
     private function registrarMovimientoDesdePost(string $origen, string $tipo, string $redirectRuta): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -862,7 +1181,7 @@ class TesoreriaController extends Controlador
                 'fecha'           => trim((string) ($_POST['fecha'] ?? date('Y-m-d'))),
                 'moneda'          => strtoupper(trim((string) ($_POST['moneda'] ?? 'PEN'))),
                 'monto'           => $montoTotal,
-                'tipo_cambio'     => round((float) ($_POST['tipo_cambio'] ?? 1), 6), // <-- LÍNEA NUEVA
+                'tipo_cambio'     => round((float) ($_POST['tipo_cambio'] ?? 1), 6),
                 'referencia'      => trim((string) ($_POST['referencia'] ?? '')),
                 'observaciones'   => trim((string) ($_POST['observaciones'] ?? '')),
                 'naturaleza_pago' => $naturalezaPago,
@@ -911,7 +1230,6 @@ class TesoreriaController extends Controlador
                 ];
             }
 
-            // Agrupar montos requeridos por cuenta para validar saldo correctamente
             $montosPorCuenta = [];
             foreach ($distribucion as $item) {
                 $idC = (int) ($item['id_cuenta'] ?? 0);
@@ -924,7 +1242,6 @@ class TesoreriaController extends Controlador
             foreach ($montosPorCuenta as $idCuentaDist => $montoRequerido) {
                 $this->validarPermisoOperacionCuenta($idCuentaDist, $origen);
                 
-                // VALIDACIÓN: Evitar saldos negativos en salidas de dinero (PAGOS)
                 if ($tipo === 'PAGO') {
                     $cuentaInfo = $this->cuentaModel->obtenerPorId($idCuentaDist);
                     $saldoDisp = round((float) ($cuentaInfo['saldo_actual'] ?? 0), 4);
@@ -1032,7 +1349,6 @@ class TesoreriaController extends Controlador
             $idCuenta = (int) ($_POST['id_cuenta'] ?? 0);
             $this->validarPermisoOperacionCuenta($idCuenta, $origen);
 
-            // VALIDACIÓN: Evitar saldos negativos en salidas de dinero
             if ($tipo === 'PAGO') {
                 $cuentaInfo = $this->cuentaModel->obtenerPorId($idCuenta);
                 $saldoDisp = round((float) ($cuentaInfo['saldo_actual'] ?? 0), 4);
@@ -1041,7 +1357,6 @@ class TesoreriaController extends Controlador
                 }
             }
 
-            // 1. Guardamos el resultado del FIFO (qué facturas se afectaron)
             $resultado = $this->movModel->registrarDistribuido([
                 'tipo'           => $tipo,
                 'origen'         => $origen,
@@ -1051,13 +1366,12 @@ class TesoreriaController extends Controlador
                 'fecha'          => trim((string) ($_POST['fecha'] ?? date('Y-m-d'))),
                 'moneda'         => $moneda,
                 'monto'          => $monto,
-                'tipo_cambio'    => round((float) ($_POST['tipo_cambio'] ?? 1), 6), // <-- LÍNEA NUEVA
+                'tipo_cambio'    => round((float) ($_POST['tipo_cambio'] ?? 1), 6),
                 'referencia'     => trim((string) ($_POST['referencia'] ?? '')),
                 'observaciones'  => trim((string) ($_POST['observaciones'] ?? '')),
                 'naturaleza_pago' => 'DOCUMENTO',
             ], $idsOrigen, $this->obtenerUsuarioId());
 
-            // 2. Sincronizamos los estados de esas facturas
             $userId = $this->obtenerUsuarioId();
             if (!empty($resultado['origenes'])) {
                 foreach ($resultado['origenes'] as $idDocAfectado) {
@@ -1095,7 +1409,12 @@ class TesoreriaController extends Controlador
     {
         $sql = "SELECT DISTINCT t.id, t.nombre_completo,
                        COALESCE((
-                           SELECT SUM(c.saldo) 
+                           SELECT SUM(
+                               CASE 
+                                   WHEN c.tipo_documento IN ('NOTA_CREDITO', 'ANTICIPO') THEN -c.saldo 
+                                   ELSE c.saldo 
+                               END
+                           ) 
                            FROM tesoreria_cxc c
                            WHERE c.id_cliente = t.id 
                              AND c.estado IN ('PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA') 
@@ -1117,7 +1436,12 @@ class TesoreriaController extends Controlador
     {
         $sql = "SELECT t.id, t.nombre_completo,
                        COALESCE((
-                           SELECT SUM(p.saldo) 
+                           SELECT SUM(
+                               CASE 
+                                   WHEN p.tipo_documento IN ('NOTA_CREDITO', 'ANTICIPO') THEN -p.saldo 
+                                   ELSE p.saldo 
+                               END
+                           ) 
                            FROM tesoreria_cxp p
                            WHERE p.id_proveedor = t.id 
                              AND p.estado IN ('PENDIENTE', 'PARCIAL', 'VENCIDA', 'ABIERTA') 
@@ -1185,17 +1509,17 @@ class TesoreriaController extends Controlador
     }
 
     // ========================================================================
-    // NUEVA FUNCIÓN: VERIFICAR SI EL TERCERO YA TIENE CUENTA Y SALDO DE AMORTIZACIONES
+    // VERIFICAR SI EL TERCERO YA TIENE CUENTA Y SALDO DE AMORTIZACIONES
     // ========================================================================
     public function ajax_verificar_cuenta_tercero(): void
     {
         AuthMiddleware::handle();
-        require_permiso('tesoreria.cxp.ver'); // O el permiso adecuado según tu lógica
+        require_permiso('tesoreria.cxp.ver'); 
 
         header('Content-Type: application/json; charset=utf-8');
 
         $idTercero = (int) ($_GET['id'] ?? 0);
-        $tipo = strtoupper(trim((string) ($_GET['tipo'] ?? 'CLIENTE'))); // CLIENTE (cxc) o PROVEEDOR (cxp)
+        $tipo = strtoupper(trim((string) ($_GET['tipo'] ?? 'CLIENTE'))); 
 
         if ($idTercero <= 0) {
             echo json_encode(['ok' => false, 'mensaje' => 'ID inválido']);
@@ -1203,14 +1527,8 @@ class TesoreriaController extends Controlador
         }
 
         try {
-            // Evaluamos a qué tabla mirar dependiendo de la naturaleza
             $tabla = $tipo === 'CLIENTE' ? 'tesoreria_cxc' : 'tesoreria_cxp';
             $columnaTercero = $tipo === 'CLIENTE' ? 'id_cliente' : 'id_proveedor';
-            
-            // 1. Verificamos si existe el registro de "SALDO INICIAL" (documento_referencia = Saldo inicial)
-            // Asumimos que los saldos iniciales guardan un estado o una referencia particular.
-            // Si en tu modelo usas un motivo corto específico para identificar el saldo inicial (ej: observacion contiene 'saldo migrado' o doc_ref), 
-            // ajusta esta consulta. Por defecto, asumiremos que solo hay un gran registro consolidado o buscamos cualquiera abierto.
             
             $sqlCuenta = "SELECT id, monto_total, observaciones 
                           FROM {$tabla} 
@@ -1233,7 +1551,7 @@ class TesoreriaController extends Controlador
 
             if ($tieneCuenta) {
                 $montoBaseReferencial = round((float) ($cuentaExiste['monto_total'] ?? 0), 4);
-                // 2. Si tiene cuenta, buscamos cuánto ha pagado (amortizado) hasta ahora.
+                
                 $origenMov = $tipo === 'CLIENTE' ? 'CXC' : 'CXP';
                 $tipoMov = $tipo === 'CLIENTE' ? 'COBRO' : 'PAGO';
                 
@@ -1274,7 +1592,6 @@ class TesoreriaController extends Controlador
                 ]);
                 $amortizaciones = $stmtDetalleAmort->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-                // 3. Intentamos extraer los ítems guardados previamente si es que existen en el JSON de observaciones
                 if (!empty($cuentaExiste['observaciones'])) {
                     $obsDecoded = json_decode($cuentaExiste['observaciones'], true);
                     if (is_array($obsDecoded)) {
@@ -1333,12 +1650,17 @@ class TesoreriaController extends Controlador
         
         $idTercero = (int) ($_GET['id_tercero'] ?? 0);
         $moneda = strtoupper(trim((string) ($_GET['moneda'] ?? 'PEN')));
-        $tipo = strtoupper(trim((string) ($_GET['tipo'] ?? 'CXC'))); // CXC o CXP
+        $tipo = strtoupper(trim((string) ($_GET['tipo'] ?? 'CXC'))); 
 
         $tabla = $tipo === 'CXC' ? 'tesoreria_cxc' : 'tesoreria_cxp';
         $colTercero = $tipo === 'CXC' ? 'id_cliente' : 'id_proveedor';
 
-        $sql = "SELECT COALESCE(SUM(saldo), 0) as deuda_total 
+        $sql = "SELECT COALESCE(SUM(
+                    CASE 
+                        WHEN tipo_documento IN ('NOTA_CREDITO', 'ANTICIPO') THEN -saldo 
+                        ELSE saldo 
+                    END
+                ), 0) as deuda_total 
                 FROM {$tabla} 
                 WHERE {$colTercero} = :id 
                   AND moneda = :moneda 

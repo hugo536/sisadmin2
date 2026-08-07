@@ -780,24 +780,24 @@ class ComprasOrdenModel extends Modelo
 
     private function aplicarAjusteCxpPorDevolucion(PDO $db, int $idOrden, string $resolucion, float $totalDevuelto, int $userId): void
     {
-        if ($totalDevuelto <= 0) {
+        if ($totalDevuelto <= 0 || trim(strtolower($resolucion)) !== 'descuento_cxp') {
             return;
         }
 
-        if (trim(strtolower($resolucion)) !== 'descuento_cxp') {
-            return;
-        }
-
+        // 👇 LA CORRECCIÓN ESTÁ EN EL WHERE DE ESTA CONSULTA 👇
         $stmtCxp = $db->prepare('SELECT id, monto_total, monto_pagado
                                  FROM tesoreria_cxp
                                  WHERE id_orden_compra = :id_orden
                                    AND deleted_at IS NULL
                                    AND estado <> "ANULADA"
+                                   /* Ignoramos los saldos a favor para afectar estrictamente a la deuda original */
+                                   AND COALESCE(tipo_documento, "DOCUMENTO") NOT IN ("NOTA_CREDITO", "ANTICIPO")
                                  ORDER BY id DESC
                                  LIMIT 1
                                  FOR UPDATE');
         $stmtCxp->execute(['id_orden' => $idOrden]);
         $cxp = $stmtCxp->fetch(PDO::FETCH_ASSOC);
+        
         if (!$cxp) {
             return;
         }
@@ -805,9 +805,16 @@ class ComprasOrdenModel extends Modelo
         $idCxp = (int) ($cxp['id'] ?? 0);
         $montoTotalActual = (float) ($cxp['monto_total'] ?? 0);
         $montoPagadoActual = (float) ($cxp['monto_pagado'] ?? 0);
+        
         $nuevoMontoTotal = max(0.0, $montoTotalActual - $totalDevuelto);
         $nuevoPagado = min($montoPagadoActual, $nuevoMontoTotal);
         $nuevoSaldo = max(0.0, $nuevoMontoTotal - $nuevoPagado);
+
+        // Capturamos el dinero que queda a nuestro favor
+        $saldoAFavor = 0.0;
+        if ($montoPagadoActual > $nuevoMontoTotal) {
+            $saldoAFavor = $montoPagadoActual - $nuevoMontoTotal;
+        }
 
         $nuevoEstado = 'PENDIENTE';
         if ($nuevoSaldo <= 0.00001) {
@@ -816,6 +823,7 @@ class ComprasOrdenModel extends Modelo
             $nuevoEstado = 'PARCIAL';
         }
 
+        // 1. Actualizamos la CxP original reduciendo la deuda
         $stmtUpd = $db->prepare('UPDATE tesoreria_cxp
                                  SET monto_total = :monto_total,
                                      monto_pagado = :monto_pagado,
@@ -832,5 +840,29 @@ class ComprasOrdenModel extends Modelo
             'user' => $userId,
             'id' => $idCxp,
         ]);
+
+        // 2. Si el proveedor se quedó con nuestro dinero, creamos el "Saldo a Favor" (Nota de Crédito)
+        if ($saldoAFavor > 0) {
+            $stmtProv = $db->prepare('SELECT id_proveedor, moneda FROM compras_ordenes WHERE id = ?');
+            $stmtProv->execute([$idOrden]);
+            $orden = $stmtProv->fetch(PDO::FETCH_ASSOC);
+
+            // 👇 CORRECCIÓN: Agregamos fecha_emision y fecha_vencimiento al INSERT 👇
+            $stmtAnticipo = $db->prepare('INSERT INTO tesoreria_cxp 
+                (id_proveedor, id_orden_compra, tipo_documento, moneda, monto_total, monto_pagado, saldo, estado, observaciones, created_by, created_at, updated_at, fecha_emision, fecha_vencimiento) 
+                VALUES (?, ?, "NOTA_CREDITO", ?, ?, 0, ?, "PENDIENTE", ?, ?, NOW(), NOW(), CURDATE(), CURDATE())');
+            
+            $observacionAnticipo = "Saldo a favor por devolución de mercadería de OC-" . $idOrden;
+            
+            $stmtAnticipo->execute([
+                $orden['id_proveedor'],
+                $idOrden,
+                $orden['moneda'] ?? 'PEN',
+                $saldoAFavor,
+                $saldoAFavor,
+                $observacionAnticipo,
+                $userId
+            ]);
+        }
     }
 }

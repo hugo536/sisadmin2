@@ -30,64 +30,76 @@ class VentasController extends Controlador
         AuthMiddleware::handle();
         require_permiso('ventas.ver');
 
-        $fechaHastaDef = date('Y-m-d');
-        $fechaDesdeDef = date('Y-m-d', strtotime('-30 days'));
-
-        $esVistaInicial = empty($_GET['q']) && !isset($_GET['estado']) && empty($_GET['fecha_desde']) && empty($_GET['fecha_hasta']);
-
         $filtros = [
             'q'           => trim((string) ($_GET['q'] ?? '')),
             'estado'      => isset($_GET['estado']) && $_GET['estado'] !== '' ? (string) $_GET['estado'] : null,
-            'fecha_desde' => $esVistaInicial ? $fechaDesdeDef : trim((string) ($_GET['fecha_desde'] ?? '')),
-            'fecha_hasta' => $esVistaInicial ? $fechaHastaDef : trim((string) ($_GET['fecha_hasta'] ?? '')),
+            'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? '')),
+            'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? '')),
             'orden_fecha' => trim((string) ($_GET['orden_fecha'] ?? 'emision')),
         ];
 
+        if ($filtros['estado'] === null) {
+            $filtros['excluir_estado'] = 9; // Excluir anulados por defecto, opcional
+        }
+
+        // Lógica de fechas iniciales unificada con DateTimeImmutable
+        if ($filtros['fecha_desde'] === '' && $filtros['fecha_hasta'] === '') {
+            $hoy = new DateTimeImmutable('today');
+            $filtros['fecha_hasta'] = $hoy->format('Y-m-d');
+            $filtros['fecha_desde'] = $hoy->sub(new DateInterval('P30D'))->format('Y-m-d');
+        }
+
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar') {
-            json_response(['ok' => true, 'data' => $this->documentoModel->listar($filtros)]);
-            exit; // <-- CAMBIO VITAL
+            json_response([
+                'ok' => true, 
+                'data' => $this->documentoModel->listar($filtros)
+            ]);
+            exit;
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'ver') {
-            $id = (int) ($_GET['id'] ?? 0);
-            $venta = $this->documentoModel->obtener($id);
+            try {
+                $id = (int) ($_GET['id'] ?? 0);
+                $venta = $this->documentoModel->obtener($id);
 
-            // 👇 MAGIA PARA EL JS: Consultamos la deuda y el DETALLE de los pagos 👇
-            $deuda = $this->tesoreriaCxcModel->obtenerPorVenta($id);
-            $venta['monto_pagado'] = $deuda ? (float) ($deuda['monto_pagado'] ?? 0) : 0.0;
-            $venta['pagos_detallados'] = $this->tesoreriaCxcModel->obtenerDetallePagosVenta($id);
-            // 👆 FIN DE LA MAGIA 👆
+                $deuda = $this->tesoreriaCxcModel->obtenerPorVenta($id);
+                $venta['monto_pagado'] = $deuda ? (float) ($deuda['monto_pagado'] ?? 0) : 0.0;
+                $venta['pagos_detallados'] = $this->tesoreriaCxcModel->obtenerDetallePagosVenta($id);
 
-            // 👇 NUEVA MAGIA: Consultar el saldo a favor del cliente 👇
-            $idCliente = (int) ($venta['id_cliente'] ?? 0);
-            $clienteModel = new TercerosClientesModel();
-            $venta['saldo_favor_cliente'] = $clienteModel->obtenerSaldoFavor($idCliente);
-            // 👆 FIN DE LA NUEVA MAGIA 👆
+                $idCliente = (int) ($venta['id_cliente'] ?? 0);
+                $clienteModel = new TercerosClientesModel();
+                $venta['saldo_favor_cliente'] = $clienteModel->obtenerSaldoFavor($idCliente);
 
-            if (!empty($venta['detalle']) && is_array($venta['detalle'])) {
-                foreach ($venta['detalle'] as &$linea) {
-                    $rawId = (string) ($linea['id_item'] ?? '');
-                    
-                    if (strpos($rawId, 'ITEM-') === 0) {
-                        $idItemFisico = (int) str_replace('ITEM-', '', $rawId);
-                        $linea['almacenes_disponibles'] = $this->inventarioModel->obtenerAlmacenesConStockPorItem($idItemFisico);
-                    } elseif (strpos($rawId, 'PACK-') === 0) {
-                        $idPack = (int) str_replace('PACK-', '', $rawId);
-                        $linea['almacenes_disponibles'] = $this->inventarioModel->obtenerAlmacenesConStockPorPack($idPack);
-                    } else {
-                        $linea['almacenes_disponibles'] = [];
+                if (!empty($venta['detalle']) && is_array($venta['detalle'])) {
+                    foreach ($venta['detalle'] as &$linea) {
+                        $rawId = (string) ($linea['id_item'] ?? '');
+                        
+                        if (strpos($rawId, 'ITEM-') === 0) {
+                            $idItemFisico = (int) str_replace('ITEM-', '', $rawId);
+                            $linea['almacenes_disponibles'] = $this->inventarioModel->obtenerAlmacenesConStockPorItem($idItemFisico);
+                        } elseif (strpos($rawId, 'PACK-') === 0) {
+                            $idPack = (int) str_replace('PACK-', '', $rawId);
+                            $linea['almacenes_disponibles'] = $this->inventarioModel->obtenerAlmacenesConStockPorPack($idPack);
+                        } else {
+                            $linea['almacenes_disponibles'] = [];
+                        }
                     }
                 }
-            }
 
-            json_response(['ok' => true, 'data' => $venta]);
+                json_response(['ok' => true, 'data' => $venta]);
+            } catch (Throwable $e) {
+                json_response([
+                    'ok' => false,
+                    'mensaje' => 'Error al obtener los detalles del pedido: ' . $e->getMessage()
+                ], 500);
+            }
             exit; 
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_clientes') {
             $q = trim((string) ($_GET['q'] ?? ''));
             json_response(['ok' => true, 'data' => $this->documentoModel->buscarClientes($q)]);
-            exit; // <-- CAMBIO VITAL: Usar exit en lugar de return
+            exit;
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_items') {
@@ -102,7 +114,7 @@ class VentasController extends Controlador
                 'data' => $this->documentoModel->buscarItems($q, $idAlmacen, $idCliente, $cantidad),
                 'meta' => $metaAcuerdo,
             ]);
-            exit; // <-- CAMBIO VITAL
+            exit;
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'guardar_devolucion') {
@@ -114,10 +126,8 @@ class VentasController extends Controlador
                     throw new RuntimeException('Faltan datos obligatorios para la devolución.');
                 }
 
-                // NUEVO: Capturamos la decisión logística (por defecto falso si no viene, para cerrar la orden)
                 $enviarReemplazo = isset($payload['enviar_reemplazo']) ? (bool) $payload['enviar_reemplazo'] : false;
 
-                // Modificamos la llamada para pasar el nuevo parámetro al final
                 $this->despachoModel->registrarDevolucion(
                     (int) ($payload['id_documento'] ?? 0),
                     (string) ($payload['motivo'] ?? ''),
@@ -125,7 +135,7 @@ class VentasController extends Controlador
                     is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [],
                     $userId,
                     (string) ($payload['motivo_codigo'] ?? ''),
-                    $enviarReemplazo // <-- AQUÍ PASAMOS EL DATO AL MODELO
+                    $enviarReemplazo
                 );
 
                 json_response([
@@ -135,7 +145,7 @@ class VentasController extends Controlador
             } catch (Throwable $e) {
                 json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
             }
-            return;
+            exit;
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'revertir') {
@@ -148,28 +158,20 @@ class VentasController extends Controlador
                     throw new RuntimeException('ID de pedido inválido para revertir.');
                 }
 
-                // 1. Obtener la información de la venta y deuda actual
                 $venta = $this->documentoModel->obtener($idDocumento);
                 $idCliente = (int) ($venta['id_cliente'] ?? 0);
                 
                 $deuda = $this->tesoreriaCxcModel->obtenerPorVenta($idDocumento);
                 $montoPagado = $deuda ? (float) ($deuda['monto_pagado'] ?? 0) : 0.0;
 
-                // 2. Gestionar el Saldo a Favor si existen pagos
                 if ($montoPagado > 0 && $idCliente > 0) {
-                    $clienteModel = new TercerosClientesModel(); // <-- NOMBRE CORREGIDO
-                    
-                    // A) Sumar al perfil del cliente
+                    $clienteModel = new TercerosClientesModel(); 
                     $clienteModel->sumarSaldoFavor($idCliente, $montoPagado);
-                    
-                    // B) Desvincular pagos en tesorería y eliminar cuenta por cobrar
                     $this->tesoreriaCxcModel->convertirPagosASaldoFavor($idDocumento, $userId);
                 }
 
-                // 3. Revertir el pedido a estado Borrador (y devolver stock si aplica)
                 $this->despachoModel->revertirABorrador($idDocumento, $userId);
 
-                // 4. Preparar mensaje dinámico de respuesta
                 $mensaje = $montoPagado > 0 
                     ? "Pedido revertido. Se generó un saldo a favor de S/ " . number_format($montoPagado, 2) . " para el cliente." 
                     : "El pedido ha regresado a Borrador exitosamente.";
@@ -181,19 +183,23 @@ class VentasController extends Controlador
             } catch (Throwable $e) {
                 json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
             }
-            return;
+            exit;
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'precio_item') {
-            $idCliente = (int) ($_GET['id_cliente'] ?? 0);
-            $idItemRaw = (string) ($_GET['id_item'] ?? '');
-            $cantidad = (float) ($_GET['cantidad'] ?? 1);
+            try {
+                $idCliente = (int) ($_GET['id_cliente'] ?? 0);
+                $idItemRaw = (string) ($_GET['id_item'] ?? '');
+                $cantidad = (float) ($_GET['cantidad'] ?? 1);
 
-            json_response([
-                'ok' => true,
-                'data' => $this->documentoModel->obtenerPrecioUnitario($idCliente, $idItemRaw, $cantidad),
-            ]);
-            return;
+                json_response([
+                    'ok' => true,
+                    'data' => $this->documentoModel->obtenerPrecioUnitario($idCliente, $idItemRaw, $cantidad),
+                ]);
+            } catch (Throwable $e) {
+                json_response(['ok' => false, 'mensaje' => $e->getMessage()], 400);
+            }
+            exit;
         }
 
         if ((string) ($_GET['accion'] ?? '') === 'imprimir') {
@@ -213,7 +219,6 @@ class VentasController extends Controlador
             $config = $empresaModel->obtener();
             require_once BASE_PATH . '/vendor/autoload.php';
 
-            // 👇 SOLUCIÓN: Aumentar la memoria a 512 MB o 1 GB temporalmente 👇
             ini_set('memory_limit', '1024M'); 
             
             $dompdf = new \Dompdf\Dompdf();
@@ -229,7 +234,7 @@ class VentasController extends Controlador
             $dompdf->setPaper('A4', 'portrait');
             $dompdf->render();
             $dompdf->stream('Despacho_' . $venta['codigo'] . '.pdf', ['Attachment' => false]);
-            return;
+            exit;
         }
 
         if ((string) ($_GET['accion'] ?? '') === 'imprimir_proforma') {
@@ -244,6 +249,8 @@ class VentasController extends Controlador
             $config = $empresaModel->obtener();
             require_once BASE_PATH . '/vendor/autoload.php';
 
+            ini_set('memory_limit', '1024M');
+
             $dompdf = new \Dompdf\Dompdf();
             $options = $dompdf->getOptions();
             $options->set(array('isRemoteEnabled' => true));
@@ -257,10 +264,9 @@ class VentasController extends Controlador
             $dompdf->setPaper('A4', 'portrait');
             $dompdf->render();
             $dompdf->stream('Proforma_' . $venta['codigo'] . '.pdf', ['Attachment' => false]);
-            return;
+            exit;
         }
 
-        // 👇 NUEVO BLOQUE: Impresión de Nota de Venta 👇
         if ((string) ($_GET['accion'] ?? '') === 'imprimir_nota_venta') {
             $id = (int) ($_GET['id'] ?? 0);
             if ($id <= 0) die('ID de pedido inválido.');
@@ -273,16 +279,16 @@ class VentasController extends Controlador
             $config = $empresaModel->obtener();
             require_once BASE_PATH . '/vendor/autoload.php';
 
+            ini_set('memory_limit', '1024M');
+
             $dompdf = new \Dompdf\Dompdf();
             $options = $dompdf->getOptions();
             $options->set(array('isRemoteEnabled' => true));
             $dompdf->setOptions($options);
 
-            // Variable mágica para cambiar el diseño en la vista
             $tipo_impresion = 'nota_venta';
 
             ob_start();
-            // Llamamos a la misma vista que ahora es dinámica
             require BASE_PATH . '/app/views/reportes/pdf_proforma.php';
             $html = (string) ob_get_clean();
 
@@ -290,17 +296,14 @@ class VentasController extends Controlador
             $dompdf->setPaper('A4', 'portrait');
             $dompdf->render();
             $dompdf->stream('NotaVenta_' . $venta['codigo'] . '.pdf', ['Attachment' => false]);
-            return;
+            exit;
         }
-        // 👆 FIN DEL NUEVO BLOQUE 👆
 
-        // Carga inicial de la página
         $this->render('ventas', [
             'ruta_actual' => 'ventas',
             'ventas'      => $this->documentoModel->listar($filtros),
             'filtros'     => $filtros,
             'almacenes'   => $this->documentoModel->listarAlmacenesActivos(),
-            // Llamadas correctas y seguras al modelo
             'cuentas'     => $this->tesoreriaCxcModel->obtenerCuentasActivas(),
             'metodos'     => $this->tesoreriaCxcModel->obtenerMetodosActivos(),
         ]);
@@ -355,14 +358,12 @@ class VentasController extends Controlador
                 $rawId = trim((string) ($linea['id_item'] ?? ''));
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
-                $esBonificacion = (int) ($linea['es_bonificacion'] ?? 0); // <-- NUEVO: Capturar si es regalo
+                $esBonificacion = (int) ($linea['es_bonificacion'] ?? 0);
 
                 if ($rawId === '' || $rawId === '0') {
                     throw new RuntimeException('Hay líneas sin producto válido.');
                 }
 
-                // <-- CAMBIO CLAVE: Combinamos ID + Estado de Bonificación
-                // Esto permite comprar "Agua Belén" y tener "Agua Belén" como regalo simultáneamente
                 $claveUnica = $rawId . '_' . $esBonificacion;
 
                 if (isset($itemsUnicos[$claveUnica])) {
@@ -503,7 +504,6 @@ class VentasController extends Controlador
             $envasesDevueltos = is_array($data['envases_devueltos'] ?? null) ? $data['envases_devueltos'] : [];
             $detalle = $data['detalle'] ?? [];
 
-            // --- NUEVO: Capturar datos del cobro ---
             $esCobroInmediato = filter_var($data['cobro_inmediato'] ?? false, FILTER_VALIDATE_BOOLEAN);
             $metodosPago = is_array($data['metodos_pago'] ?? null) ? $data['metodos_pago'] : [];
 
@@ -516,7 +516,6 @@ class VentasController extends Controlador
                 }
             }
 
-            // Validar los métodos de pago antes de procesar nada
             if ($esCobroInmediato) {
                 if (empty($metodosPago)) {
                     throw new RuntimeException('Debe especificar al menos un método de pago para el cobro.');
@@ -530,7 +529,6 @@ class VentasController extends Controlador
 
             $userId = $this->obtenerUsuarioId(); 
 
-            // Validación de fechas
             $ventaData = $this->documentoModel->obtener($idDocumento);
             if (!empty($ventaData['fecha_emision'])) {
                 $fechaEmisionSoloDia = explode(' ', $ventaData['fecha_emision'])[0];
@@ -539,10 +537,8 @@ class VentasController extends Controlador
                 }
             }
             
-            // 1. Registrar salida de mercadería
             $this->despachoModel->registrarDespacho($idDocumento, $detalle, $cerrarForzado, $observaciones, $userId, $fechaDespacho, $envasesDevueltos);
             
-            // 2. Registrar cobro (Si se activó el switch)
             if ($esCobroInmediato) {
                 $deuda = $this->tesoreriaCxcModel->obtenerPorVenta($idDocumento);
                 if (empty($deuda)) {

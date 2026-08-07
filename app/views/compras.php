@@ -47,6 +47,7 @@ $formatearFechaDMY = static function ($fecha): string {
      data-url-revertir-borrador="<?= e(route_url('compras/revertirBorrador')) ?>"
      data-url-anular="<?= e(route_url('compras/anular')) ?>"
      data-url-recepcionar="<?= e(route_url('compras/recepcionar')) ?>"
+     data-url-devolver="<?= e(route_url('compras/devolver')) ?>"
      data-url-unidades-item="<?= e(route_url('compras')) ?>"
      data-url-precio-sugerido="<?= e(route_url('compras')) ?>"
      data-cuentas="<?php echo htmlspecialchars(json_encode($cuentas ?? []), ENT_QUOTES, 'UTF-8'); ?>"
@@ -103,12 +104,10 @@ $formatearFechaDMY = static function ($fecha): string {
                         
                         <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0" value="<?= e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d'))) ?>">
                         
-                        <!-- Botón de Filtrar -->
                         <button type="button" id="btnFiltrarFechas" class="btn btn-light border text-primary px-3 transition-hover" title="Aplicar filtros" style="z-index: 0;">
                             <i class="bi bi-funnel-fill"></i>
                         </button>
                         
-                        <!-- Botón de Limpiar apuntando a la ruta de compras -->
                         <a href="<?= e(route_url('compras')) ?>" class="btn btn-light border text-danger px-3 transition-hover d-flex align-items-center spa-link" title="Limpiar filtros" style="z-index: 0;">
                             <i class="bi bi-eraser-fill"></i>
                         </a>
@@ -223,6 +222,7 @@ $formatearFechaDMY = static function ($fecha): string {
     </div>
 </div>
 
+<!-- Modal Nueva Orden -->
 <div class="modal fade" id="modalOrdenCompra" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
@@ -371,14 +371,18 @@ $formatearFechaDMY = static function ($fecha): string {
                     </label>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <button class="btn btn-light text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-primary px-4 fw-bold" id="btnGuardarOrden"><i class="bi bi-save me-2"></i>Guardar Orden</button>
+                    <button type="button" class="btn btn-light text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <!-- Agregado form="formOrdenCompra" y type="submit" para validación HTML5 nativa -->
+                    <button type="submit" form="formOrdenCompra" class="btn btn-primary px-4 fw-bold" id="btnGuardarOrden">
+                        <i class="bi bi-save me-2"></i>Guardar Orden
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Modal Recepción -->
 <div class="modal fade" id="modalRecepcionCompra" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
@@ -390,75 +394,79 @@ $formatearFechaDMY = static function ($fecha): string {
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
-                <input type="hidden" id="recepcionOrdenId" value="0">
-                
-                <select id="recepcionAlmacen" class="d-none">
-                    <option value="">Seleccione almacén...</option>
-                    <?php foreach ($almacenes as $almacen): ?>
-                        <option value="<?= (int) ($almacen['id'] ?? 0) ?>"><?= e((string) ($almacen['nombre'] ?? '')) ?></option>
-                    <?php endforeach; ?>
-                </select>
+                <!-- Envuelto en FORM -->
+                <form id="formRecepcionCompra">
+                    <input type="hidden" id="recepcionOrdenId" value="0">
+                    
+                    <select id="recepcionAlmacen" class="d-none">
+                        <option value="">Seleccione almacén...</option>
+                        <?php foreach ($almacenes as $almacen): ?>
+                            <option value="<?= (int) ($almacen['id'] ?? 0) ?>"><?= e((string) ($almacen['nombre'] ?? '')) ?></option>
+                        <?php endforeach; ?>
+                    </select>
 
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-body">
-                        <div class="row g-3 align-items-center">
-                            <div class="col-md-4">
-                                <label for="recepcionFecha" class="form-label text-muted small fw-bold mb-1">Fecha de Recepción <span class="text-danger">*</span></label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light border-secondary-subtle"><i class="bi bi-calendar-check text-muted"></i></span>
-                                    <input type="date" class="form-control border-secondary-subtle" id="recepcionFecha" value="<?= date('Y-m-d') ?>" required>
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-md-4">
+                                    <label for="recepcionFecha" class="form-label text-muted small fw-bold mb-1">Fecha de Recepción <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-secondary-subtle"><i class="bi bi-calendar-check text-muted"></i></span>
+                                        <input type="date" class="form-control border-secondary-subtle" id="recepcionFecha" value="<?= date('Y-m-d') ?>" required>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-8">
-                                <label for="recepcionObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones / Guía de Remisión</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light border-secondary-subtle"><i class="bi bi-file-earmark-text text-muted"></i></span>
-                                    <input type="text" class="form-control border-secondary-subtle" id="recepcionObservaciones" maxlength="180" placeholder="Opcional - Ingresar número de guía">
+                                <div class="col-md-8">
+                                    <label for="recepcionObservaciones" class="form-label text-muted small fw-bold mb-1">Observaciones / Guía de Remisión</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-secondary-subtle"><i class="bi bi-file-earmark-text text-muted"></i></span>
+                                        <input type="text" class="form-control border-secondary-subtle" id="recepcionObservaciones" maxlength="180" placeholder="Opcional - Ingresar número de guía">
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-white border-0 px-3 pt-3 pb-2 d-flex flex-wrap align-items-center gap-2">
-                        <h6 class="fw-bold text-dark mb-0">Detalle de Productos</h6>
-                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle fw-medium px-2 py-1">
-                            <i class="bi bi-info-circle me-1"></i>Modo Recepción Parcial: Puede editar la cantidad a ingresar
-                        </span>
-                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1">
-                            <i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico
-                        </span>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive border rounded-3 mb-0">
-                            <table class="table table-sm align-middle mb-0 table-pro table-pastel" id="tablaDetalleRecepcion">
-                                <thead>
-                                    <tr>
-                                        <th class="ps-3 text-secondary col-min-w-300 py-2">Producto / Pedido</th>
-                                        <th class="text-center text-secondary col-w-250 py-2">Almacén Destino</th>
-                                        <th class="text-center text-secondary col-w-100 py-2">Pendiente</th>
-                                        <th class="text-center text-secondary col-w-160 py-2">A Ingresar (Base)</th>
-                                        <th class="text-center text-secondary col-w-80 py-2">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white"></tbody>
-                            </table>
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white border-0 px-3 pt-3 pb-2 d-flex flex-wrap align-items-center gap-2">
+                            <h6 class="fw-bold text-dark mb-0">Detalle de Productos</h6>
+                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle fw-medium px-2 py-1">
+                                <i class="bi bi-info-circle me-1"></i>Modo Recepción Parcial: Puede editar la cantidad a ingresar
+                            </span>
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium px-2 py-1">
+                                <i class="bi bi-info-circle me-1"></i>Borrador: No descuenta stock físico
+                            </span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive border rounded-3 mb-0">
+                                <table class="table table-sm align-middle mb-0 table-pro table-pastel" id="tablaDetalleRecepcion">
+                                    <thead>
+                                        <tr>
+                                            <th class="ps-3 text-secondary col-min-w-300 py-2">Producto / Pedido</th>
+                                            <th class="text-center text-secondary col-w-250 py-2">Almacén Destino</th>
+                                            <th class="text-center text-secondary col-w-100 py-2">Pendiente</th>
+                                            <th class="text-center text-secondary col-w-160 py-2">A Ingresar (Base)</th>
+                                            <th class="text-center text-secondary col-w-80 py-2">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </form>
             </div>
             
             <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center">
-                <div class="form-check form-switch m-0 ps-5">
-                    <input class="form-check-input" type="checkbox" id="cerrarForzadoRecepcion" style="cursor: pointer;">
-                    <label class="form-check-label fw-semibold text-danger small" for="cerrarForzadoRecepcion">
-                        Forzar cierre (Cancelar saldos no recibidos)
+                <div class="form-check form-switch m-0 ps-5 p-2 rounded bg-danger-subtle border border-danger-subtle">
+                    <input class="form-check-input border-danger" type="checkbox" id="cerrarForzadoRecepcion" style="cursor: pointer;">
+                    <label class="form-check-label fw-bold text-danger small" for="cerrarForzadoRecepcion">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Forzar cierre (Cancelar saldos no recibidos)
                     </label>
                 </div>
                 <div>
-                    <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-info text-white fw-bold px-4" id="btnConfirmarRecepcion">
+                    <button type="button" class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                    <!-- Agregado form="formRecepcionCompra" y type="submit" -->
+                    <button type="submit" form="formRecepcionCompra" class="btn btn-info text-white fw-bold px-4" id="btnConfirmarRecepcion">
                         <i class="bi bi-check-lg me-2"></i>Confirmar Ingreso
                     </button>
                 </div>
@@ -467,6 +475,7 @@ $formatearFechaDMY = static function ($fecha): string {
     </div>
 </div>
 
+<!-- Modal Devolución -->
 <div class="modal fade" id="modalDevolucionCompra" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
@@ -475,56 +484,64 @@ $formatearFechaDMY = static function ($fecha): string {
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
-                <input type="hidden" id="devolucionOrdenId" value="0">
+                <!-- Envuelto en FORM -->
+                <form id="formDevolucionCompra">
+                    <input type="hidden" id="devolucionOrdenId" value="0">
+                    <input type="hidden" id="devolucionAlmacenId" value=""> <!-- Campo de Almacén Oculto -->
 
-                <!-- Alerta de devoluciones pasadas agregada aquí -->
-                <div id="alertaDevolucionesPrevias" class="alert alert-info border-info-subtle d-none shadow-sm mb-4">
-                    <i class="bi bi-info-circle-fill me-2"></i><strong>Atención:</strong> Esta orden ya tiene devoluciones pasadas. La columna "Cant. Recibida" te muestra el <strong>stock neto actual</strong> que aún tienes disponible para devolver.
-                </div>
-                
-                <div class="row mb-4 g-3">
-                    <div class="col-md-12">
-                        <label class="form-label fw-bold small text-muted">Motivo de Devolución <span class="text-danger">*</span></label>
-                        <select id="devolucionMotivo" class="form-select border-warning-subtle" required>
-                            <option value="">Seleccione un motivo...</option>
-                            <option value="Producto defectuoso o dañado">Producto defectuoso o dañado</option>
-                            <option value="Producto incorrecto">Llegó un producto diferente al solicitado</option>
-                            <option value="Diferencia de conteo / Sobrante">Diferencia de conteo / Sobrante</option>
-                            <option value="Vencimiento corto o mala calidad">Vencimiento corto o mala calidad</option>
-                            <option value="Otro motivo">Otro motivo</option>
-                        </select>
+                    <div id="alertaDevolucionesPrevias" class="alert alert-info border-info-subtle d-none shadow-sm mb-4">
+                        <i class="bi bi-info-circle-fill me-2"></i><strong>Atención:</strong> Esta orden ya tiene devoluciones pasadas. La columna "Cant. Recibida" te muestra el <strong>stock neto actual</strong> que aún tienes disponible para devolver.
                     </div>
-                </div>
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table align-middle mb-0 table-bordered" id="tablaDetalleDevolucion">
-                                <thead class="table-secondary text-dark">
-                                    <tr>
-                                        <th class="ps-3 border-bottom-0">Producto / Ítem</th>
-                                        <th class="text-center border-bottom-0 col-w-150">Cant. Recibida</th>
-                                        <th class="text-center border-bottom-0 col-w-150">Costo Compra</th>
-                                        <th class="text-center border-bottom-0 col-w-180">Unidad de Devolución</th>
-                                        <th class="text-center border-bottom-0 col-w-140">Cantidad</th>
-                                        <th class="text-end pe-4 border-bottom-0 col-w-150">Costo Recuperado</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white"></tbody>
-                                <tfoot class="bg-light border-top">
-                                    <tr>
-                                        <td colspan="5" class="text-end fw-bold py-3 text-secondary">TOTAL A RECUPERAR:</td>
-                                        <td class="text-end fw-bold py-3 fs-5 text-warning-emphasis pe-4" id="devolucionTotal">S/ 0.00</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                    
+                    <div class="row mb-4 g-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold small text-muted">Motivo de Devolución <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-warning-subtle text-warning"><i class="bi bi-exclamation-circle-fill"></i></span>
+                                <select id="devolucionMotivo" class="form-select border-warning-subtle fw-semibold" required>
+                                    <option value="">Seleccione un motivo...</option>
+                                    <option value="Producto defectuoso o dañado">Producto defectuoso o dañado</option>
+                                    <option value="Producto incorrecto">Llegó un producto diferente al solicitado</option>
+                                    <option value="Diferencia de conteo / Sobrante">Diferencia de conteo / Sobrante</option>
+                                    <option value="Vencimiento corto o mala calidad">Vencimiento corto o mala calidad</option>
+                                    <option value="Otro motivo">Otro motivo</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                </div>
+
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0 table-bordered" id="tablaDetalleDevolucion">
+                                    <thead class="table-secondary text-dark">
+                                        <tr>
+                                            <th class="ps-3 border-bottom-0">Producto / Ítem</th>
+                                            <th class="text-center border-bottom-0 col-w-150">Cant. Recibida</th>
+                                            <th class="text-center border-bottom-0 col-w-150">Costo Compra</th>
+                                            <th class="text-center border-bottom-0 col-w-180">Unidad de Devolución</th>
+                                            <th class="text-center border-bottom-0 col-w-140">Cantidad</th>
+                                            <th class="text-end pe-4 border-bottom-0 col-w-150">Costo Recuperado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white"></tbody>
+                                    <tfoot class="bg-light border-top">
+                                        <tr>
+                                            <td colspan="5" class="text-end fw-bold py-3 text-secondary">TOTAL A RECUPERAR:</td>
+                                            <td class="text-end fw-bold py-3 fs-4 text-danger pe-4" id="devolucionTotal">S/ 0.00</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </form>
             </div>
             
             <div class="modal-footer bg-white border-top-0">
-                <button class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-warning text-dark fw-bold px-4" id="btnConfirmarDevolucion">
+                <button type="button" class="btn btn-light text-secondary me-2 fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                <!-- Agregado form="formDevolucionCompra" y type="submit" -->
+                <button type="submit" form="formDevolucionCompra" class="btn btn-warning text-dark fw-bold px-4 shadow-sm" id="btnConfirmarDevolucion">
                     <i class="bi bi-check-circle-fill me-2"></i>Procesar Devolución
                 </button>
             </div>
@@ -532,8 +549,8 @@ $formatearFechaDMY = static function ($fecha): string {
     </div>
 </div>
 
+<!-- Modal Resumen Compra -->
 <div class="modal fade" id="modalResumenCompra" tabindex="-1" aria-hidden="true">
-    <!-- CAMBIO 1: Cambiamos modal-lg por modal-xl para darle más anchura a las 6 columnas -->
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-success text-white border-bottom-0 pb-4">
@@ -589,7 +606,6 @@ $formatearFechaDMY = static function ($fecha): string {
                             <table class="table table-sm align-middle mb-0 table-hover" id="tablaResumenProductosCompra">
                                 <thead class="table-light">
                                     <tr>
-                                        <!-- CAMBIO 2: Relajamos los min-width excesivos y dejamos que flex/Bootstrap manejen el espacio -->
                                         <th class="ps-3 text-secondary small fw-bold" style="min-width: 250px;">Producto</th>
                                         <th class="text-center text-secondary small fw-bold text-nowrap">Cant. Pedida</th>
                                         <th class="text-center text-secondary small fw-bold text-nowrap">Cant. Recibida</th>

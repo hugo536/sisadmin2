@@ -2,7 +2,7 @@
 // MÓDULO VENTAS: venta.js (Creación y Edición de Pedidos SPA)
 // ==============================================================
 
-import { urls, recargarTabla } from './config.js';
+import { urls, recargarTabla, postJsonConCarga } from './config.js';
 import { calcularTotalCobroInmediato, renderAlertaSaldoFavor } from './pagos.js';
 import { getJson, postJson, obtenerFechaLocalISO, esperarTomSelect, initSelectAjax } from '../api.js';
 
@@ -423,7 +423,7 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
                 if (repetido) {
                     this.clear(true);
                     filaReal.querySelector('.detalle-stock').textContent = '0.00';
-                    Swal.fire('Producto repetido', 'No se permiten productos repetidos en el pedido.', 'warning');
+                    Swal.fire('Producto repetido', 'Este producto ya está en la lista.', 'warning');
                     recalcularTotalVenta();
                     return;
                 }
@@ -750,6 +750,148 @@ function limpiarModalVenta() {
 // 3. EXPORTACIONES PRINCIPALES DE VENTAS
 // ==========================================
 
+export async function abrirModalResumenVenta(id) {
+    const separador = urls.index.includes('?') ? '&' : '?';
+    const json = await getJson(`${urls.index}${separador}accion=ver&id=${id}`);
+
+    if (!json.ok || !json.data) return;
+
+    const venta = json.data;
+    const modalResumenEl = document.getElementById('modalResumenVenta');
+    if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
+
+    document.getElementById('resumenVentaCodigo').textContent = venta.codigo || '-';
+    
+    const nombreCliente = venta.cliente || 'Cliente No Especificado';
+    document.getElementById('resumenVentaCliente').textContent = nombreCliente;
+    document.getElementById('resumenVentaOperacion').textContent = venta.tipo_operacion || 'VENTA';
+    
+    const formatearFechaVista = (fechaStr) => {
+        if (!fechaStr) return '-';
+        const fechaBase = String(fechaStr).trim().split(' ')[0];
+        const matchIso = fechaBase.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (matchIso) return `${matchIso[3]}/${matchIso[2]}/${matchIso[1]}`;
+        return fechaStr;
+    };
+
+    document.getElementById('resumenVentaFechaEmision').textContent = formatearFechaVista(venta.fecha_emision);
+    document.getElementById('resumenVentaFechaDespacho').textContent = venta.fecha_despacho ? formatearFechaVista(venta.fecha_despacho) : 'Pendiente';
+    
+    const obsPedido = venta.observaciones ? venta.observaciones.trim() : '';
+    const obsDespacho = venta.observaciones_despacho ? venta.observaciones_despacho.trim() : '';
+
+    const elObsPedido = document.getElementById('resumenVentaObsPedido');
+    if (elObsPedido) elObsPedido.innerHTML = `<i class="bi bi-file-earmark-text text-primary opacity-75 me-1"></i><strong>Pedido:</strong> <span class="${obsPedido ? 'text-dark' : 'fst-italic opacity-50'}">${obsPedido || 'Sin nota'}</span>`;
+    
+    const elObsDespacho = document.getElementById('resumenVentaObsDespacho');
+    if (elObsDespacho) elObsDespacho.innerHTML = `<i class="bi bi-truck text-info opacity-75 me-1"></i><strong>Despacho:</strong> <span class="${obsDespacho ? 'text-dark' : 'fst-italic opacity-50'}">${obsDespacho || 'Sin guía/nota'}</span>`;
+
+    const totalPedido = Number(venta.total || 0);
+    const montoPagado = Number(venta.monto_pagado || 0);
+    const deudaPendiente = Math.max(0, totalPedido - montoPagado);
+
+    const badgePagoContenedor = document.getElementById('resumenVentaEstadoPagoBadge');
+    const textoDeudaContenedor = document.getElementById('resumenVentaMontoPendiente');
+    const divModalidad = document.getElementById('resumenVentaModalidadPago');
+    const listaPagos = document.getElementById('lista_pagos_detallados');
+    const divDeuda = document.getElementById('resumenVentaDeuda');
+    const valDeuda = document.getElementById('val_deuda_pendiente');
+
+    if (badgePagoContenedor && textoDeudaContenedor) {
+        if (listaPagos) {
+            listaPagos.innerHTML = '';
+            if (venta.pagos_detallados && venta.pagos_detallados.length > 0) {
+                let htmlPagos = '';
+                venta.pagos_detallados.forEach(pago => { htmlPagos += `<li><strong>${pago.metodo}</strong>: S/ ${Number(pago.monto).toFixed(2)}</li>`; });
+                listaPagos.innerHTML = htmlPagos;
+            } else {
+                listaPagos.innerHTML = '<li>Sin pagos registrados</li>';
+            }
+        }
+
+        if (deudaPendiente <= 0.001) {
+            badgePagoContenedor.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i>Pagado Total</span>';
+            textoDeudaContenedor.innerHTML = `Total abonado: <span class="fw-bold text-dark">S/ ${totalPedido.toFixed(2)}</span>`;
+            if (divDeuda) divDeuda.style.display = 'none';
+            if (divModalidad) divModalidad.style.display = 'block';
+        } else if (montoPagado > 0) {
+            badgePagoContenedor.innerHTML = '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="bi bi-pie-chart-fill me-1"></i>Pago Parcial</span>';
+            textoDeudaContenedor.innerHTML = `Abonado parcial: <span class="text-dark">S/ ${montoPagado.toFixed(2)}</span>`;
+            if (divModalidad) divModalidad.style.display = 'block';
+            if (divDeuda) {
+                divDeuda.style.display = 'block';
+                if (valDeuda) valDeuda.textContent = `S/ ${deudaPendiente.toFixed(2)}`;
+            }
+        } else {
+            badgePagoContenedor.innerHTML = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-x-circle-fill me-1"></i>Por Cobrar</span>';
+            textoDeudaContenedor.innerHTML = `Abonado: <span class="text-dark">S/ 0.00</span>`;
+            if (divModalidad) divModalidad.style.display = 'none';
+            if (divDeuda) {
+                divDeuda.style.display = 'block';
+                if (valDeuda) valDeuda.textContent = `S/ ${deudaPendiente.toFixed(2)}`;
+            }
+        }
+    }
+
+    const tbodyResumen = document.querySelector('#tablaResumenProductos tbody');
+    const pesoTotalResumenEl = document.getElementById('resumenVentaPesoTotal');
+    let pesoTotalResumen = 0;
+    let sumaTotalDespachada = 0;
+    if(tbodyResumen) tbodyResumen.innerHTML = '';
+
+    if (venta.detalle && venta.detalle.length > 0 && tbodyResumen) {
+        venta.detalle.forEach(item => {
+            const cantSol = Number(item.cantidad || 0);
+            const cantDesp = Number(item.cantidad_despachada || 0);
+            const precio = Number(item.precio_unitario || 0);
+            const pesoUnitario = Number(item.peso_kg || 0);
+            const esBonificacion = Number(item.es_bonificacion || 0); 
+            
+            const pesoSubtotal = cantDesp * pesoUnitario;
+            const subtotalCobrar = esBonificacion === 1 ? 0 : (cantDesp * precio);
+            const subtotalReferencial = cantDesp * precio;
+            
+            pesoTotalResumen += pesoSubtotal;
+            sumaTotalDespachada += subtotalCobrar;
+
+            const subtituloPeso = pesoUnitario > 0
+                ? `<small class="text-muted d-block mt-1">Peso total: ${pesoSubtotal.toFixed(3)} kg</small>`
+                : '<small class="text-muted d-block mt-1">Peso total: 0.000 kg</small>';
+
+            let nombreItemHtml = `${item.item_nombre || '-'}`;
+            let subtotalHtml = `S/ ${subtotalCobrar.toFixed(2)}`;
+            let claseFila = '';
+
+            if (esBonificacion === 1) {
+                claseFila = 'bg-info bg-opacity-10'; 
+                nombreItemHtml += ` <span class="badge bg-info-subtle text-info border border-info-subtle ms-2">🎁 Regalo</span>`;
+                subtotalHtml = `<span class="text-success fw-bold">S/ 0.00</span><br><small class="text-decoration-line-through text-muted opacity-50" style="font-size: 0.7rem;">S/ ${subtotalReferencial.toFixed(2)}</small>`;
+            }
+
+            const trRes = document.createElement('tr');
+            if (claseFila) trRes.className = claseFila;
+            
+            trRes.innerHTML = `
+                <td class="ps-3 py-2 fw-semibold text-dark">${nombreItemHtml}${subtituloPeso}</td>
+                <td class="text-center py-2 text-muted">${cantSol.toFixed(2)}</td>
+                <td class="text-center py-2 fw-bold text-success">${cantDesp.toFixed(2)}</td>
+                <td class="text-end py-2 text-muted">S/ ${precio.toFixed(2)}</td>
+                <td class="text-end pe-3 py-2 fw-bold text-dark lh-sm">${subtotalHtml}</td>
+            `;
+            tbodyResumen.appendChild(trRes);
+        });
+    } else if (tbodyResumen) {
+        tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
+    }
+
+    if (pesoTotalResumenEl) pesoTotalResumenEl.textContent = `Peso total: ${pesoTotalResumen.toFixed(3)} kg`;
+    const totalFinalReal = Number.isFinite(sumaTotalDespachada) ? sumaTotalDespachada : 0;
+    const resVentaTotalFinal = document.getElementById('resumenVentaTotalFinal');
+    if(resVentaTotalFinal) resVentaTotalFinal.textContent = `S/ ${totalFinalReal.toFixed(2)}`;
+
+    bootstrap.Modal.getOrCreateInstance(modalResumenEl).show();
+}
+
 export async function abrirModalVenta(id, tr = null) {
     try {
         const separador = urls.index.includes('?') ? '&' : '?';
@@ -760,144 +902,11 @@ export async function abrirModalVenta(id, tr = null) {
 
         const estadoDoc = Number(venta.estado || 0);
 
-        // Si el estado es >= 3, abrimos modal de resumen (Solo vista)
         if (estadoDoc >= 3) {
-            const modalResumenEl = document.getElementById('modalResumenVenta');
-            if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
-
-            const nombreClienteTabla = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente No Especificado';
-            document.getElementById('resumenVentaCodigo').textContent = venta.codigo || '-';
-            document.getElementById('resumenVentaCliente').textContent = nombreClienteTabla;
-            document.getElementById('resumenVentaOperacion').textContent = venta.tipo_operacion || 'VENTA';
-            
-            const formatearFechaVista = (fechaStr) => {
-                if (!fechaStr) return '-';
-                const fechaBase = String(fechaStr).trim().split(' ')[0];
-                const matchIso = fechaBase.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-                if (matchIso) return `${matchIso[3]}/${matchIso[2]}/${matchIso[1]}`;
-                return fechaStr;
-            };
-
-            document.getElementById('resumenVentaFechaEmision').textContent = formatearFechaVista(venta.fecha_emision);
-            document.getElementById('resumenVentaFechaDespacho').textContent = venta.fecha_despacho ? formatearFechaVista(venta.fecha_despacho) : 'Pendiente';
-            
-            const obsPedido = venta.observaciones ? venta.observaciones.trim() : '';
-            const obsDespacho = venta.observaciones_despacho ? venta.observaciones_despacho.trim() : '';
-
-            const elObsPedido = document.getElementById('resumenVentaObsPedido');
-            if (elObsPedido) elObsPedido.innerHTML = `<i class="bi bi-file-earmark-text text-primary opacity-75 me-1"></i><strong>Pedido:</strong> <span class="${obsPedido ? 'text-dark' : 'fst-italic opacity-50'}">${obsPedido || 'Sin nota'}</span>`;
-            
-            const elObsDespacho = document.getElementById('resumenVentaObsDespacho');
-            if (elObsDespacho) elObsDespacho.innerHTML = `<i class="bi bi-truck text-info opacity-75 me-1"></i><strong>Despacho:</strong> <span class="${obsDespacho ? 'text-dark' : 'fst-italic opacity-50'}">${obsDespacho || 'Sin guía/nota'}</span>`;
-
-            const totalPedido = Number(venta.total || 0);
-            const montoPagado = Number(venta.monto_pagado || 0);
-            const deudaPendiente = Math.max(0, totalPedido - montoPagado);
-
-            const badgePagoContenedor = document.getElementById('resumenVentaEstadoPagoBadge');
-            const textoDeudaContenedor = document.getElementById('resumenVentaMontoPendiente');
-            const divModalidad = document.getElementById('resumenVentaModalidadPago');
-            const listaPagos = document.getElementById('lista_pagos_detallados');
-            const divDeuda = document.getElementById('resumenVentaDeuda');
-            const valDeuda = document.getElementById('val_deuda_pendiente');
-
-            if (badgePagoContenedor && textoDeudaContenedor) {
-                if (listaPagos) {
-                    listaPagos.innerHTML = '';
-                    if (venta.pagos_detallados && venta.pagos_detallados.length > 0) {
-                        let htmlPagos = '';
-                        venta.pagos_detallados.forEach(pago => { htmlPagos += `<li><strong>${pago.metodo}</strong>: S/ ${Number(pago.monto).toFixed(2)}</li>`; });
-                        listaPagos.innerHTML = htmlPagos;
-                    } else {
-                        listaPagos.innerHTML = '<li>Sin pagos registrados</li>';
-                    }
-                }
-
-                if (deudaPendiente <= 0.001) {
-                    badgePagoContenedor.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i>Pagado Total</span>';
-                    textoDeudaContenedor.innerHTML = `Total abonado: <span class="fw-bold text-dark">S/ ${totalPedido.toFixed(2)}</span>`;
-                    if (divDeuda) divDeuda.style.display = 'none';
-                    if (divModalidad) divModalidad.style.display = 'block';
-                } else if (montoPagado > 0) {
-                    badgePagoContenedor.innerHTML = '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="bi bi-pie-chart-fill me-1"></i>Pago Parcial</span>';
-                    textoDeudaContenedor.innerHTML = `Abonado parcial: <span class="text-dark">S/ ${montoPagado.toFixed(2)}</span>`;
-                    if (divModalidad) divModalidad.style.display = 'block';
-                    if (divDeuda) {
-                        divDeuda.style.display = 'block';
-                        if (valDeuda) valDeuda.textContent = `S/ ${deudaPendiente.toFixed(2)}`;
-                    }
-                } else {
-                    badgePagoContenedor.innerHTML = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-x-circle-fill me-1"></i>Por Cobrar</span>';
-                    textoDeudaContenedor.innerHTML = `Abonado: <span class="text-dark">S/ 0.00</span>`;
-                    if (divModalidad) divModalidad.style.display = 'none';
-                    if (divDeuda) {
-                        divDeuda.style.display = 'block';
-                        if (valDeuda) valDeuda.textContent = `S/ ${deudaPendiente.toFixed(2)}`;
-                    }
-                }
-            }
-
-            const tbodyResumen = document.querySelector('#tablaResumenProductos tbody');
-            const pesoTotalResumenEl = document.getElementById('resumenVentaPesoTotal');
-            let pesoTotalResumen = 0;
-            let sumaTotalDespachada = 0;
-            if(tbodyResumen) tbodyResumen.innerHTML = '';
-
-            if (venta.detalle && venta.detalle.length > 0 && tbodyResumen) {
-                venta.detalle.forEach(item => {
-                    const cantSol = Number(item.cantidad || 0);
-                    const cantDesp = Number(item.cantidad_despachada || 0);
-                    const precio = Number(item.precio_unitario || 0);
-                    const pesoUnitario = Number(item.peso_kg || 0);
-                    const esBonificacion = Number(item.es_bonificacion || 0); 
-                    
-                    const pesoSubtotal = cantDesp * pesoUnitario;
-                    const subtotalCobrar = esBonificacion === 1 ? 0 : (cantDesp * precio);
-                    const subtotalReferencial = cantDesp * precio;
-                    
-                    pesoTotalResumen += pesoSubtotal;
-                    sumaTotalDespachada += subtotalCobrar;
-
-                    const subtituloPeso = pesoUnitario > 0
-                        ? `<small class="text-muted d-block mt-1">Peso total: ${pesoSubtotal.toFixed(3)} kg</small>`
-                        : '<small class="text-muted d-block mt-1">Peso total: 0.000 kg</small>';
-
-                    let nombreItemHtml = `${item.item_nombre || '-'}`;
-                    let subtotalHtml = `S/ ${subtotalCobrar.toFixed(2)}`;
-                    let claseFila = '';
-
-                    if (esBonificacion === 1) {
-                        claseFila = 'bg-info bg-opacity-10'; 
-                        nombreItemHtml += ` <span class="badge bg-info-subtle text-info border border-info-subtle ms-2">🎁 Regalo</span>`;
-                        subtotalHtml = `<span class="text-success fw-bold">S/ 0.00</span><br><small class="text-decoration-line-through text-muted opacity-50" style="font-size: 0.7rem;">S/ ${subtotalReferencial.toFixed(2)}</small>`;
-                    }
-
-                    const trRes = document.createElement('tr');
-                    if (claseFila) trRes.className = claseFila;
-                    
-                    trRes.innerHTML = `
-                        <td class="ps-3 py-2 fw-semibold text-dark">${nombreItemHtml}${subtituloPeso}</td>
-                        <td class="text-center py-2 text-muted">${cantSol.toFixed(2)}</td>
-                        <td class="text-center py-2 fw-bold text-success">${cantDesp.toFixed(2)}</td>
-                        <td class="text-end py-2 text-muted">S/ ${precio.toFixed(2)}</td>
-                        <td class="text-end pe-3 py-2 fw-bold text-dark lh-sm">${subtotalHtml}</td>
-                    `;
-                    tbodyResumen.appendChild(trRes);
-                });
-            } else if (tbodyResumen) {
-                tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
-            }
-
-            if (pesoTotalResumenEl) pesoTotalResumenEl.textContent = `Peso total: ${pesoTotalResumen.toFixed(3)} kg`;
-            const totalFinalReal = Number.isFinite(sumaTotalDespachada) ? sumaTotalDespachada : 0;
-            const resVentaTotalFinal = document.getElementById('resumenVentaTotalFinal');
-            if(resVentaTotalFinal) resVentaTotalFinal.textContent = `S/ ${totalFinalReal.toFixed(2)}`;
-
-            bootstrap.Modal.getOrCreateInstance(modalResumenEl).show();
-            return; 
+            await abrirModalResumenVenta(id);
+            return;
         }
 
-        // Si es < 3 (Borrador o Edición), abrimos el Modal principal de Venta
         limpiarModalVenta();
         const ventaId = document.getElementById('ventaId');
         if (ventaId) ventaId.value = venta.id;
@@ -905,7 +914,7 @@ export async function abrirModalVenta(id, tr = null) {
         const esBorrador = estadoDoc === 0;
         bloqueoEdicionVenta = !esBorrador;
         
-        const nombreCliente = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente';
+        const nombreCliente = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || venta.cliente || 'Cliente';
         const idClienteEl = document.getElementById('idCliente');
         if (tomSelectCliente) {
             tomSelectCliente.addOption({ id: venta.id_cliente, text: nombreCliente, saldo_favor: Number(venta.saldo_favor_cliente || 0) });
@@ -1108,7 +1117,7 @@ export async function initVentas() {
         });
     }
 
-    // --- EVENTOS DEL MODAL Y BOTONES (Usamos removeEventListener viejo indirectamente mediante el orquestador o buscando clics limpios) ---
+    // --- EVENTOS DEL MODAL Y BOTONES ---
     const btnNuevaVenta = document.getElementById('btnNuevaVenta');
     if (btnNuevaVenta) {
         // Clonamos para evitar duplicar el evento al navegar por AJAX
@@ -1215,169 +1224,179 @@ export async function initVentas() {
         });
     }
 
-    // --- GUARDADO ---
-    rebindClick('btnGuardarVenta', async () => {
-        try {
-            const idClienteEl = document.getElementById('idCliente');
-            const clienteIdActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0);
-            if (!clienteIdActual) throw new Error('Debe seleccionar Cliente / Beneficiario antes de continuar.');
+    // --- FORM SUBMIT NATIVO PARA GUARDADO ---
+    const formVenta = document.getElementById('formVenta');
+    if (formVenta) {
+        const newFormVenta = formVenta.cloneNode(true);
+        formVenta.parentNode.replaceChild(newFormVenta, formVenta);
+        
+        newFormVenta.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Evitamos recarga
 
-            const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
-            const tbodyRegalos = document.querySelector('#tablaDetalleRegalos tbody');
-            const seccionRegalos = document.getElementById('seccionRegalos');
+            const btnGuardarVenta = document.getElementById('btnGuardarVenta');
 
-            const filasVentaArray = tbodyVenta ? [...tbodyVenta.querySelectorAll('tr')] : [];
-            const filasRegaloArray = tbodyRegalos ? [...tbodyRegalos.querySelectorAll('tr')] : [];
-            const seccionRegalosVisible = seccionRegalos && !seccionRegalos.classList.contains('d-none');
+            try {
+                const idClienteEl = document.getElementById('idCliente');
+                const clienteIdActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : idClienteEl?.value || 0);
+                if (!clienteIdActual) throw new Error('Debe seleccionar Cliente / Beneficiario antes de continuar.');
 
-            if (filasVentaArray.length === 0 && (!seccionRegalosVisible || filasRegaloArray.length === 0)) {
-                throw new Error('Debe agregar al menos un producto al pedido.');
-            }
-            
-            const detalle = [];
-            const ids = new Set();
-            let excedeStock = false; 
+                const tbodyVenta = document.querySelector('#tablaDetalleVenta tbody');
+                const tbodyRegalos = document.querySelector('#tablaDetalleRegalos tbody');
+                const seccionRegalos = document.getElementById('seccionRegalos');
 
-            for (let i = 0; i < filasVentaArray.length; i++) {
-                const fila = filasVentaArray[i];
-                const data = filaVentaPayload(fila);
-                data.es_bonificacion = 0; 
+                const filasVentaArray = tbodyVenta ? [...tbodyVenta.querySelectorAll('tr')] : [];
+                const filasRegaloArray = tbodyRegalos ? [...tbodyRegalos.querySelectorAll('tr')] : [];
+                const seccionRegalosVisible = seccionRegalos && !seccionRegalos.classList.contains('d-none');
+
+                if (filasVentaArray.length === 0 && (!seccionRegalosVisible || filasRegaloArray.length === 0)) {
+                    throw new Error('Debe agregar al menos un producto al pedido.');
+                }
                 
-                if (!data.id_item || data.id_item === '0') throw new Error('Seleccione un producto en todas las filas de la tabla de venta.');
-                
-                const claveUnica = data.id_item + '_0';
-                if (ids.has(claveUnica)) throw new Error('No se permiten productos repetidos en la tabla de ventas.');
-                ids.add(claveUnica);
+                const detalle = [];
+                const ids = new Set();
+                let excedeStock = false; 
 
-                if (data.cantidad <= 0) throw new Error('La cantidad de los productos en venta debe ser mayor a cero.');
-                if (!validarCantidadVsStock(fila)) excedeStock = true;
-                
-                detalle.push(data);
-            }
-
-            if (seccionRegalosVisible) {
-                for (let i = 0; i < filasRegaloArray.length; i++) {
-                    const fila = filasRegaloArray[i];
-                    const selectElement = fila.querySelector('.detalle-item');
-                    const idItem = selectElement && selectElement.tomselect ? selectElement.tomselect.getValue() : (selectElement ? selectElement.value : '');
-                    const cantidad = parseFloat(fila.querySelector('.detalle-cantidad').value || 0);
-
-                    if (cantidad <= 0) {
-                        throw new Error('La cantidad en los productos de regalo debe ser mayor a cero. Elimina la fila si no deseas regalar nada.');
-                    }
-
-                    const data = {
-                        id_item: idItem || '',
-                        cantidad: cantidad,
-                        precio_unitario: parseFloat(fila.querySelector('.detalle-precio').value || 0), 
-                        es_bonificacion: 1 
-                    };
-
-                    if (!data.id_item || data.id_item === '0') throw new Error('Seleccione un producto en todas las filas de regalo.');
+                for (let i = 0; i < filasVentaArray.length; i++) {
+                    const fila = filasVentaArray[i];
+                    const data = filaVentaPayload(fila);
+                    data.es_bonificacion = 0; 
                     
-                    const claveUnica = data.id_item + '_1';
-                    if (ids.has(claveUnica)) throw new Error('No se permiten productos repetidos dentro de la tabla de regalos.');
+                    if (!data.id_item || data.id_item === '0') throw new Error('Seleccione un producto en todas las filas de la tabla de venta.');
+                    
+                    const claveUnica = data.id_item + '_0';
+                    if (ids.has(claveUnica)) throw new Error('No se permiten productos repetidos en la tabla de ventas.');
                     ids.add(claveUnica);
 
+                    if (data.cantidad <= 0) throw new Error('La cantidad de los productos en venta debe ser mayor a cero.');
                     if (!validarCantidadVsStock(fila)) excedeStock = true;
                     
                     detalle.push(data);
                 }
-            }
 
-            let esCobroInmediato = false;
-            const metodosPagoFinales = [];
-            const switchCobroInmediato = document.getElementById('switchCobroInmediato');
-            const tipoOp = document.getElementById('tipoOperacion');
+                if (seccionRegalosVisible) {
+                    for (let i = 0; i < filasRegaloArray.length; i++) {
+                        const fila = filasRegaloArray[i];
+                        const selectElement = fila.querySelector('.detalle-item');
+                        const idItem = selectElement && selectElement.tomselect ? selectElement.tomselect.getValue() : (selectElement ? selectElement.value : '');
+                        const cantidad = parseFloat(fila.querySelector('.detalle-cantidad').value || 0);
 
-            if (switchCobroInmediato && switchCobroInmediato.checked && tipoOp?.value !== 'DONACION' && !bloqueoEdicionVenta) {
-                esCobroInmediato = true;
-                const contenedorMetodosPago = document.getElementById('contenedorMetodosPago');
-                if (contenedorMetodosPago) {
-                    contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato').forEach(fila => {
-                        const idCuenta = fila.querySelector('.select-cuenta-inmediato').value;
-                        const idMetodo = fila.querySelector('.select-metodo-inmediato').value;
-                        const monto = parseFloat(fila.querySelector('.input-monto-inmediato').value) || 0;
-                        
-                        if (idCuenta && idMetodo && monto > 0) {
-                            metodosPagoFinales.push({ id_cuenta: idCuenta, id_metodo: idMetodo, monto: monto });
+                        if (cantidad <= 0) {
+                            throw new Error('La cantidad en los productos de regalo debe ser mayor a cero. Elimina la fila si no deseas regalar nada.');
                         }
-                    });
+
+                        const data = {
+                            id_item: idItem || '',
+                            cantidad: cantidad,
+                            precio_unitario: parseFloat(fila.querySelector('.detalle-precio').value || 0), 
+                            es_bonificacion: 1 
+                        };
+
+                        if (!data.id_item || data.id_item === '0') throw new Error('Seleccione un producto en todas las filas de regalo.');
+                        
+                        const claveUnica = data.id_item + '_1';
+                        if (ids.has(claveUnica)) throw new Error('No se permiten productos repetidos dentro de la tabla de regalos.');
+                        ids.add(claveUnica);
+
+                        if (!validarCantidadVsStock(fila)) excedeStock = true;
+                        
+                        detalle.push(data);
+                    }
                 }
 
-                if (metodosPagoFinales.length === 0) {
-                    throw new Error("Debe completar Cuenta, Método y Monto para el cobro inmediato.");
+                let esCobroInmediato = false;
+                const metodosPagoFinales = [];
+                const switchCobroInmediato = document.getElementById('switchCobroInmediato');
+                const tipoOp = document.getElementById('tipoOperacion');
+
+                if (switchCobroInmediato && switchCobroInmediato.checked && tipoOp?.value !== 'DONACION' && !bloqueoEdicionVenta) {
+                    esCobroInmediato = true;
+                    const contenedorMetodosPago = document.getElementById('contenedorMetodosPago');
+                    if (contenedorMetodosPago) {
+                        contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato').forEach(fila => {
+                            const idCuenta = fila.querySelector('.select-cuenta-inmediato').value;
+                            const idMetodo = fila.querySelector('.select-metodo-inmediato').value;
+                            const monto = parseFloat(fila.querySelector('.input-monto-inmediato').value) || 0;
+                            
+                            if (idCuenta && idMetodo && monto > 0) {
+                                metodosPagoFinales.push({ id_cuenta: idCuenta, id_metodo: idMetodo, monto: monto });
+                            }
+                        });
+                    }
+
+                    if (metodosPagoFinales.length === 0) {
+                        throw new Error("Debe completar Cuenta, Método y Monto para el cobro inmediato.");
+                    }
                 }
-            }
 
-            if (esCobroInmediato) {
-                let sumaPagos = 0;
-                metodosPagoFinales.forEach(p => sumaPagos += p.monto);
-                
-                const ventaTotal = document.getElementById('ventaTotal');
-                const totalPedTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
-                const totalPedNumerico = parseFloat(totalPedTexto) || 0;
+                if (esCobroInmediato) {
+                    let sumaPagos = 0;
+                    metodosPagoFinales.forEach(p => sumaPagos += p.monto);
+                    
+                    const ventaTotal = document.getElementById('ventaTotal');
+                    const totalPedTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
+                    const totalPedNumerico = parseFloat(totalPedTexto) || 0;
 
-                const diferencia = totalPedNumerico - sumaPagos;
+                    const diferencia = totalPedNumerico - sumaPagos;
 
-                if (diferencia > 0.01) {
-                    const confirmacionPago = await Swal.fire({
+                    if (diferencia > 0.01) {
+                        const confirmacionPago = await Swal.fire({
+                            icon: 'warning',
+                            title: 'Pago Incompleto',
+                            text: `El total del pedido es S/ ${totalPedNumerico.toFixed(2)}, pero solo se ha registrado S/ ${sumaPagos.toFixed(2)}. ¿Deseas guardar el pedido y dejar el resto (S/ ${diferencia.toFixed(2)}) como cuenta por cobrar?`,
+                            showCancelButton: true,
+                            confirmButtonText: 'Sí, guardar con deuda',
+                            cancelButtonText: 'No, corregir pago',
+                            confirmButtonColor: '#ffc107', 
+                            cancelButtonColor: '#6c757d'   
+                        });
+
+                        if (!confirmacionPago.isConfirmed) return; 
+                    } 
+                    else if (diferencia < -0.01) {
+                        throw new Error(`El total ingresado (S/ ${sumaPagos.toFixed(2)}) supera el total del pedido (S/ ${totalPedNumerico.toFixed(2)}). Por favor, ajuste los montos.`);
+                    }
+                }
+
+                if (excedeStock) {
+                    const confirmacion = await Swal.fire({
                         icon: 'warning',
-                        title: 'Pago Incompleto',
-                        text: `El total del pedido es S/ ${totalPedNumerico.toFixed(2)}, pero solo se ha registrado S/ ${sumaPagos.toFixed(2)}. ¿Deseas guardar el pedido y dejar el resto (S/ ${diferencia.toFixed(2)}) como cuenta por cobrar?`,
+                        title: 'Stock excedido (Falta de producto)',
+                        text: 'Las cantidades requeridas superan tu stock físico en almacén. Puedes guardar el borrador, pero no podrás despacharlo hasta que repongas el stock. ¿Guardar de todos modos?',
                         showCancelButton: true,
-                        confirmButtonText: 'Sí, guardar con deuda',
-                        cancelButtonText: 'No, corregir pago',
-                        confirmButtonColor: '#ffc107', 
-                        cancelButtonColor: '#6c757d'   
+                        confirmButtonColor: '#0d6efd', 
+                        cancelButtonColor: '#6c757d', 
+                        confirmButtonText: 'Sí, guardar pedido',
+                        cancelButtonText: 'Cancelar'
                     });
 
-                    if (!confirmacionPago.isConfirmed) return; 
-                } 
-                else if (diferencia < -0.01) {
-                    throw new Error(`El total ingresado (S/ ${sumaPagos.toFixed(2)}) supera el total del pedido (S/ ${totalPedNumerico.toFixed(2)}). Por favor, ajuste los montos.`);
+                    if (!confirmacion.isConfirmed) return; 
                 }
+
+                const ventaIdEl = document.getElementById('ventaId');
+                const fechaEmisionEl = document.getElementById('fechaEmision');
+                const ventaObsEl = document.getElementById('ventaObservaciones');
+                const tipoImpuestoEl = document.getElementById('tipoImpuesto');
+
+                // Usamos postJsonConCarga para mostrar el spinner en el botón al guardar
+                const payload = await postJsonConCarga(urls.guardar, {
+                    id: Number(ventaIdEl?.value || 0),
+                    id_cliente: clienteIdActual,
+                    tipo_operacion: tipoOp ? tipoOp.value : 'VENTA', 
+                    fecha_emision: fechaEmisionEl?.value || '',
+                    observaciones: ventaObsEl?.value || '',
+                    tipo_impuesto: tipoImpuestoEl ? tipoImpuestoEl.value : 'exonerado',
+                    detalle: detalle,
+                    cobro_inmediato: esCobroInmediato,
+                    metodos_pago: metodosPagoFinales
+                }, btnGuardarVenta);
+
+                await Swal.fire('Guardado', payload.mensaje, 'success');
+                const modalVentaEl = document.getElementById('modalVenta');
+                if (modalVentaEl) bootstrap.Modal.getOrCreateInstance(modalVentaEl).hide();
+                recargarTabla();
+            } catch (error) {
+                Swal.fire('Error', error.message, 'error');
             }
-
-            if (excedeStock) {
-                const confirmacion = await Swal.fire({
-                    icon: 'warning',
-                    title: 'Stock excedido (Falta de producto)',
-                    text: 'Las cantidades requeridas (sumando sueltos y combos) superan tu stock físico en almacén. Puedes guardar el borrador, pero no podrás despacharlo hasta que repongas el stock. ¿Guardar de todos modos?',
-                    showCancelButton: true,
-                    confirmButtonColor: '#0d6efd', 
-                    cancelButtonColor: '#6c757d', 
-                    confirmButtonText: 'Sí, guardar pedido',
-                    cancelButtonText: 'Cancelar'
-                });
-
-                if (!confirmacion.isConfirmed) return; 
-            }
-
-            const btnGuardarVenta = document.getElementById('btnGuardarVenta');
-            const ventaIdEl = document.getElementById('ventaId');
-            const fechaEmisionEl = document.getElementById('fechaEmision');
-            const ventaObsEl = document.getElementById('ventaObservaciones');
-            const tipoImpuestoEl = document.getElementById('tipoImpuesto');
-
-            const payload = await postJson(urls.guardar, {
-                id: Number(ventaIdEl?.value || 0),
-                id_cliente: clienteIdActual,
-                tipo_operacion: tipoOp ? tipoOp.value : 'VENTA', 
-                fecha_emision: fechaEmisionEl?.value || '',
-                observaciones: ventaObsEl?.value || '',
-                tipo_impuesto: tipoImpuestoEl ? tipoImpuestoEl.value : 'exonerado',
-                detalle: detalle,
-                cobro_inmediato: esCobroInmediato,
-                metodos_pago: metodosPagoFinales
-            });
-
-            await Swal.fire('Guardado', payload.mensaje, 'success');
-            const modalVentaEl = document.getElementById('modalVenta');
-            if (modalVentaEl) bootstrap.Modal.getOrCreateInstance(modalVentaEl).hide();
-            recargarTabla();
-        } catch (error) {
-            Swal.fire('Error', error.message, 'error');
-        }
-    });
+        });
+    }
 }

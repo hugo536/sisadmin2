@@ -6,21 +6,40 @@ class VentasDocumentoModel extends Modelo
 {
     public function listar(array $filtros = []): array
     {
-        $sql = 'SELECT v.id,
-                       v.codigo,
-                       v.tipo_operacion,
-                       v.id_cliente,
-                       t.nombre_completo AS cliente,
-                       v.observaciones,
-                       v.observaciones_despacho, /* <-- COLUMNA AGREGADA AQUÍ */
-                       v.fecha_emision,
-                       v.fecha_despacho, 
-                       v.total,
-                       v.estado,
-                       v.created_at
-                FROM ventas_documentos v
-                INNER JOIN terceros t ON t.id = v.id_cliente AND t.deleted_at IS NULL
-                WHERE v.deleted_at IS NULL';
+        $sql = <<<SQL
+            SELECT v.id,
+                   v.codigo,
+                   v.tipo_operacion,
+                   v.id_cliente,
+                   t.nombre_completo AS cliente,
+                   v.observaciones,
+                   v.observaciones_despacho,
+                   v.fecha_emision,
+                   v.fecha_despacho, 
+                   COALESCE(v.moneda, 'PEN') AS moneda, /* <--- CAMBIO BIMONETARIO */
+                   v.total,
+
+                   /* 👇 NUEVO: Cálculo dinámico del total neto para la tabla principal 👇 */
+                   CASE 
+                       WHEN v.estado >= 3 THEN (
+                           COALESCE((
+                               SELECT SUM(vdd.cantidad_despachada * vdd.precio_unitario)
+                               FROM ventas_documentos_detalle vdd
+                               WHERE vdd.id_documento_venta = v.id 
+                                 AND vdd.deleted_at IS NULL 
+                                 AND COALESCE(vdd.es_bonificacion, 0) = 0
+                           ), 0) * CASE WHEN v.tipo_impuesto = 'mas_igv' THEN 1.18 ELSE 1 END
+                       )
+                       ELSE v.total
+                   END AS total_neto,
+                   /* 👆 FIN NUEVO 👆 */
+
+                   v.estado,
+                   v.created_at
+            FROM ventas_documentos v
+            INNER JOIN terceros t ON t.id = v.id_cliente AND t.deleted_at IS NULL
+            WHERE v.deleted_at IS NULL
+        SQL;
 
         $params = [];
 
@@ -36,8 +55,7 @@ class VentasDocumentoModel extends Modelo
             $params['estado'] = (int) $filtros['estado'];
         }
 
-        // --- LÓGICA DE FILTRADO Y ORDENAMIENTO POR FECHA DINÁMICA ---
-        $campoFecha = 'DATE(v.created_at)'; // Por defecto (Fecha Pedido)
+        $campoFecha = 'DATE(v.created_at)'; 
         if (isset($filtros['orden_fecha']) && $filtros['orden_fecha'] === 'emision') {
             $campoFecha = 'v.fecha_emision';
         }
@@ -68,12 +86,13 @@ class VentasDocumentoModel extends Modelo
     {
         $sql = 'SELECT v.id, v.codigo, v.id_cliente, 
                        v.tipo_operacion, v.tipo_impuesto,
+                       COALESCE(v.moneda, "PEN") AS moneda,
                        t.nombre_completo AS cliente, 
                        t.tipo_documento AS cliente_doc_tipo,
                        t.numero_documento AS cliente_doc, 
                        t.direccion AS cliente_direccion, 
                        v.fecha_emision, v.fecha_despacho, v.observaciones, 
-                       v.observaciones_despacho, /* <-- COLUMNA AGREGADA AQUÍ */
+                       v.observaciones_despacho,
                        v.subtotal, v.total, v.estado, v.created_at
                 FROM ventas_documentos v
                 LEFT JOIN terceros t ON t.id = v.id_cliente
@@ -91,7 +110,6 @@ class VentasDocumentoModel extends Modelo
 
         $stockSqlPacksTotal = $this->resolverSubqueryStockCombo('d.id_presentacion', 0);
 
-        // 👇 NUEVO: Subconsulta para calcular el peso del combo en el historial
         $pesoSqlPacksTotal = "(SELECT COALESCE(SUM(ppd.cantidad * i_comp.peso_kg), 0) 
                                FROM precios_presentaciones_detalle ppd 
                                JOIN items i_comp ON i_comp.id = ppd.id_item 
@@ -152,20 +170,16 @@ class VentasDocumentoModel extends Modelo
             $linea['cantidad_pendiente'] = $pendiente;
             $linea['cantidad_cancelada'] = ($estadoDocumento === 3 && $pendiente > 0.0001) ? $pendiente : 0;
             
-            // --- NUEVO: Extraemos los envases retornables relacionados a esta línea ---
             $rawIdItem = (int) ($linea['raw_id_item'] ?? 0);
             $rawIdPres = (int) ($linea['raw_id_presentacion'] ?? 0);
             $linea['envases_retornables'] = $this->obtenerInfoEnvasesRetornables($rawIdItem, $rawIdPres);
             
-            // Limpiamos los IDs crudos para no ensuciar el JSON
             unset($linea['raw_id_item'], $linea['raw_id_presentacion']);
-            // ---------------------------------------------------------------------------
         }
         unset($linea);
 
         $venta['detalle'] = $detalle;
 
-        // --- NUEVO: BUSCAR HISTORIAL DE DEVOLUCIONES (CON PROTECCIÓN) ---
         $devoluciones = [];
         try {
             $sqlDev = "SELECT d.id, d.motivo, d.tipo_resolucion, d.total_devuelto, d.created_at
@@ -188,12 +202,10 @@ class VentasDocumentoModel extends Modelo
             }
             unset($dev);
         } catch (\Throwable $e) {
-            // Si la tabla aún no existe u ocurre un error, lo ignoramos pacíficamente.
             $devoluciones = [];
         }
 
         $venta['devoluciones'] = $devoluciones;
-        // -----------------------------------------------
 
         return $venta;
     }
@@ -213,20 +225,24 @@ class VentasDocumentoModel extends Modelo
             
             $tipoImpuesto = trim((string) ($cabecera['tipo_impuesto'] ?? 'exonerado'));
             $tipoOperacion = trim((string) ($cabecera['tipo_operacion'] ?? 'VENTA'));
+            
+            // NUEVO: Moneda
+            $moneda = strtoupper(trim((string) ($cabecera['moneda'] ?? 'PEN')));
+            if (!in_array($moneda, ['PEN', 'USD'], true)) {
+                $moneda = 'PEN';
+            }
 
             $sumaLineas = 0.0;
             
-            // 👇 Vuelve a su estado natural, sumando solo el dinero, sin chequear inventario
             foreach ($detalle as $linea) {
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
-                $esBonificacion = (int) ($linea['es_bonificacion'] ?? 0); // <-- NUEVO
+                $esBonificacion = (int) ($linea['es_bonificacion'] ?? 0); 
                 
                 if ($cantidad <= 0 || $precio < 0) {
                     throw new RuntimeException('Hay líneas con cantidad o precio inválido.');
                 }
                 
-                // Solo sumamos al total a cobrar si NO es una bonificación
                 if ($esBonificacion === 0) {
                     $sumaLineas += ($cantidad * $precio);
                 }
@@ -270,6 +286,7 @@ class VentasDocumentoModel extends Modelo
                 $sqlUpdate = 'UPDATE ventas_documentos
                               SET id_cliente = :id_cliente,
                                   fecha_emision = :fecha_emision,
+                                  moneda = :moneda,
                                   observaciones = :observaciones,
                                   tipo_impuesto = :tipo_impuesto,
                                   tipo_operacion = :tipo_operacion,
@@ -285,6 +302,7 @@ class VentasDocumentoModel extends Modelo
                     'id' => $idDocumento,
                     'id_cliente' => (int) $cabecera['id_cliente'],
                     'fecha_emision' => $fechaEmision,
+                    'moneda' => $moneda,
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'tipo_impuesto' => $tipoImpuesto,
                     'tipo_operacion' => $tipoOperacion,
@@ -302,11 +320,11 @@ class VentasDocumentoModel extends Modelo
                 $codigo = $this->generarCodigo($db);
                 
                 $sqlInsert = 'INSERT INTO ventas_documentos (
-                                codigo, tipo_operacion, id_cliente, fecha_emision, observaciones,
+                                codigo, tipo_operacion, id_cliente, fecha_emision, moneda, observaciones,
                                 tipo_impuesto, subtotal, igv_monto, total, estado,
                                 created_by, updated_by, created_at, updated_at
                               ) VALUES (
-                                :codigo, :tipo_operacion, :id_cliente, :fecha_emision, :observaciones,
+                                :codigo, :tipo_operacion, :id_cliente, :fecha_emision, :moneda, :observaciones,
                                 :tipo_impuesto, :subtotal, :igv_monto, :total, 0,
                                 :created_by, :updated_by, NOW(), NOW()
                               )';
@@ -316,6 +334,7 @@ class VentasDocumentoModel extends Modelo
                     'tipo_operacion' => $tipoOperacion,
                     'id_cliente' => (int) $cabecera['id_cliente'],
                     'fecha_emision' => $fechaEmision,
+                    'moneda' => $moneda,
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'tipo_impuesto' => $tipoImpuesto,
                     'subtotal' => round($subtotal, 4),
@@ -340,7 +359,7 @@ class VentasDocumentoModel extends Modelo
             foreach ($detalle as $linea) {
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
-                $esBonificacion = (int) ($linea['es_bonificacion'] ?? 0); // <-- NUEVO
+                $esBonificacion = (int) ($linea['es_bonificacion'] ?? 0); 
 
                 $rawId = (string) ($linea['id_item'] ?? '');
                 $idItemDB = null;
@@ -361,8 +380,8 @@ class VentasDocumentoModel extends Modelo
                     'id_presentacion' => $idPresentacionDB > 0 ? $idPresentacionDB : null,
                     'cantidad' => $cantidad,
                     'precio_unitario' => $precio,
-                    'total_linea' => $esBonificacion === 1 ? 0 : round($cantidad * $precio, 2), // <-- El subtotal de BD queda en 0 si es regalo
-                    'es_bonificacion' => $esBonificacion, // <-- NUEVO
+                    'total_linea' => $esBonificacion === 1 ? 0 : round($cantidad * $precio, 2), 
+                    'es_bonificacion' => $esBonificacion, 
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
@@ -398,9 +417,6 @@ class VentasDocumentoModel extends Modelo
     {
         $db = $this->db();
 
-        // --- 1. BLINDAJE DE SEGURIDAD ANTES DE ABRIR TRANSACCIÓN ---
-        
-        // A. Verificar estado del documento
         $stmtVenta = $db->prepare('SELECT estado FROM ventas_documentos WHERE id = :id AND deleted_at IS NULL LIMIT 1');
         $stmtVenta->execute(['id' => $idDocumento]);
         $estadoActual = (int) $stmtVenta->fetchColumn();
@@ -409,9 +425,7 @@ class VentasDocumentoModel extends Modelo
             throw new RuntimeException('El pedido ya tiene mercadería despachada. No se puede anular, debe ir a la opción "Registrar Devolución".');
         }
 
-        // B. Verificar si hay dinero en caja (Cuentas por Cobrar)
         try {
-            // Buscamos usando la columna correcta: id_documento_venta
             $stmtCxc = $db->prepare('SELECT monto_pagado FROM tesoreria_cxc WHERE id_documento_venta = :id_documento AND deleted_at IS NULL LIMIT 1');
             $stmtCxc->execute(['id_documento' => $idDocumento]);
             $cxc = $stmtCxc->fetch(PDO::FETCH_ASSOC);
@@ -419,15 +433,11 @@ class VentasDocumentoModel extends Modelo
             if ($cxc !== false && (float)$cxc['monto_pagado'] > 0) {
                 throw new RuntimeException('El pedido tiene pagos registrados (S/ ' . number_format((float)$cxc['monto_pagado'], 2) . '). Primero debe ir a Tesorería y anular el recibo de pago.');
             }
-        } catch (\Throwable $e) {
-            // Ignoramos pacíficamente si por alguna razón la tabla no está accesible
-        }
+        } catch (\Throwable $e) {}
 
-        // --- 2. PROCESO DE ANULACIÓN ---
         $db->beginTransaction();
 
         try {
-            // Anular la cabecera del documento
             $stmt = $db->prepare('UPDATE ventas_documentos
                                   SET estado = 9,
                                       deleted_at = NOW(),
@@ -446,23 +456,18 @@ class VentasDocumentoModel extends Modelo
                 throw new RuntimeException('No se pudo anular el pedido o ya estaba anulado.');
             }
 
-            // Anular el detalle
             $db->prepare('UPDATE ventas_documentos_detalle
                           SET deleted_at = NOW(), updated_by = :user, updated_at = NOW()
                           WHERE id_documento_venta = :id_documento
                             AND deleted_at IS NULL')
                 ->execute(['id_documento' => $idDocumento, 'user' => $userId]);
 
-            // --- 3. LIMPIEZA: Anular también la deuda pendiente en Tesorería ---
             try {
-                // Actualizamos usando la columna correcta: id_documento_venta
                 $db->prepare('UPDATE tesoreria_cxc 
                               SET estado = "ANULADA", deleted_at = NOW(), updated_by = :user, updated_at = NOW() 
                               WHERE id_documento_venta = :id_documento AND deleted_at IS NULL')
                    ->execute(['id_documento' => $idDocumento, 'user' => $userId]);
-            } catch (\Throwable $e) {
-                // Ignorar si no existe la relación
-            }
+            } catch (\Throwable $e) {}
 
             $db->commit();
             return true;
@@ -549,7 +554,6 @@ class VentasDocumentoModel extends Modelo
             : "(SELECT SUM(s.stock_actual) FROM inventario_stock s WHERE s.id_item = i.id)";
 
         if ($acuerdo['tiene_acuerdo']) {
-            // 👇 NUEVO: Se agregó incluye_envase y requiere_envase
             $sqlItems = "SELECT CONCAT('ITEM-', i.id) AS id, i.sku, i.nombre, cap.precio_pactado AS precio_venta, i.tipo_item,
                                 COALESCE(i.permite_decimales, 0) AS permite_decimales,
                                 COALESCE(i.peso_kg, 0) AS peso_kg,
@@ -569,7 +573,6 @@ class VentasDocumentoModel extends Modelo
                 $subqueryVolumen = "(SELECT ipv.precio_unitario FROM item_precios_volumen ipv WHERE ipv.id_item = i.id AND ipv.cantidad_minima <= ? ORDER BY ipv.cantidad_minima DESC LIMIT 1)";
             }
 
-            // 👇 NUEVO: Se agregó incluye_envase y requiere_envase
             $sqlItems = "SELECT CONCAT('ITEM-', i.id) AS id, i.sku, i.nombre,
                                 COALESCE(
                                     {$subqueryVolumen},
@@ -595,7 +598,6 @@ class VentasDocumentoModel extends Modelo
         if ($this->tablaExiste('precios_presentaciones') && $this->tablaExiste('precios_presentaciones_detalle')) {
             $stockSqlPacks = $this->resolverSubqueryStockCombo('pp.id', $idAlmacen);
             
-            // 👇 NUEVO: Subconsulta para calcular el peso total del combo sumando sus ingredientes
             $pesoSqlPacks = "(SELECT COALESCE(SUM(ppd.cantidad * i_comp.peso_kg), 0) 
                               FROM precios_presentaciones_detalle ppd 
                               JOIN items i_comp ON i_comp.id = ppd.id_item 
@@ -770,13 +772,11 @@ class VentasDocumentoModel extends Modelo
         return (float) $stmt->fetchColumn();
     }
 
-    // --- MODIFICADO: Agregamos array $envasesDevueltos ---
     public function guardarDespacho(int $idDoc, array $detalle, string $obs, bool $cerrarForzado, int $userId, string $fechaDespacho, array $envasesDevueltos = []): void
     {
         require_once BASE_PATH . '/app/models/VentasDespachoModel.php';
         $despachoModel = new VentasDespachoModel();
         
-        // --- MODIFICADO: Le pasamos $envasesDevueltos a registrarDespacho ---
         $despachoModel->registrarDespacho($idDoc, $detalle, $cerrarForzado, $obs, $userId, $fechaDespacho, $envasesDevueltos);
     }
 
@@ -897,29 +897,22 @@ class VentasDocumentoModel extends Modelo
                  WHERE ppd.id_presentacion = {$idPresentacionRef})";
     }
 
-    // =========================================================================
-    // --- NUEVAS FUNCIONES PARA RETORNO INMEDIATO DE ENVASES ---
-    // =========================================================================
-    
     public function obtenerInfoEnvasesRetornables(int $idItem, int $idPresentacion): array 
     {
         $db = $this->db();
 
-        // 👇 NUEVO: ESCUDO. Si el producto o pack INCLUYE el envase, no exigimos nada 👇
         if ($idPresentacion > 0) {
             $stmt = $db->prepare('SELECT incluye_envase FROM precios_presentaciones WHERE id = ?');
             $stmt->execute([$idPresentacion]);
-            if ($stmt->fetchColumn()) return []; // Retorna vacío, no hay deuda
+            if ($stmt->fetchColumn()) return []; 
         } elseif ($idItem > 0) {
             $stmt = $db->prepare('SELECT incluye_envase FROM items WHERE id = ?');
             $stmt->execute([$idItem]);
-            if ($stmt->fetchColumn()) return []; // Retorna vacío, no hay deuda
+            if ($stmt->fetchColumn()) return []; 
         }
-        // 👆 FIN DEL ESCUDO 👆
 
         $envases = [];
 
-        // Si es un Combo/Pack, buscamos los envases de cada componente
         if ($idPresentacion > 0) {
             $stmt = $db->prepare('SELECT id_item, cantidad FROM precios_presentaciones_detalle WHERE id_presentacion = ?');
             $stmt->execute([$idPresentacion]);
@@ -933,12 +926,10 @@ class VentasDocumentoModel extends Modelo
                         $envases[$idEnv] = $se;
                         $envases[$idEnv]['factor'] = 0;
                     }
-                    // Multiplicamos el factor del envase por la cantidad del componente en el pack
                     $envases[$idEnv]['factor'] += ($se['factor'] * $comp['cantidad']);
                 }
             }
         } 
-        // Si es un Ítem individual
         elseif ($idItem > 0) {
             $subEnvases = $this->buscarEnvasesDeItem($db, $idItem);
             foreach ($subEnvases as $se) {
@@ -951,12 +942,11 @@ class VentasDocumentoModel extends Modelo
             }
         }
 
-        return array_values($envases); // Reindexar el array para el JSON
+        return array_values($envases); 
     }
 
     private function buscarEnvasesDeItem(PDO $db, int $idItem): array 
     {
-        // 1. ¿El ítem en sí mismo es un envase retornable? (Ej. Venta de envase vacío)
         $stmt1 = $db->prepare('SELECT id, nombre FROM items WHERE id = ? AND es_envase_retornable = 1 AND deleted_at IS NULL LIMIT 1');
         $stmt1->execute([$idItem]);
         $directo = $stmt1->fetch(PDO::FETCH_ASSOC);
@@ -964,7 +954,6 @@ class VentasDocumentoModel extends Modelo
             return [['id_envase' => (int)$directo['id'], 'nombre_envase' => $directo['nombre'], 'factor' => 1.0]];
         }
 
-        // 2. Buscar en la Receta de Producción Activa (Ej. Bidón de Agua -> Requiere Bidón Vacío)
         $stmt2 = $db->prepare('SELECT d.id_insumo AS id_envase, i.nombre AS nombre_envase, 
                                       (d.cantidad_por_unidad / NULLIF(r.rendimiento_base, 0)) AS factor
                                FROM produccion_recetas_detalle d
@@ -981,7 +970,6 @@ class VentasDocumentoModel extends Modelo
             return $deReceta;
         }
 
-        // 3. Buscar en el Histórico de Producción (Fallback)
         $stmt3 = $db->prepare('SELECT c.id_item AS id_envase, i.nombre AS nombre_envase,
                                       (SUM(c.cantidad) / NULLIF(SUM(o.cantidad_producida), 0)) AS factor
                                FROM produccion_ordenes o

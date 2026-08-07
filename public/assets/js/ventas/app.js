@@ -2,93 +2,43 @@
 // MÓDULO PRINCIPAL VENTAS: app.js (Orquestador SPA)
 // ==============================================================
 
-import { recargarTabla } from './config.js'; 
+// Nota: Asegúrate de que 'recargarPagina' esté exportado en tu config.js igual que en Compras.
+// Si tu proyecto usa 'recargarTabla' en Ventas, puedes cambiar el nombre en la importación.
+import { recargarPagina, postJsonConCarga } from './config.js'; 
 import { postJson } from '../api.js';
-import { initVentas, abrirModalVenta, revertirBorrador } from './venta.js';
+import { initVentas, abrirModalVenta, abrirModalResumenVenta, revertirBorrador } from './venta.js';
 import { initPagos } from './pagos.js';
-import { abrirModalDespacho, abrirModalDevolucionVenta } from './logistica.js';
+import { abrirModalDespacho, abrirModalDevolucionVenta, initLogistica } from './logistica.js';
 
 // Envolvemos todo en una función de "Arranque"
 function arrancarModuloVentas() {
     const app = document.getElementById('ventasApp');
-    if (!app) return; // Si estamos en otra vista (ej. Compras), se detiene aquí.
+    if (!app) return; // Si estamos en otra vista, se detiene aquí
 
-    // Extraemos las URLs directamente del DOM "fresco"
-    const urls = {
-        index: app.dataset.urlIndex,
-        anular: app.dataset.urlAnular,
-        aprobar: app.dataset.urlAprobar
-    };
-
-    // ==========================================
-    // 1. INICIALIZACIÓN DE SUBMÓDULOS
-    // ==========================================
+    // 1. Inicializamos submódulos (Esto refresca las variables del DOM)
     initVentas();
     initPagos();
-    // NOTA: Si en ventas/logistica.js creas un initLogistica(), puedes llamarlo aquí también.
+    if (typeof initLogistica === 'function') initLogistica();
 
-    // ==========================================
-    // 2. IMPRESIÓN (Expuesto a window para modales)
-    // ==========================================
-    window.pedidoIdPendienteImpresion = window.pedidoIdPendienteImpresion || 0;
-
-    window.imprimirPedido = function(id) {
-        window.pedidoIdPendienteImpresion = Number(id) || 0;
-        const inputPaginas = document.getElementById('cantidadPaginasPedido');
-        const selectTipo = document.getElementById('tipoDocumentoImprimir');
-        
-        if (inputPaginas) inputPaginas.value = 1;
-        if (selectTipo) selectTipo.value = 'imprimir'; 
-
-        const modalEl = document.getElementById('modalImpresionPedido');
-        if (!modalEl || typeof bootstrap === 'undefined') return;
-        
-        bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    };
-
-    const btnConfirmarImpresion = document.getElementById('btnConfirmarImpresionPedido');
-    if (btnConfirmarImpresion) {
-        // En SPA clonamos el botón para evitar que se acumulen múltiples "clics" ocultos
-        const nuevoBtnConfirmar = btnConfirmarImpresion.cloneNode(true);
-        btnConfirmarImpresion.parentNode.replaceChild(nuevoBtnConfirmar, btnConfirmarImpresion);
-        
-        nuevoBtnConfirmar.addEventListener('click', () => {
-            const inputPaginas = document.getElementById('cantidadPaginasPedido');
-            const selectTipo = document.getElementById('tipoDocumentoImprimir');
-            
-            if (!app || !inputPaginas || window.pedidoIdPendienteImpresion <= 0) return;
-
-            const baseUrl = app.dataset.urlIndex;
-            const paginas = Math.max(1, Math.min(20, Number(inputPaginas.value) || 1));
-            const accionImpresion = selectTipo ? selectTipo.value : 'imprimir';
-
-            const modalEl = document.getElementById('modalImpresionPedido');
-            if (modalEl && typeof bootstrap !== 'undefined') {
-                bootstrap.Modal.getInstance(modalEl)?.hide();
-            }
-
-            window.open(`${baseUrl}&accion=${accionImpresion}&id=${window.pedidoIdPendienteImpresion}&paginas=${paginas}`, '_blank');
-        });
-    }
-
-    // ==========================================
-    // 3. CONFIGURACIÓN DE FILTROS
-    // ==========================================
-    const btnFiltrarFechas = document.getElementById('btnFiltrarFechas');
-    if (btnFiltrarFechas) btnFiltrarFechas.addEventListener('click', recargarTabla);
-
+    // 2. Filtros y Búsquedas
     const filtroBusqueda = document.getElementById('filtroBusqueda');
     if (filtroBusqueda) {
-        filtroBusqueda.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') recargarTabla();
+        filtroBusqueda.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                recargarPagina();
+            }
         });
     }
 
-    const filtrosChange = ['filtroEstado', 'filtroOrdenFecha'];
-    filtrosChange.forEach(id => {
+    const filtrosSelect = ['filtroEstado', 'filtroOrdenFecha'];
+    filtrosSelect.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('change', recargarTabla);
+        if (el) el.addEventListener('change', recargarPagina);
     });
+
+    const btnFiltrarFechas = document.getElementById('btnFiltrarFechas'); 
+    if (btnFiltrarFechas) btnFiltrarFechas.addEventListener('click', recargarPagina);
 
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
     const filtroFechaHasta = document.getElementById('filtroFechaHasta');
@@ -117,67 +67,92 @@ function arrancarModuloVentas() {
         });
     }
 
-    // ==========================================
-    // 4. DELEGACIÓN DE EVENTOS (TABLA PRINCIPAL)
-    // ==========================================
-    const tablaVentas = document.querySelector('#tablaVentas tbody');
-    if (tablaVentas) {
-        tablaVentas.addEventListener('click', async (e) => {
-            const btn = e.target.closest('button');
-            if (!btn) return;
+    // 3. Delegación de Eventos (Tabla Principal)
+    const tbodyTabla = document.querySelector('#tablaVentas tbody');
+    if (tbodyTabla) {
+        tbodyTabla.addEventListener('click', async (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
 
-            btn.blur();
-            // Limpiamos los tooltips de bootstrap para que no se queden congelados en pantalla
+            target.blur();
             if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-                const tooltip = bootstrap.Tooltip.getInstance(btn);
+                const tooltip = bootstrap.Tooltip.getInstance(target);
                 if (tooltip) tooltip.hide();
             }
-            
-            const tr = btn.closest('tr');
-            const id = Number(btn.dataset.id || tr?.dataset.id || 0);
 
-            if (!id) {
-                Swal.fire('Error', 'No se encontró el identificador del pedido.', 'error');
+            const fila = target.closest('tr');
+            const id = Number(target.dataset.id || fila?.dataset?.id || 0);
+            const estadoFila = Number(fila?.dataset?.estado || 0);
+            
+            if (!id) return Swal.fire('Error', 'Identificador no encontrado.', 'error');
+
+            // A. Módulo Venta / Resumen
+            if (target.classList.contains('btn-editar')) {
+                // Si el pedido está Cerrado (3), Devuelto (4, 5) o Anulado (9), abrimos el Resumen en lugar de la edición
+                if (estadoFila === 3 || estadoFila === 4 || estadoFila === 5 || estadoFila === 9) {
+                    if (typeof abrirModalResumenVenta === 'function') {
+                        abrirModalResumenVenta(id);
+                    } else {
+                        abrirModalVenta(id, target); // Fallback de seguridad
+                    }
+                } else {
+                    abrirModalVenta(id, target);
+                }
                 return;
             }
 
-            // A. Acciones del módulo VENTA (venta.js)
-            if (btn.classList.contains('btn-editar')) abrirModalVenta(id, tr);
-            if (btn.classList.contains('btn-revertir')) revertirBorrador(id);
+            // B. Acciones Rápidas
+            if (target.classList.contains('btn-aprobar')) {
+                const confirm = await Swal.fire({ title: '¿Aprobar Pedido?', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, aprobar' });
+                if (!confirm.isConfirmed) return;
+                try {
+                    const res = await postJsonConCarga(app.dataset.urlAprobar, { id }, target);
+                    await Swal.fire('Aprobado', res.mensaje, 'success');
+                    recargarPagina();
+                } catch (err) { Swal.fire('Error', err.message, 'error'); }
+                return;
+            }
 
-            // B. Acciones Rápidas (Aprobar / Anular)
-            if (btn.classList.contains('btn-anular')) {
-                const ok = await Swal.fire({ icon: 'warning', title: '¿Anular pedido?', showCancelButton: true, confirmButtonText: 'Sí, anular', confirmButtonColor: '#d33' });
-                if (ok.isConfirmed) {
-                    try {
-                        const res = await postJson(urls.anular, { id });
-                        await Swal.fire('Anulado', res.mensaje, 'success');
-                        recargarTabla();
-                    } catch (err) { Swal.fire('Error', err.message, 'error'); }
+            if (target.classList.contains('btn-revertir')) {
+                const confirm = await Swal.fire({ title: '¿Revertir a borrador?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, revertir' });
+                if (!confirm.isConfirmed) return;
+                try {
+                    // Delegamos a la función de venta.js (o usamos la URL directa si en el futuro la agregas al HTML)
+                    if (typeof revertirBorrador === 'function') {
+                        await revertirBorrador(id);
+                    }
+                } catch (err) { Swal.fire('Error', err.message, 'error'); }
+                return;
+            }
+
+            if (target.classList.contains('btn-anular')) {
+                const confirm = await Swal.fire({ title: '¿Anular Pedido?', icon: 'error', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sí, anular' });
+                if (!confirm.isConfirmed) return;
+                try {
+                    const res = await postJson(app.dataset.urlAnular, { id }); 
+                    await Swal.fire('Anulado', res.mensaje, 'success');
+                    recargarPagina();
+                } catch (err) { Swal.fire('Error', err.message, 'error'); }
+                return;
+            }
+
+            // C. Módulo Logística
+            if (target.classList.contains('btn-despachar')) {
+                abrirModalDespacho(id);
+                return;
+            }
+
+            if (target.classList.contains('btn-devolucion')) {
+                abrirModalDevolucionVenta(id);
+                return;
+            }
+
+            // D. Impresión (Utiliza la función global declarada en el HTML)
+            if (target.closest('.btn-imprimir-modal')) {
+                if (typeof window.imprimirPedido === 'function') {
+                    window.imprimirPedido(id);
                 }
-            }
-            if (btn.classList.contains('btn-aprobar')) {
-                const ok = await Swal.fire({ icon: 'question', title: '¿Aprobar pedido?', showCancelButton: true, confirmButtonText: 'Sí, aprobar' });
-                if (ok.isConfirmed) {
-                    try {
-                        const res = await postJson(urls.aprobar, { id });
-                        await Swal.fire('Aprobado', res.mensaje, 'success');
-                        recargarTabla();
-                    } catch (err) { Swal.fire('Error', err.message, 'error'); }
-                }
-            }
-
-            // C. Acciones del módulo LOGÍSTICA (logistica.js)
-            if (btn.classList.contains('btn-despachar')) {
-                try { await abrirModalDespacho(id); } catch (err) { Swal.fire('Error', err.message, 'error'); }
-            }
-            if (btn.classList.contains('btn-devolucion')) {
-                try { await abrirModalDevolucionVenta(id); } catch (err) { Swal.fire('Error', err.message, 'error'); }
-            }
-
-            // D. Impresión
-            if (btn.closest('.btn-imprimir-modal')) {
-                window.imprimirPedido(id);
+                return;
             }
         });
     }
