@@ -1,8 +1,6 @@
 <?php
 declare(strict_types=1);
 
-require_once BASE_PATH . '/app/models/contabilidad/ContaAsientoModel.php';
-
 class PlanillasModel extends Modelo
 {
     private function resolverPagoDiario(float $sueldoBasico, string $tipoPago): float
@@ -53,7 +51,7 @@ class PlanillasModel extends Modelo
             return $this->calcularNominaEnMemoria($lote);
         }
 
-        // 3. Si el lote ya está Aprobado o Pagado, devolvemos la data congelada de la BD
+        // 3. Si el lote ya está Cerrado (APROBADO), devolvemos la data congelada de la BD
         $sql = "SELECT
                     nd.id,
                     nd.id_tercero,
@@ -67,7 +65,6 @@ class PlanillasModel extends Modelo
                     nd.total_percepciones,
                     nd.total_deducciones,
                     nd.neto_a_pagar,
-                    nd.metodos_pago_json,
                     (nd.sueldo_base_calculado / NULLIF(nd.dias_pagados, 0) / 8) AS pago_por_hora,
                     (nd.dias_pagados * 8) AS horas_acumuladas,
                     (SELECT SUM(monto) FROM rrhh_nominas_conceptos nc
@@ -86,67 +83,7 @@ class PlanillasModel extends Modelo
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_nomina' => $idLote]);
         
-        $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-        if (empty($detalles)) {
-            return [];
-        }
-
-        // FASE 1: Obtener las cuentas bancarias de los empleados para la Dispersión (Tesorería)
-        $idsTerceros = array_unique(array_column($detalles, 'id_tercero'));
-        $placeholders = implode(',', array_fill(0, count($idsTerceros), '?'));
-        
-        $sqlCuentas = "SELECT id, tercero_id, entidad, tipo_cuenta, numero_cuenta, cci, billetera_digital 
-                       FROM terceros_cuentas_bancarias 
-                       WHERE tercero_id IN ($placeholders) AND estado = 1";
-
-        $stmtCuentas = $this->db()->prepare($sqlCuentas);
-        $stmtCuentas->execute(array_values($idsTerceros));
-        $cuentas = $stmtCuentas->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-        $mapaCuentas = [];
-        $cuentasVistas = [];
-        foreach ($cuentas as $cta) {
-            $terceroId = (int) ($cta['tercero_id'] ?? 0);
-            if ($terceroId <= 0) {
-                continue;
-            }
-
-            $entidad = trim((string) ($cta['entidad'] ?? ''));
-            $numeroCuenta = trim((string) ($cta['numero_cuenta'] ?? ''));
-            $cci = trim((string) ($cta['cci'] ?? ''));
-
-            if ($numeroCuenta === '-') {
-                $numeroCuenta = '';
-            }
-            if ($cci === '-') {
-                $cci = '';
-            }
-
-            if ($entidad === '' || ($numeroCuenta === '' && $cci === '')) {
-                continue;
-            }
-
-            $dedupeKey = mb_strtolower($entidad . '|' . $numeroCuenta . '|' . $cci . '|' . (string)($cta['tipo_cuenta'] ?? '') . '|' . (string)($cta['billetera_digital'] ?? 0));
-            if (isset($cuentasVistas[$terceroId][$dedupeKey])) {
-                continue;
-            }
-            $cuentasVistas[$terceroId][$dedupeKey] = true;
-
-            $cta['entidad'] = $entidad;
-            $cta['numero_cuenta'] = $numeroCuenta;
-            $cta['cci'] = $cci;
-            $cta['numero_mostrar'] = $numeroCuenta !== '' ? $numeroCuenta : $cci;
-
-            $mapaCuentas[$terceroId][] = $cta;
-        }
-
-        foreach ($detalles as &$det) {
-            $det['cuentas_bancarias'] = $mapaCuentas[$det['id_tercero']] ?? [];
-        }
-        unset($det);
-
-        return $detalles;
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
     public function calcularNominaEnMemoria(array $lote): array
@@ -164,7 +101,7 @@ class PlanillasModel extends Modelo
         $sqlEmp = "SELECT t.id, te.tipo_pago, te.sueldo_basico, t.nombre_completo, t.numero_documento, te.cargo
                    FROM terceros t
                    INNER JOIN terceros_empleados te ON te.id_tercero = t.id
-                   WHERE t.es_empleado = 1 AND t.deleted_at IS NULL";
+                   WHERE t.es_empleado = 1 AND t.estado = 1 AND t.deleted_at IS NULL";
         
         $paramsEmp = [];
         if ($frecuencia !== 'TODOS') {
@@ -384,8 +321,6 @@ class PlanillasModel extends Modelo
             $descuentoTardanzas = $tieneConflicto ? 0 : ($valorMinuto * $asis['tardanzas']);
 
             // PAGO DE HORAS EXTRAS: Se pagan al mismo valor por hora (1x)
-            // Las horas extras ya están filtradas por las reglas de configuración
-            // (minutos_minimos_extra, minutos_gracia_salida) en AsistenciaModel
             $horasExtras = $tieneConflicto ? 0 : $asis['horas_extras'];
             $pagoHorasExtras = 0;
             if ((int)($configRRHH['pagar_salida_tarde'] ?? 0) === 1 && $horasExtras > 0) {
@@ -440,8 +375,6 @@ class PlanillasModel extends Modelo
                 'descuento_tardanzas' => round($descuentoTardanzas, 2),
                 'descuento_adelanto' => round($descuentoAdelanto, 2),
                 'adelantos_aplicados' => json_encode($adelantosAplicados),
-                'metodos_pago_json' => null,
-                'cuentas_bancarias' => [],
                 'tiene_conflicto' => $tieneConflicto
             ];
         }
@@ -592,7 +525,7 @@ class PlanillasModel extends Modelo
 
             $lote = $this->obtenerLotePorId($idLote);
             if (!$lote || strtoupper(trim((string) $lote['estado'])) !== 'BORRADOR') {
-                throw new Exception("El lote no es válido o ya fue aprobado.");
+                throw new Exception("El lote no es válido o ya fue cerrado.");
             }
 
             $nominaCalculada = $this->calcularNominaEnMemoria($lote);
@@ -699,6 +632,7 @@ class PlanillasModel extends Modelo
                 $db->prepare("DELETE FROM rrhh_nominas_detalles WHERE id_nomina = ?")->execute([$idLote]);
             }
 
+            // Usamos 'APROBADO' en la base de datos para no romper la estructura, pero visualmente es 'CERRADO'
             $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas 
                 SET estado = 'APROBADO', total_bruto = :tb, total_deducciones = :td, total_neto = :tn, cantidad_empleados = :cant
                 WHERE id = :id");
@@ -711,95 +645,8 @@ class PlanillasModel extends Modelo
             return true;
         } catch (Exception $e) {
             $db->rollBack();
-            error_log("Error al aprobar lote: " . $e->getMessage());
+            error_log("Error al cerrar lote: " . $e->getMessage());
             return false;
-        }
-    }
-
-    public function pagarLoteNomina(array $datos, int $userId): bool
-    {
-        $db = $this->db();
-        $idLote = (int) $datos['id_lote'];
-        
-        try {
-            $db->beginTransaction();
-
-            $stmtLote = $db->prepare("SELECT * FROM rrhh_nominas WHERE id = :id FOR UPDATE");
-            $stmtLote->execute(['id' => $idLote]);
-            $lote = $stmtLote->fetch(PDO::FETCH_ASSOC);
-
-            if (!$lote || $lote['estado'] !== 'APROBADO') {
-                throw new Exception("El lote no existe o no está en estado APROBADO.");
-            }
-
-            $stmtCuenta = $db->prepare("SELECT c.nombre, c.moneda,
-                    (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
-                FROM tesoreria_cuentas c
-                LEFT JOIN (
-                    SELECT id_cuenta,
-                           SUM(CASE WHEN estado = 'CONFIRMADO' AND tipo = 'COBRO' THEN monto
-                                    WHEN estado = 'CONFIRMADO' AND tipo = 'PAGO' THEN -monto
-                                    ELSE 0 END) AS saldo_delta
-                    FROM tesoreria_movimientos
-                    WHERE deleted_at IS NULL
-                    GROUP BY id_cuenta
-                ) mov ON mov.id_cuenta = c.id
-                WHERE c.id = :id_cuenta
-                  AND c.deleted_at IS NULL
-                FOR UPDATE");
-            $stmtCuenta->execute(['id_cuenta' => $datos['id_cuenta']]);
-            $cuenta = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
-
-            if (!$cuenta || (float)$cuenta['saldo_actual'] < (float)$lote['total_neto']) {
-                throw new Exception("Saldo insuficiente en la cuenta de tesorería seleccionada.");
-            }
-
-            $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos 
-                (tipo, origen, id_origen, id_cuenta, fecha, moneda, monto, referencia, observaciones, estado, created_by) 
-                VALUES ('PAGO', 'LOTE_NOMINA', :id_lote, :id_cuenta, :fecha, :moneda, :monto, :referencia, :observaciones, 'CONFIRMADO', :created_by)");
-            
-            $stmtMov->execute([
-                'id_lote' => $idLote,
-                'id_cuenta' => $datos['id_cuenta'],
-                'fecha' => $datos['fecha_pago'],
-                'moneda' => $cuenta['moneda'] ?? 'PEN',
-                'monto' => $lote['total_neto'],
-                'referencia' => $datos['referencia'] ?? null,
-                'observaciones' => "Pago de Lote de Nómina: " . $lote['nombre'],
-                'created_by' => $userId
-            ]);
-
-            $idMovimiento = (int) $db->lastInsertId();
-
-            $contaModel = new ContaAsientoModel();
-            $contaModel->registrarAutomaticoTesoreria($db, [
-                'id_movimiento' => $idMovimiento,
-                'tipo' => 'PAGO',
-                'fecha' => (string) $datos['fecha_pago'],
-                'monto' => (float) $lote['total_neto'],
-                'id_cuenta_tesoreria' => (int) $datos['id_cuenta'],
-                'id_tercero' => 0,
-                'clave_contra' => 'CTA_NOMINA_POR_PAGAR',
-            ], $userId);
-
-            $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas 
-                SET estado = 'PAGADO', fecha_pago = :fecha, id_cuenta_origen = :id_cuenta, referencia_pago = :ref 
-                WHERE id = :id_lote");
-            
-            $stmtUpdateLote->execute([
-                'fecha' => $datos['fecha_pago'],
-                'id_cuenta' => $datos['id_cuenta'],
-                'ref' => $datos['referencia'] ?? null,
-                'id_lote' => $idLote
-            ]);
-
-            $db->commit();
-            return true;
-
-        } catch (Exception $e) {
-            $db->rollBack();
-            error_log("Error en pagarLoteNomina: " . $e->getMessage());
-            throw new Exception($e->getMessage());
         }
     }
 
@@ -842,194 +689,6 @@ class PlanillasModel extends Modelo
         $boleta['conceptos'] = $stmtConc->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         return $boleta;
-    }
-
-    public function pagarLoteNominaMixto(array $datos, int $userId): bool
-    {
-        $db = $this->db();
-        $idLote = (int) $datos['id_lote'];
-        $pagos = $datos['pagos'] ?? [];
-        $fechaPago = date('Y-m-d');
-
-        try {
-            $db->beginTransaction();
-
-            $stmtLote = $db->prepare("SELECT * FROM rrhh_nominas WHERE id = :id FOR UPDATE");
-            $stmtLote->execute(['id' => $idLote]);
-            $lote = $stmtLote->fetch(PDO::FETCH_ASSOC);
-
-            if (!$lote || $lote['estado'] !== 'APROBADO') {
-                throw new Exception("El lote no existe o no está en estado APROBADO.");
-            }
-
-            $stmtDetalle = $db->prepare("SELECT id, id_tercero FROM rrhh_nominas_detalles WHERE id = :id_detalle AND id_nomina = :id_lote LIMIT 1");
-            $stmtCuenta = $db->prepare("SELECT c.nombre, c.moneda,
-                    (COALESCE(c.saldo_inicial, 0) + COALESCE(mov.saldo_delta, 0)) AS saldo_actual
-                FROM tesoreria_cuentas c
-                LEFT JOIN (
-                    SELECT id_cuenta,
-                           SUM(CASE WHEN estado = 'CONFIRMADO' AND tipo = 'COBRO' THEN monto
-                                    WHEN estado = 'CONFIRMADO' AND tipo = 'PAGO' THEN -monto
-                                    ELSE 0 END) AS saldo_delta
-                    FROM tesoreria_movimientos
-                    WHERE deleted_at IS NULL
-                    GROUP BY id_cuenta
-                ) mov ON mov.id_cuenta = c.id
-                WHERE c.id = :id_cuenta
-                  AND c.deleted_at IS NULL
-                FOR UPDATE");
-
-            $stmtMov = $db->prepare("INSERT INTO tesoreria_movimientos
-                (tipo, id_tercero, origen, id_origen, id_cuenta, id_metodo_pago, fecha, moneda, monto, observaciones, estado, created_by, updated_by, created_at, updated_at)
-                VALUES ('PAGO', :id_tercero, 'LOTE_NOMINA', :id_lote, :id_cuenta, :id_metodo_pago, :fecha, :moneda, :monto, :observaciones, 'CONFIRMADO', :created_by, :updated_by, NOW(), NOW())");
-
-            $stmtMetodoPago = $db->prepare("SELECT id, nombre FROM tesoreria_metodos_pago WHERE estado = 1 AND deleted_at IS NULL");
-            $stmtMetodoPago->execute();
-            $metodosDisponibles = [];
-            foreach (($stmtMetodoPago->fetchAll(PDO::FETCH_ASSOC) ?: []) as $metodoRow) {
-                $nombreMetodo = strtoupper(trim((string) ($metodoRow['nombre'] ?? '')));
-                if ($nombreMetodo !== '') {
-                    $metodosDisponibles[$nombreMetodo] = (int) ($metodoRow['id'] ?? 0);
-                }
-            }
-
-            $idMetodoEfectivo = (int) ($metodosDisponibles['EFECTIVO'] ?? 0);
-            $idMetodoTransferencia = (int) (
-                $metodosDisponibles['TRANSFERENCIA']
-                ?? $metodosDisponibles['TRANSFERENCIA BANCARIA']
-                ?? 0
-            );
-
-            if ($idMetodoEfectivo <= 0 || $idMetodoTransferencia <= 0) {
-                throw new Exception('Configura los métodos de pago "Efectivo" y "Transferencia" en Tesorería para poder dispersar nómina.');
-            }
-            
-            $stmtUpdateDetalle = $db->prepare("UPDATE rrhh_nominas_detalles SET metodos_pago_json = :json WHERE id = :id_detalle");
-            
-            $pagosProcesables = [];
-            $totalesPorCuenta = [];
-
-            foreach ($pagos as $idDetalle => $pago) {
-                $idDetalle = (int) $idDetalle;
-                $monto = (float) ($pago['monto'] ?? 0);
-                if ($monto <= 0) {
-                    continue;
-                }
-
-                $idCuenta = (int) ($pago['id_cuenta_origen'] ?? 0);
-                $metodo = strtoupper(trim((string) ($pago['metodo'] ?? 'EFECTIVO')));
-
-                if ($idCuenta <= 0) {
-                    throw new Exception("Por favor seleccione la cuenta origen para todos los empleados.");
-                }
-
-                $stmtDetalle->execute([
-                    'id_detalle' => $idDetalle,
-                    'id_lote' => $idLote,
-                ]);
-                $detalleRow = $stmtDetalle->fetch(PDO::FETCH_ASSOC);
-                if (!$detalleRow) {
-                    throw new Exception("El detalle #{$idDetalle} no pertenece al lote seleccionado.");
-                }
-
-                $idTercero = (int) ($detalleRow['id_tercero'] ?? 0);
-                if ($idTercero <= 0) {
-                    throw new Exception("El detalle #{$idDetalle} no tiene un tercero válido asociado.");
-                }
-
-                $idMetodoPago = str_starts_with($metodo, 'BANCO_') ? $idMetodoTransferencia : $idMetodoEfectivo;
-
-                $pagosProcesables[] = [
-                    'id_detalle' => $idDetalle,
-                    'id_tercero' => $idTercero,
-                    'id_cuenta' => $idCuenta,
-                    'id_metodo_pago' => $idMetodoPago,
-                    'metodo' => $metodo,
-                    'monto' => $monto,
-                ];
-                $totalesPorCuenta[$idCuenta] = ($totalesPorCuenta[$idCuenta] ?? 0.0) + $monto;
-            }
-
-            if (empty($pagosProcesables)) {
-                throw new Exception('No hay pagos válidos para procesar en este lote.');
-            }
-
-            $cuentasInfo = [];
-            foreach ($totalesPorCuenta as $idCuenta => $montoCuenta) {
-                $stmtCuenta->execute(['id_cuenta' => $idCuenta]);
-                $cuentaBD = $stmtCuenta->fetch(PDO::FETCH_ASSOC);
-
-                if (!$cuentaBD || (float) $cuentaBD['saldo_actual'] < (float) $montoCuenta) {
-                    // MEJORAMOS EL MENSAJE PARA QUE VEAS POR QUÉ FALLA
-                    throw new Exception("Saldo insuficiente en la cuenta '" . ($cuentaBD['nombre'] ?? 'Desconocida') . "'. Se necesitan S/ " . number_format($montoCuenta, 2) . " pero solo hay S/ " . number_format((float)$cuentaBD['saldo_actual'], 2));
-                }
-
-                $cuentasInfo[$idCuenta] = $cuentaBD;
-            }
-
-            foreach ($pagosProcesables as $item) {
-                $metodoLimpio = str_starts_with($item['metodo'], 'BANCO_')
-                    ? 'Transferencia Bancaria'
-                    : 'Efectivo';
-
-                $observacion = "Pago Nómina: {$lote['nombre']} | Detalle #{$item['id_detalle']} | Vía: {$metodoLimpio}";
-
-                $stmtMov->execute([
-                    'id_tercero' => $item['id_tercero'],
-                    'id_lote' => $idLote,
-                    'id_cuenta' => $item['id_cuenta'],
-                    'id_metodo_pago' => $item['id_metodo_pago'],
-                    'fecha' => $fechaPago,
-                    'moneda' => $cuentasInfo[$item['id_cuenta']]['moneda'],
-                    'monto' => $item['monto'],
-                    'observaciones' => $observacion,
-                    'created_by' => $userId,
-                    'updated_by' => $userId,
-                ]);
-
-                $idMovimiento = (int) $db->lastInsertId();
-
-                $contaModel = new ContaAsientoModel();
-                $contaModel->registrarAutomaticoTesoreria($db, [
-                    'id_movimiento' => $idMovimiento,
-                    'tipo' => 'PAGO',
-                    'fecha' => (string) $fechaPago,
-                    'monto' => (float) $item['monto'],
-                    'id_cuenta_tesoreria' => (int) $item['id_cuenta'],
-                    'id_tercero' => 0,
-                    'clave_contra' => 'CTA_NOMINA_POR_PAGAR',
-                ], $userId);
-
-                $metodoJson = json_encode([
-                    'metodo' => $item['metodo'],
-                    'id_cuenta_origen' => $item['id_cuenta'],
-                    'monto' => $item['monto'],
-                ], JSON_UNESCAPED_UNICODE);
-
-                $stmtUpdateDetalle->execute([
-                    'json' => $metodoJson,
-                    'id_detalle' => $item['id_detalle'],
-                ]);
-            }
-
-            $idCuentaRef = (int) $pagosProcesables[0]['id_cuenta'];
-
-            $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas
-                SET estado = 'PAGADO', fecha_pago = :fecha, id_cuenta_origen = :id_cuenta
-                WHERE id = :id_lote");
-            $stmtUpdateLote->execute([
-                'fecha' => $fechaPago,
-                'id_cuenta' => $idCuentaRef,
-                'id_lote' => $idLote,
-            ]);
-
-            $db->commit();
-            return true;
-        } catch (Exception $e) {
-            $db->rollBack();
-            error_log("Error en pagarLoteNominaMixto: " . $e->getMessage());
-            throw new Exception($e->getMessage());
-        }
     }
 
     public function obtenerBoletasMasivasPdf(int $idLote): array

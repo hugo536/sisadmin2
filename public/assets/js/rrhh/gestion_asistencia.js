@@ -45,6 +45,25 @@
         };
 
         // ==========================================
+        // ESTADO INICIAL (PANTALLA DE BIENVENIDA)
+        // ==========================================
+        function mostrarEstadoVacio() {
+            DOM.lblNombreActivo.innerHTML = '<i class="bi bi-person-fill text-muted me-2"></i>Esperando selección...';
+            DOM.lblRangoActivo.textContent = '--';
+            DOM.lblTotalHoras.textContent = '0h 0m';
+            
+            DOM.gridCuerpo.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-5 bg-light border-bottom-0">
+                        <i class="bi bi-person-lines-fill d-block text-muted opacity-25 mb-3" style="font-size: 4rem;"></i>
+                        <h5 class="fw-bold text-dark">Selecciona un Empleado</h5>
+                        <p class="text-muted small mb-0">Haz clic en un empleado del panel lateral izquierdo para cargar su cuadrícula de asistencia.</p>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // ==========================================
         // BUSCADOR Y FILTROS LATERALES
         // ==========================================
         const filtrarLista = () => {
@@ -81,16 +100,18 @@
                 if (this.value === 'mes') document.getElementById('filtroMes').classList.remove('d-none');
                 if (this.value === 'rango') document.getElementById('filtroRango').classList.remove('d-none');
                 
-                cargarDatosGrid(); 
+                if (empleadoActualId) cargarDatosGrid(); 
             });
         }
 
         DOM.filtros.forEach(input => {
-            input.addEventListener('change', cargarDatosGrid);
+            input.addEventListener('change', () => {
+                if (empleadoActualId) cargarDatosGrid();
+            });
         });
 
         // ==========================================
-        // SELECCIÓN DE EMPLEADO (DELEGACIÓN DE EVENTOS)
+        // SELECCIÓN DE EMPLEADO
         // ==========================================
         if (DOM.listaEmpleados) {
             DOM.listaEmpleados.addEventListener('click', function(e) {
@@ -113,7 +134,7 @@
         async function cargarDatosGrid() {
             if (!empleadoActualId) return;
 
-            DOM.gridCuerpo.innerHTML = `<tr><td colspan="8" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Cargando registros...</td></tr>`;
+            DOM.gridCuerpo.innerHTML = `<tr><td colspan="8" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2 text-primary"></div>Cargando registros...</td></tr>`;
 
             const fd = new FormData();
             fd.append('accion', 'obtener_grid_excel');
@@ -132,6 +153,22 @@
                     renderizarFilas(data.dias);
                     DOM.lblTotalHoras.textContent = data.total_horas_str || '0h 0m';
                     DOM.lblRangoActivo.textContent = data.rango_label || 'Periodo seleccionado';
+
+                    // --- ALERTA VISUAL DE EMPLEADO SIN HORARIO ---
+                    const nombreContainer = DOM.lblNombreActivo;
+                    const nombreTexto = nombreContainer.getAttribute('data-nombre-original') || nombreContainer.textContent.replace(/<[^>]*>?/gm, '').trim();
+                    nombreContainer.setAttribute('data-nombre-original', nombreTexto);
+
+                    if (data.empleado_sin_horario) {
+                        nombreContainer.innerHTML = `
+                            ${nombreTexto} 
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle ms-2 fs-6 py-1 px-2" data-bs-toggle="tooltip" title="Este empleado no tiene turnos asignados en este periodo. No se puede registrar asistencia.">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i> Sin Horario Asignado
+                            </span>
+                        `;
+                    } else {
+                        nombreContainer.innerHTML = nombreTexto;
+                    }
                 } else {
                     DOM.gridCuerpo.innerHTML = `<tr><td colspan="8" class="text-center py-5 text-danger fw-bold"><i class="bi bi-exclamation-triangle me-2"></i>${data.mensaje || 'Error al cargar datos.'}</td></tr>`;
                 }
@@ -141,6 +178,9 @@
             }
         }
 
+        // ==========================================
+        // RENDERIZAR FILAS CON BLOQUEO INTELIGENTE
+        // ==========================================
         function renderizarFilas(dias) {
             DOM.gridCuerpo.innerHTML = '';
             
@@ -148,22 +188,37 @@
                 const tr = document.createElement('tr');
                 tr.dataset.fecha = dia.fecha;
                 
+                // Lógica de Bloqueo por Día de Descanso
+                const esDescanso = dia.es_descanso === true; 
+                
+                const bgFila = esDescanso ? 'bg-light opacity-50' : '';
+                const propDisabled = esDescanso ? 'disabled' : '';
+                const msgTooltip = esDescanso ? 'title="Día de descanso (Sin horario asignado)"' : '';
+                const bgInput = esDescanso ? 'bg-transparent text-muted' : '';
+                const iconBtn = esDescanso ? 'bi-lock-fill' : 'bi-chat-left-text';
+                
+                const badgeEstado = esDescanso 
+                    ? '<span class="badge bg-secondary-subtle text-secondary border-0 px-2 fw-semibold">Descanso</span>' 
+                    : `<span class="badge ${dia.badge_class || 'bg-secondary-subtle text-secondary'} border-0 px-2 fw-semibold text-truncate" style="max-width: 90px;">${dia.estado_label || 'Sin datos'}</span>`;
+
+                tr.className = bgFila;
+                
                 tr.innerHTML = `
                     <td class="bg-light align-middle text-start ps-3 border-end">
                         <span class="fw-bold text-dark d-block" style="font-size: 0.85rem;">${dia.nombre_dia}</span>
                         <span class="text-muted fw-medium" style="font-size: 0.7rem;">${dia.fecha_formateada}</span>
                     </td>
-                    <td><input type="time" class="cell-input" data-tipo="t1_in" value="${dia.t1_in || ''}"></td>
-                    <td class="border-end"><input type="time" class="cell-input" data-tipo="t1_out" value="${dia.t1_out || ''}"></td>
-                    <td><input type="time" class="cell-input" data-tipo="t2_in" value="${dia.t2_in || ''}"></td>
-                    <td class="border-end"><input type="time" class="cell-input" data-tipo="t2_out" value="${dia.t2_out || ''}"></td>
-                    <td><input type="time" class="cell-input" data-tipo="t3_in" value="${dia.t3_in || ''}"></td>
-                    <td class="border-end"><input type="time" class="cell-input" data-tipo="t3_out" value="${dia.t3_out || ''}"></td>
+                    <td><input type="time" class="cell-input ${bgInput}" data-tipo="t1_in" value="${dia.t1_in || ''}" ${propDisabled} ${msgTooltip}></td>
+                    <td class="border-end"><input type="time" class="cell-input ${bgInput}" data-tipo="t1_out" value="${dia.t1_out || ''}" ${propDisabled} ${msgTooltip}></td>
+                    <td><input type="time" class="cell-input ${bgInput}" data-tipo="t2_in" value="${dia.t2_in || ''}" ${propDisabled} ${msgTooltip}></td>
+                    <td class="border-end"><input type="time" class="cell-input ${bgInput}" data-tipo="t2_out" value="${dia.t2_out || ''}" ${propDisabled} ${msgTooltip}></td>
+                    <td><input type="time" class="cell-input ${bgInput}" data-tipo="t3_in" value="${dia.t3_in || ''}" ${propDisabled} ${msgTooltip}></td>
+                    <td class="border-end"><input type="time" class="cell-input ${bgInput}" data-tipo="t3_out" value="${dia.t3_out || ''}" ${propDisabled} ${msgTooltip}></td>
                     <td class="align-middle px-2 text-start">
                         <div class="d-flex justify-content-between align-items-center w-100">
-                            <span class="badge ${dia.badge_class || 'bg-secondary-subtle text-secondary'} border-0 px-2 fw-semibold text-truncate" style="font-size: 0.7rem; max-width: 90px;">${dia.estado_label || 'Sin datos'}</span>
-                            <button type="button" class="btn btn-sm btn-light text-secondary border border-secondary-subtle p-1 rounded-2 transition-hover btn-justificar" title="Justificar / Comentar">
-                                <i class="bi bi-chat-left-text" style="font-size: 0.8rem; pointer-events: none;"></i>
+                            ${badgeEstado}
+                            <button type="button" class="btn btn-sm btn-light text-secondary border border-secondary-subtle p-1 rounded-2 transition-hover btn-justificar" ${propDisabled} title="${esDescanso ? 'No se puede justificar un día libre' : 'Justificar / Comentar'}">
+                                <i class="bi ${iconBtn}" style="font-size: 0.8rem; pointer-events: none;"></i>
                             </button>
                         </div>
                     </td>
@@ -247,7 +302,7 @@
             // ==========================================
             DOM.gridCuerpo.addEventListener('click', function(e) {
                 const btn = e.target.closest('.btn-justificar');
-                if (btn) {
+                if (btn && !btn.disabled) {
                     const tr = btn.closest('tr');
                     fechaJustificacionActual = tr.dataset.fecha;
                     
@@ -297,12 +352,15 @@
                 }
             });
         }
+
+        // Llamamos a la pantalla inicial en blanco
+        mostrarEstadoVacio();
     }
 
-    // 1. Ejecutar inmediatamente al cargar el script (Funciona para navegación SPA)
+    // 1. Ejecutar inmediatamente al cargar el script
     iniciarModuloExcelAsistencia();
     
-    // 2. Ejecutar si la página hace una recarga dura (F5 tradicional)
+    // 2. Ejecutar si la página hace una recarga dura
     document.addEventListener('DOMContentLoaded', iniciarModuloExcelAsistencia);
 
 })();

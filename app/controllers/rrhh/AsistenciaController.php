@@ -107,19 +107,24 @@ class AsistenciaController extends Controlador
             exit;
         }
 
-        // Guarda la celda
-        $res = $this->asistenciaModel->actualizarCeldaAsistencia($idTercero, $fecha, $campo, $valor, $userId);
-        
-        // Recalcula el total de horas de la semana en tiempo real
-        $datosGrid = $this->asistenciaModel->obtenerDatosParaGridExcel($idTercero, $_POST['periodo'] ?? 'semana', $_POST);
+        try {
+            // Guarda la celda
+            $res = $this->asistenciaModel->actualizarCeldaAsistencia($idTercero, $fecha, $campo, $valor, $userId);
+            
+            // Recalcula el total de horas de la semana en tiempo real
+            $datosGrid = $this->asistenciaModel->obtenerDatosParaGridExcel($idTercero, $_POST['periodo'] ?? 'semana', $_POST);
 
-        echo json_encode([
-            'ok' => true,
-            'nuevo_estado_html' => true,
-            'nuevo_estado_label' => $res['nuevo_estado_label'],
-            'badge_class' => $res['badge_class'],
-            'total_horas_str' => $datosGrid['total_horas_str']
-        ]);
+            echo json_encode([
+                'ok' => true,
+                'nuevo_estado_html' => true,
+                'nuevo_estado_label' => $res['nuevo_estado_label'],
+                'badge_class' => $res['badge_class'],
+                'total_horas_str' => $datosGrid['total_horas_str']
+            ]);
+        } catch (Exception $e) {
+            // Captura el bloqueo de seguridad si el día es de descanso
+            echo json_encode(['ok' => false, 'mensaje' => $e->getMessage()]);
+        }
         exit;
     }
 
@@ -137,8 +142,13 @@ class AsistenciaController extends Controlador
             exit;
         }
 
-        $ok = $this->asistenciaModel->forzarEstadoAsistencia($idTercero, $fecha, $estado, $observacion, $userId);
-        echo json_encode(['ok' => $ok]);
+        try {
+            $ok = $this->asistenciaModel->forzarEstadoAsistencia($idTercero, $fecha, $estado, $observacion, $userId);
+            echo json_encode(['ok' => $ok]);
+        } catch (Exception $e) {
+            // Captura el bloqueo de seguridad si el día es de descanso
+            echo json_encode(['ok' => false, 'mensaje' => $e->getMessage()]);
+        }
         exit;
     }
 
@@ -155,7 +165,6 @@ class AsistenciaController extends Controlador
                 return;
             }
 
-            // NUEVA ACCIÓN
             if ($accion === 'descartar_huerfanos') {
                 $this->descartarLogsHuerfanos();
                 return;
@@ -180,7 +189,6 @@ class AsistenciaController extends Controlador
         AuthMiddleware::handle();
         require_permiso('terceros.ver');
 
-        // --- PROCESAR GESTIÓN DE EXCEPCIONES Y GRUPOS ---
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $accion = (string) ($_POST['accion'] ?? '');
             
@@ -276,7 +284,6 @@ class AsistenciaController extends Controlador
                 exit;
             }
         }
-        // ----------------------------------------------------------------------
 
         $periodo = (string) ($_GET['periodo'] ?? 'dia');
         $periodosPermitidos = ['dia', 'semana', 'mes', 'rango'];

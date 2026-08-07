@@ -112,7 +112,7 @@ $empleados = $empleados ?? [];
     </div>
 
     <!-- ÁREA DE TRABAJO -->
-    <div class="card border-0 shadow-sm overflow-hidden">
+    <div class="card border-0 shadow-sm overflow-hidden fade-in">
         <div class="row g-0">
             
             <!-- Columna Izquierda: Buscador y Lista de Empleados -->
@@ -131,9 +131,8 @@ $empleados = $empleados ?? [];
                 </div>
                 
                 <div class="list-group list-group-flush rounded-0 sidebar-empleados flex-grow-1" id="listaEmpleados">
-                    <!-- Ejemplo estático de Empleados (Llenar con foreach en PHP) -->
-                    <?php foreach ($empleados as $index => $emp): ?>
-                        <div class="list-group-item empleado-item border-bottom py-3 <?php echo $index === 0 ? 'active' : ''; ?>" data-id="<?php echo (int)$emp['id']; ?>">
+                    <?php foreach ($empleados as $emp): ?>
+                        <div class="list-group-item empleado-item border-bottom py-3" data-id="<?php echo (int)$emp['id']; ?>">
                             <div class="fw-bold text-dark mb-1" style="font-size: 0.85rem; line-height: 1.2;"><?php echo e($emp['nombre_completo']); ?></div>
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="badge bg-light text-secondary border fw-normal" style="font-size: 0.7rem;">Cód: <?php echo e($emp['codigo_biometrico'] ?? 'N/A'); ?></span>
@@ -149,12 +148,17 @@ $empleados = $empleados ?? [];
                 
                 <div class="p-3 border-bottom bg-light d-flex justify-content-between align-items-center">
                     <div>
-                        <h5 class="mb-0 fw-bold text-dark" id="nombreEmpleadoActivo">Selecciona un empleado en la lista</h5>
-                        <small class="text-muted fw-semibold" id="rangoActivoLabel">Mostrando periodo...</small>
+                        <h5 class="mb-0 fw-bold text-dark d-flex align-items-center" id="nombreEmpleadoActivo">
+                            <i class="bi bi-person-fill text-muted me-2"></i>Esperando selección...
+                        </h5>
+                        <small class="text-muted fw-semibold" id="rangoActivoLabel">--</small>
                     </div>
-                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-3 py-2 rounded-pill shadow-sm">
-                        Total Horas: <strong id="totalHorasCalculadas">0h 0m</strong>
-                    </span>
+                    <div class="d-flex align-items-center gap-2">
+                        <div id="syncStatus" class="small fw-bold me-2 text-muted" style="width: 110px; text-align: right;"></div>
+                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-3 py-2 rounded-pill shadow-sm">
+                            Total Horas: <strong id="totalHorasCalculadas">0h 0m</strong>
+                        </span>
+                    </div>
                 </div>
 
                 <div class="p-0 overflow-auto flex-grow-1 bg-white position-relative" id="gridContainer">
@@ -177,42 +181,14 @@ $empleados = $empleados ?? [];
                             </tr>
                         </thead>
                         <tbody id="gridAsistenciaCuerpo">
-                            <!-- Ejemplo Estático (Maquetación inicial) -->
-                            <?php 
-                            $dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-                            foreach ($dias as $i => $dia): 
-                            ?>
-                            <tr data-fecha="2026-08-0<?php echo $i+3; ?>">
-                                <td class="bg-light align-middle text-start ps-3 border-end">
-                                    <span class="fw-bold text-dark d-block" style="font-size: 0.85rem;"><?php echo $dia; ?></span>
-                                    <span class="text-muted fw-medium" style="font-size: 0.7rem;">0<?php echo $i+3; ?>/08/2026</span>
-                                </td>
-                                
-                                <!-- TRAMO 1 -->
-                                <td><input type="time" class="cell-input" data-tipo="t1_in" placeholder="--:--"></td>
-                                <td class="border-end"><input type="time" class="cell-input" data-tipo="t1_out" placeholder="--:--"></td>
-                                
-                                <!-- TRAMO 2 -->
-                                <td><input type="time" class="cell-input" data-tipo="t2_in" placeholder="--:--"></td>
-                                <td class="border-end"><input type="time" class="cell-input" data-tipo="t2_out" placeholder="--:--"></td>
-                                
-                                <!-- TRAMO 3 -->
-                                <td><input type="time" class="cell-input" data-tipo="t3_in" placeholder="--:--"></td>
-                                <td class="border-end"><input type="time" class="cell-input" data-tipo="t3_out" placeholder="--:--"></td>
-                                
-                                <!-- ESTADO -->
-                                <td class="align-middle px-2 text-start">
-                                    <div class="d-flex justify-content-between align-items-center w-100">
-                                        <span class="badge bg-secondary-subtle text-secondary border-0 px-2 fw-semibold" style="font-size: 0.7rem;">Sin datos</span>
-                                        <button type="button" class="btn btn-sm btn-light text-secondary border border-secondary-subtle p-1 rounded-2 transition-hover" 
-                                                data-bs-toggle="modal" data-bs-target="#modalJustificar" 
-                                                title="Justificar / Comentar">
-                                            <i class="bi bi-chat-left-text" style="font-size: 0.8rem;"></i>
-                                        </button>
-                                    </div>
+                            <!-- Estado Vacío Inicial -->
+                            <tr>
+                                <td colspan="8" class="text-center py-5 bg-light border-bottom-0">
+                                    <i class="bi bi-person-lines-fill d-block text-muted opacity-25 mb-3" style="font-size: 4rem;"></i>
+                                    <h5 class="fw-bold text-dark">Selecciona un Empleado</h5>
+                                    <p class="text-muted small mb-0">Haz clic en un empleado del panel lateral izquierdo para cargar su cuadrícula de asistencia.</p>
                                 </td>
                             </tr>
-                            <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>

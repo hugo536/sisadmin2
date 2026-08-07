@@ -27,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
     function crearItemMovimiento(data = {}) {
         if (!contenedorMovimientos || !tplMovimiento) return null;
         const nodo = tplMovimiento.content.firstElementChild.cloneNode(true);
@@ -310,31 +309,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    const formPagarLote = document.querySelector('#modalPagarLote form');
-    if (formPagarLote) {
-        formPagarLote.addEventListener('submit', function () {
-            if (this.checkValidity()) bloquearBotonSubmit(this, "Registrando Pago...");
-        });
-    }
-
-    // Bloqueo y envío para el nuevo formulario de Dispersión Mixta (Tesorería)
-    const formDispersion = document.getElementById('formDispersionMasiva');
-    if (formDispersion) {
-        formDispersion.addEventListener('submit', function (e) {
-            // El navegador revisará que todas las cuentas origen estén seleccionadas
-            if (!this.checkValidity()) {
-                e.preventDefault();
-                e.stopPropagation();
-                // Mostramos un mensaje nativo en caso de faltar un select
-                this.reportValidity(); 
-                return;
-            }
-            
-            // Si todo está bien, cambiamos el botón a "Ejecutando..." y evitamos doble clic
-            bloquearBotonSubmit(this, "Ejecutando Pagos...");
-        });
-    }
-
     const formAjustar = document.querySelector('#modalAjustarNomina form');
     if (formAjustar) {
         formAjustar.addEventListener('submit', function (e) {
@@ -347,14 +321,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Integración SweetAlert2 con validación de conflictos para aprobar lote
-    const formAprobar = document.querySelector('form[action*="aprobar"]');
-    if (formAprobar) {
-        formAprobar.addEventListener('submit', function (e) {
+    // Integración SweetAlert2 con validación de conflictos para CERRAR lote
+    const formCerrar = document.getElementById('formCerrarLote');
+    if (formCerrar) {
+        // Removemos el onsubmit nativo del HTML para que mande este (más estético)
+        formCerrar.removeAttribute('onsubmit'); 
+        
+        formCerrar.addEventListener('submit', function (e) {
             e.preventDefault();
 
-            const btnSubmit = formAprobar.querySelector('button[type="submit"]');
-            const hayConflictos = btnSubmit?.getAttribute('data-hay-conflictos') === 'true';
+            const btnSubmit = formCerrar.querySelector('button[type="submit"]');
+            const hayConflictos = btnSubmit?.hasAttribute('disabled'); // Verificamos si está bloqueado por HTML
 
             if (hayConflictos) {
                 if (!window.Swal) {
@@ -369,81 +346,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 function mostrarError() {
                     Swal.fire({
                         icon: 'error',
-                        title: 'No se puede aprobar',
+                        title: 'No se puede cerrar la planilla',
                         html: 'Existen empleados con asistencia incompleta.<br>Corrige los registros marcados antes de continuar.',
                         confirmButtonText: 'Entendido'
                     });
                 }
-
                 return;
             }
 
-            // Confirmación para aprobar lote si no hay conflictos
+            // Confirmación para cerrar lote
             if (!window.Swal) {
                 const script = document.createElement('script');
                 script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
-                script.onload = () => confirmarAprobar();
+                script.onload = () => confirmarCerrar();
                 document.head.appendChild(script);
             } else {
-                confirmarAprobar();
+                confirmarCerrar();
             }
 
-            function confirmarAprobar() {
+            function confirmarCerrar() {
                 Swal.fire({
                     title: '¿Estás seguro?',
-                    text: "Aprobarás el lote y no podrás hacer más cambios.",
+                    text: "Cerrarás la planilla y ya no podrás agregar bonos ni descuentos.",
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#3085d6',
                     cancelButtonColor: '#aaa',
-                    confirmButtonText: 'Sí, aprobar lote',
+                    confirmButtonText: 'Sí, cerrar planilla',
                     cancelButtonText: 'Cancelar'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        bloquearBotonSubmit(formAprobar, "Aprobando y Guardando...");
-                        formAprobar.submit();
+                        bloquearBotonSubmit(formCerrar, "Cerrando...");
+                        formCerrar.submit();
                     }
                 });
             }
         });
     }
-
-    // Aplicar cuenta global a todos los empleados en la dispersión
-    const btnAplicarGlobal = document.getElementById('btnAplicarCuentaGlobal');
-    if (btnAplicarGlobal) {
-        btnAplicarGlobal.addEventListener('click', () => {
-            const cuentaGlobal = document.getElementById('cuentaGlobal').value;
-            
-            if (!cuentaGlobal) {
-                alert('⚠️ Por favor, seleccione una cuenta general en el desplegable primero.');
-                return;
-            }
-
-            document.querySelectorAll('.select-origen-row').forEach(select => {
-                select.value = cuentaGlobal;
-            });
-        });
-    }
-
-    // ==============================================================
-    // 5. EFECTOS VISUALES PARA LAS PESTAÑAS (TABS)
-    // ==============================================================
-    const tabElements = document.querySelectorAll('button[data-bs-toggle="tab"]');
-    tabElements.forEach(tab => {
-        tab.addEventListener('shown.bs.tab', function (event) {
-            // event.target es la pestaña seleccionada ahora
-            // event.relatedTarget es la pestaña que acabamos de abandonar
-
-            if (event.relatedTarget) {
-                // Le quitamos el azul y la línea a la pestaña anterior y la ponemos gris
-                event.relatedTarget.classList.remove('text-primary', 'border-bottom', 'border-primary', 'border-3');
-                event.relatedTarget.classList.add('text-muted');
-            }
-
-            // Le quitamos lo gris a la nueva pestaña y le ponemos el azul y la línea
-            event.target.classList.remove('text-muted');
-            event.target.classList.add('text-primary', 'border-bottom', 'border-primary', 'border-3');
-        });
-    });
 
 });

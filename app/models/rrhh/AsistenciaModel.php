@@ -1342,18 +1342,28 @@ class AsistenciaModel extends Modelo
             $diaW = (int) date('w', $fechaActual);
             $nombreDia = $diasSemanaNombres[$diaW];
             
+            // --- VERIFICACIÓN DE DESCANSO ---
+            $turnoEfectivo = $this->obtenerTurnoEfectivoPorFecha($idTercero, $fechaStr);
+            $esDescanso = ($turnoEfectivo === null);
+            
             $reg = $registrosBD[$fechaStr] ?? null;
             
             $ingresos = $reg && $reg['marcas_ingresos'] ? explode('|', $reg['marcas_ingresos']) : [];
             $salidas = $reg && $reg['marcas_salidas'] ? explode('|', $reg['marcas_salidas']) : [];
             
-            $estadoStr = $reg['estado_asistencia'] ?? 'Sin datos';
-            $badgeClass = 'bg-secondary-subtle text-secondary';
-            if ($estadoStr === 'PUNTUAL') $badgeClass = 'bg-success-subtle text-success';
-            if ($estadoStr === 'TARDANZA') $badgeClass = 'bg-warning-subtle text-warning-emphasis';
-            if ($estadoStr === 'FALTA') $badgeClass = 'bg-danger-subtle text-danger';
-            if (strpos($estadoStr, 'JUSTIFICADA') !== false || strpos($estadoStr, 'PERMISO') !== false || strpos($estadoStr, 'MEDICO') !== false) {
-                $badgeClass = 'bg-info-subtle text-info-emphasis';
+            // Si es descanso, forzamos la apariencia visual
+            if ($esDescanso) {
+                $estadoStr = 'Descanso';
+                $badgeClass = 'bg-secondary-subtle text-secondary';
+            } else {
+                $estadoStr = $reg['estado_asistencia'] ?? 'Sin datos';
+                $badgeClass = 'bg-secondary-subtle text-secondary';
+                if ($estadoStr === 'PUNTUAL') $badgeClass = 'bg-success-subtle text-success';
+                if ($estadoStr === 'TARDANZA') $badgeClass = 'bg-warning-subtle text-warning-emphasis';
+                if ($estadoStr === 'FALTA') $badgeClass = 'bg-danger-subtle text-danger';
+                if (strpos($estadoStr, 'JUSTIFICADA') !== false || strpos($estadoStr, 'PERMISO') !== false || strpos($estadoStr, 'MEDICO') !== false) {
+                    $badgeClass = 'bg-info-subtle text-info-emphasis';
+                }
             }
 
             if ($reg) {
@@ -1371,7 +1381,8 @@ class AsistenciaModel extends Modelo
                 't3_in' => isset($ingresos[2]) && $ingresos[2] !== 'null' ? substr($ingresos[2], 11, 5) : '',
                 't3_out' => isset($salidas[2]) && $salidas[2] !== 'null' ? substr($salidas[2], 11, 5) : '',
                 'estado_label' => $estadoStr,
-                'badge_class' => $badgeClass
+                'badge_class' => $badgeClass,
+                'es_descanso' => $esDescanso // <-- BANDERA PARA EL JS
             ];
             
             $fechaActual = strtotime('+1 day', $fechaActual);
@@ -1379,15 +1390,26 @@ class AsistenciaModel extends Modelo
 
         $horasStr = floor($totalHorasSemanales) . 'h ' . round(($totalHorasSemanales - floor($totalHorasSemanales)) * 60) . 'm';
 
+        // Contamos si todos los días del periodo son descanso
+        $diasSinHorario = array_filter($dias, fn($d) => $d['es_descanso'] === true);
+        $empleadoSinHorario = (count($diasSinHorario) === count($dias));
+
         return [
             'dias' => $dias,
             'rango_label' => $rangoLabel,
-            'total_horas_str' => $horasStr
+            'total_horas_str' => $horasStr,
+            'empleado_sin_horario' => $empleadoSinHorario
         ];
     }
 
     public function actualizarCeldaAsistencia(int $idTercero, string $fecha, string $campo, string $valor, int $userId): array
     {
+        // MEDIDA DE SEGURIDAD BACKEND: Bloquear guardado en días de descanso
+        $turnoEfectivo = $this->obtenerTurnoEfectivoPorFecha($idTercero, $fecha);
+        if (!$turnoEfectivo) {
+            throw new Exception("No se puede modificar la asistencia en un día de descanso (sin horario asignado).");
+        }
+
         $sql = "SELECT * FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1";
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_tercero' => $idTercero, 'fecha' => $fecha]);
@@ -1410,7 +1432,6 @@ class AsistenciaModel extends Modelo
             case 't3_out': $salidas[2] = $valorDb; break;
         }
 
-        // Reconstruir marcas cronológicas para el Motor
         $todasLasMarcas = [];
         for ($i = 0; $i < 3; $i++) {
             if ($ingresos[$i] !== '' && $ingresos[$i] !== 'null') $todasLasMarcas[] = $ingresos[$i];
@@ -1460,6 +1481,12 @@ class AsistenciaModel extends Modelo
 
     public function forzarEstadoAsistencia(int $idTercero, string $fecha, string $estado, string $observacion, int $userId): bool
     {
+        // MEDIDA DE SEGURIDAD BACKEND: Bloquear justificaciones en días de descanso
+        $turnoEfectivo = $this->obtenerTurnoEfectivoPorFecha($idTercero, $fecha);
+        if (!$turnoEfectivo) {
+            throw new Exception("No se puede justificar la asistencia en un día de descanso.");
+        }
+
         $sql = "SELECT * FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha = :fecha LIMIT 1";
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_tercero' => $idTercero, 'fecha' => $fecha]);
