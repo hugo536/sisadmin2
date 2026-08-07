@@ -5,13 +5,29 @@ class HorarioModel extends Modelo
 {
     public function listarHorarios(): array
     {
-        // Actualizado para traer los 3 tramos y el total de horas
-        $sql = 'SELECT id, nombre, t1_entrada, t1_salida, t2_entrada, t2_salida, t3_entrada, t3_salida, total_horas_pago, tolerancia_minutos, estado
-                FROM asistencia_horarios
-                WHERE deleted_at IS NULL
-                ORDER BY estado DESC, nombre ASC';
+        // Añadimos una subconsulta 'usos' para saber si el turno está asignado a alguien
+        $sql = 'SELECT h.id, h.nombre, h.t1_entrada, h.t1_salida, h.t2_entrada, h.t2_salida, 
+                       h.t3_entrada, h.t3_salida, h.total_horas_pago, h.tolerancia_minutos, h.estado,
+                       (SELECT COUNT(*) FROM asistencia_empleado_horario aeh WHERE aeh.id_horario = h.id) AS usos
+                FROM asistencia_horarios h
+                WHERE h.deleted_at IS NULL
+                ORDER BY h.estado DESC, h.nombre ASC';
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function verificarUsoHorario(int $idHorario): bool
+    {
+        $sql = 'SELECT 1 FROM asistencia_empleado_horario WHERE id_horario = :id LIMIT 1';
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id' => $idHorario]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public function eliminarHorario(int $id, int $userId): bool
+    {
+        $sql = 'UPDATE asistencia_horarios SET deleted_at = NOW(), updated_by = :uid WHERE id = :id';
+        return $this->db()->prepare($sql)->execute(['uid' => $userId, 'id' => $id]);
     }
 
     public function crearHorario(array $data, int $userId): bool
@@ -21,7 +37,6 @@ class HorarioModel extends Modelo
 
         return $this->db()->prepare($sql)->execute([
             'nombre'             => $data['nombre'],
-            // Validamos que si llega vacío guarde NULL en la BD
             't1_entrada'         => !empty($data['t1_entrada']) ? $data['t1_entrada'] : null,
             't1_salida'          => !empty($data['t1_salida'])  ? $data['t1_salida']  : null,
             't2_entrada'         => !empty($data['t2_entrada']) ? $data['t2_entrada'] : null,
@@ -82,10 +97,12 @@ class HorarioModel extends Modelo
 
     public function listarEmpleados(): array
     {
+        // Añadido t.estado = 1 para traer solo personal activo al modal de Asignación Masiva
         $sql = 'SELECT t.id, t.nombre_completo, te.codigo_biometrico
                 FROM terceros t
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
                 WHERE t.es_empleado = 1
+                  AND t.estado = 1 
                   AND t.deleted_at IS NULL
                 ORDER BY t.nombre_completo ASC';
 
@@ -94,7 +111,6 @@ class HorarioModel extends Modelo
 
     public function listarAsignaciones(): array
     {
-        // Se actualiza para traer los tramos en lugar de la entrada/salida única
         $sql = 'SELECT aeh.id,
                        aeh.id_tercero,
                        t.nombre_completo AS empleado,
@@ -110,8 +126,11 @@ class HorarioModel extends Modelo
                        aeh.dia_semana
                 FROM asistencia_empleado_horario aeh
                 INNER JOIN terceros t ON t.id = aeh.id_tercero
-                INNER JOIN terceros_empleados te ON te.id_tercero = t.id
+                LEFT JOIN terceros_empleados te ON te.id_tercero = t.id
                 INNER JOIN asistencia_horarios ah ON ah.id = aeh.id_horario
+                WHERE t.estado = 1 
+                  AND t.es_empleado = 1  /* <-- ESTA LÍNEA ES LA CLAVE */
+                  AND t.deleted_at IS NULL
                 ORDER BY aeh.dia_semana ASC, t.nombre_completo ASC';
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -119,17 +138,20 @@ class HorarioModel extends Modelo
 
     public function guardarAsignacion(int $idTercero, int $idHorario, int $diaSemana, int $userId): bool
     {
+        // Busca si ya existe un turno asignado para ese empleado ese día exacto
         $check = $this->db()->prepare(
             'SELECT id FROM asistencia_empleado_horario WHERE id_tercero = :id_tercero AND dia_semana = :dia_semana LIMIT 1'
         );
         $check->execute(['id_tercero' => $idTercero, 'dia_semana' => $diaSemana]);
         $existente = $check->fetch(PDO::FETCH_ASSOC);
 
+        // Si existe, lo actualizamos silenciosamente
         if ($existente) {
             $stmt = $this->db()->prepare('UPDATE asistencia_empleado_horario SET id_horario = :id_horario WHERE id = :id');
             return $stmt->execute(['id_horario' => $idHorario, 'id' => (int) $existente['id']]);
         }
 
+        // Si no existe, lo insertamos
         $sql = 'INSERT INTO asistencia_empleado_horario (id_tercero, id_horario, dia_semana, created_by)
                 VALUES (:id_tercero, :id_horario, :dia_semana, :created_by)';
 

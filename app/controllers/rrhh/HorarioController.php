@@ -24,47 +24,44 @@ class HorarioController extends Controlador
             return;
         }
 
-        // 1. Obtenemos las asignaciones crudas de la BD (1 fila = 1 día)
-        $asignacionesRaw = $this->horarioModel->listarAsignaciones();
-
-        // 2. Lógica para agrupar por Empleado (Para la tabla visual)
+        // 1. Obtenemos TODOS los empleados activos primero (con o sin horario)
+        $empleadosActivos = $this->horarioModel->listarEmpleados();
+        
         $empleadosAgrupados = [];
-        $nombresDias = [
-            1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 
-            4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'
-        ];
+        foreach ($empleadosActivos as $emp) {
+            $empleadosAgrupados[(int)$emp['id']] = [
+                'nombre_completo'   => $emp['nombre_completo'],
+                'codigo_biometrico' => $emp['codigo_biometrico'] ?? '',
+                'dias_asignados'    => []
+            ];
+        }
+
+        // 2. Obtenemos las asignaciones y las cruzamos
+        $asignacionesRaw = $this->horarioModel->listarAsignaciones();
+        $nombresDias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
 
         foreach ($asignacionesRaw as $row) {
             $idEmp = (int)($row['id_tercero'] ?? 0);
             
-            // Si el empleado aún no está en nuestra lista agrupada, lo creamos
-            if (!isset($empleadosAgrupados[$idEmp])) {
-                $empleadosAgrupados[$idEmp] = [
-                    'nombre_completo'   => $row['empleado'] ?? $row['nombre_completo'] ?? 'Sin Nombre',
-                    'codigo_biometrico' => $row['codigo_biometrico'] ?? '',
-                    'dias_asignados'    => []
-                ];
-            }
-            
-            // Añadimos el día a la lista de este empleado
-            $diaNumero = (int)($row['dia_semana'] ?? 0);
-            if ($diaNumero > 0) {
-                $empleadosAgrupados[$idEmp]['dias_asignados'][$diaNumero] = [
-                    'id_asignacion' => $row['id'], 
-                    'nombre_dia'    => $nombresDias[$diaNumero] ?? 'Día',
-                    'nombre_horario'=> $row['horario'] ?? $row['horario_nombre'] ?? 'Turno', 
-                    // Ajustamos el tooltip para mostrar el primer tramo como referencia
-                    'hora_entrada'  => substr((string)($row['t1_entrada'] ?? ''), 0, 5),
-                    'hora_salida'   => substr((string)($row['t1_salida'] ?? ''), 0, 5)
-                ];
+            // Si el empleado está activo y en nuestra lista, le agregamos su día
+            if (isset($empleadosAgrupados[$idEmp])) {
+                $diaNumero = (int)($row['dia_semana'] ?? 0);
+                if ($diaNumero > 0) {
+                    $empleadosAgrupados[$idEmp]['dias_asignados'][$diaNumero] = [
+                        'id_asignacion' => $row['id'], 
+                        'nombre_dia'    => $nombresDias[$diaNumero] ?? 'Día',
+                        'nombre_horario'=> $row['horario'] ?? $row['horario_nombre'] ?? 'Turno', 
+                        'hora_entrada'  => substr((string)($row['t1_entrada'] ?? ''), 0, 5),
+                        'hora_salida'   => substr((string)($row['t1_salida'] ?? ''), 0, 5)
+                    ];
+                }
             }
         }
 
-        // 3. Renderizamos la vista mandando la nueva variable agrupada
         $this->render('rrhh/horario', [
             'ruta_actual' => 'horario/index',
             'horarios' => $this->horarioModel->listarHorarios(),
-            'empleados' => $this->horarioModel->listarEmpleados(),
+            'empleados' => $empleadosActivos, // Pasamos la misma lista limpia
             'asignaciones' => $asignacionesRaw, 
             'empleadosAgrupados' => $empleadosAgrupados,
             'flash' => [
@@ -104,6 +101,11 @@ class HorarioController extends Controlador
 
             if ($accion === 'limpiar_semana_empleado') {
                 $this->limpiarSemanaEmpleado();
+                return;
+            }
+
+            if ($accion === 'eliminar_horario') {
+                $this->eliminarHorario($userId);
                 return;
             }
 
@@ -211,6 +213,7 @@ class HorarioController extends Controlador
         if (!is_array($idsTerceros)) $idsTerceros = [];
         if (!is_array($diasSeleccionados)) $diasSeleccionados = [];
 
+        // Saneamiento de IDs y Días
         $idsTerceros = array_values(array_unique(array_filter(array_map(
             static fn($id): int => (int) $id,
             $idsTerceros
@@ -225,8 +228,11 @@ class HorarioController extends Controlador
             throw new RuntimeException('Datos inválidos. Asegúrese de seleccionar empleado(s), día(s) y un turno.');
         }
 
+        // Asignación cruzada: Empleados x Días
         foreach ($idsTerceros as $idTercero) {
             foreach ($diasSeleccionados as $dia) {
+                // IMPORTANTE: Asegúrate de que guardarAsignacion en el Modelo use "INSERT ... ON DUPLICATE KEY UPDATE"
+                // para que sobreescriba el turno si el empleado ya tenía uno ese mismo día.
                 if (!$this->horarioModel->guardarAsignacion($idTercero, $idHorario, $dia, $userId)) {
                     throw new RuntimeException('No se pudo guardar una o más asignaciones.');
                 }
@@ -253,6 +259,25 @@ class HorarioController extends Controlador
         }
 
         redirect('horario/index?tipo=success&msg=Turno eliminado correctamente.');
+    }
+
+    private function eliminarHorario(int $userId): void
+    {
+        $id = (int) ($_POST['id'] ?? 0);
+        if ($id <= 0) {
+            throw new RuntimeException('Turno inválido.');
+        }
+
+        // Medida de seguridad en el backend por si intentan forzar el borrado desde el navegador
+        if ($this->horarioModel->verificarUsoHorario($id)) {
+            throw new RuntimeException('El turno no se puede eliminar porque está asignado a uno o más empleados. Por favor, desactívelo.');
+        }
+
+        if (!$this->horarioModel->eliminarHorario($id, $userId)) {
+            throw new RuntimeException('No se pudo eliminar el turno.');
+        }
+
+        redirect('horario/index?tipo=success&msg=Turno eliminado correctamente del catálogo.');
     }
 
     private function limpiarSemanaEmpleado(): void

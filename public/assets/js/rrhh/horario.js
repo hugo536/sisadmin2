@@ -4,6 +4,31 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!document.getElementById('horariosTable')) return;
 
     // ========================================================================
+    // 0. LÓGICA DEL FILTRO DE ESTADO (CON/SIN HORARIO)
+    // ========================================================================
+    const filtroEstado = document.getElementById('filtroEstadoPlantilla');
+    if (filtroEstado) {
+        filtroEstado.addEventListener('change', function() {
+            const valor = this.value;
+            const filas = document.querySelectorAll('#horariosTableBody tr:not(.empty-msg-row)');
+            
+            filas.forEach(fila => {
+                // Buscamos cuántos días están vacíos (clase bg-light text-secondary usada para "Descanso")
+                const descansos = fila.querySelectorAll('td .bg-light.text-secondary').length;
+                const sinHorario = descansos === 7; // Si los 7 días son descanso, la plantilla está vacía
+                
+                if (valor === 'todos') {
+                    fila.style.display = '';
+                } else if (valor === 'con_horario') {
+                    fila.style.display = sinHorario ? 'none' : '';
+                } else if (valor === 'sin_horario') {
+                    fila.style.display = sinHorario ? '' : 'none';
+                }
+            });
+        });
+    }
+
+    // ========================================================================
     // 1. LÓGICA DE ASIGNACIÓN MASIVA (TomSelect + Panel Dinámico "Carrito")
     // ========================================================================
     
@@ -126,6 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.preventDefault(); 
                     if (typeof Swal !== 'undefined') Swal.fire('Atención', 'Marca al menos un día de la semana.', 'warning');
                     else alert('Marca al menos un día de la semana.');
+                    return; 
                 }
             });
         }
@@ -212,6 +238,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Enfoca suavemente el nombre para que el usuario sepa que puede editar
             setTimeout(() => nombreInput.focus(), 100); 
         }
+    });
+
+    // Confirmación para eliminar horario del catálogo
+    document.querySelectorAll('.js-form-eliminar-horario').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            if (!confirm('¿Estás seguro de eliminar este turno definitivamente? Esta acción no se puede deshacer.')) {
+                e.preventDefault();
+            }
+        });
     });
 
 });

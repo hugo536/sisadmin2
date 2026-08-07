@@ -390,9 +390,15 @@ class TercerosModel extends Modelo
 
             $this->db()->prepare($sql)->execute($params);
 
+            // GESTIÓN DE ROLES Y LIMPIEZA
             if (!empty($payload['es_empleado'])) {
                 $this->empleadosModel->guardar($id, $payload, $userId);
+            } else {
+                // LÓGICA AGREGADA: Si ya NO es empleado, limpiamos su rastro en los horarios para que inicie en blanco si regresa
+                $sqlLimpiezaHorario = "DELETE FROM asistencia_empleado_horario WHERE id_tercero = :id_tercero";
+                $this->db()->prepare($sqlLimpiezaHorario)->execute(['id_tercero' => $id]);
             }
+            
             if (!empty($payload['es_cliente'])) {
                 $this->clientesModel->guardar($id, $payload, $userId);
             }
