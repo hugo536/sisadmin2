@@ -29,6 +29,37 @@ async function obtenerUnidadesItem(idItem) {
     return items;
 }
 
+function actualizarHintResolucionDevolucion() {
+    const devolucionResolucion = document.getElementById('devolucionResolucion');
+    const devolucionResolucionHint = document.getElementById('devolucionResolucionHint');
+    if (!devolucionResolucionHint || !devolucionResolucion) return;
+
+    const resolucion = devolucionResolucion.value;
+    if (resolucion === 'descuento_cxp') {
+        devolucionResolucionHint.textContent = '✅ Recomendado cuando tienes facturas pendientes: reduce tu cuenta por pagar automáticamente.';
+        devolucionResolucionHint.className = 'form-text text-secondary mt-1';
+        return;
+    }
+    devolucionResolucionHint.textContent = '💸 Úsalo cuando el proveedor te devolverá dinero (caja/transferencia). No descuenta la deuda automáticamente.';
+    devolucionResolucionHint.className = 'form-text text-secondary mt-1';
+}
+
+function actualizarLogicaDevolucionCompra() {
+    const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazoCompra');
+    const checkReemplazo = document.getElementById('devolucionEsperarReemplazo');
+    const devolucionMotivo = document.getElementById('devolucionMotivo');
+    const motivoActual = devolucionMotivo?.value || '';
+
+    if (filaSwitchReemplazo && checkReemplazo) {
+        if (motivoActual === 'Producto defectuoso / Garantía' || motivoActual === 'Producto incorrecto') {
+            filaSwitchReemplazo.classList.remove('d-none');
+        } else {
+            filaSwitchReemplazo.classList.add('d-none');
+            checkReemplazo.checked = false;
+        }
+    }
+}
+
 function recalcularTotalDevolucion() {
     const tbodyDevolucion = document.querySelector('#tablaDetalleDevolucion tbody');
     const devolucionTotal = document.getElementById('devolucionTotal');
@@ -181,6 +212,12 @@ export async function abrirModalDevolucion(idOrden) {
 
         document.getElementById('devolucionOrdenId').value = orden.id;
         document.getElementById('devolucionMotivo').value = '';
+        
+        const devolucionResolucion = document.getElementById('devolucionResolucion');
+        if (devolucionResolucion) {
+            devolucionResolucion.value = 'descuento_cxp';
+            actualizarHintResolucionDevolucion();
+        }
         
         const tbodyDevolucion = document.querySelector('#tablaDetalleDevolucion tbody');
         if(tbodyDevolucion) tbodyDevolucion.innerHTML = '';
@@ -356,17 +393,15 @@ export async function abrirModalRecepcion(idOrden) {
 }
 
 export function initLogistica() {
-    // ==========================================
-    // ENGANCHES DE DEVOLUCIÓN (Ahora con submit)
-    // ==========================================
-    const formDevolucionCompra = document.getElementById('formDevolucionCompra');
-    
-    formDevolucionCompra?.addEventListener('submit', async (e) => {
-        e.preventDefault(); // Evita que recargue la página
-        
-        const devolucionMotivo = document.getElementById('devolucionMotivo');
-        const btnConfirmarDevolucion = document.getElementById('btnConfirmarDevolucion');
+    // Enganches de Devolución
+    const devolucionMotivo = document.getElementById('devolucionMotivo');
+    const devolucionResolucion = document.getElementById('devolucionResolucion');
+    const btnConfirmarDevolucion = document.getElementById('btnConfirmarDevolucion');
 
+    devolucionMotivo?.addEventListener('change', actualizarLogicaDevolucionCompra);
+    devolucionResolucion?.addEventListener('change', actualizarHintResolucionDevolucion);
+
+    btnConfirmarDevolucion?.addEventListener('click', async () => {
         if (!devolucionMotivo.value) return Swal.fire('Aviso', 'Seleccione un motivo.', 'warning');
         
         const detalle = [];
@@ -395,8 +430,8 @@ export function initLogistica() {
         if (detalle.length === 0 || totalDevolverBase <= 0) return Swal.fire('Aviso', 'Ingrese al menos una cantidad.', 'warning');
 
         try {
-            // Usamos la nueva ruta MVC limpia que agregamos en config.js
-            const urlPost = urls.devolver;
+            const separador = urls.index.includes('?') ? '&' : '?';
+            const urlPost = `${urls.index}${separador}accion=guardar_devolucion`;
 
             const checkReemplazo = document.getElementById('devolucionEsperarReemplazo');
             const esperarReemplazo = checkReemplazo ? checkReemplazo.checked : true;
@@ -404,7 +439,8 @@ export function initLogistica() {
             const payload = {
                 id_orden: Number(document.getElementById('devolucionOrdenId').value),
                 motivo: devolucionMotivo.value,
-                esperar_reemplazo: false, // Forzado a falso
+                resolucion: devolucionResolucion.value,
+                esperar_reemplazo: esperarReemplazo, 
                 detalle: detalle
             };
 
@@ -417,16 +453,9 @@ export function initLogistica() {
         }
     });
 
-    // ==========================================
-    // ENGANCHES DE RECEPCIÓN (Ahora con submit)
-    // ==========================================
-    const formRecepcionCompra = document.getElementById('formRecepcionCompra');
-    
-    formRecepcionCompra?.addEventListener('submit', async (e) => {
-        e.preventDefault(); // Evita que recargue la página
-        
-        const btnConfirmarRecepcion = document.getElementById('btnConfirmarRecepcion');
-
+    // Enganches de Recepción
+    const btnConfirmarRecepcion = document.getElementById('btnConfirmarRecepcion');
+    btnConfirmarRecepcion?.addEventListener('click', async () => {
         try {
             const filas = [...document.querySelector('#tablaDetalleRecepcion tbody').querySelectorAll('tr')];
             const detalle = filas.map(fila => {

@@ -40,13 +40,12 @@ class TesoreriaCxpModel extends Modelo
         }
 
         if (!empty($filtros['fecha_desde'])) {
-            // Usamos COALESCE por si algún documento antiguo no tiene fecha
-            $sql .= ' AND DATE(COALESCE(p.fecha_vencimiento, p.fecha_emision, p.created_at)) >= :fecha_desde';
+            $sql .= ' AND DATE(p.fecha_vencimiento) >= :fecha_desde';
             $params['fecha_desde'] = (string) $filtros['fecha_desde'];
         }
 
         if (!empty($filtros['fecha_hasta'])) {
-            $sql .= ' AND DATE(COALESCE(p.fecha_vencimiento, p.fecha_emision, p.created_at)) <= :fecha_hasta';
+            $sql .= ' AND DATE(p.fecha_vencimiento) <= :fecha_hasta';
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
@@ -318,11 +317,8 @@ class TesoreriaCxpModel extends Modelo
               AND moneda = :moneda
               AND estado <> "ANULADA"
               AND saldo > 0
-              /* 👇 NUEVO: Excluimos los Saldos a Favor para que el banco no les envíe efectivo 👇 */
-              AND COALESCE(tipo_documento, "") NOT IN ("NOTA_CREDITO", "ANTICIPO")
               AND deleted_at IS NULL
             ORDER BY fecha_emision ASC, fecha_vencimiento ASC, id ASC');
-            
         $stmt->execute([
             'id_proveedor' => $idProveedor,
             'moneda' => strtoupper(trim($moneda)),
@@ -425,53 +421,5 @@ class TesoreriaCxpModel extends Modelo
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         
         return $row ?: null;
-    }
-
-    public function aplicarCruceDeCuentas(int $idCxpDestino, float $montoACruzar, int $userId): void
-    {
-        $db = $this->db();
-        
-        // 1. Obtener la deuda que queremos pagar
-        $stmtDest = $db->prepare('SELECT id_proveedor, moneda FROM tesoreria_cxp WHERE id = ? FOR UPDATE');
-        $stmtDest->execute([$idCxpDestino]);
-        $dest = $stmtDest->fetch(PDO::FETCH_ASSOC);
-
-        if (!$dest || $montoACruzar <= 0) return;
-
-        $restanteCruce = $montoACruzar;
-
-        // 2. Buscar Notas de Crédito (Saldos a favor) del proveedor ordenadas por las más antiguas
-        $stmtNC = $db->prepare('SELECT id, saldo FROM tesoreria_cxp 
-                                WHERE id_proveedor = ? AND moneda = ? 
-                                AND tipo_documento IN ("NOTA_CREDITO", "ANTICIPO") 
-                                AND estado <> "ANULADA" AND saldo > 0 
-                                ORDER BY id ASC FOR UPDATE');
-        $stmtNC->execute([$dest['id_proveedor'], $dest['moneda']]);
-        $notas = $stmtNC->fetchAll(PDO::FETCH_ASSOC);
-
-        foreach ($notas as $nc) {
-            if ($restanteCruce <= 0) break;
-
-            $saldoNC = (float) $nc['saldo'];
-            $montoAplicar = min($saldoNC, $restanteCruce);
-
-            // Descontar a la Nota de Crédito (Se paga sola)
-            $db->prepare('UPDATE tesoreria_cxp SET monto_pagado = monto_pagado + ?, saldo = saldo - ?, updated_at = NOW() WHERE id = ?')
-               ->execute([$montoAplicar, $montoAplicar, $nc['id']]);
-            $this->recalcularEstado((int)$nc['id'], $userId);
-
-            // Descontar a la Factura Original
-            $db->prepare('UPDATE tesoreria_cxp SET monto_pagado = monto_pagado + ?, saldo = saldo - ?, updated_at = NOW() WHERE id = ?')
-               ->execute([$montoAplicar, $montoAplicar, $idCxpDestino]);
-            
-            // 👇 CORRECCIÓN AQUÍ: Quitamos la columna observaciones que daba el error 👇
-            $db->prepare('INSERT INTO tesoreria_cxp_pagos (id_cxp, id_movimiento, monto_aplicado, created_by, updated_by, created_at, updated_at) 
-                          VALUES (?, NULL, ?, ?, ?, NOW(), NOW())')
-               ->execute([$idCxpDestino, $montoAplicar, $userId, $userId]);
-
-            $restanteCruce -= $montoAplicar;
-        }
-
-        $this->recalcularEstado($idCxpDestino, $userId);
     }
 }

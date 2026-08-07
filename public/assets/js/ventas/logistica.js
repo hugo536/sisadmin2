@@ -2,9 +2,11 @@
 // MÓDULO LOGÍSTICA: logistica.js (Despachos y Devoluciones)
 // ==============================================================
 
-import { urls, recargarTabla, cuentasDisponibles, postJsonConCarga } from './config.js';
+import { urls, recargarTabla, cuentasDisponibles, metodosDisponibles } from './config.js';
 import { renderAlertaSaldoFavor, filtrarMetodosPorCuentaVentas } from './pagos.js';
-import { getJson, obtenerFechaLocalISO } from '../api.js';
+// Importamos las herramientas globales desde la raíz
+import { getJson, postJson, obtenerFechaLocalISO } from '../api.js';
+
 
 // --- VARIABLES DE ESTADO LOGÍSTICA ---
 let envasesRequeridosActuales = []; 
@@ -58,6 +60,7 @@ const contenedorRetornoEnvases = document.getElementById('contenedorRetornoEnvas
 // UTILIDADES LOCALES
 // ==========================================
 
+// Limpiar el nombre del cliente cuando se cierra el modal de despacho
 modalDespachoEl?.addEventListener('hidden.bs.modal', () => {
     if (despachoClienteNombre) despachoClienteNombre.textContent = '';
 });
@@ -160,7 +163,7 @@ function agregarFilaDevolucionVenta(linea) {
     tbodyDevolucionVenta.appendChild(tr);
 }
 
-// Función expuesta a app.js
+// Función expuesta a app.js para abrir el modal desde la tabla principal
 export async function abrirModalDevolucionVenta(idDocumento) {
     if (!modalDevolucionVentaEl || !tbodyDevolucionVenta || !devolucionVentaDocumentoId) {
         throw new Error('El modal de devolución no está disponible en la vista actual.');
@@ -216,6 +219,68 @@ export async function abrirModalDevolucionVenta(idDocumento) {
     actualizarTotalDevolucionVenta();
     bootstrap.Modal.getOrCreateInstance(modalDevolucionVentaEl).show();
 }
+
+// Event Listeners Estáticos para Devoluciones
+devolucionVentaMotivo?.addEventListener('change', actualizarHintDevolucionVenta);
+devolucionVentaResolucion?.addEventListener('change', actualizarHintDevolucionVenta);
+
+document.getElementById('btnConfirmarDevolucionVenta')?.addEventListener('click', async () => {
+    try {
+        const motivoSeleccionado = devolucionVentaMotivo?.value || '';
+        const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoSeleccionado];
+        if (!motivoCfg) throw new Error('Seleccione un motivo de devolución válido.');
+
+        const resolucionSeleccionada = devolucionVentaResolucion?.value || '';
+        if (!DEVOLUCION_VENTA_RESOLUCIONES[resolucionSeleccionada]) {
+            throw new Error('Seleccione una resolución comercial válida.');
+        }
+
+        if (resolucionSeleccionada === 'salida_dinero' || resolucionSeleccionada === 'reembolso_dinero') {
+            const confirmacionTesoreria = await Swal.fire({
+                icon: 'warning',
+                title: 'Se registrará salida de dinero',
+                text: 'Verifique que tesorería procese el reembolso para completar la devolución.',
+                showCancelButton: true,
+                confirmButtonText: 'Continuar',
+                cancelButtonText: 'Cancelar',
+            });
+            if (!confirmacionTesoreria.isConfirmed) return;
+        }
+
+        const detalle = [];
+        tbodyDevolucionVenta?.querySelectorAll('tr').forEach((tr) => {
+            const cantidad = Number(tr.querySelector('.input-devolver-venta')?.value || 0);
+            if (cantidad <= 0) return;
+
+            detalle.push({
+                id_documento_detalle: Number(tr.dataset.idDetalle || 0),
+                id_item: tr.dataset.idItem || '',
+                cantidad,
+                costo_unitario: Number(tr.dataset.precio || 0),
+            });
+        });
+
+        if (!detalle.length) throw new Error('Ingrese al menos una cantidad a devolver mayor a cero.');
+
+        const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
+        const enviarReemplazo = checkReemplazo ? checkReemplazo.checked : false;
+
+        const payload = await postJson(`${urls.index}&accion=guardar_devolucion`, {
+            id_documento: Number(devolucionVentaDocumentoId?.value || 0),
+            motivo: motivoCfg.label,
+            motivo_codigo: motivoSeleccionado,
+            resolucion: resolucionSeleccionada,
+            enviar_reemplazo: enviarReemplazo, 
+            detalle,
+        });
+
+        await Swal.fire('Éxito', payload.mensaje, 'success');
+        bootstrap.Modal.getInstance(modalDevolucionVentaEl)?.hide();
+        recargarTabla();
+    } catch (error) {
+        Swal.fire('Error', error.message, 'error');
+    }
+});
 
 // ==============================================================
 // 2. MÓDULO: DESPACHOS MULTI-ALMACÉN Y ENVASES
@@ -415,13 +480,13 @@ function validarGrupoItem(idDetalle) {
     const badge = filas[0].querySelector('.badge-pendiente');
     if (sumaTotalCargada > pendienteGlobal) {
         filas.forEach(f => f.querySelector('.despacho-cantidad').classList.add('is-invalid'));
-        badge.className = "badge bg-danger text-white badge-pendiente rounded-pill px-2 py-1 shadow-sm";
+        badge.className = "badge bg-danger text-white badge-pendiente";
         badge.textContent = `${pendienteGlobal} (Excedido en ${sumaTotalCargada - pendienteGlobal})`;
     } else if (sumaTotalCargada === pendienteGlobal) {
-        badge.className = "badge bg-success text-white badge-pendiente rounded-pill px-2 py-1 shadow-sm";
+        badge.className = "badge bg-success text-white badge-pendiente";
         badge.textContent = `COMPLETO`;
     } else {
-        badge.className = "badge bg-warning text-dark badge-pendiente rounded-pill px-2 py-1 shadow-sm";
+        badge.className = "badge bg-warning text-dark badge-pendiente";
         badge.textContent = `${pendienteGlobal} (Faltan ${pendienteGlobal - sumaTotalCargada})`;
     }
 }
@@ -459,7 +524,7 @@ function agregarFilaDespacho(linea, filaReferencia = null) {
     }
 
     tr.innerHTML = `
-        <td class="align-middle py-3 ps-3">
+        <td class="align-middle py-3">
             <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${linea.item_nombre || ''}</div>
             
             <div class="small text-muted d-flex align-items-center gap-2 mt-1">
@@ -486,7 +551,7 @@ function agregarFilaDespacho(linea, filaReferencia = null) {
                    min="0" step="1" value="0" title="Solo números enteros" ${disabledState} style="max-width: 90px;">
         </td>
         <td class="text-center align-middle">
-            <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-despacho d-none d-inline-flex align-items-center justify-content-center transition-all p-0" title="Quitar almacén" style="width: 34px; height: 34px;">
+            <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-despacho d-none d-inline-flex align-items-center justify-content-center transition-all hover-lift p-0" title="Quitar almacén" style="width: 34px; height: 34px;">
                 <i class="bi bi-trash-fill fs-6"></i>
             </button>
         </td>
@@ -583,7 +648,7 @@ function agregarFilaDespacho(linea, filaReferencia = null) {
         const sugerido = Math.max(0, Math.min(faltaPorAsignar, stock));
         inputCant.value = sugerido;
 
-        sincizarGrupo(tr);
+        sincronizarGrupo(tr);
         validarGrupoItem(linea.id);
         dibujarTablaEnvases(); 
     });
@@ -645,6 +710,7 @@ function agregarFilaDespacho(linea, filaReferencia = null) {
     }
 }
 
+// Función expuesta a app.js para abrir el modal de despacho
 export async function abrirModalDespacho(idDocumento) {
     const payload = await getJson(`${urls.index}&accion=ver&id=${idDocumento}`);
     const venta = payload.data;
@@ -716,9 +782,10 @@ export async function abrirModalDespacho(idDocumento) {
             
             if (linea.envases_retornables && linea.envases_retornables.length > 0) {
                 linea.envases_retornables.forEach(env => {
+                    const idEnv = env.id_envase;
                     const reqItem = {
                         id_detalle: linea.id,
-                        id_envase: env.id_envase,
+                        id_envase: idEnv,
                         nombre: env.nombre_envase,
                         factor: Number(env.factor || 1)
                     };
@@ -732,263 +799,190 @@ export async function abrirModalDespacho(idDocumento) {
     bootstrap.Modal.getOrCreateInstance(modalDespachoEl).show();
 }
 
-// Función orquestadora expuesta a app.js
-export function initLogistica() {
-    // Event Listeners Estáticos para Devoluciones
-    devolucionVentaMotivo?.addEventListener('change', actualizarHintDevolucionVenta);
-    devolucionVentaResolucion?.addEventListener('change', actualizarHintDevolucionVenta);
+// Event Listeners Estáticos para Cobros en Despacho
+switchCobroDespacho?.addEventListener('change', (e) => {
+    if (e.target.checked) {
+        seccionCobroDespacho.classList.remove('d-none');
+        contenedorMetodosPagoDespacho.innerHTML = '';
+        agregarFilaPagoDespacho(totalPendienteDespacho > 0 ? totalPendienteDespacho.toFixed(2) : '');
+    } else {
+        seccionCobroDespacho.classList.add('d-none');
+        contenedorMetodosPagoDespacho.innerHTML = '';
+        calcularTotalCobroDespacho();
+    }
+});
 
-    const formDevolucionVenta = document.getElementById('formDevolucionVenta');
-    formDevolucionVenta?.addEventListener('submit', async (e) => {
-        e.preventDefault();
+btnAgregarPagoDespacho?.addEventListener('click', () => {
+    let totalPagadoHastaAhora = 0;
+    contenedorMetodosPagoDespacho.querySelectorAll('.input-monto-despacho').forEach(inp => {
+        totalPagadoHastaAhora += parseFloat(inp.value) || 0;
+    });
 
-        try {
-            const btnConfirmarDevolucionVenta = document.getElementById('btnConfirmarDevolucionVenta');
-            const motivoSeleccionado = devolucionVentaMotivo?.value || '';
-            const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoSeleccionado];
-            if (!motivoCfg) throw new Error('Seleccione un motivo de devolución válido.');
+    let faltante = totalPendienteDespacho - totalPagadoHastaAhora;
+    if (faltante < 0) faltante = 0;
 
-            const resolucionSeleccionada = devolucionVentaResolucion?.value || '';
-            if (!DEVOLUCION_VENTA_RESOLUCIONES[resolucionSeleccionada]) {
-                throw new Error('Seleccione una resolución comercial válida.');
-            }
+    agregarFilaPagoDespacho(faltante > 0 ? faltante.toFixed(2) : '');
+    contenedorMetodosPagoDespacho.querySelectorAll('.btn-quitar-pago-despacho').forEach(btn => btn.classList.remove('d-none'));
+});
 
-            if (resolucionSeleccionada === 'salida_dinero' || resolucionSeleccionada === 'reembolso_dinero') {
-                const confirmacionTesoreria = await Swal.fire({
-                    icon: 'warning',
-                    title: 'Se registrará salida de dinero',
-                    text: 'Verifique que tesorería procese el reembolso para completar la devolución.',
-                    showCancelButton: true,
-                    confirmButtonText: 'Continuar',
-                    cancelButtonText: 'Cancelar',
-                });
-                if (!confirmacionTesoreria.isConfirmed) return;
-            }
+// Guardar Despacho
+document.getElementById('btnGuardarDespacho')?.addEventListener('click', async () => {
+    try {
+        const filas = [...tbodyDespacho.querySelectorAll('tr')];
+        
+        const detalle = filas.map(fila => {
+            const idAlmacen = fila.querySelector('.fila-almacen').value;
+            const cantidad = parseFloat(fila.querySelector('.despacho-cantidad').value || 0);
+            
+            return {
+                id_documento_detalle: Number(fila.dataset.idDetalle),
+                id_almacen: Number(idAlmacen),
+                cantidad: cantidad
+            };
+        }).filter(d => d.cantidad > 0); 
 
-            const detalle = [];
-            tbodyDevolucionVenta?.querySelectorAll('tr').forEach((tr) => {
-                const cantidad = Number(tr.querySelector('.input-devolver-venta')?.value || 0);
-                if (cantidad <= 0) return;
+        if (detalle.length === 0) throw new Error('Ingrese cantidades a despachar.');
+        if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione almacén para todas las filas con cantidad.');
+        if (tbodyDespacho.querySelector('.is-invalid')) throw new Error('Corrija las cantidades marcadas en rojo (exceden stock o pendiente).');
 
-                detalle.push({
-                    id_documento_detalle: Number(tr.dataset.idDetalle || 0),
-                    id_item: tr.dataset.idItem || '',
-                    cantidad,
-                    costo_unitario: Number(tr.dataset.precio || 0),
-                });
+        const fechaDespachoVal = despachoFecha ? despachoFecha.value : '';
+        if (!fechaDespachoVal) throw new Error('Debe especificar la fecha de despacho.');
+
+        let esCobroDespacho = false;
+        const metodosPagoDespachoFinales = [];
+
+        if (switchCobroDespacho && switchCobroDespacho.checked) {
+            esCobroDespacho = true;
+            contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho').forEach(fila => {
+                const idCuenta = fila.querySelector('.select-cuenta-despacho').value;
+                const idMetodo = fila.querySelector('.select-metodo-despacho').value;
+                const monto = parseFloat(fila.querySelector('.input-monto-despacho').value) || 0;
+                
+                if (idCuenta && idMetodo && monto > 0) {
+                    metodosPagoDespachoFinales.push({ id_cuenta: idCuenta, id_metodo: idMetodo, monto: monto });
+                }
             });
 
-            if (!detalle.length) throw new Error('Ingrese al menos una cantidad a devolver mayor a cero.');
+            if (metodosPagoDespachoFinales.length === 0) {
+                throw new Error("Debe completar Cuenta, Método y Monto para el cobro en despacho.");
+            }
 
-            const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
-            const enviarReemplazo = checkReemplazo ? checkReemplazo.checked : false;
+            let sumaPagos = 0;
+            metodosPagoDespachoFinales.forEach(p => sumaPagos += p.monto);
+            const diferencia = totalPendienteDespacho - sumaPagos;
 
-            const payload = await postJsonConCarga(`${urls.index}&accion=guardar_devolucion`, {
-                id_documento: Number(devolucionVentaDocumentoId?.value || 0),
-                motivo: motivoCfg.label,
-                motivo_codigo: motivoSeleccionado,
-                resolucion: resolucionSeleccionada,
-                enviar_reemplazo: enviarReemplazo, 
-                detalle,
-            }, btnConfirmarDevolucionVenta);
-
-            await Swal.fire('Éxito', payload.mensaje, 'success');
-            bootstrap.Modal.getInstance(modalDevolucionVentaEl)?.hide();
-            recargarTabla();
-        } catch (error) {
-            Swal.fire('Error', error.message, 'error');
+            if (diferencia > 0.01) {
+                const confirmacionPago = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Pago Incompleto',
+                    text: `Falta cobrar S/ ${diferencia.toFixed(2)}. ¿Deseas despachar y dejar ese saldo como deuda?`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, despachar con deuda',
+                    cancelButtonText: 'No, corregir pago',
+                    confirmButtonColor: '#ffc107',
+                    cancelButtonColor: '#6c757d'
+                });
+                if (!confirmacionPago.isConfirmed) return;
+            } else if (diferencia < -0.01) {
+                throw new Error(`El total ingresado (S/ ${sumaPagos.toFixed(2)}) supera la deuda pendiente (S/ ${totalPendienteDespacho.toFixed(2)}).`);
+            }
         }
-    });
 
-
-    // Event Listeners Estáticos para Cobros en Despacho
-    switchCobroDespacho?.addEventListener('change', (e) => {
-        if (e.target.checked) {
-            seccionCobroDespacho.classList.remove('d-none');
-            contenedorMetodosPagoDespacho.innerHTML = '';
-            agregarFilaPagoDespacho(totalPendienteDespacho > 0 ? totalPendienteDespacho.toFixed(2) : '');
-        } else {
-            seccionCobroDespacho.classList.add('d-none');
-            contenedorMetodosPagoDespacho.innerHTML = '';
-            calcularTotalCobroDespacho();
-        }
-    });
-
-    btnAgregarPagoDespacho?.addEventListener('click', () => {
-        let totalPagadoHastaAhora = 0;
-        contenedorMetodosPagoDespacho.querySelectorAll('.input-monto-despacho').forEach(inp => {
-            totalPagadoHastaAhora += parseFloat(inp.value) || 0;
+        const resumenPorItem = {}; 
+        filas.forEach(f => {
+            const id = f.dataset.idDetalle;
+            const cant = parseFloat(f.querySelector('.despacho-cantidad').value || 0);
+            resumenPorItem[id] = (resumenPorItem[id] || 0) + cant;
         });
 
-        let faltante = totalPendienteDespacho - totalPagadoHastaAhora;
-        if (faltante < 0) faltante = 0;
+        let esParcial = false;
+        filas.forEach(f => {
+            const id = f.dataset.idDetalle;
+            const pendiente = parseFloat(f.dataset.pendienteTotal);
+            const despachando = resumenPorItem[id] || 0;
+            if (despachando < pendiente - 0.01) esParcial = true;
+        });
 
-        agregarFilaPagoDespacho(faltante > 0 ? faltante.toFixed(2) : '');
-        contenedorMetodosPagoDespacho.querySelectorAll('.btn-quitar-pago-despacho').forEach(btn => btn.classList.remove('d-none'));
-    });
+        const envasesDevueltos = [];
+        let advertenciaEnvases = []; 
 
-    const formDespacho = document.getElementById('formDespacho');
-    formDespacho?.addEventListener('submit', async (e) => {
-        e.preventDefault();
+        if (contenedorRetornoEnvases && !seccionRetornoEnvases.classList.contains('d-none')) {
+            contenedorRetornoEnvases.querySelectorAll('.item-envase-retorno').forEach(div => {
+                const nombreEnvase = div.querySelector('.text-truncate').textContent;
+                const cantEntregada = Number(div.querySelector('.text-center .text-dark').textContent || 0);
+                const cantDevuelta = Number(div.querySelector('.input-retorno-vacio').value || 0);
 
-        try {
-            const btnGuardarDespacho = document.getElementById('btnGuardarDespacho');
-            const filas = [...tbodyDespacho.querySelectorAll('tr')];
-            
-            const detalle = filas.map(fila => {
-                const idAlmacen = fila.querySelector('.fila-almacen').value;
-                const cantidad = parseFloat(fila.querySelector('.despacho-cantidad').value || 0);
-                
-                return {
-                    id_documento_detalle: Number(fila.dataset.idDetalle),
-                    id_almacen: Number(idAlmacen),
-                    cantidad: cantidad
-                };
-            }).filter(d => d.cantidad > 0); 
-
-            if (detalle.length === 0) throw new Error('Ingrese cantidades a despachar.');
-            if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione almacén para todas las filas con cantidad.');
-            if (tbodyDespacho.querySelector('.is-invalid')) throw new Error('Corrija las cantidades marcadas en rojo (exceden stock o pendiente).');
-
-            const fechaDespachoVal = despachoFecha ? despachoFecha.value : '';
-            if (!fechaDespachoVal) throw new Error('Debe especificar la fecha de despacho.');
-
-            let esCobroDespacho = false;
-            const metodosPagoDespachoFinales = [];
-
-            if (switchCobroDespacho && switchCobroDespacho.checked) {
-                esCobroDespacho = true;
-                contenedorMetodosPagoDespacho.querySelectorAll('.fila-pago-despacho').forEach(fila => {
-                    const idCuenta = fila.querySelector('.select-cuenta-despacho').value;
-                    const idMetodo = fila.querySelector('.select-metodo-despacho').value;
-                    const monto = parseFloat(fila.querySelector('.input-monto-despacho').value) || 0;
-                    
-                    if (idCuenta && idMetodo && monto > 0) {
-                        metodosPagoDespachoFinales.push({ id_cuenta: idCuenta, id_metodo: idMetodo, monto: monto });
-                    }
-                });
-
-                if (metodosPagoDespachoFinales.length === 0) {
-                    throw new Error("Debe completar Cuenta, Método y Monto para el cobro en despacho.");
-                }
-
-                let sumaPagos = 0;
-                metodosPagoDespachoFinales.forEach(p => sumaPagos += p.monto);
-                const diferencia = totalPendienteDespacho - sumaPagos;
-
-                if (diferencia > 0.01) {
-                    const confirmacionPago = await Swal.fire({
-                        icon: 'warning',
-                        title: 'Pago Incompleto',
-                        text: `Falta cobrar S/ ${diferencia.toFixed(2)}. ¿Deseas despachar y dejar ese saldo como deuda?`,
-                        showCancelButton: true,
-                        confirmButtonText: 'Sí, despachar con deuda',
-                        cancelButtonText: 'No, corregir pago',
-                        confirmButtonColor: '#ffc107',
-                        cancelButtonColor: '#6c757d'
+                if (cantDevuelta > 0) {
+                    envasesDevueltos.push({
+                        id_envase: Number(div.dataset.idEnvase),
+                        cantidad: cantDevuelta
                     });
-                    if (!confirmacionPago.isConfirmed) return;
-                } else if (diferencia < -0.01) {
-                    throw new Error(`El total ingresado (S/ ${sumaPagos.toFixed(2)}) supera la deuda pendiente (S/ ${totalPendienteDespacho.toFixed(2)}).`);
                 }
-            }
 
-            const resumenPorItem = {}; 
-            filas.forEach(f => {
-                const id = f.dataset.idDetalle;
-                const cant = parseFloat(f.querySelector('.despacho-cantidad').value || 0);
-                resumenPorItem[id] = (resumenPorItem[id] || 0) + cant;
-            });
-
-            let esParcial = false;
-            filas.forEach(f => {
-                const id = f.dataset.idDetalle;
-                const pendiente = parseFloat(f.dataset.pendienteTotal);
-                const despachando = resumenPorItem[id] || 0;
-                if (despachando < pendiente - 0.01) esParcial = true;
-            });
-
-            const envasesDevueltos = [];
-            let advertenciaEnvases = []; 
-
-            if (contenedorRetornoEnvases && !seccionRetornoEnvases.classList.contains('d-none')) {
-                contenedorRetornoEnvases.querySelectorAll('.item-envase-retorno').forEach(div => {
-                    const nombreEnvase = div.querySelector('.text-truncate').textContent;
-                    const cantEntregada = Number(div.querySelector('.text-center .text-dark').textContent || 0);
-                    const cantDevuelta = Number(div.querySelector('.input-retorno-vacio').value || 0);
-
-                    if (cantDevuelta > 0) {
-                        envasesDevueltos.push({
-                            id_envase: Number(div.dataset.idEnvase),
-                            cantidad: cantDevuelta
-                        });
-                    }
-
-                    if (cantEntregada !== cantDevuelta) {
-                        let diferencia = cantEntregada - cantDevuelta;
-                        let tipoDiferencia = diferencia > 0 ? 'faltan' : 'sobran';
-                        advertenciaEnvases.push(`<b>${nombreEnvase}:</b> Se entregan ${cantEntregada}, pero retorna ${cantDevuelta} (<i>${tipoDiferencia} ${Math.abs(diferencia)}</i>)`);
-                    }
-                });
-            }
-
-            if (advertenciaEnvases.length > 0) {
-                const confirmacionEnvases = await Swal.fire({
-                    icon: 'warning',
-                    title: 'Discrepancia en Envases',
-                    html: `Las cantidades entregadas no coinciden con los retornos vacíos:<br><br>
-                        <div class="text-start bg-light p-3 rounded border text-muted" style="font-size: 0.9rem;">
-                            ${advertenciaEnvases.join('<br>')}
-                        </div><br>
-                        ¿Estás seguro de continuar? Se registrará este saldo a favor o en contra del cliente.`,
-                    showCancelButton: true,
-                    confirmButtonColor: '#ffc107',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: '<i class="bi bi-check2-circle me-1"></i> Sí, continuar',
-                    cancelButtonText: '<i class="bi bi-pencil me-1"></i> No, corregir'
-                });
-
-                if (!confirmacionEnvases.isConfirmed) {
-                    return; 
+                if (cantEntregada !== cantDevuelta) {
+                    let diferencia = cantEntregada - cantDevuelta;
+                    let tipoDiferencia = diferencia > 0 ? 'faltan' : 'sobran';
+                    advertenciaEnvases.push(`<b>${nombreEnvase}:</b> Se entregan ${cantEntregada}, pero retorna ${cantDevuelta} (<i>${tipoDiferencia} ${Math.abs(diferencia)}</i>)`);
                 }
-            }
-
-            if (esParcial && cerrarForzado && cerrarForzado.checked) {
-                const resp = await Swal.fire({
-                    icon: 'warning',
-                    title: 'Cerrar pedido de forma forzada',
-                    text: 'Se despachará de forma parcial y el saldo restante quedará cancelado para este pedido. ¿Desea continuar?',
-                    showCancelButton: true,
-                    confirmButtonText: 'Sí, cerrar pedido'
-                });
-                if (!resp.isConfirmed) return;
-            }
-
-            if (esParcial && (!cerrarForzado || !cerrarForzado.checked)) {
-                const resp = await Swal.fire({
-                    icon: 'warning', title: 'Despacho Parcial', 
-                    text: 'No se está cubriendo todo el pendiente. ¿Continuar sin cerrar pedido?', 
-                    showCancelButton: true, confirmButtonText: 'Sí, despachar parcial'
-                });
-                if (!resp.isConfirmed) return;
-            }
-
-            const payload = await postJsonConCarga(urls.despachar, {
-                id_documento: Number(despachoDocumentoId.value || 0),
-                observaciones: despachoObservaciones.value,
-                fecha_despacho: fechaDespachoVal, 
-                cerrar_forzado: cerrarForzado ? cerrarForzado.checked : false,
-                detalle: detalle,
-                envases_devueltos: envasesDevueltos,
-                cobro_inmediato: esCobroDespacho,
-                metodos_pago: metodosPagoDespachoFinales
-            }, btnGuardarDespacho);
-
-            await Swal.fire('Despachado', payload.mensaje, 'success');
-            bootstrap.Modal.getInstance(modalDespachoEl)?.hide();
-            recargarTabla();
-        } catch (error) {
-            Swal.fire('Error', error.message, 'error');
+            });
         }
-    });
-}
+
+        if (advertenciaEnvases.length > 0) {
+            const confirmacionEnvases = await Swal.fire({
+                icon: 'warning',
+                title: 'Discrepancia en Envases',
+                html: `Las cantidades entregadas no coinciden con los retornos vacíos:<br><br>
+                    <div class="text-start bg-light p-3 rounded border text-muted" style="font-size: 0.9rem;">
+                        ${advertenciaEnvases.join('<br>')}
+                    </div><br>
+                    ¿Estás seguro de continuar? Se registrará este saldo a favor o en contra del cliente.`,
+                showCancelButton: true,
+                confirmButtonColor: '#ffc107',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="bi bi-check2-circle me-1"></i> Sí, continuar',
+                cancelButtonText: '<i class="bi bi-pencil me-1"></i> No, corregir'
+            });
+
+            if (!confirmacionEnvases.isConfirmed) {
+                return; 
+            }
+        }
+
+        if (esParcial && cerrarForzado && cerrarForzado.checked) {
+            const resp = await Swal.fire({
+                icon: 'warning',
+                title: 'Cerrar pedido de forma forzada',
+                text: 'Se despachará de forma parcial y el saldo restante quedará cancelado para este pedido. ¿Desea continuar?',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, cerrar pedido'
+            });
+            if (!resp.isConfirmed) return;
+        }
+
+        if (esParcial && (!cerrarForzado || !cerrarForzado.checked)) {
+            const resp = await Swal.fire({
+                icon: 'warning', title: 'Despacho Parcial', 
+                text: 'No se está cubriendo todo el pendiente. ¿Continuar sin cerrar pedido?', 
+                showCancelButton: true, confirmButtonText: 'Sí, despachar parcial'
+            });
+            if (!resp.isConfirmed) return;
+        }
+
+        const payload = await postJson(urls.despachar, {
+            id_documento: Number(despachoDocumentoId.value || 0),
+            observaciones: despachoObservaciones.value,
+            fecha_despacho: fechaDespachoVal, 
+            cerrar_forzado: cerrarForzado ? cerrarForzado.checked : false,
+            detalle: detalle,
+            envases_devueltos: envasesDevueltos,
+            cobro_inmediato: esCobroDespacho,
+            metodos_pago: metodosPagoDespachoFinales
+        });
+
+        await Swal.fire('Despachado', payload.mensaje, 'success');
+        bootstrap.Modal.getInstance(modalDespachoEl)?.hide();
+        recargarTabla();
+    } catch (error) {
+        Swal.fire('Error', error.message, 'error');
+    }
+});

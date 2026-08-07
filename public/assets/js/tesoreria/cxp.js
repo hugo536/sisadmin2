@@ -102,13 +102,6 @@
     window.filtrarMetodosPorCuentaCxp = function(selectCuenta, selectMetodo) {
         if (!selectCuenta || !selectMetodo) return;
 
-        // 👇 NUEVO: Si seleccionan Saldo a Favor, forzamos el método a "Cruce"
-        if (selectCuenta.value === 'SALDO_FAVOR') {
-            selectMetodo.innerHTML = '<option value="CRUCE" class="text-success fw-bold" selected>⭐ Cruce Automático de Documentos</option>';
-            selectMetodo.disabled = false;
-            return;
-        }
-
         const optSeleccionada = selectCuenta.options[selectCuenta.selectedIndex];
         
         if (!optSeleccionada || !optSeleccionada.value) {
@@ -173,7 +166,6 @@
         const hintDeudaManual = document.getElementById('pagoManualDeudaHint');
         const selectMonedaManual = document.getElementById('pagoManualMoneda');
         const inputMontoManual = document.getElementById('pagoManualMontoInput');
-        const selectCuentaManual = document.getElementById('selectCuentaOrigenManual'); // <--- NUEVO
 
         if (!selectProveedor || !hintDeudaManual) return;
         const idTercero = selectProveedor.value;
@@ -204,29 +196,8 @@
                         inputMontoManual.value = deuda.toFixed(2);
                     }
                 } else {
-                    // Si la deuda es 0 o negativa (saldo a favor), solo mostramos "Al día"
-                    hintDeudaManual.innerHTML = `<span class="text-info fw-bold"><i class="bi bi-check-circle-fill me-1"></i>Al día (${moneda} 0.00)</span>`;
+                    hintDeudaManual.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i>Al día (${moneda} 0.00)</span>`;
                 }
-
-                // 👇 NUEVO: Inyectar dinámicamente la opción de Saldo a Favor en el select de Cuentas del Pago Manual 👇
-                if (selectCuentaManual) {
-                    // Limpiar opción anterior si existe
-                    Array.from(selectCuentaManual.options).forEach(o => { if(o.value === 'SALDO_FAVOR') o.remove(); });
-                    
-                    // Si la deuda es negativa, significa que hay saldo a favor (ej: deuda = -100, entonces saldo a favor = 100)
-                    if (deuda < 0) {
-                        const saldoFav = Math.abs(deuda);
-                        const opt = document.createElement('option');
-                        opt.value = 'SALDO_FAVOR';
-                        opt.className = 'text-success fw-bold bg-success-subtle';
-                        opt.setAttribute('data-saldo', saldoFav);
-                        opt.setAttribute('data-moneda', moneda);
-                        opt.innerHTML = `⭐ USAR SALDO A FAVOR (Disp: ${moneda} ${saldoFav.toFixed(2)})`;
-                        selectCuentaManual.insertBefore(opt, selectCuentaManual.options[1]);
-                    }
-                }
-                // 👆 FIN NUEVO 👆
-
             } else {
                 throw new Error(data.mensaje || 'Error desconocido');
             }
@@ -451,67 +422,11 @@
         window.cxpEventosGlobalesAtachados = true;
 
         document.addEventListener('input', (e) => {
-            
-            // 1. SEGURO PARA EL MODAL DE PAGO INDIVIDUAL
             if (e.target.matches('.js-pago-monto-distribucion')) {
-                const fila = e.target.closest('.js-pago-distribucion-row');
-                if (fila) {
-                    const selectCuenta = fila.querySelector('.js-pago-cuenta');
-                    if (selectCuenta && selectCuenta.value) {
-                        const opt = selectCuenta.options[selectCuenta.selectedIndex];
-                        const saldoDisponible = parseFloat(opt.getAttribute('data-saldo')) || 0;
-                        const montoDigitado = parseFloat(e.target.value) || 0;
-
-                        // Si intenta usar más del saldo a favor o de banco
-                        if (montoDigitado > saldoDisponible && saldoDisponible > 0) {
-                            e.target.value = saldoDisponible.toFixed(2); // Auto-corrige el valor
-                            
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({ 
-                                    icon: 'warning', 
-                                    title: 'Límite alcanzado', 
-                                    text: `Solo dispones de ${saldoDisponible.toFixed(2)}`,
-                                    toast: true, 
-                                    position: 'top-end', 
-                                    timer: 2500, 
-                                    showConfirmButton: false 
-                                });
-                            }
-                        }
-                    }
-                }
                 window.recalcularModalPago();
-            } 
-            else if (e.target.id === 'pagoTipoCambio') {
+            } else if (e.target.id === 'pagoTipoCambio') {
                 window.recalcularConversionBimonetaria();
-            } 
-            // 2. SEGURO PARA EL MODAL DE PAGO MANUAL
-            else if (e.target.id === 'pagoManualMontoInput' || e.target.id === 'pagoManualTipoCambio') {
-                
-                if (e.target.id === 'pagoManualMontoInput') {
-                    const selectCuentaManual = document.getElementById('selectCuentaOrigenManual');
-                    if (selectCuentaManual && selectCuentaManual.value) {
-                        const optManual = selectCuentaManual.options[selectCuentaManual.selectedIndex];
-                        const saldoDispManual = parseFloat(optManual.getAttribute('data-saldo')) || 0;
-                        const montoDigManual = parseFloat(e.target.value) || 0;
-
-                        if (montoDigManual > saldoDispManual && saldoDispManual > 0) {
-                            e.target.value = saldoDispManual.toFixed(2); // Auto-corrige el valor
-                            
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({ 
-                                    icon: 'warning', 
-                                    title: 'Límite alcanzado', 
-                                    text: `Solo dispones de ${saldoDispManual.toFixed(2)}`,
-                                    toast: true, 
-                                    position: 'top-end', 
-                                    timer: 2500, 
-                                    showConfirmButton: false 
-                                });
-                            }
-                        }
-                    }
-                }
+            } else if (e.target.id === 'pagoManualMontoInput' || e.target.id === 'pagoManualTipoCambio') {
                 window.recalcularConversionManual();
             }
         });
@@ -521,50 +436,14 @@
                 actualizarDeudaManual();
                 window.recalcularConversionManual();
             }
-            
-            // 1. SELECT DEL MODAL AMARILLO (Con seguro contra duplicados)
             if (e.target.matches('.js-pago-cuenta')) {
                 const fila = e.target.closest('.js-pago-distribucion-row');
-                
-                const selectedValue = e.target.value;
-                if (selectedValue) {
-                    const allSelects = document.querySelectorAll('#pagoDistribucionRows .js-pago-cuenta');
-                    let coincidencias = 0;
-                    allSelects.forEach(sel => {
-                        if (sel.value === selectedValue) coincidencias++;
-                    });
-
-                    if (coincidencias > 1) {
-                        e.target.value = ''; 
-                        if (typeof Swal !== 'undefined') {
-                            Swal.fire({ 
-                                icon: 'warning', 
-                                title: 'Cuenta duplicada', 
-                                text: 'No puedes usar la misma cuenta más de una vez en este pago. Por favor, suma el monto en la fila anterior.',
-                                confirmButtonColor: '#ffc107'
-                            });
-                        }
-                        if (fila) {
-                            const selectMetodo = fila.querySelector('.js-pago-metodo');
-                            const inputMonto = fila.querySelector('.js-pago-monto-distribucion');
-                            if (selectMetodo) {
-                                selectMetodo.innerHTML = '<option value="" selected disabled>Método...</option>';
-                                selectMetodo.disabled = true;
-                            }
-                            if (inputMonto) inputMonto.value = '';
-                        }
-                        window.recalcularModalPago();
-                        return; 
-                    }
-                }
-
                 if (fila) {
                     const selectMetodo = fila.querySelector('.js-pago-metodo');
                     window.filtrarMetodosPorCuentaCxp(e.target, selectMetodo);
                 }
                 window.recalcularConversionBimonetaria();
             }
-            // 2. SELECT DEL PAGO MANUAL
             else if (e.target.id === 'selectCuentaOrigenManual') {
                 const selectMetodoManual = document.getElementById('pagoManualMetodoOrigen');
                 window.filtrarMetodosPorCuentaCxp(e.target, selectMetodoManual);
@@ -585,6 +464,7 @@
                 
                 const maximo = saldoCuenta > 0 ? saldoCuenta : 0;
                 if (inputMontoManual) {
+                    // Solo limitamos si las monedas son iguales, para evitar conflicto con tipo de cambio
                     const monedaDeuda = document.getElementById('pagoManualMoneda').value;
                     const monedaCuenta = opt.getAttribute('data-moneda');
                     
@@ -601,11 +481,6 @@
                     }
                 }
                 window.recalcularConversionManual();
-            }
-            // 3. SELECT DEL MODAL REEMBOLSO (Verde)
-            else if (e.target.id === 'reembolsoCuentaDestino') {
-                const selectMetodoReembolso = document.getElementById('reembolsoMetodoIngreso');
-                window.filtrarMetodosPorCuentaCxp(e.target, selectMetodoReembolso);
             }
         });
 
@@ -624,101 +499,41 @@
         });
 
         document.addEventListener('click', (e) => {
-        if (e.target.closest('#btnAddPagoDistribucion')) {
-            window.agregarFilaDistribucionCxp();
-        } 
-        else if (e.target.closest('.js-remove-pago-row')) {
-            const fila = e.target.closest('.js-pago-distribucion-row');
-            if (document.querySelectorAll('.js-pago-distribucion-row').length > 1 && fila) {
-                fila.remove();
-                window.recalcularModalPago();
+            if (e.target.closest('#btnAddPagoDistribucion')) {
+                window.agregarFilaDistribucionCxp();
+            } 
+            else if (e.target.closest('.js-remove-pago-row')) {
+                const fila = e.target.closest('.js-pago-distribucion-row');
+                if (document.querySelectorAll('.js-pago-distribucion-row').length > 1 && fila) {
+                    fila.remove();
+                    window.recalcularModalPago();
+                }
             }
-        }
-        else if (e.target.closest('.js-open-pago')) {
-            const btn = e.target.closest('.js-open-pago');
-            const idTercero = btn.closest('tr').dataset.search.split(' ')[0]; 
-            
-            document.getElementById('pagoIdOrigen').value = btn.dataset.idOrigen;
-            document.getElementById('pagoMoneda').value = btn.dataset.moneda;
-            document.getElementById('pagoSaldo').value = parseFloat(btn.dataset.saldo).toFixed(2);
+            else if (e.target.closest('.js-open-pago')) {
+                const btn = e.target.closest('.js-open-pago');
+                document.getElementById('pagoIdOrigen').value = btn.dataset.idOrigen;
+                document.getElementById('pagoMoneda').value = btn.dataset.moneda;
+                document.getElementById('pagoSaldo').value = parseFloat(btn.dataset.saldo).toFixed(2);
 
-            const monedaDoc = btn.dataset.moneda.toUpperCase();
-            const simbolo = (monedaDoc === 'USD') ? '$' : 'S/';
-            document.querySelectorAll('.js-lbl-moneda-doc-addon').forEach(el => el.textContent = simbolo);
-            
-            // 👇 NUEVO: Calcular saldo a favor visual y agregarlo al Select 👇
-            const provName = btn.closest('tr').querySelector('td').innerText.trim().split('\n')[0];
-            let saldoFav = 0;
-            
-            // Buscamos todas las Notas de Crédito de este proveedor en la tabla
-            document.querySelectorAll('#cxpTableBody tr').forEach(row => {
-                const rowProv = row.querySelector('td').innerText.trim().split('\n')[0];
-                if(rowProv === provName) {
-                    const tdSaldo = row.querySelector('td:nth-child(6)');
-                    if(tdSaldo && tdSaldo.textContent.includes('+')) {
-                        saldoFav += parseFloat(tdSaldo.textContent.replace(/[^\d.-]/g, ''));
+                const monedaDoc = btn.dataset.moneda.toUpperCase();
+                const simbolo = (monedaDoc === 'USD') ? '$' : 'S/';
+                document.querySelectorAll('.js-lbl-moneda-doc-addon').forEach(el => el.textContent = simbolo);
+                
+                const filas = document.querySelectorAll('.js-pago-distribucion-row');
+                filas.forEach((r, i) => {
+                    if (i === 0) {
+                        r.querySelectorAll('input, select').forEach(inpt => inpt.value = '');
+                        r.querySelector('.js-pago-monto-distribucion').value = '';
+                    } else {
+                        r.remove();
                     }
-                }
-            });
+                });
 
-            const inyectarSaldoFavor = (selectElement) => {
-                // Limpiar opción anterior si existe
-                Array.from(selectElement.options).forEach(o => { if(o.value === 'SALDO_FAVOR') o.remove(); });
-                // Crear la cuenta virtual si hay saldo
-                if(saldoFav > 0) {
-                    const opt = document.createElement('option');
-                    opt.value = 'SALDO_FAVOR';
-                    opt.className = 'text-success fw-bold bg-success-subtle';
-                    opt.setAttribute('data-saldo', saldoFav);
-                    opt.setAttribute('data-moneda', monedaDoc);
-                    opt.innerHTML = `⭐ USAR SALDO A FAVOR (Disp: ${monedaDoc} ${saldoFav.toFixed(2)})`;
-                    selectElement.insertBefore(opt, selectElement.options[1]); // Lo pone de segundo, debajo de "Cuenta origen..."
-                }
-            };
-            
-            document.querySelectorAll('.js-pago-cuenta').forEach(inyectarSaldoFavor);
-            // 👆 FIN NUEVO 👆
-
-            // 👇 NUEVO: Consulta rápida para ver si hay saldos a favor globales
-            const alertContainer = document.getElementById('alertaSaldoAFavorIndividual');
-            if (alertContainer) alertContainer.innerHTML = '';
-            
-            // Extraer el ID del proveedor desde el botón de historial que está al lado
-            const btnHistorial = btn.parentElement.querySelector('[href*="id_tercero="]');
-            if (btnHistorial) {
-                const idProvUrl = new URL(btnHistorial.href).searchParams.get('id_tercero');
-                fetch(`${window.location.origin}${window.location.pathname}?ruta=tesoreria/ajax_obtener_deuda_tercero&tipo=CXP&id_tercero=${idProvUrl}&moneda=${monedaDoc}`)
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.ok && parseFloat(data.deuda) < parseFloat(btn.dataset.saldo)) {
-                        }
-                    });
+                window.recalcularModalPago();
+                const natSelect = document.getElementById('pagoNaturaleza');
+                if (natSelect) natSelect.dispatchEvent(new Event('change'));
             }
-            // 👆 FIN NUEVO
-
-            const filas = document.querySelectorAll('.js-pago-distribucion-row');
-            filas.forEach((r, i) => {
-                if (i === 0) {
-                    r.querySelectorAll('input, select').forEach(inpt => inpt.value = '');
-                    r.querySelector('.js-pago-monto-distribucion').value = '';
-                } else {
-                    r.remove();
-                }
-            });
-
-            window.recalcularModalPago();
-            const natSelect = document.getElementById('pagoNaturaleza');
-            if (natSelect) natSelect.dispatchEvent(new Event('change'));
-        } 
-        // 👇 NUEVO BLOQUE DE REEMBOLSO AGREGADO AQUÍ 👇
-        else if (e.target.closest('.js-open-reembolso')) {
-            const btn = e.target.closest('.js-open-reembolso');
-            document.getElementById('reembolsoIdOrigen').value = btn.dataset.idOrigen;
-            document.getElementById('reembolsoMoneda').value = btn.dataset.moneda;
-            document.getElementById('reembolsoMonto').value = parseFloat(btn.dataset.saldo).toFixed(2);
-            document.getElementById('reembolsoMonto').setAttribute('max', parseFloat(btn.dataset.saldo).toFixed(2));
-        }
-    });
+        });
     }
 
     const validarNaturaleza = () => {
@@ -848,26 +663,6 @@
             window.recalcularModalPago();
             [inputCapital, inputInteres].forEach(el => el?.classList.remove('is-invalid'));
             if (naturalezaSelect) naturalezaSelect.dispatchEvent(new Event('change'));
-        });
-    }
-
-    if (modalPago) {
-        // (Tu código actual del modalPago se mantiene intacto aquí arriba)
-    }
-
-    // ========================================================================
-    // LIMPIEZA DE MODAL REEMBOLSO AL CERRAR
-    // ========================================================================
-    const modalReembolso = document.getElementById('modalReembolso');
-    if (modalReembolso) {
-        modalReembolso.addEventListener('hidden.bs.modal', () => {
-            const formR = document.getElementById('formReembolso');
-            if (formR) formR.reset();
-            const selectMetodo = document.getElementById('reembolsoMetodoIngreso');
-            if (selectMetodo) {
-                selectMetodo.innerHTML = '<option value="" selected disabled>Seleccione un método...</option>';
-                selectMetodo.disabled = true;
-            }
         });
     }
 })();

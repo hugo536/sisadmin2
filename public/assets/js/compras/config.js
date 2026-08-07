@@ -13,7 +13,6 @@ export const urls = app ? {
     revertirBorrador: app.dataset.urlRevertirBorrador,
     anular: app.dataset.urlAnular,
     recepcionar: app.dataset.urlRecepcionar,
-    devolver: app.dataset.urlDevolver,
     unidadesItem: app.dataset.urlUnidadesItem,
     precioSugerido: app.dataset.urlPrecioSugerido,
 } : {};

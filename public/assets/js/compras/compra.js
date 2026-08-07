@@ -546,56 +546,29 @@ export async function abrirModalResumenCompra(id, target = null) {
     if (tbodyResumen) {
         tbodyResumen.innerHTML = '';
 
-        let totalNetoOrden = 0; 
-
         if (d.detalle && d.detalle.length > 0) {
             d.detalle.forEach(item => {
                 const factor = Number(item.factor_conversion_aplicado || 1);
-                const precio = Number(item.costo_unitario || 0);
-                
-                // 1. Lo pedido originalmente
                 const cantPedidaCompra = Number(item.cantidad || 0); 
                 const cantPedidaBase = cantPedidaCompra * factor;    
-
-                // 2. Lo que quedó NETO en almacén (Tu BD ya lo restó al hacer la devolución)
-                const cantNetaBase = Number(item.cantidad_recibida || 0); 
-                const cantNetaCompra = factor > 0 ? (cantNetaBase / factor) : cantNetaBase; 
-
-                // 3. Lo devuelto
-                const cantDevueltaBase = Number(item.cantidad_devuelta || 0);
-                const cantDevueltaCompra = factor > 0 ? (cantDevueltaBase / factor) : cantDevueltaBase;
-
-                // 4. Lo recibido HISTÓRICO (Sumamos lo neto + lo devuelto para que visualmente cuadre)
-                const cantRecibidaHistoricaBase = cantNetaBase + cantDevueltaBase;
-                const cantRecibidaHistoricaCompra = cantNetaCompra + cantDevueltaCompra;
-
-                // 5. El subtotal es estrictamente sobre lo neto que nos quedamos
-                const subtotal = cantNetaCompra * precio; 
-                totalNetoOrden += subtotal;
+                const cantRecibidaBase = Number(item.cantidad_recibida || 0); 
+                const cantRecibidaCompra = factor > 0 ? (cantRecibidaBase / factor) : cantRecibidaBase; 
 
                 const unidadCompra = item.unidad_nombre || 'UND';
                 const unidadBase = item.unidad_base || 'UND';
                 const requiereSubtitulo = factor > 1; 
 
-                // HTML Pedido
+                const precio = Number(item.costo_unitario || 0);
+                const subtotal = cantRecibidaCompra * precio; 
+
                 let htmlPedida = `<span class="d-block fw-bold text-dark">${cantPedidaCompra.toFixed(2)} ${unidadCompra}</span>`;
                 if (requiereSubtitulo) {
                     htmlPedida += `<small class="text-muted">(${cantPedidaBase.toFixed(2)} ${unidadBase})</small>`;
                 }
 
-                // HTML Recibido (Mostramos la cantidad histórica)
-                let htmlRecibida = `<span class="d-block fw-bold text-success">${cantRecibidaHistoricaCompra.toFixed(2)} ${unidadCompra}</span>`;
+                let htmlRecibida = `<span class="d-block fw-bold text-success">${cantRecibidaCompra.toFixed(2)} ${unidadCompra}</span>`;
                 if (requiereSubtitulo) {
-                    htmlRecibida += `<small class="text-muted">(${cantRecibidaHistoricaBase.toFixed(2)} ${unidadBase})</small>`;
-                }
-
-                // HTML Devuelto
-                let htmlDevuelto = `<span class="fw-bold text-danger">-</span>`;
-                if (cantDevueltaCompra > 0) {
-                    htmlDevuelto = `<span class="d-block fw-bold text-danger">${cantDevueltaCompra.toFixed(2)} ${unidadCompra}</span>`;
-                    if (requiereSubtitulo) {
-                        htmlDevuelto += `<small class="text-danger opacity-75">(${cantDevueltaBase.toFixed(2)} ${unidadBase})</small>`;
-                    }
+                    htmlRecibida += `<small class="text-muted">(${cantRecibidaBase.toFixed(2)} ${unidadBase})</small>`;
                 }
 
                 const trItem = document.createElement('tr');
@@ -603,18 +576,13 @@ export async function abrirModalResumenCompra(id, target = null) {
                     <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
                     <td class="text-center py-2 align-middle">${htmlPedida}</td>
                     <td class="text-center py-2 align-middle">${htmlRecibida}</td>
-                    <td class="text-center py-2 align-middle">${htmlDevuelto}</td>
-                    <td class="text-end py-2 text-muted align-middle text-nowrap">${sim} ${precio.toFixed(2)}</td>
-                    <td class="text-end pe-3 py-2 fw-bold text-dark align-middle text-nowrap">${sim} ${subtotal.toFixed(2)}</td>
+                    <td class="text-end py-2 text-muted align-middle">${sim} ${precio.toFixed(2)}</td>
+                    <td class="text-end pe-3 py-2 fw-bold text-dark align-middle">${sim} ${subtotal.toFixed(2)}</td>
                 `;
                 tbodyResumen.appendChild(trItem);
             });
-            
-            document.getElementById('resumenCompraTotalFinal').textContent = `${sim} ${totalNetoOrden.toFixed(2)}`;
-            
         } else {
-            tbodyResumen.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
-            document.getElementById('resumenCompraTotalFinal').textContent = `${sim} 0.00`;
+            tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
         }
     }
 
@@ -745,12 +713,8 @@ export async function initCompras() {
     const fechaEntrega = document.getElementById('fechaEntrega');
     if (fechaEntrega && !fechaEntrega.value) fechaEntrega.value = obtenerFechaLocalISO();
 
-    const formOrdenCompra = document.getElementById('formOrdenCompra');
-    formOrdenCompra?.addEventListener('submit', async (e) => {
-        e.preventDefault(); // Evita que la página se recargue
-
-        const btnGuardarOrden = document.getElementById('btnGuardarOrden'); // Lo obtenemos para el botón de carga
-
+    const btnGuardarOrden = document.getElementById('btnGuardarOrden');
+    btnGuardarOrden?.addEventListener('click', async () => {
         const idProv = document.getElementById('idProveedor');
         if (!idProv || !idProv.value) return Swal.fire('Falta Proveedor', 'Debe seleccionar un proveedor.', 'warning');
         

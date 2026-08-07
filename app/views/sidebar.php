@@ -337,9 +337,6 @@
                     <a class="sb-link sb-sub<?= $activo('tesoreria/movimientos') ?>" href="<?= e(route_url('tesoreria/movimientos')) ?>">
                         <span class="sb-link-icon"><i class="bi bi-arrow-left-right"></i></span><span class="sb-link-text">Movimientos</span>
                     </a>
-                    <a class="sb-link sb-sub<?= $activo('tesoreria/ingresos') ?>" href="<?= e(route_url('tesoreria/ingresos')) ?>">
-                        <span class="sb-link-icon"><i class="bi bi-plus-circle"></i></span><span class="sb-link-text">Otros Ingresos</span>
-                    </a>
                     <?php endif; ?>
                     <?php if (tiene_permiso('tesoreria.cxc.ver')): ?>
                     <a class="sb-link sb-sub<?= $activo('tesoreria/cxc') ?>" href="<?= e(route_url('tesoreria/cxc')) ?>">

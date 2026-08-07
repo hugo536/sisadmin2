@@ -14,8 +14,7 @@ class TesoreriaSaldosModel extends Modelo
         $tabla = $tipoNormalizado === 'CLIENTE' ? 'tesoreria_cxc' : 'tesoreria_cxp';
         $columnaTercero = $tipoNormalizado === 'CLIENTE' ? 'id_cliente' : 'id_proveedor';
 
-        // 👇 MEJORA: Se agregó la columna 'moneda', 'estado', 'fecha_emision' y 'fecha_vencimiento'
-        $sql = "SELECT id, monto_total, monto_pagado, saldo, moneda, estado, fecha_emision, fecha_vencimiento
+        $sql = "SELECT id, monto_total, monto_pagado, saldo
                 FROM {$tabla}
                 WHERE {$columnaTercero} = :id_tercero
                   AND origen = 'MIGRACION'
@@ -35,28 +34,30 @@ class TesoreriaSaldosModel extends Modelo
      */
     public function crearSaldoCxc(array $data, int $userId): int
     {
-        // 👇 MEJORA: Cambio de "MIGRACION" a 'MIGRACION' (Estándar SQL)
-        $sql = "INSERT INTO tesoreria_cxc
+        $db = Conexion::get();
+        
+        // Nota: Se envía NULL a id_documento_venta y se marca el origen como MIGRACION
+        $sql = 'INSERT INTO tesoreria_cxc
             (id_cliente, id_documento_venta, origen, documento_referencia, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, observaciones, created_by, updated_by, created_at, updated_at)
             VALUES
-            (:id_cliente, NULL, 'MIGRACION', :doc, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :observaciones, :created_by, :updated_by, NOW(), NOW())";
+            (:id_cliente, NULL, "MIGRACION", :doc, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :observaciones, :created_by, :updated_by, NOW(), NOW())';
             
-        $stmt = $this->db()->prepare($sql);
+        $stmt = $db->prepare($sql);
         $stmt->execute([
             'id_cliente'        => $data['id_tercero'],
             'doc'               => $data['documento_referencia'],
             'fecha_emision'     => $data['fecha_emision'],
             'fecha_vencimiento' => $data['fecha_vencimiento'],
-            'moneda'            => $data['moneda'] ?? 'PEN', // <-- Prevención contra nulos
+            'moneda'            => $data['moneda'],
             'monto_total'       => $data['monto_total'],
-            'saldo'             => $data['monto_total'], 
+            'saldo'             => $data['monto_total'], // Al nacer, el saldo es igual al monto total
             'estado'            => $data['estado'],
             'observaciones'     => $data['observaciones'],
             'created_by'        => $userId,
             'updated_by'        => $userId,
         ]);
 
-        return (int) $this->db()->lastInsertId();
+        return (int) $db->lastInsertId();
     }
 
     /**
@@ -64,28 +65,30 @@ class TesoreriaSaldosModel extends Modelo
      */
     public function crearSaldoCxp(array $data, int $userId): int
     {
-        // 👇 MEJORA: Cambio de "MIGRACION" a 'MIGRACION' (Estándar SQL)
-        $sql = "INSERT INTO tesoreria_cxp
+        $db = Conexion::get();
+        
+        // Nota: Se envía NULL a id_recepcion y se marca el origen como MIGRACION
+        $sql = 'INSERT INTO tesoreria_cxp
             (id_proveedor, id_recepcion, origen, documento_referencia, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, observaciones, created_by, updated_by, created_at, updated_at)
             VALUES
-            (:id_proveedor, NULL, 'MIGRACION', :doc, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :observaciones, :created_by, :updated_by, NOW(), NOW())";
+            (:id_proveedor, NULL, "MIGRACION", :doc, :fecha_emision, :fecha_vencimiento, :moneda, :monto_total, 0, :saldo, :estado, :observaciones, :created_by, :updated_by, NOW(), NOW())';
             
-        $stmt = $this->db()->prepare($sql);
+        $stmt = $db->prepare($sql);
         $stmt->execute([
             'id_proveedor'      => $data['id_tercero'],
             'doc'               => $data['documento_referencia'],
             'fecha_emision'     => $data['fecha_emision'],
             'fecha_vencimiento' => $data['fecha_vencimiento'],
-            'moneda'            => $data['moneda'] ?? 'PEN', // <-- Prevención contra nulos
+            'moneda'            => $data['moneda'],
             'monto_total'       => $data['monto_total'],
-            'saldo'             => $data['monto_total'], 
+            'saldo'             => $data['monto_total'], // Al nacer, el saldo es igual al monto total
             'estado'            => $data['estado'],
             'observaciones'     => $data['observaciones'],
             'created_by'        => $userId,
             'updated_by'        => $userId,
         ]);
 
-        return (int) $this->db()->lastInsertId();
+        return (int) $db->lastInsertId();
     }
 
     public function actualizarSaldoCxc(int $idCuenta, array $data, int $userId): void
@@ -108,7 +111,7 @@ class TesoreriaSaldosModel extends Modelo
             'doc' => $data['documento_referencia'],
             'fecha_emision' => $data['fecha_emision'],
             'fecha_vencimiento' => $data['fecha_vencimiento'],
-            'moneda' => $data['moneda'] ?? 'PEN',
+            'moneda' => $data['moneda'],
             'monto_total' => $data['monto_total'],
             'saldo' => $data['saldo'],
             'estado' => $data['estado'],
@@ -137,7 +140,7 @@ class TesoreriaSaldosModel extends Modelo
             'doc' => $data['documento_referencia'],
             'fecha_emision' => $data['fecha_emision'],
             'fecha_vencimiento' => $data['fecha_vencimiento'],
-            'moneda' => $data['moneda'] ?? 'PEN',
+            'moneda' => $data['moneda'],
             'monto_total' => $data['monto_total'],
             'saldo' => $data['saldo'],
             'estado' => $data['estado'],

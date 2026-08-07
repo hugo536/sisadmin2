@@ -2,8 +2,6 @@
 // MÓDULO CONFIG VENTAS: config.js (Estado Global y UI Compartida)
 // ==============================================================
 
-import { postJson } from '../api.js';
-
 export const app = document.getElementById('ventasApp');
 
 // Exportamos las URLs para que logística, ventas y pagos puedan acceder a ellas
@@ -15,7 +13,7 @@ export const urls = app ? {
     despachar: app.dataset.urlDespachar,
 } : {};
 
-// Auxiliar para parsear de forma segura el JSON enviado en data-attributes
+
 function parseDatasetJson(value, fallback = []) {
     if (!value) return fallback;
     try {
@@ -27,27 +25,8 @@ function parseDatasetJson(value, fallback = []) {
     }
 }
 
-// Exportamos las cuentas y métodos parseados desde el HTML de ventas
 export const cuentasDisponibles = parseDatasetJson(app?.dataset.cuentas, []);
 export const metodosDisponibles = parseDatasetJson(app?.dataset.metodos, []);
-
-export async function postJsonConCarga(url, data, btnElement = null) {
-    let originalText = '';
-    if (btnElement) {
-        originalText = btnElement.innerHTML;
-        btnElement.disabled = true;
-        btnElement.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
-    }
-
-    try {
-        return await postJson(url, data);
-    } finally {
-        if (btnElement) {
-            btnElement.disabled = false;
-            btnElement.innerHTML = originalText;
-        }
-    }
-}
 
 // Extraemos la lógica de recarga para que pueda ser llamada desde cualquier módulo
 export function recargarTabla() {
@@ -68,14 +47,14 @@ export function recargarTabla() {
     if (filtroFechaHasta && filtroFechaHasta.value) urlParams.set('fecha_hasta', filtroFechaHasta.value); else urlParams.delete('fecha_hasta');
     if (filtroOrdenFecha && filtroOrdenFecha.value) urlParams.set('orden_fecha', filtroOrdenFecha.value); else urlParams.delete('orden_fecha');
 
-    // Restaurado para funcionar como SPA de forma fluida (igual que Compras)
+    // SOLUCIÓN APLICADA: Comentamos la recarga silenciosa (SPA) para forzar la recarga nativa
+    // Esto asegura que los módulos ES6 se reinicien y los botones nunca pierdan sus eventos.
+    /*
     if (typeof window.navigateWithoutReload === 'function') {
-        window.navigateWithoutReload(nextUrl, true);
+        window.navigateWithoutReload(nextUrl, false);
         return;
     }
+    */
 
     window.location.href = nextUrl.toString();
 }
-
-// Alias para evitar errores si app.js o venta.js intentan importar "recargarPagina"
-export { recargarTabla as recargarPagina };

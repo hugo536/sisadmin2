@@ -6,6 +6,7 @@ class TesoreriaCxcModel extends Modelo
 {
     public function listar(array $filtros = []): array
     {
+        // MEJORA: Jalamos individualmente observaciones de pedido y despacho para usarlas dinámicamente
         $sql = 'SELECT c.*,
                        COALESCE(t.nombre_completo, "Cliente Eliminado/Desconocido") AS cliente,
                        TRIM(COALESCE(c.observaciones, "")) AS observacion_cxc,
@@ -64,6 +65,7 @@ class TesoreriaCxcModel extends Modelo
     {
         $db = $this->db();
 
+        // 1. Verificamos si ya existe una deuda ACTIVA (sin borrar)
         $stmtExiste = $db->prepare('SELECT id FROM tesoreria_cxc WHERE id_documento_venta = :id AND deleted_at IS NULL LIMIT 1');
         $stmtExiste->execute(['id' => $idDocumentoVenta]);
         $existe = (int) ($stmtExiste->fetchColumn() ?: 0);
@@ -71,10 +73,10 @@ class TesoreriaCxcModel extends Modelo
             return $existe;
         }
 
+        // 2. Traemos los datos actuales de la venta
         $stmtVenta = $db->prepare('SELECT v.id, v.id_cliente, v.fecha_emision, v.total, v.estado,
                                           COALESCE(tc.dias_credito, 0) AS dias_credito,
-                                          UPPER(COALESCE(tc.condicion_pago, "CREDITO")) AS condicion_pago,
-                                          v.moneda
+                                          UPPER(COALESCE(tc.condicion_pago, "CREDITO")) AS condicion_pago
                                    FROM ventas_documentos v
                                    LEFT JOIN terceros_clientes tc ON tc.id_tercero = v.id_cliente
                                    WHERE v.id = :id AND v.deleted_at IS NULL
@@ -99,7 +101,7 @@ class TesoreriaCxcModel extends Modelo
         }
 
         $total = round((float) ($venta['total'] ?? 0), 4);
-        $fechaEmision = substr((string) ($venta['fecha_emision'] ?? date('Y-m-d')), 0, 10);
+        $fechaEmision = (string) ($venta['fecha_emision'] ?? date('Y-m-d'));
         $diasCredito = (int) ($venta['dias_credito'] ?? 0);
         $condicionPago = strtoupper((string) ($venta['condicion_pago'] ?? 'CREDITO'));
         if ($diasCredito < 0) {
@@ -111,8 +113,8 @@ class TesoreriaCxcModel extends Modelo
             ? date('Y-m-d', strtotime($fechaEmision . ' +' . $diasCredito . ' days'))
             : $fechaEmision;
 
-        $moneda = in_array(strtoupper((string) ($venta['moneda'] ?? 'PEN')), ['PEN', 'USD'], true) ? strtoupper((string) $venta['moneda']) : 'PEN';
-
+        // 3. AQUÍ ESTÁ LA MAGIA: INSERT ... ON DUPLICATE KEY UPDATE
+        // Insertará el registro, pero si choca con uno oculto, lo revivirá y actualizará.
         $stmtInsert = $db->prepare('INSERT INTO tesoreria_cxc
             (id_cliente, id_documento_venta, fecha_emision, fecha_vencimiento, moneda, monto_total, monto_pagado, saldo, estado, created_by, updated_by, created_at, updated_at)
             VALUES
@@ -120,7 +122,6 @@ class TesoreriaCxcModel extends Modelo
             ON DUPLICATE KEY UPDATE
             deleted_at = NULL,
             monto_pagado = 0,
-            moneda = VALUES(moneda),
             monto_total = VALUES(monto_total),
             saldo = VALUES(saldo),
             estado = VALUES(estado),
@@ -133,7 +134,7 @@ class TesoreriaCxcModel extends Modelo
             'id_documento_venta' => $idDocumentoVenta,
             'fecha_emision' => $fechaEmision,
             'fecha_vencimiento' => $fechaVencimiento,
-            'moneda' => $moneda, 
+            'moneda' => 'PEN', 
             'monto_total' => $total,
             'saldo' => $total,
             'estado' => $total > 0 ? 'PENDIENTE' : 'PAGADA', 
@@ -141,6 +142,7 @@ class TesoreriaCxcModel extends Modelo
             'updated_by' => $userId,
         ]);
 
+        // 4. Recuperamos el ID de forma segura para retornarlo al controlador
         $stmtRecuperarId = $db->prepare("SELECT id FROM tesoreria_cxc WHERE id_documento_venta = :id LIMIT 1");
         $stmtRecuperarId->execute(['id' => $idDocumentoVenta]);
         return (int) $stmtRecuperarId->fetchColumn();
@@ -148,6 +150,7 @@ class TesoreriaCxcModel extends Modelo
 
     public function recalcularEstado(int $id, int $userId): void
     {
+        // CAMBIO: Se actualizó la lógica del CASE según las reglas solicitadas
         $stmt = $this->db()->prepare('UPDATE tesoreria_cxc
             SET saldo = GREATEST(ROUND(monto_total - monto_pagado, 4), 0),
                 estado = CASE
@@ -172,8 +175,6 @@ class TesoreriaCxcModel extends Modelo
               AND moneda = :moneda
               AND estado <> "ANULADA"
               AND saldo > 0
-              /* 👇 EXCLUIMOS NOTAS DE CRÉDITO PARA QUE EL BANCO NO LES ENVÍE EFECTIVO 👇 */
-              AND COALESCE(tipo_documento, "") NOT IN ("NOTA_CREDITO", "ANTICIPO")
               AND deleted_at IS NULL
             ORDER BY fecha_emision ASC, fecha_vencimiento ASC, id ASC');
         $stmt->execute([
@@ -196,51 +197,23 @@ class TesoreriaCxcModel extends Modelo
         return $row ?: null;
     }
 
-    // 👇 AÑADIDO: Parámetro $tipoCambio al final (por defecto 1.0)
-    public function registrarCobroDirecto(int $idCxc, int $idCuenta, int $idMetodo, float $monto, string $fecha, string $observaciones, int $userId, float $tipoCambio = 1.0): void
+    public function registrarCobroDirecto(int $idCxc, int $idCuenta, int $idMetodo, float $monto, string $fecha, string $observaciones, int $userId): void
     {
-        if ($idCxc <= 0 || $idCuenta <= 0 || $idMetodo <= 0 || $monto <= 0) {
-            throw new RuntimeException('Datos inválidos para registrar el cobro.');
-        }
-
         $db = $this->db();
+        require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMovimientoModel.php';
 
-        $stmtCxc = $db->prepare('SELECT id, id_cliente, moneda, saldo FROM tesoreria_cxc WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE');
+        $stmtCxc = $db->prepare('SELECT id, moneda
+                                 FROM tesoreria_cxc
+                                 WHERE id = :id
+                                   AND deleted_at IS NULL
+                                 LIMIT 1');
         $stmtCxc->execute(['id' => $idCxc]);
         $cxc = $stmtCxc->fetch(PDO::FETCH_ASSOC);
         if (!$cxc) {
             throw new RuntimeException('No se encontró la cuenta por cobrar para registrar el cobro.');
         }
 
-        if ((float)$cxc['saldo'] < $monto - 0.0001) {
-            throw new RuntimeException('El monto a cobrar supera el saldo pendiente de la deuda.');
-        }
-
-        // 👇 MAGIA BIMONETARIA 👇
-        $stmtCuenta = $db->prepare('SELECT moneda FROM tesoreria_cuentas WHERE id = :id LIMIT 1');
-        $stmtCuenta->execute(['id' => $idCuenta]);
-        $monedaCuenta = strtoupper(trim((string) $stmtCuenta->fetchColumn() ?: 'PEN'));
-        
-        $monedaOrden = strtoupper(trim($cxc['moneda']));
-        $montoParaMovimiento = $monto;
-        
-        // Si cobramos una orden en USD con una cuenta en PEN, aplicamos el TC a la entrada de caja
-        if ($monedaOrden === 'USD' && $monedaCuenta === 'PEN') {
-            $montoParaMovimiento = $monto * $tipoCambio;
-        } 
-        elseif ($monedaOrden === 'PEN' && $monedaCuenta === 'USD') {
-            $montoParaMovimiento = $tipoCambio > 0 ? ($monto / $tipoCambio) : $monto;
-        }
-
-        // 1. REGISTRAMOS LA ENTRADA DE DINERO (INGRESO) USANDO LA MONEDA Y MONTO DE LA CAJA
-        require_once BASE_PATH . '/app/models/tesoreria/TesoreriaMovimientoModel.php';
         $movimientoModel = new TesoreriaMovimientoModel();
-        
-        $observacionFinal = $observaciones;
-        if ($tipoCambio !== 1.0) {
-            $observacionFinal .= ' (T.C. aplicado: ' . $tipoCambio . ')';
-        }
-
         $movimientoModel->registrar([
             'tipo' => 'COBRO',
             'origen' => 'CXC',
@@ -248,50 +221,24 @@ class TesoreriaCxcModel extends Modelo
             'id_cuenta' => $idCuenta,
             'id_metodo_pago' => $idMetodo,
             'fecha' => $fecha,
-            'moneda' => $monedaCuenta,         // <-- Moneda real de la caja
-            'monto' => $montoParaMovimiento,   // <-- Monto convertido a la moneda de la caja
+            'moneda' => strtoupper((string) ($cxc['moneda'] ?? 'PEN')),
+            'monto' => $monto,
             'naturaleza_pago' => 'DOCUMENTO',
-            'monto_capital' => $montoParaMovimiento,
+            'monto_capital' => $monto,
             'monto_interes' => 0,
-            'observaciones' => $observacionFinal,
-            'id_tercero' => $cxc['id_cliente'] // Para que se vincule al cliente
+            'observaciones' => $observaciones,
         ], $userId);
-
-        $idMovimiento = (int) $db->lastInsertId();
-
-        // 2. REGISTRAMOS EL HISTORIAL DE COBRO CRUZADO
-        $stmtPago = $db->prepare('INSERT INTO tesoreria_cxc_cobros 
-            (id_cxc, id_movimiento, monto_aplicado, created_by, updated_by, created_at, updated_at) 
-            VALUES 
-            (:id_cxc, :id_movimiento, :monto_aplicado, :created_by, :updated_by, NOW(), NOW())');
-            
-        $stmtPago->execute([
-            'id_cxc'         => $idCxc,
-            'id_movimiento'  => $idMovimiento,
-            'monto_aplicado' => round($monto, 4), // <-- Monto puro de la factura original
-            'created_by'     => $userId, 
-            'updated_by'     => $userId  
-        ]);
-
-        // 3. DESCONTAMOS LA DEUDA EN CXC USANDO LA MONEDA ORIGINAL
-        $stmtUpd = $db->prepare('UPDATE tesoreria_cxc 
-            SET monto_pagado = monto_pagado + :monto, updated_by = :user, updated_at = NOW() 
-            WHERE id = :id_cxc');
-        $stmtUpd->execute([
-            'monto'  => round($monto, 4), // <-- Descuenta puro 
-            'user'   => $userId,
-            'id_cxc' => $idCxc
-        ]);
 
         $this->recalcularEstado($idCxc, $userId);
     }
 
     public function obtenerCuentasActivas(): array
     {
+        // Consulta corregida: Se retiró "metodos_pago" para evitar el error de SQL
         $stmt = $this->db()->query('SELECT id, nombre, moneda FROM tesoreria_cuentas WHERE estado = 1 AND deleted_at IS NULL');
         
         if (!$stmt) {
-            return []; 
+            return []; // Protección por si la consulta falla
         }
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -303,16 +250,23 @@ class TesoreriaCxcModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    /**
+     * Desvincula los movimientos (pagos) de una venta revertida y anula la cuenta por cobrar.
+     * Deja constancia en los movimientos para auditoría.
+     */
     public function convertirPagosASaldoFavor(int $idDocumentoVenta, int $userId): bool
     {
+        // 1. Obtenemos la cuenta por cobrar (CxC) vinculada a este pedido
         $cxc = $this->obtenerPorVenta($idDocumentoVenta);
         
         if (!$cxc) {
-            return false; 
+            return false; // No hay deuda que procesar
         }
 
         $idCxc = (int) $cxc['id'];
 
+        // 2. Actualizamos los movimientos de tesorería vinculados a esta CxC
+        // Añadimos una nota aclaratoria para no perder el rastro del dinero
         $sqlMovs = "UPDATE tesoreria_movimientos 
                     SET observaciones = CONCAT(COALESCE(observaciones, ''), ' [Convertido a Saldo a Favor por reversión de pedido]'),
                         updated_by = :user,
@@ -322,6 +276,8 @@ class TesoreriaCxcModel extends Modelo
         $stmtMovs = $this->db()->prepare($sqlMovs);
         $stmtMovs->execute(['user' => $userId, 'id_cxc' => $idCxc]);
 
+        // 3. Eliminamos la cuenta por cobrar (Soft Delete)
+        // Ya que el pedido vuelve a borrador, no debe existir una deuda activa
         $sqlCxc = "UPDATE tesoreria_cxc 
                    SET deleted_at = NOW() 
                    WHERE id = :id_cxc";
@@ -330,6 +286,9 @@ class TesoreriaCxcModel extends Modelo
         return $stmtCxc->execute(['id_cxc' => $idCxc]);
     }
 
+    /**
+     * Obtiene el detalle de todos los pagos realizados a un pedido (Monto y Método)
+     */
     public function obtenerDetallePagosVenta(int $idDocumentoVenta): array
     {
         $sql = "SELECT m.monto, tmp.nombre AS metodo
@@ -342,54 +301,5 @@ class TesoreriaCxcModel extends Modelo
         $stmt->execute(['id_venta' => $idDocumentoVenta]);
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    }
-
-    // 👇 NUEVO: FUNCIÓN PARA APLICAR SALDOS A FAVOR (NOTAS DE CRÉDITO) EN CADENA 👇
-    public function aplicarCruceDeCuentas(int $idCxcDestino, float $montoACruzar, int $userId): void
-    {
-        $db = $this->db();
-        
-        // 1. Obtener la deuda que queremos cobrar
-        $stmtDest = $db->prepare('SELECT id_cliente, moneda FROM tesoreria_cxc WHERE id = ? FOR UPDATE');
-        $stmtDest->execute([$idCxcDestino]);
-        $dest = $stmtDest->fetch(PDO::FETCH_ASSOC);
-
-        if (!$dest || $montoACruzar <= 0) return;
-
-        $restanteCruce = $montoACruzar;
-
-        // 2. Buscar Notas de Crédito (Saldos a favor) del cliente ordenadas por las más antiguas
-        $stmtNC = $db->prepare('SELECT id, saldo FROM tesoreria_cxc 
-                                WHERE id_cliente = ? AND moneda = ? 
-                                AND tipo_documento IN ("NOTA_CREDITO", "ANTICIPO") 
-                                AND estado <> "ANULADA" AND saldo > 0 
-                                ORDER BY id ASC FOR UPDATE');
-        $stmtNC->execute([$dest['id_cliente'], $dest['moneda']]);
-        $notas = $stmtNC->fetchAll(PDO::FETCH_ASSOC);
-
-        foreach ($notas as $nc) {
-            if ($restanteCruce <= 0) break;
-
-            $saldoNC = (float) $nc['saldo'];
-            $montoAplicar = min($saldoNC, $restanteCruce);
-
-            // Descontar a la Nota de Crédito (Se cobra sola)
-            $db->prepare('UPDATE tesoreria_cxc SET monto_pagado = monto_pagado + ?, saldo = saldo - ?, updated_at = NOW() WHERE id = ?')
-               ->execute([$montoAplicar, $montoAplicar, $nc['id']]);
-            $this->recalcularEstado((int)$nc['id'], $userId);
-
-            // Descontar a la Factura Original
-            $db->prepare('UPDATE tesoreria_cxc SET monto_pagado = monto_pagado + ?, saldo = saldo - ?, updated_at = NOW() WHERE id = ?')
-               ->execute([$montoAplicar, $montoAplicar, $idCxcDestino]);
-            
-            // Insertar registro puente
-            $db->prepare('INSERT INTO tesoreria_cxc_cobros (id_cxc, id_movimiento, monto_aplicado, created_by, updated_by, created_at, updated_at) 
-                          VALUES (?, NULL, ?, ?, ?, NOW(), NOW())')
-               ->execute([$idCxcDestino, $montoAplicar, $userId, $userId]);
-
-            $restanteCruce -= $montoAplicar;
-        }
-
-        $this->recalcularEstado($idCxcDestino, $userId);
     }
 }
