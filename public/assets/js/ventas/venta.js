@@ -13,6 +13,36 @@ const separadorAjax = (urls.index && urls.index.includes('?')) ? '&' : '?';
 let tomSelectCliente = null;
 let tomSelectListo = false;
 
+
+function construirUrlVentasAjax(accion, params = {}) {
+    const base = String(urls.index || '').replace('ventas/index', 'ventas');
+    const query = new URLSearchParams({ accion, ...params });
+    return `${base}${separadorAjax}${query.toString()}`;
+}
+
+function mapearClienteTomSelect(item) {
+    const nombre = String(item.nombre_completo || item.text || '').trim();
+    const documento = String(item.num_doc || item.numero_documento || '').trim();
+    return {
+        id: item.id,
+        text: documento ? `${nombre} (${documento})` : nombre,
+        nombre_completo: nombre,
+        num_doc: documento,
+        saldo_favor: Number(item.saldo_favor || 0)
+    };
+}
+
+function mapearItemTomSelect(prod) {
+    return {
+        id: prod.id,
+        text: `${prod.nombre || prod.text || ''}`,
+        stock: parseFloat(prod.stock_actual ?? prod.stock ?? 0),
+        precio: parseFloat(prod.precio_venta ?? prod.precio ?? 0),
+        permiteDecimales: Number(prod.permite_decimales || prod.permiteDecimales || 0),
+        pesoKg: Number(prod.peso_kg || prod.pesoKg || 0)
+    };
+}
+
 // ==========================================
 // 1. UTILIDADES Y LÓGICA DE FILAS
 // ==========================================
@@ -369,11 +399,14 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
         // 👇 LA LÍNEA MÁGICA QUE FALTABA 👇
         onDropdownOpen: function(dropdown) { dropdown.style.zIndex = '9999'; },
         load: function(query, callback) {
-            const termino = encodeURIComponent((query || '').trim());
-            
-            // 👇 LA SOLUCIÓN: Quitamos '/index' de la ruta para que PHP responda el JSON 👇
-            const urlBaseLimpia = urls.index.replace('ventas/index', 'ventas');
-            const urlFetch = `${urlBaseLimpia}${separadorAjax}accion=buscar_clientes&q=${termino}`;
+            const termino = (query || '').trim();
+            const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : document.getElementById('idCliente')?.value || 0);
+            const cantidadActual = Number(inputCantidad.value || 1) || 1;
+            const urlFetch = construirUrlVentasAjax('buscar_items', {
+                q: termino,
+                id_cliente: idClienteActual,
+                cantidad: cantidadActual
+            });
             
             fetch(urlFetch, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(response => {
@@ -381,11 +414,9 @@ async function agregarFilaVenta(item = null, esBorrador = true) {
                 return response.json(); // Si llega HTML de nuevo, fallará aquí
             })
             .then(json => {
-                const items = (json.data || []).map(item => ({
-                    id: item.id,
-                    text: `${item.nombre_completo} (${item.num_doc || 'S/D'})`,
-                    saldo_favor: Number(item.saldo_favor || 0)
-                }));
+                const items = (json.data || []).map(mapearItemTomSelect);
+                estadoBusquedaItems.tieneAcuerdo = Boolean(json.meta?.tiene_acuerdo);
+                estadoBusquedaItems.listaVacia = Boolean(json.meta?.lista_vacia);
                 callback(items);
             }).catch((err) => {
                 console.error("Error capturado en TomSelect:", err); // Añadido para que nunca más falle en silencio
@@ -536,22 +567,19 @@ async function agregarFilaRegalo(item = null, esBorrador = true) {
             dropdown.style.zIndex = '1060'; 
         },
         load: function(query, callback) {
-            const termino = encodeURIComponent((query || '').trim());
+            const termino = (query || '').trim();
             const idClienteActual = Number(tomSelectCliente ? tomSelectCliente.getValue() : document.getElementById('idCliente')?.value || 0);
             const cantidadActual = Number(inputCantidad.value || 1) || 1;
-            const urlFetch = `${urls.index}${separadorAjax}accion=buscar_items&q=${termino}&id_cliente=${idClienteActual}&cantidad=${encodeURIComponent(cantidadActual)}`;
+            const urlFetch = construirUrlVentasAjax('buscar_items', {
+                q: termino,
+                id_cliente: idClienteActual,
+                cantidad: cantidadActual
+            });
             
             fetch(urlFetch, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(r => r.json())
                 .then(json => {
-                    const dataFormatted = (json.data || []).map(prod => ({
-                        id: prod.id,
-                        text: `${prod.nombre || ''}`,
-                        stock: parseFloat(prod.stock_actual || 0),
-                        precio: parseFloat(prod.precio_venta || 0),
-                        permiteDecimales: Number(prod.permite_decimales || 0),
-                        pesoKg: Number(prod.peso_kg || 0)
-                    }));
+                    const dataFormatted = (json.data || []).map(mapearItemTomSelect);
                     callback(dataFormatted);
                 }).catch(() => callback());
         },
@@ -1049,7 +1077,11 @@ export async function initVentas() {
     // 👇 SOLUCIÓN DEFINITIVA: Datos conectados + Capa visual corregida 👇
     const idClienteEl = document.getElementById('idCliente');
     
-    if (idClienteEl && tomSelectListo && !tomSelectCliente) {
+    if (tomSelectCliente && tomSelectCliente.input !== idClienteEl && !document.body.contains(tomSelectCliente.input)) {
+        tomSelectCliente = null;
+    }
+
+    if (idClienteEl && tomSelectListo && !idClienteEl.tomselect) {
         tomSelectCliente = new TomSelect(idClienteEl, {
             valueField: 'id',
             labelField: 'text',
@@ -1057,6 +1089,9 @@ export async function initVentas() {
             loadThrottle: 300,
             placeholder: "Buscar cliente por nombre o documento...",
             preload: true,
+            maxOptions: 50,
+            create: false,
+            shouldLoad: () => true,
             
             // 🎨 SOLUCIÓN VISUAL: Forzamos a que se dibuje en el body y encima de todo
             dropdownParent: 'body',
@@ -1065,11 +1100,7 @@ export async function initVentas() {
             },
 
             load: function(query, callback) {
-                const termino = encodeURIComponent((query || '').trim());
-                
-                // 🔌 SOLUCIÓN COMUNICACIÓN: La ruta limpia que ya te funcionó
-                const urlBaseLimpia = urls.index.replace('ventas/index', 'ventas');
-                const url = `${urlBaseLimpia}${separadorAjax}accion=buscar_clientes&q=${termino}`;
+                const url = construirUrlVentasAjax('buscar_clientes', { q: (query || '').trim() });
                 
                 fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(response => {
@@ -1078,11 +1109,7 @@ export async function initVentas() {
                 })
                 .then(json => {
                     // Mapeo seguro de datos
-                    const items = (json.data || []).map(item => ({
-                        id: item.id,
-                        text: `${item.nombre_completo} (${item.num_doc || 'S/D'})`,
-                        saldo_favor: Number(item.saldo_favor || 0)
-                    }));
+                    const items = (json.data || []).map(mapearClienteTomSelect);
                     
                     // Console log para que confirmes con tus propios ojos que los datos llegan
                     console.log("✅ Clientes cargados en TomSelect:", items.length);
@@ -1099,10 +1126,18 @@ export async function initVentas() {
                 actualizarBloqueoFormularioPorCliente();
             },
             render: {
+                option: (data, escape) => `
+                    <div class="py-2 px-3">
+                        <div class="fw-bold text-dark">${escape(data.nombre_completo || data.text || '')}</div>
+                        <div class="small text-muted">${escape(data.num_doc || 'Sin documento')}</div>
+                    </div>`,
+                item: (data, escape) => `<div>${escape(data.text || data.nombre_completo || '')}</div>`,
                 no_results: () => '<div class="no-results p-2 text-muted">No se encontraron clientes</div>',
-                loading: () => '<div class="spinner-border spinner-border-sm text-primary m-2"></div> Buscando...'
+                loading: () => '<div class="px-2 py-1 text-primary"><span class="spinner-border spinner-border-sm me-2"></span>Buscando...</div>'
             }
         });
+    } else if (idClienteEl?.tomselect) {
+        tomSelectCliente = idClienteEl.tomselect;
     }
 
     // --- EVENTOS DEL MODAL Y BOTONES ---
