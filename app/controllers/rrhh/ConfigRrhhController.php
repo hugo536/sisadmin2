@@ -55,17 +55,22 @@ class ConfigRrhhController extends Controlador
             return;
         }
 
-        // Armar arreglo exacto con los nombres de los inputs de la vista
+        // Capturar los nuevos parámetros de tiempo efectivo
+        $metaDiaria = (float) ($_POST['meta_horas_diarias'] ?? 8.0);
+        $bloqueMinutos = (int) ($_POST['bloque_minutos'] ?? 30);
+        $minutosTolerancia = (int) ($_POST['minutos_tolerancia'] ?? 14);
+
+        // Validación estricta en el backend
+        if ($minutosTolerancia >= $bloqueMinutos) {
+            redirect('rrhh/config_rrhh?tipo=error&msg=' . urlencode('El umbral de corte (tolerancia) debe ser estrictamente menor al tamaño del bloque.'));
+            return;
+        }
+
+        // Armar arreglo con los nuevos campos de la BD
         $datos = [
-            'pagar_llegada_temprano' => isset($_POST['pagar_llegada_temprano']) ? 1 : 0,
-            'minutos_umbral_llegada_temprano' => (int) ($_POST['minutos_umbral_llegada_temprano'] ?? 15),
-            
-            'pagar_salida_tarde' => isset($_POST['pagar_salida_tarde']) ? 1 : 0,
-            'minutos_gracia_salida' => (int) ($_POST['minutos_gracia_salida'] ?? 5),
-            
-            'tipo_calculo_horas_extras' => $_POST['tipo_calculo_horas_extras'] ?? 'EXACTO',
-            'minutos_umbral_media_hora' => (int) ($_POST['minutos_umbral_media_hora'] ?? 15),
-            'minutos_umbral_hora_completa' => (int) ($_POST['minutos_umbral_hora_completa'] ?? 45)
+            'meta_horas_diarias' => $metaDiaria,
+            'bloque_minutos' => $bloqueMinutos,
+            'minutos_tolerancia' => $minutosTolerancia
         ];
 
         $exito = $this->model->guardarConfiguracion($datos);

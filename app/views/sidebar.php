@@ -218,20 +218,17 @@
             </a>
     
             <?php if ($puedeVerRRHH): ?>
-            <button class="sb-link sb-group-btn<?= $linkGrupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']) ?>"
+            <button class="sb-link sb-group-btn<?= $linkGrupoActivo(['asistencia', 'planillas', 'rrhh/config_rrhh']) ?>"
                 type="button" data-bs-toggle="collapse"
                 data-bs-target="#<?= htmlspecialchars($menuRRHHId) ?>"
-                aria-expanded="<?= $grupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']) ? 'true' : 'false' ?>"
+                aria-expanded="<?= $grupoActivo(['asistencia', 'planillas', 'rrhh/config_rrhh']) ? 'true' : 'false' ?>"
                 data-tooltip="RRHH">
                 <span class="sb-link-icon"><i class="bi bi-people-fill"></i></span>
                 <span class="sb-link-text">RRHH</span>
                 <i class="bi bi-chevron-down sb-chevron ms-auto"></i>
             </button>
-            <div class="collapse<?= $grupoActivo(['horario', 'asistencia', 'planillas', 'rrhh/config_rrhh']) ?>" id="<?= htmlspecialchars($menuRRHHId) ?>" data-menu-key="rrhh" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
+            <div class="collapse<?= $grupoActivo(['asistencia', 'planillas', 'rrhh/config_rrhh']) ?>" id="<?= htmlspecialchars($menuRRHHId) ?>" data-menu-key="rrhh" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
                 <div class="sb-submenu">
-                    <a class="sb-link sb-sub<?= $activo('horario') ?>" href="<?= e(route_url('horario')) ?>">
-                        <span class="sb-link-icon"><i class="bi bi-clock-history"></i></span><span class="sb-link-text">Asistencia y Horarios</span>
-                    </a>
                     <a class="sb-link sb-sub<?= $activo('asistencia/importar') ?>" href="<?= e(route_url('asistencia/importar')) ?>">
                         <span class="sb-link-icon"><i class="bi bi-file-earmark-arrow-up"></i></span><span class="sb-link-text">Importar Biométrico</span>
                     </a>

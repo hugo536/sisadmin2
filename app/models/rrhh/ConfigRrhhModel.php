@@ -22,40 +22,28 @@ class ConfigRrhhModel extends Modelo
     private function obtenerDefault(): array
     {
         return [
-            'pagar_llegada_temprano' => 0,
-            'minutos_umbral_llegada_temprano' => 15, // Agregado el nuevo umbral
-            'pagar_salida_tarde' => 0,
-            'minutos_gracia_salida' => 5, 
-            'tipo_calculo_horas_extras' => 'EXACTO',
-            'minutos_umbral_media_hora' => 15,
-            'minutos_umbral_hora_completa' => 45
+            'meta_horas_diarias' => 8, // Meta diaria antes de generar horas extras
+            'bloque_minutos'     => 30, // Bloques de redondeo (ej. cada 30 min)
+            'minutos_tolerancia' => 14  // Minutos de gracia antes de saltar al siguiente bloque
         ];
     }
 
     public function guardarConfiguracion(array $datos): bool
     {
-        // Se agregó el campo en el INSERT y en el ON DUPLICATE KEY UPDATE
         $sql = "INSERT INTO rrhh_configuracion 
-                (id, pagar_llegada_temprano, minutos_umbral_llegada_temprano, pagar_salida_tarde, minutos_gracia_salida, tipo_calculo_horas_extras, minutos_umbral_media_hora, minutos_umbral_hora_completa)
-                VALUES (1, :temprano, :umbral_temprano, :tarde, :gracia, :tipo_calculo, :umbral_media, :umbral_hora)
+                (id, meta_horas_diarias, bloque_minutos, minutos_tolerancia)
+                VALUES (1, :meta_diaria, :bloque, :tolerancia)
                 ON DUPLICATE KEY UPDATE
-                    pagar_llegada_temprano = VALUES(pagar_llegada_temprano),
-                    minutos_umbral_llegada_temprano = VALUES(minutos_umbral_llegada_temprano),
-                    pagar_salida_tarde = VALUES(pagar_salida_tarde),
-                    minutos_gracia_salida = VALUES(minutos_gracia_salida),
-                    tipo_calculo_horas_extras = VALUES(tipo_calculo_horas_extras),
-                    minutos_umbral_media_hora = VALUES(minutos_umbral_media_hora),
-                    minutos_umbral_hora_completa = VALUES(minutos_umbral_hora_completa)";
+                    meta_horas_diarias = VALUES(meta_horas_diarias),
+                    bloque_minutos = VALUES(bloque_minutos),
+                    minutos_tolerancia = VALUES(minutos_tolerancia)";
 
         $stmt = $this->db()->prepare($sql);
+        
         return $stmt->execute([
-            'temprano' => (int) ($datos['pagar_llegada_temprano'] ?? 0),
-            'umbral_temprano' => (int) ($datos['minutos_umbral_llegada_temprano'] ?? 15),
-            'tarde' => (int) ($datos['pagar_salida_tarde'] ?? 0),
-            'gracia' => (int) ($datos['minutos_gracia_salida'] ?? 5),
-            'tipo_calculo' => $datos['tipo_calculo_horas_extras'] ?? 'EXACTO',
-            'umbral_media' => (int) ($datos['minutos_umbral_media_hora'] ?? 15),
-            'umbral_hora' => (int) ($datos['minutos_umbral_hora_completa'] ?? 45)
+            'meta_diaria' => (float) ($datos['meta_horas_diarias'] ?? 8),
+            'bloque'      => (int) ($datos['bloque_minutos'] ?? 30),
+            'tolerancia'  => (int) ($datos['minutos_tolerancia'] ?? 14)
         ]);
     }
 }

@@ -267,10 +267,6 @@ if (!str_starts_with($temaElegido, 'theme-')) {
     <script src="<?php echo e(asset_url('js/rrhh/asistencia.js')); ?>?v=<?php echo $getAssetVersion('js/rrhh/asistencia.js'); ?>"></script>
 <?php endif; ?>
 
-<?php if (str_starts_with($currentRoute, 'horario')): ?>
-    <script src="<?php echo e(asset_url('js/rrhh/horario.js')); ?>?v=<?php echo $getAssetVersion('js/rrhh/horario.js'); ?>"></script>
-<?php endif; ?>
-
 <?php if (str_starts_with($currentRoute, 'activos')): ?>
     <script src="<?php echo e(asset_url('js/contabilidad/activos.js')); ?>?v=<?php echo $getAssetVersion('js/contabilidad/activos.js'); ?>"></script>
 <?php endif; ?>
