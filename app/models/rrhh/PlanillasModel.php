@@ -193,26 +193,20 @@ class PlanillasModel extends Modelo
 
             $estado = strtoupper((string)$ar['estado_asistencia']);
 
-            // --- VALIDACIÓN ESTRICTA DE TRAMOS ---
+            // --- VALIDACIÓN ESTRICTA DE TRAMOS (ACTUALIZADA PARA MEDIOS DÍAS) ---
             $ingresos = !empty($ar['marcas_ingresos']) ? explode('|', $ar['marcas_ingresos']) : (!empty($ar['hora_ingreso']) ? [$ar['hora_ingreso']] : []);
             $salidas = !empty($ar['marcas_salidas']) ? explode('|', $ar['marcas_salidas']) : (!empty($ar['hora_salida']) ? [$ar['hora_salida']] : []);
             
-            $turno = $asistenciaModel->obtenerTurnoEfectivoPorFecha($idT, $fecha);
-            $tramosEsperados = 0;
-            if ($turno) {
-                if (!empty($turno['t1_entrada'])) $tramosEsperados++;
-                if (!empty($turno['t2_entrada'])) $tramosEsperados++;
-                if (!empty($turno['t3_entrada'])) $tramosEsperados++;
-            }
-            if ($tramosEsperados === 0) $tramosEsperados = 1;
-
             $tramosReales = count($ingresos);
-            $diaCompleto = ($tramosReales === $tramosEsperados) && (count($ingresos) === count($salidas)) && ($tramosReales > 0);
+            $paresCompletos = (count($ingresos) === count($salidas));
+            
+            // El día es válido para pagar si marcó su entrada y su salida (medio día o día entero)
+            $diaValido = $paresCompletos && ($tramosReales > 0);
 
             $esJustificada = in_array($estado, ['FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO', 'TARDANZA JUSTIFICADA', 'OLVIDO MARCACION']);
 
-            // ¡Sobreescribimos el estado de la BD si descubrimos que le faltan tramos!
-            if (!$diaCompleto && !$esJustificada && count($ingresos) > 0) {
+            // Solo marcamos el candado rojo INCOMPLETO si se olvidó de marcar una salida (impares)
+            if (!$diaValido && !$esJustificada && count($ingresos) > 0) {
                 $estado = 'INCOMPLETO'; 
             }
             // ------------------------------------
@@ -308,17 +302,28 @@ class PlanillasModel extends Modelo
             $pagoDiario = $this->resolverPagoDiario((float) $emp['sueldo_basico'], (string)($emp['tipo_pago'] ?? 'MENSUAL'));
             $pagoPorHora = $pagoDiario / 8;
 
-            // REGLA: Si hay conflicto, bloqueamos el cálculo.
+            // REGLA: Si hay conflicto (olvidó marcar salida), bloqueamos el cálculo.
             if ($tieneConflicto) {
                 $sueldoBaseCalculado = 0;
-                $diasPagados = 0; // Ocultamos los días para que no haya dudas
+                $diasPagados = 0; 
                 $horasAcumuladas = 0;
+                $descuentoTardanzas = 0;
             } else {
+                // Pagamos los días que asistió completos
                 $sueldoBaseCalculado = $pagoDiario * $diasPagados;
+                
+                // 💡 MAGIA: Descontamos exactamente las horas que le faltaron
+                // Si en esos 3 días debió hacer 24h, pero solo hizo 18.9h...
+                $horasEsperadas = $diasPagados * 8; 
+                
+                if ($horasAcumuladas < $horasEsperadas) {
+                    $horasPerdidas = $horasEsperadas - $horasAcumuladas;
+                    // El descuento es la cantidad exacta de horas que no trabajó (medios días, salidas tempranas, tardanzas)
+                    $descuentoTardanzas = round($horasPerdidas * $pagoPorHora, 2);
+                } else {
+                    $descuentoTardanzas = 0;
+                }
             }
-
-            $valorMinuto = $pagoPorHora / 60;
-            $descuentoTardanzas = $tieneConflicto ? 0 : ($valorMinuto * $asis['tardanzas']);
 
             // PAGO DE HORAS EXTRAS: Se pagan al mismo valor por hora (1x)
             $horasExtras = $tieneConflicto ? 0 : $asis['horas_extras'];

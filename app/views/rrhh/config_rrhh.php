@@ -18,32 +18,44 @@ $tipoCalculo = $config['tipo_calculo_horas_extras'] ?? 'EXACTO';
         <div class="col-12 col-xl-8">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-bottom pt-4 pb-3 px-4">
-                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history me-2 text-warning"></i>Reglas de Tiempo (Clamping y Redondeo)</h5>
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history me-2 text-warning"></i>Reglas de Tiempo (Umbrales y Redondeos)</h5>
                 </div>
                 <div class="card-body p-4">
                     
                     <form action="<?php echo e(route_url('rrhh/config_rrhh/guardar')); ?>" method="POST" id="formConfigRRHH">
                         <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token ?? ''); ?>">
 
+                        <!-- SECCIÓN 1: LLEGADAS TEMPRANAS -->
                         <div class="border border-secondary-subtle rounded-3 p-4 mb-4 bg-light shadow-sm">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <div>
                                     <h6 class="fw-bold mb-1 text-dark">Pagar desde que marca (Llegadas tempranas)</h6>
-                                    <p class="text-muted small mb-0">Si está apagado, el sistema pondrá un tope y no pagará minutos extras por llegar antes de su turno oficial.</p>
+                                    <p class="text-muted small mb-0">Permite acumular tiempo extra si el trabajador llega antes de su turno oficial.</p>
                                 </div>
                                 <div class="form-check form-switch pt-1 ms-3">
                                     <input class="form-check-input shadow-none" style="cursor: pointer; width: 2.5em; height: 1.25em;" type="checkbox" role="switch" name="pagar_llegada_temprano" id="checkTemprano" value="1" <?php echo !empty($config['pagar_llegada_temprano']) ? 'checked' : ''; ?>>
                                 </div>
                             </div>
-                            <div class="alert alert-info border-info-subtle py-2 small mb-0 mt-3 d-flex align-items-center">
-                                <i class="bi bi-info-circle-fill me-2 fs-5 text-info"></i>
-                                <div>
-                                    <strong>Ejemplo (Turno 08:00 AM):</strong> Si llega a las 07:45 AM, el sistema contará su inicio a las 
-                                    <span id="txtEjemploTemprano" class="badge bg-primary ms-1"><?php echo !empty($config['pagar_llegada_temprano']) ? '07:45 AM' : '08:00 AM'; ?></span>
+
+                            <div id="cajaTemprano" class="<?php echo empty($config['pagar_llegada_temprano']) ? 'opacity-50' : ''; ?> mt-3 border-top pt-3" style="transition: all 0.3s ease;">
+                                <label class="form-label fw-bold text-dark small mb-1">Umbral mínimo para validar la llegada temprana <span class="text-danger">*</span></label>
+                                <div class="input-group shadow-sm w-100 mb-2" style="max-width: 300px;">
+                                    <input type="number" class="form-control shadow-none border-secondary-subtle fw-bold text-center text-primary" name="minutos_umbral_llegada_temprano" id="umbralTemprano" value="<?php echo (int)($config['minutos_umbral_llegada_temprano'] ?? 15); ?>" min="1" <?php echo empty($config['pagar_llegada_temprano']) ? 'readonly' : ''; ?>>
+                                    <span class="input-group-text bg-white text-muted border-secondary-subtle">minutos antes</span>
+                                </div>
+                                
+                                <div class="alert alert-info border-info-subtle py-2 small mb-0 mt-3 d-flex align-items-start shadow-sm">
+                                    <i class="bi bi-info-circle-fill me-2 fs-5 text-info mt-1"></i>
+                                    <div>
+                                        <strong>Ejemplo (Turno oficial 08:00 AM con umbral de 15 min):</strong><br>
+                                        • Si llega a las <span class="badge bg-secondary">07:46 AM</span> (14 min antes), se le considera llegada normal y se le cuenta desde las <strong>08:00 AM</strong>.<br>
+                                        • Si llega a las <span class="badge bg-primary">07:45 AM</span> (15 min antes) o antes, el sistema valida la entrada temprana y suma el tiempo extra.
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
+                        <!-- SECCIÓN 2: SALIDAS TARDE Y HORAS EXTRAS -->
                         <div class="border border-secondary-subtle rounded-3 p-4 bg-light shadow-sm">
                             <div class="d-flex justify-content-between align-items-start mb-3 border-bottom pb-3">
                                 <div>
@@ -63,14 +75,14 @@ $tipoCalculo = $config['tipo_calculo_horas_extras'] ?? 'EXACTO';
                                         <input type="number" class="form-control shadow-none border-secondary-subtle fw-bold text-center" name="minutos_gracia_salida" value="<?php echo (int)($config['minutos_gracia_salida'] ?? 5); ?>" min="0" <?php echo empty($config['pagar_salida_tarde']) ? 'readonly' : ''; ?>>
                                         <span class="input-group-text bg-white text-muted border-secondary-subtle">minutos</span>
                                     </div>
-                                    <div class="form-text text-muted mt-2" style="font-size: 0.75rem;"><i class="bi bi-clock me-1"></i>Ej. Si sale 5 min tarde recogiendo sus cosas, se ignora. Si pasa este tiempo, se activa el cálculo inferior.</div>
+                                    <div class="form-text text-muted mt-2" style="font-size: 0.75rem;"><i class="bi bi-clock me-1"></i>Ej. Si sale 5 min tarde recogiendo sus cosas, se ignora y no se paga. Si pasa este tiempo, se activa el cálculo inferior.</div>
                                 </div>
 
                                 <div class="mb-4">
                                     <label class="form-label fw-bold text-dark small mb-2">Método de Cálculo para las Extras <span class="text-danger">*</span></label>
                                     <select name="tipo_calculo_horas_extras" id="selectTipoCalculo" class="form-select shadow-none border-secondary-subtle fw-medium" <?php echo empty($config['pagar_salida_tarde']) ? 'disabled' : ''; ?>>
                                         <option value="EXACTO" <?php echo $tipoCalculo === 'EXACTO' ? 'selected' : ''; ?>>Cálculo Exacto (Se paga por minuto real trabajado)</option>
-                                        <option value="BLOQUES" <?php echo $tipoCalculo === 'BLOQUES' ? 'selected' : ''; ?>>Por Bloques Escalonados (Ej. Media hora, Una hora)</option>
+                                        <option value="BLOQUES" <?php echo $tipoCalculo === 'BLOQUES' ? 'selected' : ''; ?>>Por Bloques Escalonados (Ej. Media hora, Una hora completa)</option>
                                     </select>
                                 </div>
 
@@ -99,8 +111,16 @@ $tipoCalculo = $config['tipo_calculo_horas_extras'] ?? 'EXACTO';
                                         </div>
 
                                         <div class="col-12 mt-3 pt-3 border-top">
-                                            <div class="alert alert-light border border-secondary-subtle py-3 small mb-0 d-flex align-items-start shadow-sm" id="textoEjemploBloques">
+                                            <div class="alert alert-light border border-secondary-subtle py-3 small mb-0 d-flex align-items-start shadow-sm">
+                                                <i class="bi bi-lightning-charge-fill me-2 fs-5 text-warning mt-1"></i>
+                                                <div>
+                                                    <strong>¿Cómo funciona el redondeo?</strong><br>
+                                                    Con la configuración actual (15 y 45 min):<br>
+                                                    • Si se queda <strong>14 min</strong> extra, no se paga nada extra.<br>
+                                                    • Si se queda <strong>15 min</strong> o 20 min extra, se redondea a <strong>30 minutos</strong> pagados.<br>
+                                                    • Si se queda <strong>45 min</strong> extra, se redondea a <strong>1 hora completa</strong> pagada.
                                                 </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

@@ -1,534 +1,490 @@
 <?php
-// Inicialización segura de variables
-$loteActual = $lote_actual ?? null; 
-$lotesRecientes = $lotes_recientes ?? [];
-$detallesNomina = $detalles_nomina ?? []; 
+$horarios = $horarios ?? [];
+$empleados = $empleados ?? [];
+$asignaciones = $asignaciones ?? [];
+$empleadosAgrupados = $empleadosAgrupados ?? [];
+$dias = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
+$diasCortos = [1 => 'Lun', 2 => 'Mar', 3 => 'Mié', 4 => 'Jue', 5 => 'Vie', 6 => 'Sáb', 7 => 'Dom'];
 
-$estadoLote = strtoupper((string)($loteActual['estado'] ?? 'BORRADOR'));
-
-// Extraemos totales para los KPIs sumando dinámicamente los detalles
-$nominaTotal = 0.0;
-$deducciones = 0.0;
-$netoPagar = 0.0;
-$hayConflictos = false;
-
-if (!empty($detallesNomina)) {
-    foreach ($detallesNomina as $det) {
-        $nominaTotal += (float) ($det['total_percepciones'] ?? 0);
-        $deducciones += (float) ($det['total_deducciones'] ?? 0);
-        $netoPagar += (float) ($det['neto_a_pagar'] ?? 0);
-        if (!empty($det['tiene_conflicto'])) {
-            $hayConflictos = true;
-        }
+function formatearTramos($horario) {
+    $texto = substr((string) ($horario['t1_entrada'] ?? '00:00'), 0, 5) . ' - ' . substr((string) ($horario['t1_salida'] ?? '00:00'), 0, 5);
+    if (!empty($horario['t2_entrada']) && !empty($horario['t2_salida'])) {
+        $texto .= ' | ' . substr((string) $horario['t2_entrada'], 0, 5) . ' - ' . substr((string) $horario['t2_salida'], 0, 5);
     }
+    if (!empty($horario['t3_entrada']) && !empty($horario['t3_salida'])) {
+        $texto .= ' | ' . substr((string) $horario['t3_entrada'], 0, 5) . ' - ' . substr((string) $horario['t3_salida'], 0, 5);
+    }
+    return $texto;
 }
 ?>
 
-<div class="container-fluid p-4" id="procesamientoNominaApp">
-
+<div class="container-fluid p-4" id="horariosAsignacionesApp">
+    
+    <!-- CABECERA -->
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in">
         <div>
-            <div class="d-flex align-items-center gap-2 mb-1">
-                <?php if($estadoLote === 'BORRADOR'): ?>
-                    <span class="badge bg-warning text-dark shadow-sm px-2 py-1"><i class="bi bi-pencil-square me-1"></i>Borrador (Edición Abierta)</span>
-                <?php else: ?>
-                    <span class="badge bg-success shadow-sm px-2 py-1"><i class="bi bi-lock-fill me-1"></i>Planilla Cerrada</span>
-                <?php endif; ?>
-            </div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
-                <i class="bi bi-wallet-fill me-2 text-primary"></i> Procesamiento de Nómina
+                <i class="bi bi-calendar-week-fill me-2 text-primary"></i> Asignación de Horarios
             </h1>
-            <p class="text-muted small mb-0 ms-1">Cálculo de pagos, aplicación de bonos/descuentos y cierre de periodo.</p>
+            <p class="text-muted small mb-0 ms-1">Gestión de plantillas predeterminadas de turnos por empleado.</p>
         </div>
 
-        <div class="d-flex gap-2 flex-wrap justify-content-end">
-            
-            <div class="dropdown me-2">
-                <button class="btn btn-white border shadow-sm text-secondary fw-semibold dropdown-toggle transition-hover" type="button" data-bs-toggle="dropdown">
-                    <i class="bi bi-folder2-open me-2 text-warning"></i>
-                    <?php echo $loteActual ? htmlspecialchars($loteActual['referencia']) : 'Seleccionar Lote...'; ?>
-                </button>
-                <ul class="dropdown-menu border-0 shadow">
-                    <?php foreach ($lotesRecientes as $l): ?>
-                        <li><a class="dropdown-item fw-medium py-2" href="?ruta=planillas&id_lote=<?php echo (int)$l['id']; ?>"><?php echo htmlspecialchars($l['referencia'] . ' - ' . $l['nombre']); ?></a></li>
-                    <?php endforeach; ?>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-primary fw-bold py-2" href="?ruta=nominas/historial"><i class="bi bi-search me-2"></i>Ver todos los lotes</a></li>
-                </ul>
-            </div>
-
-            <?php if ($loteActual && $estadoLote === 'BORRADOR'): ?>
-                <?php if ($netoPagar > 0): ?>
-                    <form method="post" action="<?php echo e(route_url('planillas/cerrar')); ?>" class="m-0" id="formCerrarLote" onsubmit="return confirm('¿Está seguro de cerrar esta planilla? Ya no podrá agregar bonos ni descuentos.');">
-                        <input type="hidden" name="id_lote" value="<?php echo (int)$loteActual['id']; ?>">
-                        <button type="submit" 
-                            class="btn btn-primary shadow-sm fw-bold px-3 transition-hover"
-                            <?php echo $hayConflictos ? 'disabled title="Corrija las asistencias conflictivas primero"' : ''; ?>>
-                            <i class="bi bi-lock-fill me-2"></i>Cerrar Planilla
-                        </button>
-                    </form>
-                <?php else: ?>
-                    <button class="btn btn-secondary shadow-sm fw-bold px-3 opacity-50" disabled title="No hay datos para procesar">
-                        <i class="bi bi-lock-fill me-2"></i>Lote Vacío
-                    </button>
-                <?php endif; ?>
-            <?php endif; ?>
-            
-            <button class="btn btn-success shadow-sm fw-bold px-3 transition-hover" type="button" data-bs-toggle="modal" data-bs-target="#modalGenerarLote">
-                <i class="bi bi-plus-circle me-2"></i>Nuevo Lote
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-success btn-sm shadow-sm fw-bold px-3 py-2 transition-hover d-flex align-items-center" type="button" data-bs-toggle="modal" data-bs-target="#modalAsignacionMasiva">
+                <i class="bi bi-person-lines-fill fs-6 me-2"></i>Asignación Masiva
+            </button>
+            <button class="btn btn-primary btn-sm shadow-sm fw-bold px-3 py-2 transition-hover d-flex align-items-center" type="button" data-bs-toggle="modal" data-bs-target="#modalCrearTurno" id="btnNuevoTurno">
+                <i class="bi bi-clock-history fs-6 me-2"></i>Catálogo de Turnos
             </button>
         </div>
     </div>
 
-    <!-- MENSAJES DE ALERTA -->
-    <?php if (!empty($_GET['error'])): ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'error', title: 'Error', text: '<?php echo addslashes($_GET['error']); ?>', confirmButtonText: 'Revisar' });
-                } else {
-                    alert('Error: <?php echo addslashes($_GET['error']); ?>');
-                }
-            });
-        </script>
-    <?php endif; ?>
-    <?php if (!empty($_GET['ok'])): ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'success', title: '¡Éxito!', text: '<?php echo addslashes($_GET['ok']); ?>', confirmButtonText: 'Genial' });
-                }
-            });
-        </script>
-    <?php endif; ?>
-
-    <?php if (!$loteActual): ?>
-        <div class="card border-0 shadow-sm mt-4">
-            <div class="card-body p-5 text-center">
-                <i class="bi bi-folder-plus fs-1 text-muted opacity-25 d-block mb-3" style="font-size: 4rem !important;"></i>
-                <h5 class="fw-bold text-dark">No hay un lote de nómina seleccionado</h5>
-                <p class="text-muted mb-4">Seleccione un lote en el menú superior o genere uno nuevo para calcular los pagos del periodo.</p>
-                <button class="btn btn-primary shadow-sm fw-bold px-4 py-2 transition-hover" type="button" data-bs-toggle="modal" data-bs-target="#modalGenerarLote">
-                    Generar Nuevo Lote
-                </button>
-            </div>
-        </div>
-    <?php else: ?>
-
-        <!-- KPIS -->
-        <div class="row g-3 mb-4">
-            <div class="col-12 col-md-4">
-                <div class="card border-0 shadow-sm h-100 bg-light border-start border-secondary border-4">
-                    <div class="card-body p-4 d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="small text-muted text-uppercase fw-bold mb-1">Percepciones (Bruto + Bonos)</p>
-                            <h3 class="fw-bold text-dark mb-0">S/ <?php echo number_format($nominaTotal, 2); ?></h3>
-                        </div>
-                        <div class="bg-white p-2 rounded-circle shadow-sm text-secondary"><i class="bi bi-graph-up-arrow fs-4"></i></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-md-4">
-                <div class="card border-0 shadow-sm h-100 bg-light border-start border-danger border-4">
-                    <div class="card-body p-4 d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="small text-muted text-uppercase fw-bold mb-1">Deducciones Total</p>
-                            <h3 class="fw-bold text-danger mb-0">- S/ <?php echo number_format($deducciones, 2); ?></h3>
-                        </div>
-                        <div class="bg-white p-2 rounded-circle shadow-sm text-danger"><i class="bi bi-graph-down-arrow fs-4"></i></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-md-4">
-                <div class="card border-0 shadow-sm h-100 bg-primary text-white border-start border-info border-4">
-                    <div class="card-body p-4 d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="small text-white-50 text-uppercase fw-bold mb-1">Neto a Desembolsar</p>
-                            <h3 class="fw-bold mb-0">S/ <?php echo number_format($netoPagar, 2); ?></h3>
-                        </div>
-                        <div class="bg-white bg-opacity-25 p-2 rounded-circle text-white"><i class="bi bi-cash-stack fs-4"></i></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TABLA PRINCIPAL DE EMPLEADOS -->
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white border-bottom pt-3 pb-3 px-4 d-flex justify-content-between align-items-center">
-                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-people-fill text-primary me-2"></i>Detalle de Empleados</h6>
+    <!-- BARRA DE HERRAMIENTAS Y BUSCADOR -->
+    <div class="card border-0 shadow-sm mb-4 fade-in">
+        <div class="card-body p-3">
+            <div class="row g-3 align-items-center justify-content-between">
                 
-                <div class="d-flex gap-2 align-items-center">
-                    <div class="input-group input-group-sm" style="max-width: 250px;">
-                        <span class="input-group-text bg-white border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
-                        <input type="search" class="form-control bg-white border-secondary-subtle border-start-0 ps-0 shadow-none" id="searchDetalles" placeholder="Buscar empleado...">
+                <div class="col-12 col-md-5">
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-white border-end-0 border-secondary-subtle"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-white border-start-0 ps-0 border-secondary-subtle shadow-none" id="searchEmpleadoHorario" placeholder="Buscar empleado o código...">
                     </div>
-                    <?php if ($estadoLote !== 'BORRADOR' && !empty($detallesNomina)): ?>
-                        <a href="?ruta=planillas/imprimir_masivo&id_lote=<?php echo (int)($loteActual['id']); ?>" target="_blank" class="btn btn-sm btn-outline-danger fw-bold shadow-sm transition-hover">
-                            <i class="bi bi-printer-fill me-1"></i>Imprimir Boletas
-                        </a>
-                    <?php endif; ?>
                 </div>
+
+                <div class="col-12 col-md-3">
+                    <select class="form-select bg-white border-secondary-subtle shadow-sm text-secondary fw-medium" id="filtroEstadoPlantilla">
+                        <option value="todos">Todos los empleados</option>
+                        <option value="con_horario">Con horario asignado</option>
+                        <option value="sin_horario">Sin horario (Vacíos)</option>
+                    </select>
+                </div>
+                
+                <div class="col-12 col-md-4 text-md-end">
+                    <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle px-3 py-2 rounded-pill shadow-sm fs-6">
+                        <i class="bi bi-people-fill me-1"></i> <?php echo count($empleadosAgrupados); ?> Empleados con plantilla
+                    </span>
+                </div>
+
             </div>
-            
-            <div class="card-body p-0">
-                <div class="table-responsive" style="min-height: 300px;">
-                    <table class="table align-middle mb-0 table-pro table-hover" id="tablaDetallesNomina"
-                           data-erp-table="true"
-                           data-search-input="#searchDetalles"
-                           data-rows-selector="#detallesTableBody tr:not(.empty-msg-row)"
-                           data-empty-text="No hay recibos generados en este lote"
-                           data-rows-per-page="15">
-                        <thead class="table-light border-bottom">
-                            <tr>
-                                <th class="ps-4 text-secondary fw-semibold py-3">Empleado</th>
-                                <th class="text-center text-secondary fw-semibold py-3">Días / Horas</th>
-                                <th class="text-end text-secondary fw-semibold py-3">Percepciones</th>
-                                <th class="text-end text-secondary fw-semibold py-3">Deducciones</th>
-                                <th class="text-center text-secondary fw-semibold py-3">Ajustes Manuales</th>
-                                <th class="text-end text-dark fw-bold py-3">Neto a Pagar</th>
-                                <th class="text-center text-secondary fw-semibold pe-4 py-3">Acciones</th>
+        </div>
+    </div>
+
+    <!-- TABLA PRINCIPAL DE PLANTILLAS -->
+    <div class="card border-0 shadow-sm fade-in">
+        <div class="card-body p-0">
+            <div class="table-responsive" style="min-height: 400px;">
+                <table class="table align-middle mb-0 table-pro table-hover" id="horariosTable" 
+                       data-erp-table="true"
+                       data-rows-selector="#horariosTableBody tr:not(.empty-msg-row)"
+                       data-search-input="#searchEmpleadoHorario"
+                       data-empty-text="No hay horarios asignados en este momento"
+                       data-pagination-controls="#horariosPaginationControls"
+                       data-pagination-info="#horariosPaginationInfo"
+                       data-rows-per-page="12">
+                    <thead class="table-light border-bottom">
+                        <tr>
+                            <th class="ps-4 text-secondary fw-semibold" style="width: 20%;">Empleado</th>
+                            <?php foreach ($diasCortos as $num => $dia): ?>
+                                <th class="text-center text-secondary fw-semibold" style="width: 10%;"><?php echo e($dia); ?></th>
+                            <?php endforeach; ?>
+                            <th class="text-center pe-4 text-secondary fw-semibold" style="width: 10%;">Opciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="horariosTableBody">
+                        <?php if (empty($empleadosAgrupados)): ?>
+                            <tr class="empty-msg-row border-bottom-0">
+                                <td colspan="9" class="text-center text-muted py-5">
+                                    <i class="bi bi-calendar-x fs-1 d-block mb-2 text-light"></i>
+                                    No hay horarios asignados a los empleados.
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody id="detallesTableBody">
-                            <?php if (empty($detallesNomina)): ?>
-                                <tr class="empty-msg-row border-bottom-0">
-                                    <td colspan="7" class="text-center text-muted py-5">
-                                        <i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>
-                                        No hay recibos generados.<br>
+                        <?php else: ?>
+                            <?php foreach ($empleadosAgrupados as $idEmp => $emp): ?>
+                                <?php $searchStr = strtolower($emp['nombre_completo'] . ' ' . ($emp['codigo_biometrico'] ?? '')); ?>
+                                <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
+                                    
+                                    <td class="ps-4 align-middle py-3">
+                                        <div class="fw-bold text-dark fs-6"><?php echo e($emp['nombre_completo']); ?></div>
+                                        <?php if(!empty($emp['codigo_biometrico'])): ?>
+                                            <div class="small text-muted fw-medium mt-1">
+                                                <i class="bi bi-upc-scan me-1"></i>Cód: <span class="fw-semibold text-primary"><?php echo e($emp['codigo_biometrico']); ?></span>
+                                            </div>
+                                        <?php endif; ?>
                                     </td>
-                                </tr>
-                            <?php else: ?>
-                                <?php foreach ($detallesNomina as $row): ?>
-                                    <?php 
-                                        $searchStr = strtolower($row['nombre_completo'] ?? ''); 
-                                        $tieneBono = ((float)($row['monto_bonos'] ?? 0) > 0); 
-                                        $descuentoAdelanto = (float)($row['descuento_adelanto'] ?? 0);
-                                        
-                                        $tieneDeduccion = ((float)($row['total_deducciones'] ?? 0) > 0);
-                                        if ($row['neto_a_pagar'] <= 0 && $row['dias_pagados'] == 0 && !$tieneBono && !$tieneDeduccion && empty($row['tiene_conflicto'])) {
-                                            continue;
-                                        }
-                                    ?>
-                                    <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
-                                        
-                                        <td class="ps-4 fw-semibold text-dark align-top pt-3">
-                                            <?php echo htmlspecialchars((string) ($row['nombre_completo'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
-                                            <div class="small text-muted fw-normal mt-1">
-                                                <?php echo htmlspecialchars((string) ($row['cargo'] ?? ''), ENT_QUOTES, 'UTF-8'); ?> 
-                                                | <span class="badge bg-light text-secondary border border-secondary-subtle"><?php echo htmlspecialchars((string) ($row['frecuencia'] ?? 'MENSUAL'), ENT_QUOTES, 'UTF-8'); ?></span>
-                                            </div>
-                                        </td>
-
-                                        <td class="text-center align-top pt-3">
-                                            <?php if (!empty($row['tiene_conflicto'])): ?>
-                                                <div class="d-flex flex-column align-items-center">
-                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle mb-1 px-2 py-1 shadow-sm" title="Marcaciones incompletas" style="font-size: 0.65rem;">
-                                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>Incompleto
-                                                    </span>
-                                                    <a href="?ruta=asistencia/dashboard&periodo=rango&fecha_inicio=<?php echo $loteActual['fecha_inicio']; ?>&fecha_fin=<?php echo $loteActual['fecha_fin']; ?>&id_tercero=<?php echo $row['id_tercero']; ?>" 
-                                                       class="text-danger small fw-bold text-decoration-none hover-underline" style="font-size: 0.75rem;">
-                                                        <i class="bi bi-pencil-square me-1"></i>Corregir Asistencia
-                                                    </a>
-                                                </div>
-                                            <?php else: ?>
-                                                <span class="fw-bold fs-6 text-dark">
-                                                    <?= (float)($row['dias_pagados'] ?? 0) ?>D
-                                                </span>
-                                                <br>
-                                                <span class="text-muted fw-medium" style="font-size: 0.8rem;">
-                                                    <?php 
-                                                        $hAcum = (float)($row['horas_acumuladas'] ?? 0);
-                                                        $horasCompletas = floor($hAcum);
-                                                        $minutosRestantes = round(($hAcum - $horasCompletas) * 60);
-                                                        if ($minutosRestantes >= 60) {
-                                                            $horasCompletas += intdiv((int)$minutosRestantes, 60);
-                                                            $minutosRestantes = $minutosRestantes % 60;
-                                                        }
-                                                        echo "{$horasCompletas}h " . ($minutosRestantes > 0 ? "{$minutosRestantes}m" : "00m");
-                                                    ?>
-                                                </span>
-                                            <?php endif; ?>
-                                        </td>
-
-                                        <td class="text-end align-top pt-3">
-                                            <div class="fw-bold <?php echo !empty($row['tiene_conflicto']) ? 'text-muted opacity-50' : 'text-success'; ?>">
-                                                S/ <?php echo number_format((float)($row['total_percepciones'] ?? 0), 2); ?>
-                                            </div>
-                                            
-                                            <?php if (empty($row['tiene_conflicto']) && (float)($row['pago_por_hora'] ?? 0) > 0): ?>
-                                                <div class="small text-muted fw-medium mb-1 mt-1" style="font-size: 0.7rem;">
-                                                    Tarifa: S/ <?php echo number_format((float)($row['pago_por_hora']), 2); ?>/hr
-                                                </div>
-                                            <?php endif; ?>
-                                            
-                                            <?php if(($row['pago_horas_extras'] ?? 0) > 0): ?>
-                                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle shadow-sm" style="font-size: 0.65rem;" title="<?= (float)($row['horas_extras'] ?? 0) ?>h extras">
-                                                    <i class="bi bi-clock-fill me-1"></i>+S/ <?= number_format((float)$row['pago_horas_extras'], 2) ?> HE
-                                                </span>
-                                            <?php endif; ?>
-                                        </td>
-
-                                        <td class="text-end align-top pt-3">
-                                            <div class="fw-bold <?php echo !empty($row['tiene_conflicto']) ? 'text-muted opacity-50' : 'text-danger'; ?>">
-                                                - S/ <?php echo number_format((float)($row['total_deducciones'] ?? 0), 2); ?>
-                                            </div>
-                                            
-                                            <?php if($descuentoAdelanto > 0): ?>
-                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle mt-2 shadow-sm" style="font-size: 0.65rem;">
-                                                    <i class="bi bi-wallet2 me-1"></i>Cobro Adelanto
-                                                </span>
-                                            <?php endif; ?>
-                                        </td>
-
-                                        <td class="align-top pt-3 text-center">
-                                            <?php
-                                                $movimientos = $row['movimientos_manuales'] ?? [];
-                                                if (is_string($movimientos)) {
-                                                    $movimientos = array_filter(explode('||', $movimientos));
+                                    
+                                    <!-- CELDAS DE DÍAS (ESTÁTICAS) -->
+                                    <?php for($i = 1; $i <= 7; $i++): ?>
+                                        <td class="text-center align-middle py-2 px-1">
+                                            <?php 
+                                            if(isset($emp['dias_asignados'][$i])): 
+                                                $info = $emp['dias_asignados'][$i];
+                                                $nombreLower = strtolower($info['nombre_horario']);
+                                                
+                                                if (strpos($nombreLower, 'día') !== false || strpos($nombreLower, 'dia') !== false) {
+                                                    $claseBoton = 'bg-info-subtle text-info-emphasis border-info-subtle';
+                                                } elseif (strpos($nombreLower, 'noche') !== false) {
+                                                    $claseBoton = 'bg-dark text-white border-dark';
+                                                } elseif (strpos($nombreLower, 'tarde') !== false) {
+                                                    $claseBoton = 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+                                                } else {
+                                                    $claseBoton = 'bg-primary-subtle text-primary-emphasis border-primary-subtle';
                                                 }
                                             ?>
-                                            <?php if (empty($movimientos)): ?>
-                                                <span class="text-muted small opacity-50">-</span>
+                                                <div class="w-100 p-2 lh-sm border shadow-sm rounded <?php echo $claseBoton; ?>" title="<?php echo e(substr((string)($info['hora_entrada']??''),0,5)) . ' - ' . e(substr((string)($info['hora_salida']??''),0,5)); ?>" style="font-size: 0.75rem; cursor: default;">
+                                                    <div class="fw-bold text-truncate w-100"><?php echo e($info['nombre_horario']); ?></div>
+                                                </div>
                                             <?php else: ?>
-                                                <div class="d-flex flex-column align-items-center gap-1">
-                                                    <?php foreach ($movimientos as $mov): ?>
-                                                        <?php
-                                                            $tipo = '';
-                                                            $categoria = '';
-                                                            $montoMov = 0.0;
-                                                            if (is_array($mov)) {
-                                                                $tipo = (string)($mov['tipo'] ?? 'Movimiento');
-                                                                $categoria = (string)($mov['categoria'] ?? 'Sin categoría');
-                                                                $montoMov = (float)($mov['monto'] ?? 0);
-                                                            } else {
-                                                                $partes = explode('::', (string)$mov);
-                                                                $tipoRaw = strtoupper((string)($partes[0] ?? ''));
-                                                                $tipo = $tipoRaw === 'PERCEPCION' ? 'Percepción' : ($tipoRaw === 'DEDUCCION' ? 'Deducción' : 'Movimiento');
-                                                                $categoria = (string)($partes[1] ?? 'Sin categoría');
-                                                                $montoMov = (float)str_replace(',', '', (string)($partes[3] ?? 0));
-                                                            }
-                                                            $badgeClass = stripos($tipo, 'Deducción') !== false
-                                                                ? 'bg-danger-subtle text-danger border border-danger-subtle'
-                                                                : 'bg-success-subtle text-success border border-success-subtle';
-                                                            $textoBadge = $tipo . ': ' . $categoria . ' S/ ' . number_format($montoMov, 2);
-                                                        ?>
-                                                        <span class="badge shadow-sm <?php echo $badgeClass; ?>" style="font-size:0.65rem;" title="<?php echo htmlspecialchars($textoBadge, ENT_QUOTES, 'UTF-8'); ?>">
-                                                            <?php echo htmlspecialchars($textoBadge, ENT_QUOTES, 'UTF-8'); ?>
-                                                        </span>
-                                                    <?php endforeach; ?>
+                                                <div class="w-100 p-2 lh-sm border border-secondary-subtle bg-light text-secondary rounded" title="Día Libre" style="font-size: 0.75rem; border-style: dashed !important; cursor: default;">
+                                                    <div class="fw-bold text-truncate w-100 opacity-75">Descanso</div>
                                                 </div>
                                             <?php endif; ?>
                                         </td>
-
-                                        <td class="text-end fw-bold align-top pt-3">
-                                            <span class="<?php echo !empty($row['tiene_conflicto']) ? 'text-muted opacity-50' : 'text-primary'; ?> fs-6">
-                                                S/ <?php echo number_format((float)($row['neto_a_pagar'] ?? 0), 2); ?>
-                                            </span>
-                                        </td>
-
-                                        <td class="text-center pe-4 align-top pt-3">
-                                            <div class="d-flex justify-content-center gap-1">
-                                                <?php if ($estadoLote === 'BORRADOR'): ?>
-                                                    <?php if (!empty($row['tiene_conflicto'])): ?>
-                                                        <button type="button" class="btn btn-sm btn-light text-muted border border-secondary-subtle rounded-circle shadow-sm" disabled title="Corrija la asistencia para desbloquear opciones">
-                                                            <i class="bi bi-lock-fill"></i>
-                                                        </button>
-                                                    <?php else: ?>
-                                                        <button type="button" class="btn btn-sm btn-light text-primary border border-secondary-subtle rounded-circle shadow-sm transition-hover btn-ajustar-empleado" 
-                                                                data-bs-toggle="modal" data-bs-target="#modalAjustarNomina"
-                                                                data-id="<?php echo (int)($row['id'] ?? 0); ?>"
-                                                                data-nombre="<?php echo htmlspecialchars($row['nombre_completo'], ENT_QUOTES, 'UTF-8'); ?>"
-                                                                data-bs-toggle="tooltip" title="Agregar Bono o Descuento">
-                                                            <i class="bi bi-plus-slash-minus"></i>
-                                                        </button>
-                                                    <?php endif; ?>
-                                                <?php else: ?>
-                                                    <a href="?ruta=planillas/imprimir_boleta&id=<?php echo (int)($row['id'] ?? 0); ?>" target="_blank" class="btn btn-sm btn-light text-secondary border border-secondary-subtle rounded-circle shadow-sm transition-hover" data-bs-toggle="tooltip" title="Ver Boleta Individual">
-                                                        <i class="bi bi-file-earmark-pdf"></i>
+                                    <?php endfor; ?>
+                                    
+                                    <!-- OPCIONES (3 PUNTITOS) -->
+                                    <td class="text-center pe-4 align-middle">
+                                        <div class="dropdown">
+                                            <button class="btn btn-light btn-sm rounded-circle shadow-sm border border-secondary-subtle transition-hover p-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Opciones de plantilla">
+                                                <i class="bi bi-three-dots-vertical text-secondary"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 p-2" style="font-size: 0.85rem; min-width: 220px;">
+                                                <li>
+                                                    <a class="dropdown-item text-primary rounded py-2 transition-hover fw-medium" href="#" onclick="alert('Función Copiar en desarrollo'); return false;">
+                                                        <i class="bi bi-clipboard me-2"></i>Copiar plantilla
                                                     </a>
-                                                <?php endif; ?>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    <?php endif; ?>
-</div>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item text-success rounded py-2 transition-hover fw-medium" href="#" onclick="alert('Función Pegar en desarrollo'); return false;">
+                                                        <i class="bi bi-clipboard-check me-2"></i>Pegar plantilla
+                                                    </a>
+                                                </li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <form method="post" action="<?php echo e(route_url('horario/index')); ?>" class="m-0" onsubmit="return confirm('¿Estás seguro de vaciar la plantilla semanal de <?php echo e($emp['nombre_completo']); ?>?');">
+                                                        <input type="hidden" name="accion" value="limpiar_semana_empleado">
+                                                        <input type="hidden" name="id_tercero" value="<?php echo (int) $idEmp; ?>">
+                                                        <button type="submit" class="dropdown-item text-danger fw-bold bg-danger-subtle rounded py-2 transition-hover mt-1">
+                                                            <i class="bi bi-eraser-fill me-2"></i>Limpiar toda la semana
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </td>
 
-<!-- ========================================== -->
-<!-- MODAL: GENERAR NUEVO LOTE                  -->
-<!-- ========================================== -->
-<div class="modal fade" id="modalGenerarLote" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-success text-white border-bottom-0 pb-4">
-                <h5 class="modal-title fw-bold">
-                    <i class="bi bi-folder-plus me-2"></i>Generar Nuevo Lote de Nómina
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <form method="post" action="<?php echo e(route_url('planillas/generar')); ?>" id="formGenerarLote">
-                <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
-                    
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-body p-4">
-                            <div class="mb-3">
-                                <label class="form-label small text-muted fw-bold mb-1">Nombre / Referencia Automática</label>
-                                <input type="text" name="nombre_lote" id="nombreGeneradoLote" class="form-control shadow-none bg-light border-secondary-subtle fw-bold text-secondary" placeholder="Se generará automáticamente..." readonly>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label small text-muted fw-bold mb-1">Frecuencia de Pago a Filtrar <span class="text-danger">*</span></label>
-                                <select name="frecuencia" id="frecuenciaLote" class="form-select shadow-none border-secondary-subtle fw-semibold text-dark" required>
-                                    <option value="TODOS" selected>Todos los empleados (Sin filtro)</option>
-                                    <option value="SEMANAL">Pago Semanal</option>
-                                    <option value="QUINCENAL">Pago Quincenal</option>
-                                    <option value="MENSUAL">Pago Mensual</option>
-                                </select>
-                            </div>
-                            <div class="row g-3 mb-2">
-                                <div class="col-6">
-                                    <label class="form-label small text-muted fw-bold mb-1">Fecha Inicio <span class="text-danger">*</span></label>
-                                    <input type="date" name="fecha_inicio" id="fechaInicioLote" class="form-control shadow-none border-secondary-subtle fw-medium" required>
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label small text-muted fw-bold mb-1">Fecha Fin <span class="text-danger">*</span></label>
-                                    <input type="date" name="fecha_fin" id="fechaFinLote" class="form-control shadow-none border-secondary-subtle fw-medium" required>
-                                </div>
-                            </div>
-                            <div class="form-text small mt-2 mb-3" id="ayudaFrecuenciaLote">
-                                <i class="bi bi-info-circle-fill text-primary me-1"></i> El sistema consolidará las asistencias e incidencias dentro de estas fechas.
-                            </div>
-                            
-                            <div class="mb-1">
-                                <label class="form-label small text-muted fw-bold mb-1">Observaciones Internas <span class="text-muted fw-normal">(Opcional)</span></label>
-                                <textarea name="observaciones" class="form-control shadow-none border-secondary-subtle" rows="2" placeholder="Ej. Lote correspondiente a liquidación de destajo y bonos extra..."></textarea>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end gap-2 mt-2">
-                        <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm px-4" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-success px-5 fw-bold shadow-sm transition-hover">
-                            <i class="bi bi-gear-fill me-2"></i>Calcular Nómina
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- ========================================== -->
-<!-- MODAL: AJUSTAR NÓMINA (BONOS/DESCUENTOS)   -->
-<!-- ========================================== -->
-<div class="modal fade" id="modalAjustarNomina" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-warning text-dark border-bottom-0 pb-4">
-                <h5 class="modal-title fw-bold">
-                    <i class="bi bi-sliders me-2"></i>Ajustar Conceptos Adicionales
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <form method="post" action="<?php echo e(route_url('planillas/agregar_concepto')); ?>">
-                <input type="hidden" name="id_detalle_nomina" id="ajusteIdDetalle">
-                
-                <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
-                    
-                    <div class="d-flex align-items-center mb-4 p-3 bg-white border border-warning-subtle rounded-3 shadow-sm">
-                        <div class="bg-warning-subtle p-2 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
-                            <i class="bi bi-person-badge fs-3 text-warning-emphasis"></i>
-                        </div>
-                        <div>
-                            <span class="small text-muted fw-bold text-uppercase d-block mb-1">Empleado a ajustar:</span>
-                            <strong class="d-block text-dark fs-5 lh-1" id="ajusteNombreEmpleado">Cargando...</strong>
-                        </div>
-                    </div>
-
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-body p-4">
-                            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
-                                <div>
-                                    <h6 class="fw-bold text-dark mb-0">Movimientos Manuales</h6>
-                                    <small class="text-muted">Bonos, comisiones, adelantos o descuentos.</small>
-                                </div>
-                                <button type="button" class="btn btn-sm btn-outline-primary fw-bold shadow-sm px-3" id="btnAgregarMovimientoNomina">
-                                    <i class="bi bi-plus-circle me-1"></i>Añadir Fila
-                                </button>
-                            </div>
-
-                            <div id="contenedorMovimientosNomina" class="d-flex flex-column gap-3"></div>
-                            
-                            <div class="form-text small mt-3 text-secondary">
-                                <i class="bi bi-shield-check me-1"></i> El sistema bloqueará movimientos repetidos (Mismo tipo + Categoría + Descripción) por seguridad.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end gap-2 mt-2">
-                        <button type="button" class="btn btn-light text-secondary border fw-semibold shadow-sm px-4" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-warning px-5 fw-bold shadow-sm text-dark transition-hover">
-                            <i class="bi bi-arrow-repeat me-2"></i>Guardar y Recalcular
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- ========================================== -->
-<!-- TEMPLATE: FILA DE MOVIMIENTO MANUAL        -->
-<!-- ========================================== -->
-<template id="tplMovimientoNomina">
-    <div class="card border border-secondary-subtle shadow-sm movimiento-nomina-item bg-white">
-        <div class="card-body p-3">
-            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                <strong class="small text-primary text-uppercase fw-bold"><i class="bi bi-tag-fill me-1"></i> Movimiento <span class="js-mov-index">#1</span></strong>
-                <button type="button" class="btn btn-sm btn-light text-danger js-remove-movimiento border-0" title="Quitar este movimiento">
-                    <i class="bi bi-trash fs-6"></i>
-                </button>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
             
-            <div class="row g-3">
-                <div class="col-md-12">
-                    <label class="form-label small text-muted fw-bold mb-1">Naturaleza <span class="text-danger">*</span></label>
-                    <select data-name="tipo_concepto" class="form-select shadow-none border-secondary-subtle fw-semibold" required>
-                        <option value="PERCEPCION">Ingreso / Percepción (+ Aumenta el pago)</option>
-                        <option value="DEDUCCION">Descuento / Deducción (- Disminuye el pago)</option>
-                    </select>
-                </div>
+            <!-- PAGINACIÓN -->
+            <?php if (!empty($empleadosAgrupados)): ?>
+            <div class="card-footer bg-white border-top-0 py-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 px-4">
+                <small class="text-muted fw-semibold" id="horariosPaginationInfo">Procesando...</small>
+                <nav aria-label="Paginación de horarios">
+                    <ul class="pagination mb-0 shadow-sm" id="horariosPaginationControls"></ul>
+                </nav>
+            </div>
+            <?php endif; ?>
+            
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: CATÁLOGO DE TURNOS                  -->
+<!-- ========================================== -->
+<div class="modal fade" id="modalCrearTurno" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-clock-history me-2 text-info"></i>Catálogo de Turnos Base</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            
+            <div class="modal-body p-4 bg-light" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 
-                <div class="col-md-6">
-                    <label class="form-label small text-muted fw-bold mb-1">Categoría <span class="text-danger">*</span></label>
-                    <select data-name="categoria_concepto" class="form-select shadow-none border-secondary-subtle" required>
-                        <option value="Bono Productividad">Bono Productividad</option>
-                        <option value="Bono Especial">Bono Especial</option>
-                        <option value="Incentivo Empresa">Incentivo Empresa</option>
-                        <option value="Adelanto de Sueldo">Adelanto de Sueldo</option>
-                        <option value="Multa / Sanción">Multa / Sanción</option>
-                        <option value="Otros">Otros</option>
-                    </select>
-                </div>
-                
-                <div class="col-md-6">
-                    <label class="form-label small text-muted fw-bold mb-1">Monto <span class="text-danger">*</span></label>
-                    <div class="input-group shadow-sm">
-                        <span class="input-group-text bg-light border-secondary-subtle text-muted">S/</span>
-                        <input type="number" step="0.01" min="0.1" data-name="monto" class="form-control shadow-none border-secondary-subtle fw-bold" placeholder="0.00" required>
+                <!-- Formulario Crear/Editar Turno (SIMPLIFICADO) -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <form method="post" action="<?php echo e(route_url('horario/index')); ?>" id="horarioForm">
+                            <input type="hidden" name="accion" value="guardar_horario">
+                            <input type="hidden" name="id" id="horarioId" value="0">
+
+                            <!-- CABECERA DEL TURNO -->
+                            <div class="row g-3 mb-4">
+                                <div class="col-12">
+                                    <label class="form-label small text-muted fw-bold mb-1">Nombre del Turno <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control bg-white shadow-none border-secondary-subtle fw-semibold fs-5" name="nombre" id="horarioNombre" placeholder="Ej. Turno Mañana (08:00 - 17:00)" maxlength="100" required>
+                                </div>
+                            </div>
+
+                            <!-- TRAMOS -->
+                            <h6 class="small fw-bold text-primary border-bottom pb-2 mb-3"><i class="bi bi-clock me-2"></i>Tramos de Horario</h6>
+                            <div class="row g-3 mb-4">
+                                <!-- T1 -->
+                                <div class="col-12 col-md-4">
+                                    <div class="p-3 border border-primary-subtle bg-primary-subtle bg-opacity-10 rounded shadow-sm h-100">
+                                        <label class="form-label small text-primary fw-bold mb-2">Tramo 1 (Principal) <span class="text-danger">*</span></label>
+                                        <div class="input-group input-group-sm shadow-sm">
+                                            <span class="input-group-text bg-white border-primary-subtle"><i class="bi bi-box-arrow-in-right text-success"></i></span>
+                                            <input type="time" class="form-control bg-white shadow-none border-primary-subtle text-center" name="t1_entrada" id="t1Entrada" required>
+                                            <span class="input-group-text bg-white border-primary-subtle text-muted px-2">a</span>
+                                            <input type="time" class="form-control bg-white shadow-none border-primary-subtle text-center" name="t1_salida" id="t1Salida" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- T2 -->
+                                <div class="col-12 col-md-4">
+                                    <div class="p-3 border border-secondary-subtle bg-white rounded shadow-sm h-100">
+                                        <label class="form-label small text-muted fw-bold mb-2">Tramo 2 (Opcional)</label>
+                                        <div class="input-group input-group-sm shadow-sm">
+                                            <span class="input-group-text bg-light border-secondary-subtle"><i class="bi bi-box-arrow-in-right text-muted"></i></span>
+                                            <input type="time" class="form-control bg-white shadow-none border-secondary-subtle text-center" name="t2_entrada" id="t2Entrada">
+                                            <span class="input-group-text bg-light border-secondary-subtle text-muted px-2">a</span>
+                                            <input type="time" class="form-control bg-white shadow-none border-secondary-subtle text-center" name="t2_salida" id="t2Salida">
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- T3 -->
+                                <div class="col-12 col-md-4">
+                                    <div class="p-3 border border-secondary-subtle bg-white rounded shadow-sm h-100">
+                                        <label class="form-label small text-muted fw-bold mb-2">Tramo 3 (Opcional)</label>
+                                        <div class="input-group input-group-sm shadow-sm">
+                                            <span class="input-group-text bg-light border-secondary-subtle"><i class="bi bi-box-arrow-in-right text-muted"></i></span>
+                                            <input type="time" class="form-control bg-white shadow-none border-secondary-subtle text-center" name="t3_entrada" id="t3Entrada">
+                                            <span class="input-group-text bg-light border-secondary-subtle text-muted px-2">a</span>
+                                            <input type="time" class="form-control bg-white shadow-none border-secondary-subtle text-center" name="t3_salida" id="t3Salida">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2 border-top pt-4 mt-2">
+                                <button type="button" class="btn btn-light border border-secondary-subtle shadow-sm transition-hover fw-bold px-4" id="btnLimpiarHorario" title="Limpiar formulario">
+                                    <i class="bi bi-eraser me-2 text-secondary"></i>Limpiar
+                                </button>
+                                <button type="submit" class="btn btn-primary shadow-sm transition-hover fw-bold px-5" title="Guardar Turno">
+                                    <i class="bi bi-save me-2"></i>Guardar Turno
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-                
-                <div class="col-md-12">
-                    <label class="form-label small text-muted fw-bold mb-1">Descripción que verá el empleado en su Boleta <span class="text-danger">*</span></label>
-                    <input type="text" data-name="descripcion" class="form-control shadow-none border-secondary-subtle" placeholder="Ej. Bono por meta de ventas de Enero..." required>
+
+                <!-- Tabla de Turnos Existentes -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="small fw-bold text-dark text-uppercase mb-0"><i class="bi bi-list-task me-2 text-primary"></i>Turnos Registrados</h6>
+                        <div class="input-group input-group-sm shadow-sm" style="max-width: 250px;">
+                            <span class="input-group-text bg-white text-muted border-end-0 border-secondary-subtle"><i class="bi bi-search"></i></span>
+                            <input type="search" class="form-control bg-white border-start-0 ps-0 shadow-none border-secondary-subtle" id="searchTurnos" placeholder="Buscar turno...">
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table align-middle table-sm mb-0 table-hover table-pro" id="tablaTurnos"
+                                   data-erp-table="true"
+                                   data-rows-selector="#turnosTableBody tr:not(.empty-msg-row)"
+                                   data-search-input="#searchTurnos"
+                                   data-rows-per-page="10"
+                                   data-empty-text="No se encontraron turnos">
+                                <thead class="table-light border-bottom">
+                                    <tr>
+                                        <th class="ps-4 text-secondary fw-semibold py-2">Nombre del Turno</th>
+                                        <th class="text-secondary fw-semibold py-2">Tramos de Horario</th>
+                                        <th class="text-center text-secondary fw-semibold py-2">Estado</th>
+                                        <th class="text-end pe-4 text-secondary fw-semibold py-2">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="turnosTableBody">
+                                    <?php if (empty($horarios)): ?>
+                                        <tr class="empty-msg-row">
+                                            <td colspan="4" class="text-center text-muted py-4"><i class="bi bi-inbox d-block fs-3 text-light mb-2"></i>No hay turnos registrados.</td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($horarios as $horario): ?>
+                                            <?php 
+                                                $activo = ((int) $horario['estado'] === 1); 
+                                                $searchStrTurno = strtolower($horario['nombre'] . ' ' . ($activo ? 'activo' : 'inactivo'));
+                                                $textoTramos = formatearTramos($horario);
+                                            ?>
+                                            <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStrTurno, ENT_QUOTES, 'UTF-8'); ?>">
+                                                <td class="ps-4 fw-bold text-dark py-2">
+                                                    <?php echo e($horario['nombre']); ?>
+                                                </td>
+                                                <td class="small text-muted fw-medium py-2">
+                                                    <i class="bi bi-clock me-1 text-secondary"></i><?php echo e($textoTramos); ?>
+                                                </td>
+                                                <td class="text-center py-2">
+                                                    <?php if($activo): ?>
+                                                        <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle px-3 py-1 rounded-pill">Activo</span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle px-3 py-1 rounded-pill">Inactivo</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="text-end pe-4 py-2">
+                                                    <div class="d-inline-flex gap-1 align-items-center">
+                                                        
+                                                        <!-- BOTÓN EDITAR -->
+                                                        <button type="button" class="btn-icon btn-icon-primary js-editar-horario" 
+                                                                data-bs-toggle="tooltip" title="Editar turno"
+                                                                data-id="<?php echo (int) $horario['id']; ?>"
+                                                                data-nombre="<?php echo e($horario['nombre']); ?>"
+                                                                data-t1-entrada="<?php echo e(substr((string) ($horario['t1_entrada'] ?? ''), 0, 5)); ?>"
+                                                                data-t1-salida="<?php echo e(substr((string) ($horario['t1_salida'] ?? ''), 0, 5)); ?>"
+                                                                data-t2-entrada="<?php echo e(substr((string) ($horario['t2_entrada'] ?? ''), 0, 5)); ?>"
+                                                                data-t2-salida="<?php echo e(substr((string) ($horario['t2_salida'] ?? ''), 0, 5)); ?>"
+                                                                data-t3-entrada="<?php echo e(substr((string) ($horario['t3_entrada'] ?? ''), 0, 5)); ?>"
+                                                                data-t3-salida="<?php echo e(substr((string) ($horario['t3_salida'] ?? ''), 0, 5)); ?>">
+                                                            <i class="bi bi-pencil-square"></i>
+                                                        </button>
+                                                        
+                                                        <!-- BOTÓN ACTIVAR/DESACTIVAR -->
+                                                        <form method="post" action="<?php echo e(route_url('horario/index')); ?>" class="m-0 p-0" onsubmit="return confirm('¿Cambiar estado de este turno?');">
+                                                            <input type="hidden" name="accion" value="cambiar_estado_horario">
+                                                            <input type="hidden" name="id" value="<?php echo (int) $horario['id']; ?>">
+                                                            <input type="hidden" name="estado" value="<?php echo $activo ? 0 : 1; ?>">
+                                                            <button type="submit" class="btn-icon <?php echo $activo ? 'btn-icon-warning' : 'btn-icon-success'; ?>" data-bs-toggle="tooltip" title="<?php echo $activo ? 'Desactivar turno' : 'Activar turno'; ?>">
+                                                                <i class="bi <?php echo $activo ? 'bi-toggle-on' : 'bi-toggle-off'; ?>"></i>
+                                                            </button>
+                                                        </form>
+
+                                                        <!-- BOTÓN ELIMINAR INTELIGENTE -->
+                                                        <?php $enUso = (int) ($horario['usos'] ?? 0) > 0; ?>
+                                                        <form method="post" action="<?php echo e(route_url('horario/index')); ?>" class="m-0 p-0 js-form-eliminar-horario">
+                                                            <input type="hidden" name="accion" value="eliminar_horario">
+                                                            <input type="hidden" name="id" value="<?php echo (int) $horario['id']; ?>">
+                                                            <?php if ($enUso): ?>
+                                                                <button type="button" class="btn-icon btn-icon-secondary" data-bs-toggle="tooltip" title="Turno en uso. Solo se puede desactivar." disabled>
+                                                                    <i class="bi bi-trash3"></i>
+                                                                </button>
+                                                            <?php else: ?>
+                                                                <button type="submit" class="btn-icon btn-icon-danger" data-bs-toggle="tooltip" title="Eliminar turno definitivamente">
+                                                                    <i class="bi bi-trash3"></i>
+                                                                </button>
+                                                            <?php endif; ?>
+                                                        </form>
+
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
+
             </div>
         </div>
     </div>
-</template>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: ASIGNACIÓN MASIVA                   -->
+<!-- ========================================== -->
+<div class="modal fade" id="modalAsignacionMasiva" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-lines-fill me-2"></i>Asignación Masiva de Turnos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            
+            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                <form method="post" action="<?php echo e(route_url('horario/index')); ?>" id="asignacionMasivaForm">
+                    <input type="hidden" name="accion" value="guardar_asignacion">
+                    
+                    <div class="row g-4">
+                        <div class="col-lg-7">
+                            
+                            <!-- Paso 1 -->
+                            <div class="card border-0 shadow-sm mb-4">
+                                <div class="card-body p-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-secondary-subtle pb-2">
+                                        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-1-circle me-2 text-success"></i>Selección de Personal</h6>
+                                        <button type="button" class="btn btn-sm btn-outline-primary fw-bold px-3 py-1 shadow-sm transition-hover" id="btnSeleccionarTodosEmp">
+                                            <i class="bi bi-people-fill me-1"></i>Añadir Todos
+                                        </button>
+                                    </div>
+                                    <select id="empleadoTomSelect" class="form-select bg-white shadow-none border-secondary-subtle" placeholder="Escribe nombre o código...">
+                                        <option value="">Buscar en el directorio de empleados...</option>
+                                        <?php foreach ($empleados as $empleado): ?>
+                                            <option value="<?php echo (int) $empleado['id']; ?>">
+                                                <?php echo e($empleado['nombre_completo']); ?> <?php echo !empty($empleado['codigo_biometrico']) ? ' (Cód: ' . e($empleado['codigo_biometrico']) . ')' : ''; ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <div class="form-text text-muted mt-2"><i class="bi bi-info-circle me-1"></i>Los empleados seleccionados aparecerán en la lista de la derecha.</div>
+                                </div>
+                            </div>
+
+                            <!-- Paso 2 -->
+                            <div class="card border-0 shadow-sm mb-4">
+                                <div class="card-body p-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-secondary-subtle pb-2">
+                                        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-2-circle me-2 text-success"></i>Días de la Semana</h6>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary fw-bold px-3 py-1 shadow-sm transition-hover" id="btnMarcarTodosDias">
+                                            <i class="bi bi-check-all me-1"></i>Marcar L-D
+                                        </button>
+                                    </div>
+                                    <div class="btn-group w-100 shadow-sm d-flex flex-wrap" role="group">
+                                        <?php foreach ($diasCortos as $num => $dia): ?>
+                                            <input type="checkbox" class="btn-check dia-checkbox" name="dias[]" id="mas_dia_<?php echo $num; ?>" value="<?php echo $num; ?>" autocomplete="off">
+                                            <label class="btn btn-outline-success fw-bold flex-grow-1" for="mas_dia_<?php echo $num; ?>"><?php echo e($dia); ?></label>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Paso 3 -->
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body p-4">
+                                    <h6 class="fw-bold text-dark mb-3 border-bottom border-secondary-subtle pb-2"><i class="bi bi-3-circle me-2 text-success"></i>Turno a Asignar</h6>
+                                    <select name="id_horario" class="form-select bg-white fw-bold text-primary border-success-subtle shadow-sm p-3" required>
+                                        <option value="">Seleccione el turno del catálogo...</option>
+                                        <?php foreach ($horarios as $horario): ?>
+                                            <?php if ((int) $horario['estado'] !== 1) continue; ?>
+                                            <option value="<?php echo (int) $horario['id']; ?>"><?php echo e($horario['nombre']); ?> (<?php echo e(formatearTramos($horario)); ?>)</option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Resumen Lateral -->
+                        <div class="col-lg-5 d-flex flex-column">
+                            <div class="card border-0 shadow-sm flex-grow-1 border-top border-4 border-success">
+                                <div class="card-body d-flex flex-column p-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-secondary-subtle pb-3">
+                                        <h6 class="fw-bold text-dark mb-0">Empleados Afectados (<span id="contadorSeleccionados" class="text-success">0</span>)</h6>
+                                        <button type="button" class="btn btn-sm btn-light text-danger fw-bold shadow-sm border border-secondary-subtle transition-hover" id="btnLimpiarLista">
+                                            <i class="bi bi-trash me-1"></i>Vaciar
+                                        </button>
+                                    </div>
+                                    
+                                    <div id="panelSeleccionados" class="overflow-auto pe-2 flex-grow-1 bg-white" style="max-height: 400px; min-height: 200px;">
+                                        <div id="listaVaciaHint" class="text-center text-muted mt-5 opacity-50">
+                                            <i class="bi bi-person-lines-fill fs-1 d-block mb-3"></i>
+                                            <span class="fw-semibold">No hay empleados seleccionados.</span>
+                                            <p class="small mt-1">Usa el buscador (Paso 1) para añadirlos a esta lista.</p>
+                                        </div>
+                                    </div>
+                                    <div id="inputIdsContenedor"></div>
+                                </div>
+                            </div>
+                            
+                            <button class="btn btn-success shadow-sm w-100 fw-bold p-3 mt-4 fs-5 transition-hover" type="submit">
+                                <i class="bi bi-check-circle-fill me-2"></i> Aplicar Asignación
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

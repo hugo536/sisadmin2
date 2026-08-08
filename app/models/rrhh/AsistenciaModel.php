@@ -289,8 +289,6 @@ class AsistenciaModel extends Modelo
         
         $tolerancia = 0;
         // Prioridad de fuente de tolerancia:
-        // 1) Horario efectivo del día (Excepción > Turno regular, ya resuelto por obtenerTurnoEfectivoPorFecha)
-        // 2) Memoria histórica del registro (solo fallback si hoy no hay horario resoluble)
         if ($turno) {
             $tolerancia = (int) ($turno['tolerancia_minutos'] ?? 0);
         } elseif ($memoria && $memoria['tolerancia_minutos'] !== null) {
@@ -309,13 +307,17 @@ class AsistenciaModel extends Modelo
             $entradasEsperadas = [substr((string) $horaEntradaEsperada, 11, 8)];
         }
 
-        $marcasEsperadasCount = count($entradasEsperadas) * 2;
-        if ($marcasEsperadasCount === 0) $marcasEsperadasCount = 2;
+        // 🔥 LÓGICA DE TRAMO 3 COMODÍN 🔥
+        $tramosObligatorios = 0;
+        if (!empty($turno['t1_entrada'])) $tramosObligatorios++;
+        if (!empty($turno['t2_entrada'])) $tramosObligatorios++;
+        
+        // Si no hay T1 ni T2 en el horario, asume mínimo 1 tramo
+        if ($tramosObligatorios === 0) {
+            $tramosObligatorios = count($entradasEsperadas) > 0 ? count($entradasEsperadas) : 1;
+        }
 
-        $diaCompleto = ($marcasCount > 0 && $marcasCount === $marcasEsperadasCount);
-
-        $horaIngreso = $marcasNormalizadas[0] ?? null;
-        $horaSalida = ($marcasCount >= 2) ? $marcasNormalizadas[$marcasCount - 1] : null;
+        $marcasMinimasEsperadas = $tramosObligatorios * 2;
 
         $ingresos = [];
         $salidas = [];
@@ -324,25 +326,44 @@ class AsistenciaModel extends Modelo
             else $salidas[] = $marca;
         }
 
+        // 🔥 NUEVA LÓGICA: Medio día es válido si tiene pares completos (Entró y salió)
+        $paresCompletos = (count($ingresos) === count($salidas));
+
+        $horaIngreso = $marcasNormalizadas[0] ?? null;
+        $horaSalida = ($marcasCount >= 2) ? $marcasNormalizadas[$marcasCount - 1] : null;
+
         $estado = 'INCOMPLETO';
         $minutosTardanza = 0;
         $detalleTardanza = [];
 
-        if ($diaCompleto && $horaIngreso !== null && $horaSalida !== null) {
+        if ($marcasCount > 0 && $paresCompletos) {
+            // Si tiene pares completos, calculamos sus horas y lo dejamos pasar
             $estado = 'PUNTUAL';
             $calcTardanza = $this->calcularTardanzaPorTramos($fecha, $ingresos, $entradasEsperadas, $tolerancia);
             $minutosTardanza = $calcTardanza['total'];
             $detalleTardanza = $calcTardanza['detalle'];
 
             if ($minutosTardanza > 0) $estado = 'TARDANZA';
-        } elseif ($horaIngreso === null) {
+        } elseif ($marcasCount > 0 && !$paresCompletos) {
+            // Solo es INCOMPLETO si le falta marcar la salida
+            $estado = 'INCOMPLETO';
+        } else {
             $estado = 'FALTA';
         }
 
         // -------------------------------------------------------------
         // MOTOR DE REGLAS DE TIEMPO (TRAMOS, TOPES Y BLOQUES)
         // -------------------------------------------------------------
-        $configRRHH = ['pagar_llegada_temprano' => 0, 'pagar_salida_tarde' => 0, 'minutos_gracia_salida' => 5, 'tipo_calculo_horas_extras' => 'EXACTO', 'minutos_umbral_media_hora' => 15, 'minutos_umbral_hora_completa' => 45];
+        // 1. Añadimos el valor por defecto del umbral temprano al array de respaldo
+        $configRRHH = [
+            'pagar_llegada_temprano' => 0, 
+            'minutos_umbral_llegada_temprano' => 15, 
+            'pagar_salida_tarde' => 0, 
+            'minutos_gracia_salida' => 5, 
+            'tipo_calculo_horas_extras' => 'EXACTO', 
+            'minutos_umbral_media_hora' => 15, 
+            'minutos_umbral_hora_completa' => 45
+        ];
         try {
             $stmtConf = $this->db()->query("SELECT * FROM rrhh_configuracion WHERE id = 1 LIMIT 1");
             if ($rowConf = $stmtConf->fetch(PDO::FETCH_ASSOC)) $configRRHH = $rowConf;
@@ -383,9 +404,22 @@ class AsistenciaModel extends Modelo
                 $tsInEsperado = $tramosEsperados[$k]['in'] ?? $tsInReal;
                 $tsOutEsperado = $tramosEsperados[$k]['out'] ?? $tsOutReal;
 
-                // --- REGLA 1: LLEGADA (Con Protección de Tolerancia) ---
+                // --- REGLA 1: LLEGADA (Con Protección de Tolerancia y Umbral) ---
                 if ($tsInReal <= $tsInEsperado) {
-                    $tsInEfectivo = ((int)$configRRHH['pagar_llegada_temprano'] === 0) ? $tsInEsperado : $tsInReal;
+                    if ((int)$configRRHH['pagar_llegada_temprano'] === 0) {
+                        // Está apagado: se corta el tiempo a su hora oficial
+                        $tsInEfectivo = $tsInEsperado;
+                    } else {
+                        // Está encendido: Evaluamos si cumple el umbral para considerarlo extra
+                        $minutosTemprano = floor(($tsInEsperado - $tsInReal) / 60);
+                        $umbralTemprano = (int)($configRRHH['minutos_umbral_llegada_temprano'] ?? 15);
+                        
+                        if ($minutosTemprano >= $umbralTemprano) {
+                            $tsInEfectivo = $tsInReal; // Superó el umbral, se le pagan esos minutos
+                        } else {
+                            $tsInEfectivo = $tsInEsperado; // No superó el umbral, se redondea a la hora oficial
+                        }
+                    }
                 } else {
                     $retrasoBruto = floor(($tsInReal - $tsInEsperado) / 60);
                     if ($retrasoBruto > $tolerancia) {
@@ -667,24 +701,17 @@ class AsistenciaModel extends Modelo
                 }
             }
 
-            // --- APLICAR REGLA ESTRICTA DE TRAMOS EN LA VISTA ---
+            // --- APLICAR REGLA DE TRAMO 3 COMODÍN EN LA VISTA ---
             $entradasEsperadasCalc = [];
-            
-            // 1. SIEMPRE leemos los tramos completos del horario primero para saber cuántos debe cumplir
             if (!empty($row['t1_entrada'])) $entradasEsperadasCalc[] = substr((string) $row['t1_entrada'], 0, 8);
             if (!empty($row['t2_entrada'])) $entradasEsperadasCalc[] = substr((string) $row['t2_entrada'], 0, 8);
             if (!empty($row['t3_entrada'])) $entradasEsperadasCalc[] = substr((string) $row['t3_entrada'], 0, 8);
 
-            // 2. Solo usamos la memoria de 1 tramo si el empleado no tiene un horario asignado
-            if (empty($entradasEsperadasCalc) && $entradaMemoria !== '') {
-                $entradasEsperadasCalc[] = substr($entradaMemoria, 11, 8);
-            }
-
-            $tramosEsperados = count($entradasEsperadasCalc);
-            if ($tramosEsperados === 0) $tramosEsperados = 1; 
-
             $tramosReales = count($ingresosCalc);
-            $diaCompleto = ($tramosReales === $tramosEsperados) && (count($ingresosCalc) === count($salidasCalc)) && ($tramosReales > 0);
+            $paresCompletos = (count($ingresosCalc) === count($salidasCalc));
+            
+            // 🔥 NUEVO: El día es válido si tiene pares completos y no dejó "olvidos" al salir
+            $diaCompleto = $paresCompletos && ($tramosReales > 0);
 
             if ($diaCompleto && !$esJustificada) {
                 $toleranciaCalc = (int) ($row['tolerancia_minutos_registro'] ?? 0);
@@ -693,11 +720,15 @@ class AsistenciaModel extends Modelo
                 }
                 $calc = $this->calcularTardanzaPorTramos((string) ($row['fecha'] ?? ''), $ingresosCalc, $entradasEsperadasCalc, $toleranciaCalc);
                 $row['minutos_tardanza_total'] = (int) ($calc['total'] ?? 0);
+                
                 if ($estadoGeneral === 'TARDANZA' && (int) $row['minutos_tardanza_total'] === 0) {
                     $estadoGeneral = 'PUNTUAL';
                 }
-            } elseif (!$diaCompleto && !$esJustificada && count($ingresosCalc) > 0) {
-                // Penalización Estricta: Faltan marcas de algún tramo
+                // Si en la base de datos dice INCOMPLETO pero tiene pares válidos, forzamos a PUNTUAL
+                if ($estadoGeneral === 'INCOMPLETO') {
+                    $estadoGeneral = ((int) $row['minutos_tardanza_total'] > 0) ? 'TARDANZA' : 'PUNTUAL';
+                }
+            } elseif (!$diaCompleto && !$esJustificada && $tramosReales > 0) {
                 $estadoGeneral = 'INCOMPLETO';
                 $row['minutos_tardanza_total'] = 0; 
             }
@@ -835,16 +866,11 @@ class AsistenciaModel extends Modelo
 
     public function listarEmpleadosParaIncidencias(): array
     {
-        $sql = 'SELECT t.id,
-                       t.nombre_completo,
-                       te.codigo_biometrico,
-                       CASE WHEN COUNT(aeh.id) = 0 THEN 1 ELSE 0 END AS sin_horario
+        $sql = 'SELECT t.id, t.nombre_completo, te.codigo_biometrico
                 FROM terceros t
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
-                LEFT JOIN asistencia_empleado_horario aeh ON aeh.id_tercero = t.id
                 WHERE t.es_empleado = 1
                   AND t.deleted_at IS NULL
-                GROUP BY t.id, t.nombre_completo, te.codigo_biometrico
                 ORDER BY t.nombre_completo ASC';
 
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -1353,21 +1379,40 @@ class AsistenciaModel extends Modelo
             
             $reg = $registrosBD[$fechaStr] ?? null;
             
-            $ingresos = $reg && $reg['marcas_ingresos'] ? explode('|', $reg['marcas_ingresos']) : [];
-            $salidas = $reg && $reg['marcas_salidas'] ? explode('|', $reg['marcas_salidas']) : [];
+            $ingresosArr = $reg && $reg['marcas_ingresos'] ? array_filter(explode('|', $reg['marcas_ingresos']), fn($h) => $h !== '') : [];
+            $salidasArr = $reg && $reg['marcas_salidas'] ? array_filter(explode('|', $reg['marcas_salidas']), fn($h) => $h !== '') : [];
             
-            // Si es descanso, forzamos la apariencia visual
             if ($esDescanso) {
                 $estadoStr = 'Descanso';
                 $badgeClass = 'bg-secondary-subtle text-secondary';
             } else {
-                $estadoStr = $reg['estado_asistencia'] ?? 'Sin datos';
-                $badgeClass = 'bg-secondary-subtle text-secondary';
-                if ($estadoStr === 'PUNTUAL') $badgeClass = 'bg-success-subtle text-success';
-                if ($estadoStr === 'TARDANZA') $badgeClass = 'bg-warning-subtle text-warning-emphasis';
-                if ($estadoStr === 'FALTA') $badgeClass = 'bg-danger-subtle text-danger';
-                if (strpos($estadoStr, 'JUSTIFICADA') !== false || strpos($estadoStr, 'PERMISO') !== false || strpos($estadoStr, 'MEDICO') !== false) {
-                    $badgeClass = 'bg-info-subtle text-info-emphasis';
+                if (!$reg) {
+                    // 🔥 NUEVA LÓGICA: Si la fecha ya pasó y no hay registro, es FALTA automática.
+                    if ($fechaStr < date('Y-m-d')) {
+                        $estadoStr = 'FALTA';
+                        $badgeClass = 'bg-danger-subtle text-danger border border-danger-subtle fw-bold';
+                    } else {
+                        $estadoStr = 'Sin datos';
+                        $badgeClass = 'bg-light text-muted border';
+                    }
+                } else {
+                    $estadoStr = $reg['estado_asistencia'];
+                    
+                    // Parche visual para medios días en la cuadrícula
+                    if ($estadoStr === 'INCOMPLETO') {
+                        if (count($ingresosArr) > 0 && count($ingresosArr) === count($salidasArr)) {
+                            $estadoStr = ((int)($reg['minutos_tardanza'] ?? 0) > 0) ? 'TARDANZA' : 'PUNTUAL';
+                        }
+                    }
+
+                    $badgeClass = 'bg-secondary-subtle text-secondary';
+                    if ($estadoStr === 'PUNTUAL') $badgeClass = 'bg-success-subtle text-success border border-success-subtle';
+                    if ($estadoStr === 'TARDANZA') $badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+                    if ($estadoStr === 'FALTA') $badgeClass = 'bg-danger-subtle text-danger border border-danger-subtle fw-bold';
+                    if ($estadoStr === 'INCOMPLETO') $badgeClass = 'bg-secondary text-white border border-secondary shadow-sm';
+                    if (strpos($estadoStr, 'JUSTIFICADA') !== false || strpos($estadoStr, 'PERMISO') !== false || strpos($estadoStr, 'MEDICO') !== false) {
+                        $badgeClass = 'bg-info-subtle text-info-emphasis border border-info-subtle';
+                    }
                 }
             }
 
@@ -1379,15 +1424,15 @@ class AsistenciaModel extends Modelo
                 'fecha' => $fechaStr,
                 'nombre_dia' => $nombreDia,
                 'fecha_formateada' => date('d/m/Y', $fechaActual),
-                't1_in' => isset($ingresos[0]) && $ingresos[0] !== 'null' ? substr($ingresos[0], 11, 5) : '',
-                't1_out' => isset($salidas[0]) && $salidas[0] !== 'null' ? substr($salidas[0], 11, 5) : '',
-                't2_in' => isset($ingresos[1]) && $ingresos[1] !== 'null' ? substr($ingresos[1], 11, 5) : '',
-                't2_out' => isset($salidas[1]) && $salidas[1] !== 'null' ? substr($salidas[1], 11, 5) : '',
-                't3_in' => isset($ingresos[2]) && $ingresos[2] !== 'null' ? substr($ingresos[2], 11, 5) : '',
-                't3_out' => isset($salidas[2]) && $salidas[2] !== 'null' ? substr($salidas[2], 11, 5) : '',
+                't1_in' => isset($ingresosArr[0]) && $ingresosArr[0] !== 'null' ? substr($ingresosArr[0], 11, 5) : '',
+                't1_out' => isset($salidasArr[0]) && $salidasArr[0] !== 'null' ? substr($salidasArr[0], 11, 5) : '',
+                't2_in' => isset($ingresosArr[1]) && $ingresosArr[1] !== 'null' ? substr($ingresosArr[1], 11, 5) : '',
+                't2_out' => isset($salidasArr[1]) && $salidasArr[1] !== 'null' ? substr($salidasArr[1], 11, 5) : '',
+                't3_in' => isset($ingresosArr[2]) && $ingresosArr[2] !== 'null' ? substr($ingresosArr[2], 11, 5) : '',
+                't3_out' => isset($salidasArr[2]) && $salidasArr[2] !== 'null' ? substr($salidasArr[2], 11, 5) : '',
                 'estado_label' => $estadoStr,
                 'badge_class' => $badgeClass,
-                'es_descanso' => $esDescanso // <-- BANDERA PARA EL JS
+                'es_descanso' => $esDescanso
             ];
             
             $fechaActual = strtotime('+1 day', $fechaActual);
@@ -1395,9 +1440,17 @@ class AsistenciaModel extends Modelo
 
         $horasStr = floor($totalHorasSemanales) . 'h ' . round(($totalHorasSemanales - floor($totalHorasSemanales)) * 60) . 'm';
 
-        // Contamos si todos los días del periodo son descanso
+        // --- VALIDACIÓN FINAL: ¿TIENE HORARIO ESTE EMPLEADO? ---
         $diasSinHorario = array_filter($dias, fn($d) => $d['es_descanso'] === true);
         $empleadoSinHorario = (count($diasSinHorario) === count($dias));
+
+        if ($empleadoSinHorario) {
+            foreach ($dias as &$dia) {
+                $dia['estado_label'] = 'Falta Asignar Horario';
+                // Gris oscuro llamativo para identificar rápido a los que no tienen horario
+                $dia['badge_class'] = 'bg-dark-subtle text-dark fw-bold border border-dark'; 
+            }
+        }
 
         return [
             'dias' => $dias,

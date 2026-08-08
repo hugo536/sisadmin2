@@ -64,11 +64,53 @@
         }
 
         // ==========================================
+        // AUTO-SELECCIÓN DE EMPLEADO DESDE LA URL 
+        // (Viene desde el botón "Corregir" en Planillas)
+        // ==========================================
+        const params = new URLSearchParams(window.location.search);
+        const idTerceroUrl = params.get('id_tercero');
+
+        if (idTerceroUrl) {
+            let intentos = 0;
+            const buscadorInterval = setInterval(() => {
+                // Busca la tarjeta del empleado (usando data-id)
+                const tarjetaEmpleado = document.querySelector(`.empleado-item[data-id="${idTerceroUrl}"]`);
+
+                if (tarjetaEmpleado) {
+                    clearInterval(buscadorInterval);
+                    
+                    // Simula el clic en la tarjeta
+                    tarjetaEmpleado.click();
+
+                    // Escribe en el buscador para filtrar visualmente
+                    if (DOM.inputBuscar) {
+                        const nombreTexto = tarjetaEmpleado.querySelector('.fw-bold').textContent.trim();
+                        DOM.inputBuscar.value = nombreTexto;
+                        DOM.inputBuscar.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+
+                    // Limpia la URL sin recargar la página
+                    const nuevaUrl = new URL(window.location.href);
+                    nuevaUrl.searchParams.delete('id_tercero');
+                    window.history.replaceState({}, document.title, nuevaUrl.toString());
+                } else {
+                    intentos++;
+                    if (intentos >= 10) {
+                        clearInterval(buscadorInterval);
+                        mostrarEstadoVacio();
+                    }
+                }
+            }, 500);
+        } else {
+            mostrarEstadoVacio();
+        }
+
+        // ==========================================
         // BUSCADOR Y FILTROS LATERALES
         // ==========================================
         const filtrarLista = () => {
             const texto = DOM.inputBuscar.value.toLowerCase().trim();
-            const grupoId = DOM.selectGrupo.value;
+            const grupoId = DOM.selectGrupo ? DOM.selectGrupo.value : '';
             const items = document.querySelectorAll('.empleado-item');
 
             items.forEach(item => {
@@ -139,11 +181,12 @@
             const fd = new FormData();
             fd.append('accion', 'obtener_grid_excel');
             fd.append('id_tercero', empleadoActualId);
-            fd.append('periodo', DOM.selectPeriodo.value);
-            fd.append('semana', document.getElementById('filtroSemana').value);
-            fd.append('mes', document.getElementById('filtroMes').value);
-            fd.append('fecha_inicio', document.getElementById('filtroDesde').value);
-            fd.append('fecha_fin', document.getElementById('filtroHasta').value);
+            
+            if (DOM.selectPeriodo) fd.append('periodo', DOM.selectPeriodo.value);
+            if (document.getElementById('filtroSemana')) fd.append('semana', document.getElementById('filtroSemana').value);
+            if (document.getElementById('filtroMes')) fd.append('mes', document.getElementById('filtroMes').value);
+            if (document.getElementById('filtroDesde')) fd.append('fecha_inicio', document.getElementById('filtroDesde').value);
+            if (document.getElementById('filtroHasta')) fd.append('fecha_fin', document.getElementById('filtroHasta').value);
 
             try {
                 const res = await fetch(baseUrl + '?ruta=asistencia/gestion_asistencia', { method: 'POST', body: fd });
@@ -260,11 +303,12 @@
                     fd.append('fecha', fecha);
                     fd.append('campo', campo);
                     fd.append('valor', valor);
-                    fd.append('periodo', DOM.selectPeriodo.value);
-                    fd.append('semana', document.getElementById('filtroSemana').value);
-                    fd.append('mes', document.getElementById('filtroMes').value);
-                    fd.append('fecha_inicio', document.getElementById('filtroDesde').value);
-                    fd.append('fecha_fin', document.getElementById('filtroHasta').value);
+                    
+                    if (DOM.selectPeriodo) fd.append('periodo', DOM.selectPeriodo.value);
+                    if (document.getElementById('filtroSemana')) fd.append('semana', document.getElementById('filtroSemana').value);
+                    if (document.getElementById('filtroMes')) fd.append('mes', document.getElementById('filtroMes').value);
+                    if (document.getElementById('filtroDesde')) fd.append('fecha_inicio', document.getElementById('filtroDesde').value);
+                    if (document.getElementById('filtroHasta')) fd.append('fecha_fin', document.getElementById('filtroHasta').value);
 
                     try {
                         const res = await fetch(baseUrl + '?ruta=asistencia/gestion_asistencia', { method: 'POST', body: fd });
@@ -280,7 +324,7 @@
                             input.classList.remove('border-danger', 'text-danger');
                             if (syncStatus) syncStatus.innerHTML = '<i class="bi bi-cloud-check text-success fs-5 me-1"></i> Sincronizado';
 
-                            if(data.nuevo_estado_html) {
+                            if(data.nuevo_estado_html || data.badge_class) {
                                 const badgeContainer = tr.querySelector('.badge');
                                 badgeContainer.className = `badge ${data.badge_class} border-0 px-2 fw-semibold text-truncate`;
                                 badgeContainer.textContent = data.nuevo_estado_label;
@@ -352,9 +396,6 @@
                 }
             });
         }
-
-        // Llamamos a la pantalla inicial en blanco
-        mostrarEstadoVacio();
     }
 
     // 1. Ejecutar inmediatamente al cargar el script

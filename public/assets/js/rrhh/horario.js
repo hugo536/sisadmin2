@@ -173,12 +173,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========================================================================
-    // 2. LÓGICA DE EDICIÓN DE TURNOS (TRAMOS) - ADAPTADO AL MODAL
+    // 2. LÓGICA DE EDICIÓN DE TURNOS (TRAMOS) - SÚPER SIMPLIFICADO
     // ========================================================================
     
     const idInput = document.getElementById('horarioId');
     const nombreInput = document.getElementById('horarioNombre');
-    const toleranciaInput = document.getElementById('horarioTolerancia');
     
     const t1EntradaInput = document.getElementById('t1Entrada');
     const t1SalidaInput = document.getElementById('t1Salida');
@@ -190,7 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const limpiarModalTurno = () => {
         if(idInput) idInput.value = '0';
         if(nombreInput) nombreInput.value = '';
-        if(toleranciaInput) toleranciaInput.value = '0';
         
         if(t1EntradaInput) t1EntradaInput.value = '';
         if(t1SalidaInput) t1SalidaInput.value = '';
@@ -220,7 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             idInput.value = btnEditar.dataset.id || '0';
             nombreInput.value = btnEditar.dataset.nombre || '';
-            toleranciaInput.value = btnEditar.dataset.tolerancia || '0';
 
             t1EntradaInput.value = btnEditar.dataset.t1Entrada && btnEditar.dataset.t1Entrada !== '00:00' ? btnEditar.dataset.t1Entrada : '';
             t1SalidaInput.value  = btnEditar.dataset.t1Salida && btnEditar.dataset.t1Salida !== '00:00' ? btnEditar.dataset.t1Salida : '';

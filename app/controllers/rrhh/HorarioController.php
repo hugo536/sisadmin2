@@ -136,7 +136,6 @@ class HorarioController extends Controlador
     {
         $id = (int) ($_POST['id'] ?? 0);
         $nombre = trim((string) ($_POST['nombre'] ?? ''));
-        $tolerancia = (int) ($_POST['tolerancia_minutos'] ?? 0);
 
         // Recibimos los 6 posibles tramos
         $t1e = trim((string) ($_POST['t1_entrada'] ?? ''));
@@ -162,6 +161,7 @@ class HorarioController extends Controlador
                       $this->calcularHorasTramo($t3e, $t3s);
 
         // Preparamos el array de datos (añadiendo los segundos ':00' para MySQL)
+        // Ya no enviamos tolerancia_minutos, ni márgenes, ni tipo_calculo
         $payload = [
             'nombre'             => $nombre,
             't1_entrada'         => $t1e !== '' ? $t1e . ':00' : null,
@@ -170,8 +170,7 @@ class HorarioController extends Controlador
             't2_salida'          => $t2s !== '' ? $t2s . ':00' : null,
             't3_entrada'         => $t3e !== '' ? $t3e . ':00' : null,
             't3_salida'          => $t3s !== '' ? $t3s . ':00' : null,
-            'total_horas_pago'   => $totalHoras,
-            'tolerancia_minutos' => max(0, $tolerancia),
+            'total_horas_pago'   => $totalHoras
         ];
 
         if ($id > 0) {

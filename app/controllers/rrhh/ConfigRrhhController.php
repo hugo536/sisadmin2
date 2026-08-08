@@ -55,25 +55,14 @@ class ConfigRrhhController extends Controlador
             return;
         }
 
-        // Extraer y validar datos
-        $minutosGracia = (int) ($_POST['minutos_gracia_salida'] ?? 15);
-        $minutosMinimos = (int) ($_POST['minutos_minimos_extra'] ?? 30);
-        $pagarSalidaTarde = isset($_POST['pagar_salida_tarde']) ? 1 : 0;
-
-        // Validar rangos
-        $minutosGracia = max(0, min(120, $minutosGracia));
-        $minutosMinimos = max(1, min(480, $minutosMinimos));
-
-        // Si se activan horas extras, el mínimo debe ser mayor a 0
-        if ($pagarSalidaTarde === 1 && $minutosMinimos <= 0) {
-            redirect('rrhh/config_rrhh?tipo=error&msg=' . urlencode('El tiempo mínimo para horas extras debe ser mayor a 0.'));
-            return;
-        }
-
+        // Armar arreglo exacto con los nombres de los inputs de la vista
         $datos = [
             'pagar_llegada_temprano' => isset($_POST['pagar_llegada_temprano']) ? 1 : 0,
+            'minutos_umbral_llegada_temprano' => (int) ($_POST['minutos_umbral_llegada_temprano'] ?? 15),
+            
             'pagar_salida_tarde' => isset($_POST['pagar_salida_tarde']) ? 1 : 0,
-            'minutos_gracia_salida' => (int) ($_POST['minutos_gracia_salida'] ?? 5), // Agregado
+            'minutos_gracia_salida' => (int) ($_POST['minutos_gracia_salida'] ?? 5),
+            
             'tipo_calculo_horas_extras' => $_POST['tipo_calculo_horas_extras'] ?? 'EXACTO',
             'minutos_umbral_media_hora' => (int) ($_POST['minutos_umbral_media_hora'] ?? 15),
             'minutos_umbral_hora_completa' => (int) ($_POST['minutos_umbral_hora_completa'] ?? 45)

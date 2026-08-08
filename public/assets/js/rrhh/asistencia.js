@@ -9,6 +9,61 @@ function initAsistenciaDashboard() {
     // VARIABLE GLOBAL PARA EL MÓDULO (Scope seguro para usar en clonar y crear)
     let empleadosSeleccionados = [];
 
+    // =========================================================================
+    // NUEVO: AUTO-SELECCIÓN DE EMPLEADO DESDE LA URL (Viene de Planillas)
+    // =========================================================================
+    const params = new URLSearchParams(window.location.search);
+    const idTerceroUrl = params.get('id_tercero');
+
+    if (idTerceroUrl) {
+        let intentos = 0;
+        
+        // El navegador buscará la tarjeta cada 500 milisegundos
+        const buscadorInterval = setInterval(() => {
+            const searchInput = document.getElementById('searchAsistencia') || document.querySelector('input[placeholder*="Buscar empleado"]');
+            
+            // Cubrimos todas las formas posibles en las que tu HTML podría llamarle al ID
+            const tarjetaEmpleado = document.querySelector(`[data-id="${idTerceroUrl}"]`) || 
+                                    document.querySelector(`[data-tercero="${idTerceroUrl}"]`) ||
+                                    document.querySelector(`[data-empleado-id="${idTerceroUrl}"]`) ||
+                                    document.querySelector(`[data-id_tercero="${idTerceroUrl}"]`) ||
+                                    document.querySelector(`a[href*="id_tercero=${idTerceroUrl}"]`);
+
+            if (tarjetaEmpleado) {
+                clearInterval(buscadorInterval); // ¡Lo encontramos! Detenemos la búsqueda
+                
+                // 1. Simular el clic para que se abra su calendario a la derecha
+                tarjetaEmpleado.click();
+
+                // 2. Extraer el nombre (buscamos el texto en negrita o el primer renglón)
+                const nombreElemento = tarjetaEmpleado.querySelector('.fw-bold, strong, h6') || tarjetaEmpleado;
+                let nombreTexto = nombreElemento.textContent.trim().split('\n')[0].trim();
+
+                // 3. Escribir el nombre en el buscador para ocultar a los demás
+                if (searchInput && nombreTexto) {
+                    searchInput.value = nombreTexto;
+                    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    searchInput.dispatchEvent(new Event('keyup', { bubbles: true }));
+                    searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                // 4. Limpiar la URL silenciosamente para que al refrescar no vuelva a auto-hacer clic
+                const nuevaUrl = new URL(window.location.href);
+                nuevaUrl.searchParams.delete('id_tercero');
+                window.history.replaceState({}, document.title, nuevaUrl.toString());
+
+            } else {
+                intentos++;
+                if (intentos >= 10) {
+                    // Si pasaron 5 segundos y no apareció la lista, nos rendimos para no saturar la memoria
+                    clearInterval(buscadorInterval); 
+                    console.warn("Auto-selección: No se encontró la tarjeta del empleado ID " + idTerceroUrl);
+                }
+            }
+        }, 500);
+    }
+    // =========================================================================
+
     // 1. CANDADO AL BUSCADOR
     if (searchInput) {
         searchInput.addEventListener('keydown', (e) => {
