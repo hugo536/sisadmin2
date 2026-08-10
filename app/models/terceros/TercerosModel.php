@@ -350,7 +350,9 @@ class TercerosModel extends Modelo
             return $idTercero;
 
         } catch (Throwable $e) {
-            $this->db()->rollBack();
+            if ($this->db()->inTransaction()) {
+                $this->db()->rollBack();
+            }
             throw $e;
         }
     }
@@ -395,8 +397,10 @@ class TercerosModel extends Modelo
                 $this->empleadosModel->guardar($id, $payload, $userId);
             } else {
                 // LÓGICA AGREGADA: Si ya NO es empleado, limpiamos su rastro en los horarios para que inicie en blanco si regresa
-                $sqlLimpiezaHorario = "DELETE FROM asistencia_empleado_horario WHERE id_tercero = :id_tercero";
-                $this->db()->prepare($sqlLimpiezaHorario)->execute(['id_tercero' => $id]);
+                if ($this->hasColumn('asistencia_empleado_horario', 'id_tercero')) {
+                    $sqlLimpiezaHorario = "DELETE FROM asistencia_empleado_horario WHERE id_tercero = :id_tercero";
+                    $this->db()->prepare($sqlLimpiezaHorario)->execute(['id_tercero' => $id]);
+                }
             }
             
             if (!empty($payload['es_cliente'])) {
@@ -417,8 +421,13 @@ class TercerosModel extends Modelo
             $this->db()->commit();
             return true;
         } catch (Throwable $e) {
-            $this->db()->rollBack();
-            return false;
+            if ($this->db()->inTransaction()) {
+                $this->db()->rollBack();
+            }
+
+            // No ocultar errores: el controlador debe informar al usuario en vez
+            // de responder "actualizado" después de haber revertido la operación.
+            throw $e;
         }
     }
 
