@@ -104,6 +104,17 @@ class Router
             }
         }
 
+        // Rutas de ADELANTOS de Tesorería
+        // /tesoreria/adelantos[/accion] vive en un controlador independiente
+        // para no seguir aumentando TesoreriaController.
+        if ($modulo === 'tesoreria' && $accion === 'adelantos') {
+            $controlador_clase = 'AdelantosController';
+            $accion = $partes[2] ?? 'index';
+            if ($accion === '') {
+                $accion = 'index';
+            }
+        }
+
         // Rutas de CONTABILIDAD
         if ($modulo === 'contabilidad') {
             if ($accion === 'centros_costo') {

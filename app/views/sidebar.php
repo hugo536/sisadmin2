@@ -330,6 +330,9 @@
                     <a class="sb-link sb-sub<?= $activo('tesoreria/movimientos') ?>" href="<?= e(route_url('tesoreria/movimientos')) ?>">
                         <span class="sb-link-icon"><i class="bi bi-arrow-left-right"></i></span><span class="sb-link-text">Movimientos</span>
                     </a>
+                    <a class="sb-link sb-sub<?= $activo('tesoreria/adelantos') ?>" href="<?= e(route_url('tesoreria/adelantos')) ?>">
+                        <span class="sb-link-icon"><i class="bi bi-person-vcard"></i></span><span class="sb-link-text">Adelantos a Personal</span>
+                    </a>
                     <?php endif; ?>
                     <?php if (tiene_permiso('tesoreria.cxc.ver')): ?>
                     <a class="sb-link sb-sub<?= $activo('tesoreria/cxc') ?>" href="<?= e(route_url('tesoreria/cxc')) ?>">
