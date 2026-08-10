@@ -19,6 +19,15 @@ $csrf_token = $csrf_token ?? '';
         </div>
         
         <div class="d-flex align-items-center gap-2">
+            
+            <!-- ====== NUEVO BOTÓN DE IMPRIMIR REPORTE ====== -->
+            <?php if ($lote_actual): ?>
+            <a href="<?php echo e(route_url('planillas/imprimir_reporte_planilla?id_lote=' . $lote_actual['id'])); ?>" target="_blank" class="btn btn-outline-secondary fw-bold shadow-sm px-3 transition-hover">
+                <i class="bi bi-printer-fill me-2"></i>Imprimir Reporte
+            </a>
+            <?php endif; ?>
+            <!-- ============================================= -->
+
             <!-- Menú Desplegable: Historial de Lotes -->
             <div class="dropdown">
                 <button class="btn btn-outline-secondary fw-bold dropdown-toggle shadow-sm px-4" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -92,8 +101,9 @@ $csrf_token = $csrf_token ?? '';
                                     </button>
                                 </form>
                             <?php else: ?>
+                                <!-- Nota: Este es el botón que imprime todas las BOLETAS (El HTML de tickets que compartiste antes) -->
                                 <a href="<?php echo e(route_url('planillas/imprimir_masivo?id_lote=' . $lote_actual['id'])); ?>" target="_blank" class="btn btn-outline-secondary fw-bold px-4">
-                                    <i class="bi bi-printer-fill me-2"></i>Imprimir Todas
+                                    <i class="bi bi-files me-2"></i>Imprimir Boletas
                                 </a>
                             <?php endif; ?>
                         </div>
@@ -200,6 +210,7 @@ $csrf_token = $csrf_token ?? '';
                                                         </button>
                                                     <?php endif; ?>
                                                 <?php else: ?>
+                                                    <!-- Botón de boleta individual -->
                                                     <a href="<?php echo e(route_url('planillas/imprimir_boleta?id=' . $det['id'])); ?>" target="_blank" class="btn btn-sm btn-outline-secondary shadow-sm px-3 rounded-pill fw-bold">
                                                         <i class="bi bi-file-earmark-pdf me-1"></i> Boleta
                                                     </a>
