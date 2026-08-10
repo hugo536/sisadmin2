@@ -25,10 +25,37 @@ class AdelantosModel extends Modelo
 
     public function listarCuentasTesoreria(): array
     {
-        // CAMBIO 1: 'saldo_actual' cambiado a 'saldo'
-        $sql = "SELECT id, nombre, saldo, moneda 
-                FROM tesoreria_cuentas 
-                WHERE estado = 1 AND deleted_at IS NULL";
+        $sql = "SELECT c.id, c.nombre, c.moneda,
+                       (COALESCE(c.saldo_inicial, 0)
+                        + COALESCE(mov.saldo_delta, 0)
+                        + COALESCE(trf.saldo_delta, 0)) AS saldo_actual
+                FROM tesoreria_cuentas c
+                LEFT JOIN (
+                    SELECT id_cuenta,
+                           SUM(CASE
+                               WHEN estado = 'CONFIRMADO' AND tipo IN ('COBRO', 'INGRESO') THEN monto
+                               WHEN estado = 'CONFIRMADO' AND tipo IN ('PAGO', 'EGRESO') THEN -monto
+                               ELSE 0
+                           END) AS saldo_delta
+                    FROM tesoreria_movimientos
+                    WHERE deleted_at IS NULL
+                    GROUP BY id_cuenta
+                ) mov ON mov.id_cuenta = c.id
+                LEFT JOIN (
+                    SELECT cuenta_id, SUM(delta) AS saldo_delta
+                    FROM (
+                        SELECT id_cuenta_destino AS cuenta_id, monto_destino AS delta
+                        FROM tesoreria_transferencias
+                        WHERE deleted_at IS NULL AND estado = 'CONFIRMADA'
+                        UNION ALL
+                        SELECT id_cuenta_origen AS cuenta_id, -monto_origen AS delta
+                        FROM tesoreria_transferencias
+                        WHERE deleted_at IS NULL AND estado = 'CONFIRMADA'
+                    ) transferencias
+                    GROUP BY cuenta_id
+                ) trf ON trf.cuenta_id = c.id
+                WHERE c.estado = 1 AND c.deleted_at IS NULL
+                ORDER BY c.nombre ASC";
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
@@ -61,11 +88,6 @@ class AdelantosModel extends Modelo
                 'id_cuenta' => $idCuenta, 'monto' => $monto, 
                 'concepto' => $conceptoTesoreria, 'fecha' => $fecha, 'uid' => $userId
             ]);
-
-            // CAMBIO 2: 'saldo_actual' cambiado a 'saldo'
-            // 3. Descontar el saldo de la cuenta
-            $db->prepare("UPDATE tesoreria_cuentas SET saldo = saldo - :monto WHERE id = :id_cuenta")
-               ->execute(['monto' => $monto, 'id_cuenta' => $idCuenta]);
 
             $db->commit();
             return true;
@@ -110,11 +132,6 @@ class AdelantosModel extends Modelo
                 'id_cuenta' => $idCuenta, 'monto' => $montoDevuelto, 
                 'concepto' => $conceptoTesoreria, 'uid' => $userId
             ]);
-
-            // CAMBIO 3: 'saldo_actual' cambiado a 'saldo'
-            // 3. Sumar el saldo a la cuenta
-            $db->prepare("UPDATE tesoreria_cuentas SET saldo = saldo + :monto WHERE id = :id_cuenta")
-               ->execute(['monto' => $montoDevuelto, 'id_cuenta' => $idCuenta]);
 
             $db->commit();
             return true;
