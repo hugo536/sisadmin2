@@ -53,7 +53,8 @@ class AdelantosController extends Controlador
             if ($exito) {
                 redirect('tesoreria/adelantos?tipo=success&msg=' . urlencode('Adelanto registrado y descontado de tesorería.'));
             } else {
-                redirect('tesoreria/adelantos?tipo=error&msg=' . urlencode('No se pudo registrar el adelanto. Verifique los saldos.'));
+                $mensaje = $this->model->obtenerUltimoError() ?: 'No se pudo registrar el adelanto.';
+                redirect('tesoreria/adelantos?tipo=error&msg=' . urlencode($mensaje));
             }
         }
     }
@@ -75,7 +76,8 @@ class AdelantosController extends Controlador
             if ($exito) {
                 redirect('tesoreria/adelantos?tipo=success&msg=' . urlencode('Devolución procesada y dinero ingresado a cuenta.'));
             } else {
-                redirect('tesoreria/adelantos?tipo=error&msg=' . urlencode('No se pudo procesar la devolución.'));
+                $mensaje = $this->model->obtenerUltimoError() ?: 'No se pudo procesar la devolución.';
+                redirect('tesoreria/adelantos?tipo=error&msg=' . urlencode($mensaje));
             }
         }
     }
