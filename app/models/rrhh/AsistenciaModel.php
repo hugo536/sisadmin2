@@ -797,37 +797,12 @@ class AsistenciaModel extends Modelo
         return $this->procesarFilasDashboard($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], $estado);
     }
 
-    public function listarEmpleadosParaIncidencias(): array
+    public function listarEmpleados(): array
     {
         $sql = 'SELECT t.id, t.nombre_completo, te.codigo_biometrico FROM terceros t
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
                 WHERE t.es_empleado = 1 AND t.deleted_at IS NULL ORDER BY t.nombre_completo ASC';
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    }
-
-    public function listarIncidencias(): array
-    {
-        $sql = 'SELECT ai.id, ai.id_tercero, t.nombre_completo AS empleado, ai.tipo_incidencia, ai.fecha_inicio, ai.fecha_fin, ai.con_goce_sueldo, ai.documento_respaldo, ai.estado, ai.created_at
-                FROM asistencia_incidencias ai INNER JOIN terceros t ON t.id = ai.id_tercero
-                WHERE ai.deleted_at IS NULL ORDER BY ai.fecha_inicio DESC, ai.id DESC';
-        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    }
-
-    public function guardarIncidencia(array $data, int $userId): bool
-    {
-        $sql = 'INSERT INTO asistencia_incidencias (id_tercero, tipo_incidencia, fecha_inicio, fecha_fin, con_goce_sueldo, documento_respaldo, estado, created_by, updated_by) 
-                VALUES (:id_tercero, :tipo_incidencia, :fecha_inicio, :fecha_fin, :con_goce_sueldo, :documento_respaldo, 1, :created_by, :updated_by)';
-        return $this->db()->prepare($sql)->execute([
-            'id_tercero' => $data['id_tercero'], 'tipo_incidencia' => $data['tipo_incidencia'], 'fecha_inicio' => $data['fecha_inicio'],
-            'fecha_fin' => $data['fecha_fin'], 'con_goce_sueldo' => $data['con_goce_sueldo'], 'documento_respaldo' => $data['documento_respaldo'],
-            'created_by' => $userId, 'updated_by' => $userId,
-        ]);
-    }
-
-    public function eliminarIncidencia(int $id, int $userId): bool
-    {
-        $sql = 'UPDATE asistencia_incidencias SET deleted_at = NOW(), deleted_by = :deleted_by, estado = 0, updated_by = :updated_by, updated_at = NOW() WHERE id = :id AND deleted_at IS NULL';
-        return $this->db()->prepare($sql)->execute(['id' => $id, 'deleted_by' => $userId, 'updated_by' => $userId]);
     }
 
     // =========================================================================

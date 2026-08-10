@@ -58,7 +58,7 @@ class AsistenciaController extends Controlador
             ? $this->asistenciaModel->listarGruposExcepcion() 
             : [];
             
-        $empleados = $this->asistenciaModel->listarEmpleadosParaIncidencias();
+        $empleados = $this->asistenciaModel->listarEmpleados();
 
         $this->render('rrhh/gestion_asistencia', [
             'ruta_actual' => 'asistencia/gestion_asistencia',
@@ -366,7 +366,7 @@ class AsistenciaController extends Controlador
             
         $empleadosSinGrupo = (method_exists($this->asistenciaModel, 'listarEmpleadosSinGrupo'))
             ? $this->asistenciaModel->listarEmpleadosSinGrupo()
-            : $this->asistenciaModel->listarEmpleadosParaIncidencias();
+            : $this->asistenciaModel->listarEmpleados();
 
         $this->render('rrhh/asistencia_dashboard', [
             'ruta_actual' => 'asistencia/dashboard',
@@ -381,7 +381,7 @@ class AsistenciaController extends Controlador
             'desde' => $desde,
             'hasta' => $hasta,
             'registros' => $registros,
-            'empleados' => $this->asistenciaModel->listarEmpleadosParaIncidencias(),
+            'empleados' => $this->asistenciaModel->listarEmpleados(),
             'grupos' => $grupos,
             'empleadosSinGrupo' => $empleadosSinGrupo,
             'flash' => [
@@ -547,33 +547,6 @@ class AsistenciaController extends Controlador
         }
 
         redirect("asistencia/dashboard?fecha={$fecha}&tipo=success&msg=" . urlencode('Excepción gestionada correctamente.'));
-    }
-
-    public function incidencias(): void
-    {
-        AuthMiddleware::handle();
-        require_permiso('terceros.ver');
-
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            $accion = (string) ($_POST['accion'] ?? 'guardar');
-            if ($accion === 'eliminar') {
-                $this->eliminarIncidencia();
-                return;
-            }
-
-            $this->guardarIncidencia();
-            return;
-        }
-
-        $this->render('rrhh/asistencia_incidencias', [
-            'ruta_actual' => 'asistencia/incidencias',
-            'empleados' => $this->asistenciaModel->listarEmpleadosParaIncidencias(),
-            'incidencias' => $this->asistenciaModel->listarIncidencias(),
-            'flash' => [
-                'tipo' => (string) ($_GET['tipo'] ?? ''),
-                'texto' => (string) ($_GET['msg'] ?? ''),
-            ],
-        ]);
     }
 
     private function subirLogBiometrico(): void
@@ -830,70 +803,6 @@ class AsistenciaController extends Controlador
         redirect('asistencia/importar?tipo=success&msg=' . urlencode('Se limpiaron ' . count($logsADescartar) . ' marcas huérfanas (sin empleado).'));
     }
 
-    private function guardarIncidencia(): void
-    {
-        require_permiso('terceros.editar');
-
-        $userId = (int) ($_SESSION['id'] ?? 0);
-        $idTercero = (int) ($_POST['id_tercero'] ?? 0);
-        $tipoIncidencia = trim((string) ($_POST['tipo_incidencia'] ?? ''));
-        $fechaInicio = trim((string) ($_POST['fecha_inicio'] ?? ''));
-        $fechaFin = trim((string) ($_POST['fecha_fin'] ?? ''));
-        $conGoce = ((int) ($_POST['con_goce_sueldo'] ?? 1) === 1) ? 1 : 0;
-
-        $tiposValidos = ['VACACIONES', 'DESCANSO_MEDICO', 'PERMISO_PERSONAL', 'SUBSIDIO'];
-
-        if ($idTercero <= 0 || !in_array($tipoIncidencia, $tiposValidos, true) || $fechaInicio === '' || $fechaFin === '') {
-            redirect('asistencia/incidencias?tipo=error&msg=' . urlencode('Datos de incidencia inválidos.'));
-            return;
-        }
-
-        $rutaDocumento = null;
-        if (!empty($_FILES['documento_respaldo']['name'])) {
-            $file = $_FILES['documento_respaldo'];
-            if ((int) ($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
-                redirect('asistencia/incidencias?tipo=error&msg=' . urlencode('No se pudo subir el documento de respaldo.'));
-                return;
-            }
-
-            $ext = strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION));
-            if (!in_array($ext, ['pdf', 'jpg', 'jpeg', 'png'], true)) {
-                redirect('asistencia/incidencias?tipo=error&msg=' . urlencode('Solo se permite PDF o imágenes (jpg, jpeg, png).'));
-                return;
-            }
-
-            $dirAbs = BASE_PATH . '/public/uploads/asistencia/incidencias/';
-            if (!is_dir($dirAbs)) {
-                mkdir($dirAbs, 0755, true);
-            }
-
-            $name = uniqid('inc_', true) . '.' . $ext;
-            $destAbs = $dirAbs . $name;
-            if (!move_uploaded_file((string) $file['tmp_name'], $destAbs)) {
-                redirect('asistencia/incidencias?tipo=error&msg=' . urlencode('No se pudo guardar el documento de respaldo.'));
-                return;
-            }
-
-            $rutaDocumento = 'uploads/asistencia/incidencias/' . $name;
-        }
-
-        $ok = $this->asistenciaModel->guardarIncidencia([
-            'id_tercero' => $idTercero,
-            'tipo_incidencia' => $tipoIncidencia,
-            'fecha_inicio' => $fechaInicio,
-            'fecha_fin' => $fechaFin,
-            'con_goce_sueldo' => $conGoce,
-            'documento_respaldo' => $rutaDocumento,
-        ], $userId);
-
-        if (!$ok) {
-            redirect('asistencia/incidencias?tipo=error&msg=' . urlencode('No fue posible guardar la incidencia.'));
-            return;
-        }
-
-        redirect('asistencia/incidencias?tipo=success&msg=' . urlencode('Incidencia guardada correctamente.'));
-    }
-
     public function guardar_manual(): void
     {
         AuthMiddleware::handle();
@@ -974,26 +883,6 @@ class AsistenciaController extends Controlador
         } catch (Throwable $e) {
             redirect('asistencia/dashboard?tipo=error&msg=' . urlencode('Error al procesar: ' . $e->getMessage()));
         }
-    }
-
-    private function eliminarIncidencia(): void
-    {
-        require_permiso('terceros.editar');
-
-        $id = (int) ($_POST['id'] ?? 0);
-        $userId = (int) ($_SESSION['id'] ?? 0);
-
-        if ($id <= 0) {
-            redirect('asistencia/incidencias?tipo=error&msg=' . urlencode('Incidencia inválida.'));
-            return;
-        }
-
-        if (!$this->asistenciaModel->eliminarIncidencia($id, $userId)) {
-            redirect('asistencia/incidencias?tipo=error&msg=' . urlencode('No se pudo eliminar la incidencia.'));
-            return;
-        }
-
-        redirect('asistencia/incidencias?tipo=success&msg=' . urlencode('Incidencia eliminada correctamente.'));
     }
 
     private function normalizarFechaHora(string $value): ?string
