@@ -197,7 +197,13 @@ class AdelantosModel extends Modelo
             return true;
         } catch (Exception $e) {
             $db->rollBack();
-            error_log("Error al registrar devolución de adelanto: " . $e->getMessage());
+            
+            // Muestra el mensaje de error exacto
+            die("<div style='background:#ffebee; padding:20px; font-family:sans-serif; color:#c62828; border-radius:8px; margin:20px; border: 1px solid #ef9a9a;'>
+                    <h3 style='margin-top:0;'>🛑 Error al registrar adelanto:</h3>
+                    <b>" . htmlspecialchars($e->getMessage()) . "</b>
+                 </div>");
+                 
             return false;
         }
     }

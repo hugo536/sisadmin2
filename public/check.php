@@ -1,203 +1,245 @@
 <?php
-/**
- * 🔍 SUPER CHECKER V5 - El Veredicto Final
- * Diagnóstico de Filtros Tesorería
- */
-declare(strict_types=1);
-error_reporting(E_ALL); ini_set('display_errors', '1');
-
-echo "<!DOCTYPE html><html><head><title>Debugger Tesorería V5</title>";
-echo '<meta name="viewport" content="width=device-width, initial-scale=1">';
-echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">';
-echo '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">';
+$adelantos = $adelantos ?? [];
+$empleados = $empleados ?? [];
+$cuentas = $cuentas ?? [];
+$csrf_token = $csrf_token ?? '';
+$puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
 ?>
-<style>
-    body { background: #f8f9fa; padding: 20px; font-family: 'Segoe UI', system-ui, sans-serif; }
-    .terminal { background-color: #0d1117; color: #58a6ff; font-family: monospace; font-size: 13.5px; padding: 15px; border-radius: 8px; overflow-x: auto; border: 1px solid #30363d; }
-    .terminal-comment { color: #8b949e; font-style: italic; }
-    .terminal-keyword { color: #ff7b72; }
-    .terminal-string { color: #a5d6ff; }
-    .terminal-var { color: #79c0ff; }
-</style>
-</head><body>
 
-<div class="container" style="max-width: 1200px;">
-    <h2 class="text-primary mb-3 fw-bold"><i class="bi bi-radar"></i> DIAGNÓSTICO V5: El Veredicto Final</h2>
-    <p class="lead text-muted">¿Por qué seguía sin funcionar? Aquí está el motivo exacto (Spoiler: el JS estaba enviando la petición al lugar equivocado) y la solución definitiva.</p>
-
-    <div class="row g-4 mt-2">
-        <div class="col-lg-5">
-            <div class="card shadow-sm border-0 border-start border-danger border-4 mb-4">
-                <div class="card-header bg-white fw-bold text-danger"><i class="bi bi-bug"></i> Los 2 Culpables Restantes</div>
-                <div class="card-body p-4 bg-light">
-                    <ol class="mb-0">
-                        <li class="mb-3">
-                            <strong>El Asesino Silencioso de Subcarpetas (JavaScript):</strong> En la versión anterior, el código <code>new URL(action, window.location.origin)</code> ignoraba tu carpeta <code>/sisadmin2/</code>. La petición de filtro se enviaba a <code>http://localhost/tesoreria...</code>, generando un Error 404 invisible. La tabla no se actualizaba porque nunca recibía datos nuevos.<br>
-                            <span class="badge bg-success mt-2">Solución:</span> Usar la propiedad nativa <code>form.action</code>, que el navegador ya resuelve automáticamente con la ruta absoluta correcta.
-                        </li>
-                        <li class="mb-3">
-                            <strong>Sintaxis MySQL Estricta (Modelo):</strong> En algunas versiones de MySQL/MariaDB, envolver subconsultas <code>UNION ALL</code> entre paréntesis <code>($sql) UNION ALL ($sql)</code> arroja un error de sintaxis silencioso al combinarlo con <code>ORDER BY</code>.<br>
-                            <span class="badge bg-success mt-2">Solución:</span> Quitar los paréntesis al concatenar la consulta final.
-                        </li>
-                    </ol>
-                </div>
-            </div>
-
-            <div class="alert alert-warning border-0 shadow-sm">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i> <strong>Recuerda borrar tu caché (Ctrl + F5)</strong> después de actualizar tu JavaScript.
-            </div>
+<div class="container-fluid p-4" id="adelantosApp">
+    
+    <!-- CABECERA -->
+    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+        <div>
+            <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
+                <i class="bi bi-cash-coin me-2 text-primary"></i> Adelantos a Personal
+            </h1>
+            <p class="text-muted small mb-0 ms-1">Control de préstamos vinculados a cajas y planillas.</p>
         </div>
+        <?php if ($puedeRegistrar): ?>
+        <button type="button" class="btn btn-primary shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#modalNuevoAdelanto">
+            <i class="bi bi-plus-circle-fill me-2"></i>Nuevo Adelanto
+        </button>
+        <?php endif; ?>
+    </div>
 
-        <div class="col-lg-7">
-            <div class="card shadow border-0 h-100">
-                <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-tools"></i> Código de Solución Definitiva (Copia esto)</span>
-                </div>
-                <div class="card-body p-0">
-                    <div class="accordion accordion-flush" id="accordionFixes">
-                        
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button bg-light fw-bold text-warning" type="button" data-bs-toggle="collapse" data-bs-target="#fix3">
-                                    1. Actualizar JS (movimientos.js)
-                                </button>
-                            </h2>
-                            <div id="fix3" class="accordion-collapse collapse show" data-bs-parent="#accordionFixes">
-                                <div class="accordion-body">
-                                    <p class="small text-muted mb-2">Reemplaza tu función <code>procesarFiltros</code> por esta versión infalible. Extrae la URL absoluta directamente del DOM:</p>
-                                    <div class="terminal">
-const procesarFiltros = () => {
-    const formData = new FormData(formFiltros);
-    
-    <span class="terminal-comment">// Propiedad DOM nativa: obtiene la ruta ABSOLUTA garantizada</span>
-    <span class="terminal-comment">// (ej: http://localhost/sisadmin2/index.php?ruta=...)</span>
-    const urlObj = new URL(formFiltros.action);
-    
-    formData.forEach((value, key) => {
-        if (value.trim() !== '') {
-            urlObj.searchParams.set(key, value.trim());
-        } else {
-            urlObj.searchParams.delete(key); <span class="terminal-comment">// Limpia filtros vacíos</span>
-        }
-    });
-    
-    const finalUrlStr = urlObj.toString();
-    console.log("📍 AJAX Enviado a:", finalUrlStr);
-    
-    cargarDatosAjax(finalUrlStr);
-};
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed bg-light fw-bold text-success" type="button" data-bs-toggle="collapse" data-bs-target="#fix2">
-                                    2. Actualizar TesoreriaMovimientoModel.php
-                                </button>
-                            </h2>
-                            <div id="fix2" class="accordion-collapse collapse" data-bs-parent="#accordionFixes">
-                                <div class="accordion-body">
-                                    <p class="small text-muted mb-2">Reemplaza la función <code>listarRecientes</code>. Hemos eliminado los paréntesis del UNION ALL para máxima compatibilidad:</p>
-                                    <div class="terminal" style="max-height: 350px;">
-<span class="terminal-keyword">public function</span> listarRecientes(array $filtros = [], int $limite = 50): array
-{
-    $origenFilter = strtoupper(trim((string) ($filtros['origen'] ?? '')));
-    $idOrigenFilter = (int) ($filtros['id_origen'] ?? 0);
-    $idTerceroFilter = (int) ($filtros['id_tercero'] ?? 0);
-    $idCuentaFilter = (int) ($filtros['id_cuenta'] ?? 0);
-    $fechaDesdeFilter = (string) ($filtros['fecha_desde'] ?? '');
-    $fechaHastaFilter = (string) ($filtros['fecha_hasta'] ?? '');
-
-    $paramsFinal = [];
-    $whereMov = ['m.deleted_at IS NULL'];
-    
-    if (in_array($origenFilter, ['CXC', 'CXP'], true)) {
-        $whereMov[] = 'm.origen = :origen_mov';
-        $paramsFinal['origen_mov'] = $origenFilter;
-    }
-    if ($idOrigenFilter > 0) {
-        $whereMov[] = 'm.id_origen = :id_origen_mov';
-        $paramsFinal['id_origen_mov'] = $idOrigenFilter;
-    }
-    if ($idTerceroFilter > 0) {
-        $whereMov[] = 'm.id_tercero = :id_tercero_mov';
-        $paramsFinal['id_tercero_mov'] = $idTerceroFilter;
-    }
-    if ($idCuentaFilter > 0) {
-        $whereMov[] = 'm.id_cuenta = :id_cuenta_mov';
-        $paramsFinal['id_cuenta_mov'] = $idCuentaFilter;
-    }
-    if ($fechaDesdeFilter !== '') {
-        $whereMov[] = 'm.fecha >= :fecha_desde_mov';
-        $paramsFinal['fecha_desde_mov'] = $fechaDesdeFilter . ' 00:00:00';
-    }
-    if ($fechaHastaFilter !== '') {
-        $whereMov[] = 'm.fecha <= :fecha_hasta_mov';
-        $paramsFinal['fecha_hasta_mov'] = $fechaHastaFilter . ' 23:59:59';
-    }
-
-    $sqlMov = 'SELECT m.id, m.fecha, m.tipo, m.origen, m.id_origen, m.monto, m.estado, 
-                      COALESCE(c.codigo, "S/C") AS cuenta_codigo, COALESCE(c.nombre, "Cuenta Eliminada") AS cuenta_nombre, 
-                      COALESCE(t.nombre_completo, "Tercero Eliminado") AS tercero_nombre, m.created_at
-               FROM tesoreria_movimientos m
-               LEFT JOIN tesoreria_cuentas c ON c.id = m.id_cuenta
-               LEFT JOIN terceros t ON t.id = m.id_tercero
-               WHERE ' . implode(' AND ', $whereMov);
-
-    $addTransfers = true;
-    if ($origenFilter !== '' && $origenFilter !== 'TRANSFERENCIA') $addTransfers = false;
-    if ($idTerceroFilter > 0) $addTransfers = false;
-    
-    if ($addTransfers) {
-        $whereTrfOut = ['trf.deleted_at IS NULL'];
-        $whereTrfIn  = ['trf.deleted_at IS NULL'];
-
-        if ($idOrigenFilter > 0) {
-            $whereTrfOut[] = 'trf.id = :id_origen_out'; $paramsFinal['id_origen_out'] = $idOrigenFilter;
-            $whereTrfIn[] = 'trf.id = :id_origen_in'; $paramsFinal['id_origen_in'] = $idOrigenFilter;
-        }
-        if ($idCuentaFilter > 0) {
-            $whereTrfOut[] = 'trf.id_cuenta_origen = :id_cuenta_out'; $paramsFinal['id_cuenta_out'] = $idCuentaFilter;
-            $whereTrfIn[] = 'trf.id_cuenta_destino = :id_cuenta_in'; $paramsFinal['id_cuenta_in'] = $idCuentaFilter;
-        }
-        if ($fechaDesdeFilter !== '') {
-            $whereTrfOut[] = 'trf.fecha >= :fecha_desde_out'; $paramsFinal['fecha_desde_out'] = $fechaDesdeFilter . ' 00:00:00';
-            $whereTrfIn[] = 'trf.fecha >= :fecha_desde_in'; $paramsFinal['fecha_desde_in'] = $fechaDesdeFilter . ' 00:00:00';
-        }
-        if ($fechaHastaFilter !== '') {
-            $whereTrfOut[] = 'trf.fecha <= :fecha_hasta_out'; $paramsFinal['fecha_hasta_out'] = $fechaHastaFilter . ' 23:59:59';
-            $whereTrfIn[] = 'trf.fecha <= :fecha_hasta_in'; $paramsFinal['fecha_hasta_in'] = $fechaHastaFilter . ' 23:59:59';
-        }
-
-        $sqlTrfOut = 'SELECT trf.id, trf.fecha, "PAGO" AS tipo, "TRANSFERENCIA" AS origen, trf.id AS id_origen, trf.monto, trf.estado, COALESCE(co.codigo, "S/C") AS cuenta_codigo, COALESCE(co.nombre, "Cuenta Eliminada") AS cuenta_nombre, "Cuentas Propias" AS tercero_nombre, trf.created_at FROM tesoreria_transferencias trf LEFT JOIN tesoreria_cuentas co ON co.id = trf.id_cuenta_origen WHERE ' . implode(' AND ', $whereTrfOut);
-        $sqlTrfIn = 'SELECT trf.id, trf.fecha, "COBRO" AS tipo, "TRANSFERENCIA" AS origen, trf.id AS id_origen, trf.monto, trf.estado, COALESCE(cd.codigo, "S/C") AS cuenta_codigo, COALESCE(cd.nombre, "Cuenta Eliminada") AS cuenta_nombre, "Cuentas Propias" AS tercero_nombre, trf.created_at FROM tesoreria_transferencias trf LEFT JOIN tesoreria_cuentas cd ON cd.id = trf.id_cuenta_destino WHERE ' . implode(' AND ', $whereTrfIn);
-
-        <span class="terminal-comment">// CORRECCIÓN: Quitamos los paréntesis alrededor de las subconsultas</span>
-        $sqlFinal = $sqlMov . " UNION ALL " . $sqlTrfOut . " UNION ALL " . $sqlTrfIn . " ORDER BY fecha DESC, created_at DESC LIMIT :limite";
-    } else {
-        $sqlFinal = $sqlMov . " ORDER BY fecha DESC, created_at DESC LIMIT :limite";
-    }
-
-    $stmt = $this->db()->prepare($sqlFinal);
-    foreach ($paramsFinal as $k => $v) { $stmt->bindValue(':' . $k, $v); }
-    $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
-    $stmt->execute();
-    
-    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
+    <!-- TARJETA DE FILTROS -->
+    <div class="card border-0 shadow-sm mb-3 fade-in">
+        <div class="card-body p-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-lg-4">
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0 shadow-none" id="searchAdelantos" placeholder="Buscar empleado, DNI u observación...">
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- TARJETA DE TABLA PRINCIPAL -->
+    <div class="card border-0 shadow-sm fade-in">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0 table-pro" id="tablaAdelantos"
+                       data-erp-table="true"
+                       data-search-input="#searchAdelantos"
+                       data-pagination-controls="#adelantosPaginationControls"
+                       data-pagination-info="#adelantosPaginationInfo">
+                    <thead>
+                        <tr>
+                            <th class="ps-4 text-secondary fw-semibold">Fecha</th>
+                            <th class="text-secondary fw-semibold">Empleado</th>
+                            <th class="text-secondary fw-semibold">Cuenta Origen</th>
+                            <th class="text-end text-secondary fw-semibold">Monto (S/)</th>
+                            <th class="text-end text-secondary fw-semibold">Saldo Pdte.</th>
+                            <th class="text-center text-secondary fw-semibold">Estado</th>
+                            <th class="text-end pe-4 text-secondary fw-semibold">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($adelantos)): ?>
+                            <tr class="empty-msg-row">
+                                <td colspan="7" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay adelantos registrados.</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($adelantos as $ad): ?>
+                                <tr class="border-bottom" data-search="<?php echo strtolower(htmlspecialchars($ad['empleado'] . ' ' . $ad['numero_documento'] . ' ' . $ad['observacion'])); ?>">
+                                    <td class="ps-4">
+                                        <div class="fw-bold text-dark" title="Fecha de Entrega: <?php echo date('d/m/Y', strtotime($ad['fecha'])); ?>">
+                                            <i class="bi bi-calendar3 me-1 text-muted"></i> <?php echo date('d/m/Y', strtotime($ad['fecha'])); ?>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark"><?php echo htmlspecialchars($ad['empleado']); ?></div>
+                                        <div class="small text-muted mt-1">DNI: <?php echo htmlspecialchars($ad['numero_documento']); ?></div>
+                                    </td>
+                                    <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($ad['cuenta_origen'] ?? 'Desconocida'); ?></span></td>
+                                    
+                                    <td class="text-end fw-bold text-dark fs-6">S/ <?php echo number_format((float)$ad['monto'], 2); ?></td>
+                                    <td class="text-end fw-bold fs-6 <?php echo $ad['saldo_pendiente'] > 0 ? 'text-danger' : 'text-success'; ?>">
+                                        S/ <?php echo number_format((float)$ad['saldo_pendiente'], 2); ?>
+                                    </td>
+                                    <td class="text-center">
+                                        <?php if ($ad['estado'] === 'PENDIENTE'): ?>
+                                            <span class="badge px-3 py-2 rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle">PENDIENTE</span>
+                                        <?php else: ?>
+                                            <span class="badge px-3 py-2 rounded-pill bg-success-subtle text-success border border-success-subtle">PAGADO</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <div class="d-inline-flex align-items-center gap-1">
+                                        <?php if ($ad['saldo_pendiente'] > 0 && $puedeRegistrar): ?>
+                                            <button type="button" class="btn btn-sm btn-light text-success border-0 rounded-circle btn-devolver" 
+                                                    data-bs-toggle="modal" data-bs-target="#modalDevolver"
+                                                    data-id="<?php echo $ad['id']; ?>"
+                                                    data-empleado="<?php echo htmlspecialchars($ad['empleado']); ?>"
+                                                    data-saldo="<?php echo $ad['saldo_pendiente']; ?>"
+                                                    data-bs-toggle="tooltip" title="Devolver Efectivo">
+                                                <i class="bi bi-arrow-counterclockwise fs-5"></i>
+                                            </button>
+                                        <?php else: ?>
+                                            <span class="text-muted small"><i class="bi bi-check2-all"></i> Cancelado</span>
+                                        <?php endif; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
+                <small class="text-muted fw-semibold" id="adelantosPaginationInfo">Cargando...</small>
+                <nav aria-label="Navegación de adelantos">
+                    <ul class="pagination mb-0 justify-content-end" id="adelantosPaginationControls"></ul>
+                </nav>
+            </div>
+        </div>
+    </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body></html>
+<!-- ============================================================== -->
+<!-- MODAL: NUEVO ADELANTO -->
+<!-- ============================================================== -->
+<div class="modal fade" id="modalNuevoAdelanto" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-cash-coin me-2"></i>Registrar Adelanto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                <form action="<?php echo e(route_url('tesoreria/adelantos/guardar')); ?>" method="POST" id="formNuevoAdelanto">
+                    <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token); ?>">
+                    
+                    <div class="card border-0 shadow-sm mb-0">
+                        <div class="card-body">
+                            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Información del Préstamo</h6>
+                            
+                            <div class="row g-3 align-items-end mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small fw-bold mb-1">Empleado <span class="text-danger">*</span></label>
+                                    <!-- ID agregado para TomSelect -->
+                                    <select class="form-select shadow-none" name="id_tercero" id="selectEmpleado" required>
+                                        <option value="" disabled selected>Seleccione trabajador...</option>
+                                        <?php foreach ($empleados as $emp): ?>
+                                            <option value="<?php echo $emp['id']; ?>"><?php echo htmlspecialchars($emp['nombre_completo']); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small fw-bold mb-1">Cuenta de Origen (Tesorería) <span class="text-danger">*</span></label>
+                                    <select class="form-select shadow-none border-secondary-subtle fw-medium" name="id_cuenta" required>
+                                        <option value="" disabled selected>¿De dónde sale el dinero?</option>
+                                        <?php foreach ($cuentas as $cta): ?>
+                                            <!-- Saldo corregido a saldo_actual -->
+                                            <option value="<?php echo $cta['id']; ?>"><?php echo htmlspecialchars($cta['nombre']); ?> (Saldo: <?php echo $cta['moneda']; ?> <?php echo number_format((float)$cta['saldo_actual'], 2); ?>)</option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 align-items-end mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small fw-bold mb-1">Monto a Prestar (S/) <span class="text-danger">*</span></label>
+                                    <div class="input-group shadow-sm">
+                                        <span class="input-group-text bg-light border-secondary-subtle border-end-0 fw-bold">S/</span>
+                                        <input type="number" step="0.01" min="1" class="form-control text-primary fw-bold border-secondary-subtle border-start-0 shadow-none" name="monto" placeholder="0.00" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted small fw-bold mb-1">Fecha de Entrega <span class="text-danger">*</span></label>
+                                    <div class="input-group shadow-sm">
+                                        <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-calendar-event text-muted"></i></span>
+                                        <input type="date" class="form-control fw-bold border-secondary-subtle border-start-0 shadow-none" name="fecha" value="<?php echo date('Y-m-d'); ?>" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-12">
+                                    <label class="form-label text-muted small fw-bold mb-1">Observaciones</label>
+                                    <input type="text" class="form-control shadow-none border-secondary-subtle" name="observacion" maxlength="180" placeholder="Motivo del adelanto...">
+                                    <div class="form-text small mt-1"><i class="bi bi-info-circle text-primary me-1"></i> Este monto se descontará automáticamente en la próxima planilla.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-white border-top-0 d-flex justify-content-end align-items-center gap-2">
+                <button type="button" class="btn btn-light text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="formNuevoAdelanto" class="btn btn-primary px-4 fw-bold"><i class="bi bi-save me-2"></i>Entregar Efectivo</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- MODAL: DEVOLUCIÓN MANUAL -->
+<!-- ============================================================== -->
+<div class="modal fade" id="modalDevolver" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-arrow-counterclockwise me-2"></i>Devolución de Efectivo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                <form action="<?php echo e(route_url('tesoreria/adelantos/devolver')); ?>" method="POST" id="formDevolverAdelanto">
+                    <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token); ?>">
+                    <input type="hidden" name="id_adelanto" id="devIdAdelanto">
+                    
+                    <div class="card border-0 shadow-sm mb-0">
+                        <div class="card-body">
+                            <p class="mb-3 text-dark">Registrar ingreso de dinero físico devuelto por el trabajador <strong id="devNombreEmpleado" class="text-success"></strong>.</p>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted small fw-bold mb-1">Monto a Devolver (S/) <span class="text-danger">*</span></label>
+                                <div class="input-group shadow-sm">
+                                    <span class="input-group-text bg-success-subtle text-success border-success-subtle border-end-0 fw-bold">S/</span>
+                                    <input type="number" step="0.01" min="0.01" class="form-control text-success fw-bold border-success-subtle border-start-0 shadow-none" name="monto_devuelto" id="devMonto" required>
+                                </div>
+                            </div>
+
+                            <div class="mb-0">
+                                <label class="form-label text-muted small fw-bold mb-1">Cuenta de Destino (Tesorería) <span class="text-danger">*</span></label>
+                                <select class="form-select border-secondary-subtle shadow-none fw-medium" name="id_cuenta_destino" required>
+                                    <option value="" disabled selected>¿A qué caja ingresa el dinero?</option>
+                                    <?php foreach ($cuentas as $cta): ?>
+                                        <option value="<?php echo $cta['id']; ?>"><?php echo htmlspecialchars($cta['nombre']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-white border-top-0 d-flex justify-content-end align-items-center gap-2">
+                <button type="button" class="btn btn-light text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="formDevolverAdelanto" class="btn btn-success px-4 fw-bold"><i class="bi bi-check-lg me-2"></i>Registrar Ingreso</button>
+            </div>
+        </div>
+    </div>
+</div>
