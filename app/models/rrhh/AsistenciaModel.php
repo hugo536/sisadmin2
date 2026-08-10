@@ -141,7 +141,14 @@ class AsistenciaModel extends Modelo
                 $tsInReal = strpos($ingresos[$k], ' ') !== false ? strtotime($ingresos[$k]) : strtotime($fecha . ' ' . $ingresos[$k]);
                 $tsOutReal = strpos($salidas[$k], ' ') !== false ? strtotime($salidas[$k]) : strtotime($fecha . ' ' . $salidas[$k]);
 
-                if ($tsInReal === false || $tsOutReal === false || $tsOutReal <= $tsInReal) continue;
+                if ($tsInReal === false || $tsOutReal === false) continue;
+
+                // CORRECCIÓN: Manejo de cruce de medianoche (Turno nocturno)
+                if ($tsOutReal < $tsInReal) {
+                    $tsOutReal = strtotime('+1 day', $tsOutReal);
+                }
+
+                if ($tsOutReal <= $tsInReal) continue; // Por si hay marcaciones duplicadas o ilógicas
 
                 $bloqueSegundos = $bloqueMinutos * 60;
 
@@ -151,9 +158,9 @@ class AsistenciaModel extends Modelo
                 
                 $diffIn = ($tsInReal - $bloquePrevIn) / 60;
                 if ($diffIn <= $tolerancia) {
-                    $tsInEfectivo = $bloquePrevIn; // Entró en tolerancia, se le regala al bloque inicial
+                    $tsInEfectivo = $bloquePrevIn; // Entró en tolerancia
                 } else {
-                    $tsInEfectivo = $bloqueNextIn; // Llegó tarde al bloque, su tiempo corre desde el siguiente
+                    $tsInEfectivo = $bloqueNextIn; // Llegó tarde al bloque
                 }
 
                 // --- REDONDEO DE SALIDA (Hacia atrás, solo bloques completados) ---

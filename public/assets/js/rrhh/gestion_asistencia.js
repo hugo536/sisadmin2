@@ -10,10 +10,7 @@
     function iniciarModuloExcelAsistencia() {
         const appContenedor = document.getElementById('gestionAsistenciaApp');
         
-        // 1. Si no existe la vista en el DOM, o si ya la inicializamos, abortamos.
         if (!appContenedor || appContenedor.dataset.iniciado === '1') return;
-        
-        // Marcamos la vista como inicializada para no duplicar eventos en la SPA
         appContenedor.dataset.iniciado = '1';
 
         // ==========================================
@@ -30,7 +27,10 @@
             
             lblNombreActivo: document.getElementById('nombreEmpleadoActivo'),
             lblRangoActivo: document.getElementById('rangoActivoLabel'),
-            lblTotalHoras: document.getElementById('totalHorasCalculadas'),
+            
+            // Nuevos contadores separados
+            lblTotalRegulares: document.getElementById('totalRegulares'),
+            lblTotalExtras: document.getElementById('totalExtras'),
             
             selectPeriodo: document.getElementById('tipoPeriodo'),
             filtros: document.querySelectorAll('.filter-input'),
@@ -45,16 +45,73 @@
         };
 
         // ==========================================
+        // UTILIDADES DE CÁLCULO DE TIEMPO (FRONTEND)
+        // ==========================================
+        // Calcula los minutos entre dos horas formato "HH:mm"
+        function calcularDiferenciaMinutos(horaEntrada, horaSalida) {
+            if (!horaEntrada || !horaSalida) return 0;
+            
+            let [hIn, mIn] = horaEntrada.split(':').map(Number);
+            let [hOut, mOut] = horaSalida.split(':').map(Number);
+            
+            let minIn = (hIn * 60) + mIn;
+            let minOut = (hOut * 60) + mOut;
+            
+            // Manejo de turnos que cruzan la medianoche (ej: 22:00 a 06:00)
+            if (minOut < minIn) {
+                minOut += 24 * 60;
+            }
+            
+            return minOut - minIn;
+        }
+
+        // Convierte minutos totales a un formato legible "Xh Ym"
+        function formatoHoras(totalMinutos) {
+            if (totalMinutos <= 0) return '0h';
+            let h = Math.floor(totalMinutos / 60);
+            let m = totalMinutos % 60;
+            return m > 0 ? `${h}h ${m}m` : `${h}h`;
+        }
+
+        // Recalcula el total de una fila específica instantáneamente
+        function actualizarTotalFilaUI(tr) {
+            const t1_in = tr.querySelector('[data-tipo="t1_in"]').value;
+            const t1_out = tr.querySelector('[data-tipo="t1_out"]').value;
+            const t2_in = tr.querySelector('[data-tipo="t2_in"]').value;
+            const t2_out = tr.querySelector('[data-tipo="t2_out"]').value;
+            const t3_in = tr.querySelector('[data-tipo="t3_in"]').value;
+            const t3_out = tr.querySelector('[data-tipo="t3_out"]').value;
+
+            let total = 0;
+            if (t1_in && t1_out) total += calcularDiferenciaMinutos(t1_in, t1_out);
+            if (t2_in && t2_out) total += calcularDiferenciaMinutos(t2_in, t2_out);
+            if (t3_in && t3_out) total += calcularDiferenciaMinutos(t3_in, t3_out);
+
+            const celdaTotal = tr.querySelector('.celda-total-dia');
+            if (celdaTotal) {
+                celdaTotal.textContent = formatoHoras(total);
+                if (total > 0) {
+                    celdaTotal.classList.remove('text-muted');
+                    celdaTotal.classList.add('fw-bold', 'text-dark');
+                } else {
+                    celdaTotal.classList.add('text-muted');
+                    celdaTotal.classList.remove('fw-bold', 'text-dark');
+                }
+            }
+        }
+
+        // ==========================================
         // ESTADO INICIAL (PANTALLA DE BIENVENIDA)
         // ==========================================
         function mostrarEstadoVacio() {
             DOM.lblNombreActivo.innerHTML = '<i class="bi bi-person-fill text-muted me-2"></i>Esperando selección...';
             DOM.lblRangoActivo.textContent = '--';
-            DOM.lblTotalHoras.textContent = '0h 0m';
+            if(DOM.lblTotalRegulares) DOM.lblTotalRegulares.textContent = '0h';
+            if(DOM.lblTotalExtras) DOM.lblTotalExtras.textContent = '0h';
             
             DOM.gridCuerpo.innerHTML = `
                 <tr>
-                    <td colspan="8" class="text-center py-5 bg-light border-bottom-0">
+                    <td colspan="9" class="text-center py-5 bg-light border-bottom-0">
                         <i class="bi bi-person-lines-fill d-block text-muted opacity-25 mb-3" style="font-size: 4rem;"></i>
                         <h5 class="fw-bold text-dark">Selecciona un Empleado</h5>
                         <p class="text-muted small mb-0">Haz clic en un empleado del panel lateral izquierdo para cargar su cuadrícula de asistencia.</p>
@@ -63,33 +120,24 @@
             `;
         }
 
-        // ==========================================
-        // AUTO-SELECCIÓN DE EMPLEADO DESDE LA URL 
-        // (Viene desde el botón "Corregir" en Planillas)
-        // ==========================================
+        // Auto-selección desde URL (Viene de Planillas)
         const params = new URLSearchParams(window.location.search);
         const idTerceroUrl = params.get('id_tercero');
 
         if (idTerceroUrl) {
             let intentos = 0;
             const buscadorInterval = setInterval(() => {
-                // Busca la tarjeta del empleado (usando data-id)
                 const tarjetaEmpleado = document.querySelector(`.empleado-item[data-id="${idTerceroUrl}"]`);
-
                 if (tarjetaEmpleado) {
                     clearInterval(buscadorInterval);
-                    
-                    // Simula el clic en la tarjeta
                     tarjetaEmpleado.click();
 
-                    // Escribe en el buscador para filtrar visualmente
                     if (DOM.inputBuscar) {
                         const nombreTexto = tarjetaEmpleado.querySelector('.fw-bold').textContent.trim();
                         DOM.inputBuscar.value = nombreTexto;
                         DOM.inputBuscar.dispatchEvent(new Event('input', { bubbles: true }));
                     }
 
-                    // Limpia la URL sin recargar la página
                     const nuevaUrl = new URL(window.location.href);
                     nuevaUrl.searchParams.delete('id_tercero');
                     window.history.replaceState({}, document.title, nuevaUrl.toString());
@@ -176,7 +224,7 @@
         async function cargarDatosGrid() {
             if (!empleadoActualId) return;
 
-            DOM.gridCuerpo.innerHTML = `<tr><td colspan="8" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2 text-primary"></div>Cargando registros...</td></tr>`;
+            DOM.gridCuerpo.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2 text-primary"></div>Cargando registros...</td></tr>`;
 
             const fd = new FormData();
             fd.append('accion', 'obtener_grid_excel');
@@ -194,35 +242,23 @@
 
                 if (data.ok) {
                     renderizarFilas(data.dias);
-                    DOM.lblTotalHoras.textContent = data.total_horas_str || '0h 0m';
+                    
+                    // Actualizar los contadores superiores
+                    if(DOM.lblTotalRegulares) DOM.lblTotalRegulares.textContent = data.total_regulares_str || '0h';
+                    if(DOM.lblTotalExtras) DOM.lblTotalExtras.textContent = data.total_extras_str || '0h';
+                    
                     DOM.lblRangoActivo.textContent = data.rango_label || 'Periodo seleccionado';
-
-                    // --- ALERTA VISUAL DE EMPLEADO SIN HORARIO ---
-                    const nombreContainer = DOM.lblNombreActivo;
-                    const nombreTexto = nombreContainer.getAttribute('data-nombre-original') || nombreContainer.textContent.replace(/<[^>]*>?/gm, '').trim();
-                    nombreContainer.setAttribute('data-nombre-original', nombreTexto);
-
-                    if (data.empleado_sin_horario) {
-                        nombreContainer.innerHTML = `
-                            ${nombreTexto} 
-                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle ms-2 fs-6 py-1 px-2" data-bs-toggle="tooltip" title="Este empleado no tiene turnos asignados en este periodo. No se puede registrar asistencia.">
-                                <i class="bi bi-exclamation-triangle-fill me-1"></i> Sin Horario Asignado
-                            </span>
-                        `;
-                    } else {
-                        nombreContainer.innerHTML = nombreTexto;
-                    }
                 } else {
-                    DOM.gridCuerpo.innerHTML = `<tr><td colspan="8" class="text-center py-5 text-danger fw-bold"><i class="bi bi-exclamation-triangle me-2"></i>${data.mensaje || 'Error al cargar datos.'}</td></tr>`;
+                    DOM.gridCuerpo.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-danger fw-bold"><i class="bi bi-exclamation-triangle me-2"></i>${data.mensaje || 'Error al cargar datos.'}</td></tr>`;
                 }
             } catch (error) {
                 console.error(error);
-                DOM.gridCuerpo.innerHTML = `<tr><td colspan="8" class="text-center py-5 text-danger">Error de conexión con el servidor.</td></tr>`;
+                DOM.gridCuerpo.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-danger">Error de conexión con el servidor.</td></tr>`;
             }
         }
 
         // ==========================================
-        // RENDERIZAR FILAS CON BLOQUEO INTELIGENTE
+        // RENDERIZAR FILAS Y COLUMNAS
         // ==========================================
         function renderizarFilas(dias) {
             DOM.gridCuerpo.innerHTML = '';
@@ -231,7 +267,6 @@
                 const tr = document.createElement('tr');
                 tr.dataset.fecha = dia.fecha;
                 
-                // Lógica de Bloqueo por Día de Descanso
                 const esDescanso = dia.es_descanso === true; 
                 
                 const bgFila = esDescanso ? 'bg-light opacity-50' : '';
@@ -243,6 +278,15 @@
                 const badgeEstado = esDescanso 
                     ? '<span class="badge bg-secondary-subtle text-secondary border-0 px-2 fw-semibold">Descanso</span>' 
                     : `<span class="badge ${dia.badge_class || 'bg-secondary-subtle text-secondary'} border-0 px-2 fw-semibold text-truncate" style="max-width: 90px;">${dia.estado_label || 'Sin datos'}</span>`;
+
+                // Calculamos el total inicial por si el backend no lo envía ya parseado
+                let totalMinutosDia = 0;
+                if(dia.t1_in && dia.t1_out) totalMinutosDia += calcularDiferenciaMinutos(dia.t1_in, dia.t1_out);
+                if(dia.t2_in && dia.t2_out) totalMinutosDia += calcularDiferenciaMinutos(dia.t2_in, dia.t2_out);
+                if(dia.t3_in && dia.t3_out) totalMinutosDia += calcularDiferenciaMinutos(dia.t3_in, dia.t3_out);
+                
+                const textColorCls = totalMinutosDia > 0 ? 'fw-bold text-dark' : 'text-muted';
+                const strTotalDia = dia.total_dia_formateado || formatoHoras(totalMinutosDia); // Prioriza backend
 
                 tr.className = bgFila;
                 
@@ -257,6 +301,12 @@
                     <td class="border-end"><input type="time" class="cell-input ${bgInput}" data-tipo="t2_out" value="${dia.t2_out || ''}" ${propDisabled} ${msgTooltip}></td>
                     <td><input type="time" class="cell-input ${bgInput}" data-tipo="t3_in" value="${dia.t3_in || ''}" ${propDisabled} ${msgTooltip}></td>
                     <td class="border-end"><input type="time" class="cell-input ${bgInput}" data-tipo="t3_out" value="${dia.t3_out || ''}" ${propDisabled} ${msgTooltip}></td>
+                    
+                    <!-- NUEVA COLUMNA: TOTAL DEL DÍA -->
+                    <td class="align-middle border-end bg-warning-subtle celda-total-dia ${textColorCls}" style="font-size: 0.85rem;">
+                        ${strTotalDia}
+                    </td>
+
                     <td class="align-middle px-2 text-start">
                         <div class="d-flex justify-content-between align-items-center w-100">
                             ${badgeEstado}
@@ -294,6 +344,10 @@
 
                     if (!empleadoActualId) return;
 
+                    // 1. Dar feedback visual inmediato en la interfaz (sin esperar al servidor)
+                    actualizarTotalFilaUI(tr);
+
+                    // 2. Preparar guardado
                     const syncStatus = document.getElementById('syncStatus');
                     if (syncStatus) syncStatus.innerHTML = '<span class="spinner-border spinner-border-sm text-primary me-1"></span> Guardando...';
 
@@ -324,14 +378,21 @@
                             input.classList.remove('border-danger', 'text-danger');
                             if (syncStatus) syncStatus.innerHTML = '<i class="bi bi-cloud-check text-success fs-5 me-1"></i> Sincronizado';
 
+                            // Actualizar la insignia de estado si el backend la modificó
                             if(data.nuevo_estado_html || data.badge_class) {
                                 const badgeContainer = tr.querySelector('.badge');
                                 badgeContainer.className = `badge ${data.badge_class} border-0 px-2 fw-semibold text-truncate`;
                                 badgeContainer.textContent = data.nuevo_estado_label;
                             }
-                            if(data.total_horas_str) {
-                                DOM.lblTotalHoras.textContent = data.total_horas_str;
+                            
+                            // Reemplazar el cálculo del frontend con el oficial del backend (con redondeos aplicados)
+                            if(data.total_dia_formateado) {
+                                tr.querySelector('.celda-total-dia').textContent = data.total_dia_formateado;
                             }
+                            
+                            // Actualizar contadores globales 
+                            if(data.total_regulares_str && DOM.lblTotalRegulares) DOM.lblTotalRegulares.textContent = data.total_regulares_str;
+                            if(data.total_extras_str && DOM.lblTotalExtras) DOM.lblTotalExtras.textContent = data.total_extras_str;
                         }
                     } catch (error) {
                         console.error(error);
@@ -398,10 +459,14 @@
         }
     }
 
-    // 1. Ejecutar inmediatamente al cargar el script
-    iniciarModuloExcelAsistencia();
-    
-    // 2. Ejecutar si la página hace una recarga dura
-    document.addEventListener('DOMContentLoaded', iniciarModuloExcelAsistencia);
-
+    // ==========================================
+    // INICIALIZACIÓN COMPATIBLE CON SPA
+    // ==========================================
+    if (document.readyState === 'loading') {
+        // El documento aún está cargando (ej. F5 o primera carga)
+        document.addEventListener('DOMContentLoaded', iniciarModuloExcelAsistencia);
+    } else {
+        // El documento ya cargó (navegación interna del SPA)
+        iniciarModuloExcelAsistencia();
+    }
 })();

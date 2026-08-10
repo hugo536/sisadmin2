@@ -69,11 +69,6 @@ $empleados = $empleados ?? [];
         background-color: #e9ecef;
         border-left-color: #0b5ed7;
     }
-    .empleado-sin-horario-icon {
-        color: #ffc107;
-        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18));
-        flex-shrink: 0;
-    }
 </style>
 
 <div class="container-fluid p-4" id="gestionAsistenciaApp">
@@ -82,7 +77,7 @@ $empleados = $empleados ?? [];
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
-                <i class="bi bi-calendar3-range me-2 text-primary"></i> Control de Marcaciones
+                <i class="bi bi-calendar3-range me-2 text-primary"></i> Gestión de Asistencia
             </h1>
             <p class="text-muted small mb-0 ms-1">Edición directa con autoguardado y gestión de justificaciones.</p>
         </div>
@@ -100,16 +95,16 @@ $empleados = $empleados ?? [];
                 <div class="vr mx-1 bg-secondary-subtle"></div>
 
                 <!-- Input Semana -->
-                <input type="week" class="form-control form-control-sm border-0 shadow-none fw-bold text-primary filter-input <?php echo $periodo !== 'semana' ? 'd-none' : ''; ?>" id="filtroSemana" value="<?php echo e($semana); ?>">
+                <input type="week" class="form-control form-control-sm border-0 shadow-none fw-bold text-primary filter-input <?php echo $periodo !== 'semana' ? 'd-none' : ''; ?>" id="filtroSemana" value="<?php echo htmlspecialchars($semana); ?>">
                 
                 <!-- Input Mes -->
-                <input type="month" class="form-control form-control-sm border-0 shadow-none fw-bold text-primary filter-input <?php echo $periodo !== 'mes' ? 'd-none' : ''; ?>" id="filtroMes" value="<?php echo e($mes); ?>">
+                <input type="month" class="form-control form-control-sm border-0 shadow-none fw-bold text-primary filter-input <?php echo $periodo !== 'mes' ? 'd-none' : ''; ?>" id="filtroMes" value="<?php echo htmlspecialchars($mes); ?>">
                 
                 <!-- Inputs Rango -->
                 <div class="d-flex align-items-center filter-input <?php echo $periodo !== 'rango' ? 'd-none' : ''; ?>" id="filtroRango">
-                    <input type="date" class="form-control form-control-sm border-0 shadow-none fw-bold text-primary px-1" id="filtroDesde" value="<?php echo e($fechaInicio); ?>" title="Desde">
+                    <input type="date" class="form-control form-control-sm border-0 shadow-none fw-bold text-primary px-1" id="filtroDesde" value="<?php echo htmlspecialchars($fechaInicio); ?>" title="Desde">
                     <span class="text-muted small mx-1">al</span>
-                    <input type="date" class="form-control form-control-sm border-0 shadow-none fw-bold text-primary px-1" id="filtroHasta" value="<?php echo e($fechaFin); ?>" title="Hasta">
+                    <input type="date" class="form-control form-control-sm border-0 shadow-none fw-bold text-primary px-1" id="filtroHasta" value="<?php echo htmlspecialchars($fechaFin); ?>" title="Hasta">
                 </div>
             </div>
 
@@ -126,7 +121,7 @@ $empleados = $empleados ?? [];
                     <select class="form-select form-select-sm shadow-none border-secondary-subtle mb-2 fw-semibold text-dark" id="filtroGrupo">
                         <option value="">Todos los grupos de trabajo</option>
                         <?php foreach ($grupos as $grupo): ?>
-                            <option value="<?php echo (int)$grupo['id']; ?>"><?php echo e($grupo['nombre']); ?></option>
+                            <option value="<?php echo (int)$grupo['id']; ?>"><?php echo htmlspecialchars($grupo['nombre']); ?></option>
                         <?php endforeach; ?>
                     </select>
                     <div class="input-group input-group-sm">
@@ -139,13 +134,11 @@ $empleados = $empleados ?? [];
                     <?php foreach ($empleados as $emp): ?>
                         <div class="list-group-item empleado-item border-bottom py-3" data-id="<?php echo (int)$emp['id']; ?>">
                             <div class="d-flex align-items-center gap-1 mb-1">
-                                <div class="fw-bold text-dark flex-grow-1" style="font-size: 0.85rem; line-height: 1.2;"><?php echo e($emp['nombre_completo']); ?></div>
-                                <?php if (!empty($emp['sin_horario'])): ?>
-                                    <i class="bi bi-exclamation-triangle-fill empleado-sin-horario-icon" title="Falta asignar un horario a este trabajador" aria-label="Falta asignar un horario a este trabajador"></i>
-                                <?php endif; ?>
+                                <div class="fw-bold text-dark flex-grow-1" style="font-size: 0.85rem; line-height: 1.2;"><?php echo htmlspecialchars($emp['nombre_completo']); ?></div>
+                                <!-- Se eliminó la alerta de 'sin_horario' ya que el cálculo es dinámico -->
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
-                                <span class="badge bg-light text-secondary border fw-normal" style="font-size: 0.7rem;">Cód: <?php echo e($emp['codigo_biometrico'] ?? 'N/A'); ?></span>
+                                <span class="badge bg-light text-secondary border fw-normal" style="font-size: 0.7rem;">Cód: <?php echo htmlspecialchars($emp['codigo_biometrico'] ?? 'N/A'); ?></span>
                                 <i class="bi bi-exclamation-circle text-warning d-none" title="Inconsistencias"></i>
                             </div>
                         </div>
@@ -165,8 +158,11 @@ $empleados = $empleados ?? [];
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <div id="syncStatus" class="small fw-bold me-2 text-muted" style="width: 110px; text-align: right;"></div>
-                        <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-3 py-2 rounded-pill shadow-sm">
-                            Total Horas: <strong id="totalHorasCalculadas">0h 0m</strong>
+                        <!-- Resumen global de horas del empleado seleccionado -->
+                        <span class="badge bg-light text-dark border px-3 py-2 rounded-pill shadow-sm d-flex gap-3 align-items-center">
+                            <span>Regulares: <strong class="text-primary" id="totalRegulares">0h</strong></span>
+                            <div class="vr"></div>
+                            <span>Extras: <strong class="text-danger" id="totalExtras">0h</strong></span>
                         </span>
                     </div>
                 </div>
@@ -179,6 +175,8 @@ $empleados = $empleados ?? [];
                                 <th colspan="2" style="background: #e9ecef;" class="border-start">Tramo 1</th>
                                 <th colspan="2" style="background: #f8f9fa;" class="border-start">Tramo 2</th>
                                 <th colspan="2" style="background: #e9ecef;" class="border-start">Tramo 3</th>
+                                <!-- Columna recomendada: suma de horas de los 3 tramos (NO dinero) -->
+                                <th style="width: 8%; background: #fff3cd;" class="align-middle border-start text-dark" rowspan="2">Horas Día</th>
                                 <th style="width: 20%; background: #f8f9fa;" class="align-middle border-start" rowspan="2">Estado / Observación</th>
                             </tr>
                             <tr>
@@ -193,7 +191,7 @@ $empleados = $empleados ?? [];
                         <tbody id="gridAsistenciaCuerpo">
                             <!-- Estado Vacío Inicial -->
                             <tr>
-                                <td colspan="8" class="text-center py-5 bg-light border-bottom-0">
+                                <td colspan="9" class="text-center py-5 bg-light border-bottom-0">
                                     <i class="bi bi-person-lines-fill d-block text-muted opacity-25 mb-3" style="font-size: 4rem;"></i>
                                     <h5 class="fw-bold text-dark">Selecciona un Empleado</h5>
                                     <p class="text-muted small mb-0">Haz clic en un empleado del panel lateral izquierdo para cargar su cuadrícula de asistencia.</p>
