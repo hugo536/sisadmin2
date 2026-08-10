@@ -117,7 +117,7 @@ class AdelantosModel extends Modelo
                                  created_at, updated_at)
                               VALUES
                                 (:id_cuenta, :id_metodo_pago, :id_tercero, 'EGRESO', 'ADELANTO', :id_origen,
-                                 :moneda, :monto, :observaciones, :fecha, 'CONFIRMADO', :uid, :uid,
+                                 :moneda, :monto, :observaciones, :fecha, 'CONFIRMADO', :created_by, :updated_by,
                                  NOW(), NOW())";
             
             $conceptoTesoreria = "Adelanto de sueldo a personal (ID: {$idTercero})";
@@ -134,7 +134,8 @@ class AdelantosModel extends Modelo
                 'monto' => $monto, 
                 'observaciones' => $conceptoTesoreria, 
                 'fecha' => $fecha, 
-                'uid' => $userId
+                'created_by' => $userId,
+                'updated_by' => $userId,
             ]);
 
             $db->commit();
@@ -173,9 +174,13 @@ class AdelantosModel extends Modelo
             // 1. Actualizar deuda
             $sqlUpd = "UPDATE rrhh_adelantos 
                        SET saldo_pendiente = saldo_pendiente - :monto,
-                           estado = IF(saldo_pendiente - :monto <= 0, 'PAGADO', 'PENDIENTE')
+                           estado = IF(saldo_pendiente - :monto_estado <= 0, 'PAGADO', 'PENDIENTE')
                        WHERE id = :id";
-            $db->prepare($sqlUpd)->execute(['monto' => $montoDevuelto, 'id' => $idAdelanto]);
+            $db->prepare($sqlUpd)->execute([
+                'monto' => $montoDevuelto,
+                'monto_estado' => $montoDevuelto,
+                'id' => $idAdelanto,
+            ]);
 
             $cuenta = $this->obtenerCuentaConSaldo($db, $idCuenta);
             if (!$cuenta) {
@@ -190,7 +195,7 @@ class AdelantosModel extends Modelo
                                  created_at, updated_at)
                               VALUES
                                 (:id_cuenta, :id_metodo_pago, :id_tercero, 'INGRESO', 'ADELANTO', :id_origen,
-                                 :moneda, :monto, :observaciones, CURDATE(), 'CONFIRMADO', :uid, :uid,
+                                 :moneda, :monto, :observaciones, CURDATE(), 'CONFIRMADO', :created_by, :updated_by,
                                  NOW(), NOW())";
             
             $conceptoTesoreria = "Devolución manual de adelanto - Personal ID: {$adelanto['id_tercero']}";
@@ -203,7 +208,8 @@ class AdelantosModel extends Modelo
                 'moneda' => $cuenta['moneda'],
                 'monto' => $montoDevuelto, 
                 'observaciones' => $conceptoTesoreria, 
-                'uid' => $userId
+                'created_by' => $userId,
+                'updated_by' => $userId,
             ]);
 
             $db->commit();
@@ -253,6 +259,10 @@ class AdelantosModel extends Modelo
 
     private function mensajeSeguro(Throwable $error): string
     {
+        if ($error instanceof PDOException) {
+            return 'No se pudo guardar el movimiento de tesorería. Consulte el registro técnico del servidor.';
+        }
+
         if ($error instanceof InvalidArgumentException || $error instanceof RuntimeException) {
             return $error->getMessage();
         }
