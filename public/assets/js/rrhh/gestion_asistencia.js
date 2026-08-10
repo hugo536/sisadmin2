@@ -22,7 +22,6 @@
 
         const DOM = {
             inputBuscar: document.getElementById('buscarEmpleado'),
-            selectGrupo: document.getElementById('filtroGrupo'),
             listaEmpleados: document.getElementById('listaEmpleados'),
             
             lblNombreActivo: document.getElementById('nombreEmpleadoActivo'),
@@ -158,17 +157,13 @@
         // ==========================================
         const filtrarLista = () => {
             const texto = DOM.inputBuscar.value.toLowerCase().trim();
-            const grupoId = DOM.selectGrupo ? DOM.selectGrupo.value : '';
             const items = document.querySelectorAll('.empleado-item');
 
             items.forEach(item => {
                 const nombre = item.querySelector('.fw-bold').textContent.toLowerCase();
-                const idGrupoEmpleado = item.dataset.grupo || ''; 
-
                 const coincideTexto = texto === '' || nombre.includes(texto);
-                const coincideGrupo = grupoId === '' || idGrupoEmpleado === grupoId;
 
-                if (coincideTexto && coincideGrupo) {
+                if (coincideTexto) {
                     item.classList.remove('d-none');
                 } else {
                     item.classList.add('d-none');
@@ -177,7 +172,6 @@
         };
 
         if (DOM.inputBuscar) DOM.inputBuscar.addEventListener('input', filtrarLista);
-        if (DOM.selectGrupo) DOM.selectGrupo.addEventListener('change', filtrarLista);
 
         // ==========================================
         // CAMBIO DE PERIODO (SEMANA/MES/RANGO)

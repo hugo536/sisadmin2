@@ -5,7 +5,6 @@ $mes = $mes ?? date('Y-m');
 $fechaInicio = $fecha_inicio ?? date('Y-m-d');
 $fechaFin = $fecha_fin ?? date('Y-m-d');
 
-$grupos = $grupos ?? []; 
 $empleados = $empleados ?? [];
 ?>
 
@@ -118,12 +117,6 @@ $empleados = $empleados ?? [];
             <!-- Columna Izquierda: Buscador y Lista de Empleados -->
             <div class="col-md-3 border-end bg-white d-flex flex-column" style="height: calc(100vh - 180px);">
                 <div class="p-3 border-bottom bg-light">
-                    <select class="form-select form-select-sm shadow-none border-secondary-subtle mb-2 fw-semibold text-dark" id="filtroGrupo">
-                        <option value="">Todos los grupos de trabajo</option>
-                        <?php foreach ($grupos as $grupo): ?>
-                            <option value="<?php echo (int)$grupo['id']; ?>"><?php echo htmlspecialchars($grupo['nombre']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
                         <input type="text" class="form-control border-start-0 shadow-none" id="buscarEmpleado" placeholder="Buscar empleado...">
