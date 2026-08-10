@@ -22,28 +22,31 @@ class ConfigRrhhModel extends Modelo
     private function obtenerDefault(): array
     {
         return [
-            'meta_horas_diarias' => 8, // Meta diaria antes de generar horas extras
+            'meta_horas_diarias' => 8,  // Meta diaria antes de generar horas extras
             'bloque_minutos'     => 30, // Bloques de redondeo (ej. cada 30 min)
-            'minutos_tolerancia' => 14  // Minutos de gracia antes de saltar al siguiente bloque
+            'tolerancia_entrada' => 14, // Gracia para entradas
+            'tolerancia_salida'  => 14  // Gracia para salidas tempranas
         ];
     }
 
     public function guardarConfiguracion(array $datos): bool
     {
         $sql = "INSERT INTO rrhh_configuracion 
-                (id, meta_horas_diarias, bloque_minutos, minutos_tolerancia)
-                VALUES (1, :meta_diaria, :bloque, :tolerancia)
+                (id, meta_horas_diarias, bloque_minutos, tolerancia_entrada, tolerancia_salida)
+                VALUES (1, :meta_diaria, :bloque, :tol_entrada, :tol_salida)
                 ON DUPLICATE KEY UPDATE
                     meta_horas_diarias = VALUES(meta_horas_diarias),
                     bloque_minutos = VALUES(bloque_minutos),
-                    minutos_tolerancia = VALUES(minutos_tolerancia)";
+                    tolerancia_entrada = VALUES(tolerancia_entrada),
+                    tolerancia_salida = VALUES(tolerancia_salida)";
 
         $stmt = $this->db()->prepare($sql);
         
         return $stmt->execute([
             'meta_diaria' => (float) ($datos['meta_horas_diarias'] ?? 8),
             'bloque'      => (int) ($datos['bloque_minutos'] ?? 30),
-            'tolerancia'  => (int) ($datos['minutos_tolerancia'] ?? 14)
+            'tol_entrada' => (int) ($datos['tolerancia_entrada'] ?? 14),
+            'tol_salida'  => (int) ($datos['tolerancia_salida'] ?? 14)
         ]);
     }
 }

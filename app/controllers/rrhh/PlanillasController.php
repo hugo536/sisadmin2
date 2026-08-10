@@ -18,7 +18,8 @@ class PlanillasController extends Controlador
     public function __construct()
     {
         parent::__construct();
-        $this->planillasModel = new PlanillasModel();$this->tercerosModel = new TercerosModel();
+        $this->planillasModel = new PlanillasModel();
+        $this->tercerosModel = new TercerosModel();
     }
 
     /**
@@ -30,29 +31,32 @@ class PlanillasController extends Controlador
     {
         AuthMiddleware::handle();
 
-        $lotesRecientes = $this->planillasModel->obtenerLotesRecientes(15);$loteActual = null;
+        $lotesRecientes = $this->planillasModel->obtenerLotesRecientes(15);
+        $loteActual = null;
         $detallesNomina = [];
 
         $idLote = (int) ($_GET['id_lote'] ?? 0);
         
         if ($idLote === 0 && !empty($lotesRecientes)) {
-            $idLote = (int)$lotesRecientes[0]['id'];
+            $idLote = (int) $lotesRecientes[0]['id'];
         }
 
-        if ($idLote > 0) {$loteActual = $this->planillasModel->obtenerLotePorId($idLote);
+        if ($idLote > 0) {
+            $loteActual = $this->planillasModel->obtenerLotePorId($idLote);
             if ($loteActual) {
-                $estadoLote = strtoupper((string)$loteActual['estado']);
+                $estadoLote = strtoupper(trim((string)$loteActual['estado']));
                 
                 if (in_array($estadoLote, ['PENDIENTE', 'BORRADOR', 'CREADO'])) {
-                    // Motor dinámico
+                    // Motor dinámico (Tiempo real)
                     $detallesNomina = $this->planillasModel->calcularNominaEnMemoria($loteActual);
                 } else {
-                    // Datos fijos de la BD
+                    // Datos fijos de la BD (Cerrados)
                     $detallesNomina = $this->planillasModel->obtenerDetallesLote($idLote);
                 }
             }
         }
 
+        // Endpoint AJAX para cargar movimientos manuales
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'movimientos_detalle') {
             $idDetalle = (int) ($_GET['id_detalle'] ?? 0);
             if ($idDetalle <= 0) {
@@ -67,11 +71,17 @@ class PlanillasController extends Controlador
             return;
         }
 
+        // Generar token CSRF para seguridad
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+
         $this->render('rrhh/planillas', [
             'ruta_actual' => 'planillas',
             'lotes_recientes' => $lotesRecientes,
             'lote_actual' => $loteActual,
-            'detalles_nomina' => $detallesNomina
+            'detalles_nomina' => $detallesNomina,
+            'csrf_token' => $_SESSION['csrf_token']
         ]);
     }
 
@@ -86,11 +96,12 @@ class PlanillasController extends Controlador
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             redirect('planillas');
+            return;
         }
 
         try {
             $userId = AuthMiddleware::getUserId();
-            $idLoteNuevo =$this->planillasModel->generarLoteNomina($_POST,$userId);
+            $idLoteNuevo = $this->planillasModel->generarLoteNomina($_POST, $userId);
             
             redirect("planillas?id_lote={$idLoteNuevo}&ok=" . urlencode('Lote generado correctamente.'));
         } catch (Exception $e) {
@@ -108,14 +119,16 @@ class PlanillasController extends Controlador
     {
         AuthMiddleware::handle();
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {$exito = $this->planillasModel->agregarConceptoManual($_POST);
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $exito = $this->planillasModel->agregarConceptoManual($_POST);
             
-            $referer =$_SERVER['HTTP_REFERER'] ?? 'planillas';
+            // Redirige a la página desde la que se envió el formulario
+            $referer = $_SERVER['HTTP_REFERER'] ?? 'planillas';
             
             if ($exito) {
                 redirect($referer); 
             } else {
-                redirect($referer . "&error=" . urlencode('No se pudo aplicar el ajuste.'));
+                redirect($referer . "&error=" . urlencode('No se pudo aplicar el ajuste. Es posible que el lote ya esté cerrado.'));
             }
         }
     }
@@ -132,9 +145,13 @@ class PlanillasController extends Controlador
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $idLote = (int) ($_POST['id_lote'] ?? 0);
             
-            if ($idLote > 0) {$lote = $this->planillasModel->obtenerLotePorId($idLote);
-                if ($lote) {$nominaCalculada = $this->planillasModel->calcularNominaEnMemoria($lote);
-                    foreach ($nominaCalculada as$row) {
+            if ($idLote > 0) {
+                $lote = $this->planillasModel->obtenerLotePorId($idLote);
+                if ($lote) {
+                    $nominaCalculada = $this->planillasModel->calcularNominaEnMemoria($lote);
+                    
+                    // Doble validación de seguridad por si vulneran el frontend
+                    foreach ($nominaCalculada as $row) {
                         if (!empty($row['tiene_conflicto'])) {
                             redirect("planillas?id_lote={$idLote}&error=" . urlencode('No se puede cerrar: hay empleados con asistencia incompleta. Corrige los registros antes de continuar.'));
                             return;
@@ -142,8 +159,8 @@ class PlanillasController extends Controlador
                     }
                 }
 
-                // Al cerrar, el modelo deberá llamar a calcularNominaEnMemoria() una última vez
-                // y hacer todos los INSERT en la base de datos final.
+                // Al cerrar, el modelo llama a calcularNominaEnMemoria() una última vez
+                // y hace todos los INSERT en la base de datos final.
                 $this->planillasModel->aprobarLote($idLote);
             }
             
@@ -184,11 +201,14 @@ class PlanillasController extends Controlador
         $html = ob_get_clean();
 
         // Inicializar DomPDF
-        $dompdf = new \Dompdf\Dompdf();$options = $dompdf->getOptions();$options->set(array('isRemoteEnabled' => true));
+        $dompdf = new \Dompdf\Dompdf();
+        $options = $dompdf->getOptions();
+        $options->set(array('isRemoteEnabled' => true));
         $dompdf->setOptions($options);
 
         $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', 'portrait');$dompdf->render();
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
 
         $nombreArchivo = 'Boleta_' . str_replace(' ', '_', $boleta['nombre_completo']) . '.pdf';
 
@@ -198,12 +218,14 @@ class PlanillasController extends Controlador
 
     public function imprimir_masivo()
     {
+        AuthMiddleware::handle();
+
         $idLote = (int) ($_GET['id_lote'] ?? 0);
         if ($idLote <= 0) {
             die("ID de lote inválido.");
         }
 
-        $modelo = new PlanillasModel();$boletas = $modelo->obtenerBoletasMasivasPdf($idLote);
+        $boletas = $this->planillasModel->obtenerBoletasMasivasPdf($idLote);
 
         if (empty($boletas)) {
             die("No hay recibos con montos a pagar en este lote.");

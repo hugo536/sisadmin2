@@ -48,35 +48,49 @@ $config = $config ?? [];
                             </div>
 
                             <div class="row g-4 mt-2">
-                                <div class="col-md-6">
+                                <!-- Columna 1: Tamaño del Bloque -->
+                                <div class="col-md-4">
                                     <label class="form-label fw-bold text-dark small mb-1">Tamaño del Bloque</label>
                                     <select name="bloque_minutos" class="form-select shadow-sm border-secondary-subtle fw-medium text-primary">
-                                        <option value="15" <?php echo (($config['bloque_minutos'] ?? 30) == 15) ? 'selected' : ''; ?>>Cada 15 minutos</option>
-                                        <option value="30" <?php echo (($config['bloque_minutos'] ?? 30) == 30) ? 'selected' : ''; ?>>Cada 30 minutos</option>
-                                        <option value="60" <?php echo (($config['bloque_minutos'] ?? 30) == 60) ? 'selected' : ''; ?>>Cada hora completa</option>
+                                        <option value="15" <?php echo (($config['bloque_minutos'] ?? 30) == 15) ? 'selected' : ''; ?>>Cada 15 min</option>
+                                        <option value="30" <?php echo (($config['bloque_minutos'] ?? 30) == 30) ? 'selected' : ''; ?>>Cada 30 min</option>
+                                        <option value="60" <?php echo (($config['bloque_minutos'] ?? 30) == 60) ? 'selected' : ''; ?>>Cada 60 min</option>
                                     </select>
                                 </div>
                                 
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold text-dark small mb-1">Umbral de Corte (Tolerancia)</label>
+                                <!-- Columna 2: Tolerancia Entrada -->
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-dark small mb-1">Tolerancia de Entrada</label>
                                     <div class="input-group shadow-sm">
-                                        <input type="number" class="form-control shadow-none border-secondary-subtle fw-bold text-center text-primary" name="minutos_tolerancia" value="<?php echo (int)($config['minutos_tolerancia'] ?? 14); ?>" min="0">
-                                        <span class="input-group-text bg-light text-muted border-secondary-subtle">minutos</span>
+                                        <input type="number" class="form-control shadow-none border-secondary-subtle fw-bold text-center text-primary" name="tolerancia_entrada" value="<?php echo (int)($config['tolerancia_entrada'] ?? 14); ?>" min="0">
+                                        <span class="input-group-text bg-light text-muted border-secondary-subtle">min</span>
                                     </div>
                                 </div>
 
+                                <!-- Columna 3: Tolerancia Salida -->
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-dark small mb-1">Tolerancia de Salida</label>
+                                    <div class="input-group shadow-sm">
+                                        <input type="number" class="form-control shadow-none border-secondary-subtle fw-bold text-center text-primary" name="tolerancia_salida" value="<?php echo (int)($config['tolerancia_salida'] ?? 14); ?>" min="0">
+                                        <span class="input-group-text bg-light text-muted border-secondary-subtle">min</span>
+                                    </div>
+                                </div>
+
+                                <!-- Cuadro de Información Actualizado -->
                                 <div class="col-12 mt-4 pt-3 border-top">
                                     <div class="alert alert-info border-info-subtle py-3 small mb-0 d-flex align-items-start shadow-sm">
                                         <i class="bi bi-info-circle-fill me-2 fs-5 text-info mt-1"></i>
-                                        <div>
+                                        <div class="w-100">
                                             <strong>¿Cómo funcionará en la práctica?</strong><br>
-                                            Con un bloque de <strong>30 min</strong> y un umbral de <strong>14 min</strong>:<br><br>
-                                            <span class="text-success fw-bold"><i class="bi bi-box-arrow-in-right"></i> Entradas:</span><br>
-                                            • Marca <span class="badge bg-secondary">08:14</span> ➔ Se redondea a su favor: <strong>08:00</strong>.<br>
-                                            • Marca <span class="badge bg-secondary">08:16</span> ➔ Superó el umbral, el tiempo corre desde las: <strong>08:30</strong>.<br><br>
-                                            <span class="text-danger fw-bold"><i class="bi bi-box-arrow-right"></i> Salidas:</span><br>
-                                            • Marca <span class="badge bg-secondary">17:14</span> ➔ No completó el bloque, se corta en: <strong>17:00</strong>.<br>
-                                            • Marca <span class="badge bg-secondary">17:45</span> ➔ Completó el primer bloque y pasó el umbral del segundo: <strong>17:30</strong>.
+                                            Con un bloque de <strong id="lblEjemploBloque">--</strong>, tolerancia de entrada de <strong id="lblEjemploTolEntrada">--</strong> y salida de <strong id="lblEjemploTolSalida">--</strong>:<br><br>
+                                            
+                                            <span class="text-success fw-bold"><i class="bi bi-box-arrow-in-right"></i> Entradas (Turno hipotético a las 08:00):</span><br>
+                                            • Marca <span class="badge bg-secondary" id="lblEjemploEntradaOk">--:--</span> ➔ Se redondea a su favor: <strong>08:00</strong>.<br>
+                                            • Marca <span class="badge bg-secondary" id="lblEjemploEntradaTarde">--:--</span> ➔ Superó el umbral, el tiempo corre desde las: <strong id="lblEjemploEntradaCastigo">--:--</strong>.<br><br>
+                                            
+                                            <span class="text-danger fw-bold"><i class="bi bi-box-arrow-right"></i> Salidas (Turno hipotético a las 17:00):</span><br>
+                                            • Marca <span class="badge bg-secondary" id="lblEjemploSalidaOk">--:--</span> ➔ Salió dentro de la tolerancia, se considera hasta las: <strong>17:00</strong>.<br>
+                                            • Marca <span class="badge bg-secondary" id="lblEjemploSalidaTemprano">--:--</span> ➔ Salió antes del umbral, se corta en: <strong id="lblEjemploSalidaCastigo">--:--</strong>.
                                         </div>
                                     </div>
                                 </div>
@@ -114,16 +128,3 @@ $config = $config ?? [];
         </div>
     </div>
 </div>
-
-<script>
-// Validaciones básicas en el frontend para evitar que el umbral sea mayor al bloque
-document.getElementById('formConfigRRHH').addEventListener('submit', function(e) {
-    const bloque = parseInt(document.querySelector('[name="bloque_minutos"]').value);
-    const umbral = parseInt(document.querySelector('[name="minutos_tolerancia"]').value);
-    
-    if (umbral >= bloque) {
-        e.preventDefault();
-        alert('El umbral de corte debe ser estrictamente menor al tamaño del bloque.');
-    }
-});
-</script>

@@ -15,14 +15,14 @@ class PlanillasModel extends Modelo
             return $sueldoBasico / 15;
         }
 
-        return $sueldoBasico / 30;
+        return $sueldoBasico / 30; // Mensual por defecto
     }
 
-    public function obtenerLotesRecientes(int $limite = 10): array
+    public function obtenerLotesRecientes(int $limite = 15): array
     {
         $sql = "SELECT id, referencia, nombre, fecha_inicio, fecha_fin, estado, total_neto 
                 FROM rrhh_nominas 
-                ORDER BY ID DESC LIMIT :limite";
+                ORDER BY id DESC LIMIT :limite";
         
         $stmt = $this->db()->prepare($sql);
         $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
@@ -37,43 +37,43 @@ class PlanillasModel extends Modelo
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id' => $idLote]);
         
-        $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $resultado ?: null;
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
     public function obtenerDetallesLote(int $idLote): array
     {
-        // 1. Obtenemos el estado del Lote actual
         $lote = $this->obtenerLotePorId($idLote);
         
-        // 2. MAGIA: Si el lote es un borrador, hacemos el cálculo en tiempo real
+        // 1. Si es BORRADOR, calculamos en tiempo real con las reglas actuales
         if ($lote && strtoupper(trim((string)$lote['estado'])) === 'BORRADOR') {
             return $this->calcularNominaEnMemoria($lote);
         }
 
-        // 3. Si el lote ya está Cerrado (APROBADO), devolvemos la data congelada de la BD
+        // 2. Si es CERRADO (APROBADO), cargamos los datos congelados y extraemos los conceptos
         $sql = "SELECT
                     nd.id,
                     nd.id_tercero,
                     t.nombre_completo,
                     t.numero_documento,
                     te.cargo,
-                    te.tipo_pago AS frecuencia,
                     nd.dias_pagados,
-                    nd.dias_falta,
                     nd.sueldo_base_calculado,
                     nd.total_percepciones,
                     nd.total_deducciones,
                     nd.neto_a_pagar,
-                    (nd.sueldo_base_calculado / NULLIF(nd.dias_pagados, 0) / 8) AS pago_por_hora,
                     (nd.dias_pagados * 8) AS horas_acumuladas,
-                    (SELECT SUM(monto) FROM rrhh_nominas_conceptos nc
-                     WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.es_automatico = 0) AS monto_bonos,
-                    (SELECT SUM(monto) FROM rrhh_nominas_conceptos nc
-                     WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.categoria = 'Horas Extras') AS pago_horas_extras
-                    ,(SELECT GROUP_CONCAT(CONCAT(nc.tipo, '::', COALESCE(nc.categoria, 'Sin categoría'), '::', COALESCE(nc.descripcion, ''), '::', FORMAT(nc.monto, 2)) SEPARATOR '||')
-                      FROM rrhh_nominas_conceptos nc
-                      WHERE nc.id_detalle_nomina = nd.id AND nc.es_automatico = 0) AS movimientos_manuales
+                    0 AS horas_extras, -- Solo referencial para la vista en cerrados
+                    
+                    COALESCE((SELECT SUM(monto) FROM rrhh_nominas_conceptos nc 
+                              WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.es_automatico = 0), 0) AS monto_bonos,
+                              
+                    COALESCE((SELECT SUM(monto) FROM rrhh_nominas_conceptos nc 
+                              WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'DEDUCCION' AND nc.categoria = 'Tardanza'), 0) AS descuento_tardanzas,
+                              
+                    COALESCE((SELECT SUM(monto) FROM rrhh_nominas_conceptos nc 
+                              WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'DEDUCCION' AND nc.categoria = 'Adelanto de Sueldo'), 0) AS descuento_adelanto,
+                              
+                    0 AS tiene_conflicto -- Los cerrados ya pasaron la validación
                 FROM rrhh_nominas_detalles nd
                 INNER JOIN terceros t ON t.id = nd.id_tercero
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
@@ -94,10 +94,10 @@ class PlanillasModel extends Modelo
         $fechaInicio = $lote['fecha_inicio'];
         $fechaFin = $lote['fecha_fin'];
 
-        // Instanciamos el modelo de asistencia para usar sus reglas estrictas de horarios
         require_once BASE_PATH . '/app/models/rrhh/AsistenciaModel.php';
         $asistenciaModel = new AsistenciaModel();
 
+        // Obtener empleados activos
         $sqlEmp = "SELECT t.id, te.tipo_pago, te.sueldo_basico, t.nombre_completo, t.numero_documento, te.cargo
                    FROM terceros t
                    INNER JOIN terceros_empleados te ON te.id_tercero = t.id
@@ -113,6 +113,7 @@ class PlanillasModel extends Modelo
         $stmtEmp->execute($paramsEmp);
         $empleadosActivos = $stmtEmp->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+        // Generar detalles temporales en BD si no existen
         $stmtCheck = $db->prepare("SELECT id, id_tercero FROM rrhh_nominas_detalles WHERE id_nomina = :id_nomina");
         $stmtCheck->execute(['id_nomina' => $idLote]);
         $detallesExistentes = $stmtCheck->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -140,14 +141,13 @@ class PlanillasModel extends Modelo
             $empleadosProcesar[] = $emp;
         }
 
-        // LEEMOS TODA LA ASISTENCIA Y APLICAMOS LA REGLA ESTRICTA EN MEMORIA
+        // Obtener la asistencia y aplicar reglas del motor
         $sqlAsistencia = "SELECT id_tercero, fecha, hora_ingreso, hora_salida,
-                                 marcas_ingresos, marcas_salidas,
-                                 estado_asistencia, minutos_tardanza, horas_trabajadas,
-                                 horas_extras
+                                 marcas_ingresos, marcas_salidas, estado_asistencia, minutos_tardanza, horas_trabajadas, horas_extras
                           FROM asistencia_registros
                           WHERE fecha BETWEEN :desde AND :hasta
                           AND (id_nomina_pago IS NULL OR id_nomina_pago = :id_lote)";
+                          
         $stmtAsist = $db->prepare($sqlAsistencia);
         $stmtAsist->execute(['desde' => $fechaInicio, 'hasta' => $fechaFin, 'id_lote' => $idLote]);
         $registrosAsistencia = $stmtAsist->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -157,20 +157,12 @@ class PlanillasModel extends Modelo
             $idT = (int)$ar['id_tercero'];
             $fecha = $ar['fecha'];
 
-            // Recalcular en vivo desde marcas para que los BORRADOR reflejen
-            // inmediatamente cambios de tolerancia/reglas RRHH.
             $marcasDia = [];
-            if (!empty($ar['marcas_ingresos'])) {
-                $marcasDia = array_merge($marcasDia, explode('|', (string)$ar['marcas_ingresos']));
-            } elseif (!empty($ar['hora_ingreso'])) {
-                $marcasDia[] = (string)$ar['hora_ingreso'];
-            }
+            if (!empty($ar['marcas_ingresos'])) $marcasDia = array_merge($marcasDia, explode('|', (string)$ar['marcas_ingresos']));
+            elseif (!empty($ar['hora_ingreso'])) $marcasDia[] = (string)$ar['hora_ingreso'];
 
-            if (!empty($ar['marcas_salidas'])) {
-                $marcasDia = array_merge($marcasDia, explode('|', (string)$ar['marcas_salidas']));
-            } elseif (!empty($ar['hora_salida'])) {
-                $marcasDia[] = (string)$ar['hora_salida'];
-            }
+            if (!empty($ar['marcas_salidas'])) $marcasDia = array_merge($marcasDia, explode('|', (string)$ar['marcas_salidas']));
+            elseif (!empty($ar['hora_salida'])) $marcasDia[] = (string)$ar['hora_salida'];
 
             $marcasDia = array_values(array_filter(array_map(static fn($m) => trim((string)$m), $marcasDia), static fn($m) => $m !== ''));
             sort($marcasDia);
@@ -186,30 +178,20 @@ class PlanillasModel extends Modelo
             if (!isset($mapaAsistencia[$idT])) {
                 $mapaAsistencia[$idT] = [
                     'asistidos' => 0, 'justificados' => 0, 'faltas' => 0,
-                    'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0,
-                    'tiene_conflicto' => false
+                    'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0, 'tiene_conflicto' => false
                 ];
             }
 
             $estado = strtoupper((string)$ar['estado_asistencia']);
-
-            // --- VALIDACIÓN ESTRICTA DE TRAMOS (ACTUALIZADA PARA MEDIOS DÍAS) ---
             $ingresos = !empty($ar['marcas_ingresos']) ? explode('|', $ar['marcas_ingresos']) : (!empty($ar['hora_ingreso']) ? [$ar['hora_ingreso']] : []);
             $salidas = !empty($ar['marcas_salidas']) ? explode('|', $ar['marcas_salidas']) : (!empty($ar['hora_salida']) ? [$ar['hora_salida']] : []);
             
-            $tramosReales = count($ingresos);
-            $paresCompletos = (count($ingresos) === count($salidas));
-            
-            // El día es válido para pagar si marcó su entrada y su salida (medio día o día entero)
-            $diaValido = $paresCompletos && ($tramosReales > 0);
-
+            $diaValido = (count($ingresos) === count($salidas)) && (count($ingresos) > 0);
             $esJustificada = in_array($estado, ['FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO', 'TARDANZA JUSTIFICADA', 'OLVIDO MARCACION']);
 
-            // Solo marcamos el candado rojo INCOMPLETO si se olvidó de marcar una salida (impares)
             if (!$diaValido && !$esJustificada && count($ingresos) > 0) {
                 $estado = 'INCOMPLETO'; 
             }
-            // ------------------------------------
 
             if ($estado === 'INCOMPLETO') {
                 $mapaAsistencia[$idT]['tiene_conflicto'] = true;
@@ -219,7 +201,7 @@ class PlanillasModel extends Modelo
                 $mapaAsistencia[$idT]['asistidos']++;
                 $mapaAsistencia[$idT]['horas_trabajadas'] += (float) ($ar['horas_trabajadas'] ?? 0);
                 $mapaAsistencia[$idT]['horas_extras'] += (float) ($ar['horas_extras'] ?? 0);
-            } elseif (in_array($estado, ['FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO'])) {
+            } elseif ($esJustificada && $estado !== 'TARDANZA JUSTIFICADA') {
                 $mapaAsistencia[$idT]['justificados']++;
             } elseif ($estado === 'FALTA') {
                 $mapaAsistencia[$idT]['faltas']++;
@@ -228,24 +210,17 @@ class PlanillasModel extends Modelo
             $mapaAsistencia[$idT]['tardanzas'] += (int) $ar['minutos_tardanza'];
         }
 
-        // Obtener configuración RRHH para saber si se pagan horas extras
-        $configRRHH = ['pagar_salida_tarde' => 0, 'pagar_llegada_temprano' => 0];
-        try {
-            $stmtConf = $db->query("SELECT * FROM rrhh_configuracion WHERE id = 1 LIMIT 1");
-            if ($rowConf = $stmtConf->fetch(PDO::FETCH_ASSOC)) {
-                $configRRHH = $rowConf;
-            }
-        } catch (Exception $e) {
-            // Usa defaults si la tabla no existe
-        }
-
+        // Obtener adelantos pendientes para descontar automáticamente
         $sqlAdelantos = "SELECT id, id_tercero, saldo_pendiente FROM rrhh_adelantos WHERE estado = 'PENDIENTE' AND saldo_pendiente > 0 ORDER BY fecha ASC";
-        $adelantosPendientes = $db->query($sqlAdelantos)->fetchAll(PDO::FETCH_ASSOC) ?: [];
         $mapaAdelantos = [];
-        foreach ($adelantosPendientes as $ad) {
-            $mapaAdelantos[$ad['id_tercero']][] = $ad;
-        }
+        try {
+            $adelantosPendientes = $db->query($sqlAdelantos)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            foreach ($adelantosPendientes as $ad) {
+                $mapaAdelantos[$ad['id_tercero']][] = $ad;
+            }
+        } catch (Exception $e) { /* La tabla aún no existe, omitir */ }
 
+        // Obtener ajustes manuales guardados (Bonos/Deducciones extras)
         $sqlManuales = "SELECT nc.id_detalle_nomina, nc.tipo, nc.categoria, nc.descripcion, nc.monto 
                         FROM rrhh_nominas_conceptos nc
                         INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
@@ -257,34 +232,17 @@ class PlanillasModel extends Modelo
         $mapaManuales = [];
         foreach ($conceptosManuales as $cm) {
             $idD = $cm['id_detalle_nomina'];
-            if (!isset($mapaManuales[$idD])) {
-                $mapaManuales[$idD] = ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0];
-            }
-            if (!isset($mapaManuales[$idD]['movimientos'])) {
-                $mapaManuales[$idD]['movimientos'] = [];
-            }
+            if (!isset($mapaManuales[$idD])) $mapaManuales[$idD] = ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0, 'movimientos' => []];
+            
             if ($cm['tipo'] === 'PERCEPCION') {
                 $mapaManuales[$idD]['percepciones'] += $cm['monto'];
                 $mapaManuales[$idD]['bonos'] += $cm['monto'];
             } else {
                 $mapaManuales[$idD]['deducciones'] += $cm['monto'];
             }
-            $categoria = trim((string)($cm['categoria'] ?? 'Sin categoría'));
-            $descripcion = trim((string)($cm['descripcion'] ?? ''));
-            $tipoLabel = strtoupper((string)$cm['tipo']) === 'PERCEPCION' ? 'Percepción' : 'Deducción';
-            $llaveMovimiento = strtoupper((string)$cm['tipo']) . '::' . strtolower($categoria) . '::' . strtolower($descripcion);
-            if (!isset($mapaManuales[$idD]['movimientos'][$llaveMovimiento])) {
-                $mapaManuales[$idD]['movimientos'][$llaveMovimiento] = [
-                    'tipo' => $tipoLabel,
-                    'categoria' => $categoria,
-                    'descripcion' => $descripcion,
-                    'monto' => 0.0,
-                ];
-            }
-            $mapaManuales[$idD]['movimientos'][$llaveMovimiento]['monto'] += (float) $cm['monto'];
-            $mapaManuales[$idD]['movimientos'][$llaveMovimiento]['monto'] = round((float) $mapaManuales[$idD]['movimientos'][$llaveMovimiento]['monto'], 2);
         }
 
+        // Calcular la nómina final para la vista
         $resultados = [];
         foreach ($empleadosProcesar as $emp) {
             $idTercero = $emp['id'];
@@ -302,35 +260,24 @@ class PlanillasModel extends Modelo
             $pagoDiario = $this->resolverPagoDiario((float) $emp['sueldo_basico'], (string)($emp['tipo_pago'] ?? 'MENSUAL'));
             $pagoPorHora = $pagoDiario / 8;
 
-            // REGLA: Si hay conflicto (olvidó marcar salida), bloqueamos el cálculo.
             if ($tieneConflicto) {
-                $sueldoBaseCalculado = 0;
-                $diasPagados = 0; 
-                $horasAcumuladas = 0;
-                $descuentoTardanzas = 0;
+                $sueldoBaseCalculado = 0; $diasPagados = 0; $horasAcumuladas = 0; $descuentoTardanzas = 0;
             } else {
-                // Pagamos los días que asistió completos
                 $sueldoBaseCalculado = $pagoDiario * $diasPagados;
-                
-                // 💡 MAGIA: Descontamos exactamente las horas que le faltaron
-                // Si en esos 3 días debió hacer 24h, pero solo hizo 18.9h...
                 $horasEsperadas = $diasPagados * 8; 
                 
                 if ($horasAcumuladas < $horasEsperadas) {
                     $horasPerdidas = $horasEsperadas - $horasAcumuladas;
-                    // El descuento es la cantidad exacta de horas que no trabajó (medios días, salidas tempranas, tardanzas)
                     $descuentoTardanzas = round($horasPerdidas * $pagoPorHora, 2);
                 } else {
                     $descuentoTardanzas = 0;
                 }
             }
 
-            // PAGO DE HORAS EXTRAS: Se pagan al mismo valor por hora (1x)
+            // Las horas extras se pagan 1x (Valor normal) si el ERP lo dicta, 
+            // esto se puede parametrizar más adelante.
             $horasExtras = $tieneConflicto ? 0 : $asis['horas_extras'];
-            $pagoHorasExtras = 0;
-            if ((int)($configRRHH['pagar_salida_tarde'] ?? 0) === 1 && $horasExtras > 0) {
-                $pagoHorasExtras = round($pagoPorHora * $horasExtras, 2);
-            }
+            $pagoHorasExtras = round($pagoPorHora * $horasExtras, 2);
 
             $manuales = $mapaManuales[$idDetalle] ?? ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0];
 
@@ -341,7 +288,8 @@ class PlanillasModel extends Modelo
             
             $descuentoAdelanto = 0;
             $adelantosAplicados = [];
-            // No cobramos adelantos si hay conflicto (porque su neto sería 0)
+            
+            // Cobro automático de adelantos si el neto alcanza
             if (!$tieneConflicto && isset($mapaAdelantos[$idTercero]) && $netoTemporal > 0) {
                 foreach ($mapaAdelantos[$idTercero] as &$ad) {
                     if ($netoTemporal <= 0) break;
@@ -353,9 +301,9 @@ class PlanillasModel extends Modelo
                 }
             }
 
-            $totalDeducciones = round($deduccionesPrevias + $descuentoAdelanto, 1);
-            $totalPercepciones = round($totalPercepciones, 1);
-            $netoFinal = round($totalPercepciones - $totalDeducciones, 1);
+            $totalDeducciones = round($deduccionesPrevias + $descuentoAdelanto, 2);
+            $totalPercepciones = round($totalPercepciones, 2);
+            $netoFinal = round($totalPercepciones - $totalDeducciones, 2);
 
             $resultados[] = [
                 'id' => $idDetalle,
@@ -365,18 +313,14 @@ class PlanillasModel extends Modelo
                 'cargo' => $emp['cargo'],
                 'frecuencia' => $emp['tipo_pago'],
                 'dias_pagados' => $diasPagados,
-                'dias_falta' => $asis['faltas'],
-                'minutos_tardanza' => $asis['tardanzas'],
-                'pago_por_hora' => round($pagoPorHora, 2),
                 'horas_acumuladas' => round($horasAcumuladas, 2),
                 'horas_extras' => round($horasExtras, 2),
                 'pago_horas_extras' => $pagoHorasExtras,
                 'sueldo_base_calculado' => round($sueldoBaseCalculado, 2),
-                'total_percepciones' => round($totalPercepciones, 2),
-                'total_deducciones' => round($totalDeducciones, 2),
-                'neto_a_pagar' => round(max(0, $netoFinal), 2),
+                'total_percepciones' => $totalPercepciones,
+                'total_deducciones' => $totalDeducciones,
+                'neto_a_pagar' => max(0, $netoFinal),
                 'monto_bonos' => round($manuales['bonos'], 2),
-                'movimientos_manuales' => array_values($manuales['movimientos'] ?? []),
                 'descuento_tardanzas' => round($descuentoTardanzas, 2),
                 'descuento_adelanto' => round($descuentoAdelanto, 2),
                 'adelantos_aplicados' => json_encode($adelantosAplicados),
@@ -393,7 +337,6 @@ class PlanillasModel extends Modelo
         $frecuencia = strtoupper((string)($datos['frecuencia'] ?? 'TODOS'));
         $fechaInicio = (string) ($datos['fecha_inicio'] ?? '');
         $fechaFin = (string) ($datos['fecha_fin'] ?? '');
-        $observaciones = !empty($datos['observaciones']) ? $datos['observaciones'] : null;
         
         $nombreLote = "NOM - " . date('d/m/Y', strtotime($fechaInicio)) . " al " . date('d/m/Y', strtotime($fechaFin));
 
@@ -401,8 +344,8 @@ class PlanillasModel extends Modelo
             $db->beginTransaction();
 
             $stmtLote = $db->prepare("INSERT INTO rrhh_nominas 
-                (referencia, nombre, fecha_inicio, fecha_fin, frecuencia, estado, observaciones, created_by) 
-                VALUES (:referencia, :nombre, :fecha_inicio, :fecha_fin, :frecuencia, 'BORRADOR', :observaciones, :created_by)");
+                (referencia, nombre, fecha_inicio, fecha_fin, frecuencia, estado, created_by) 
+                VALUES (:referencia, :nombre, :fecha_inicio, :fecha_fin, :frecuencia, 'BORRADOR', :created_by)");
             
             $referencia = 'NOM-' . date('Ym') . '-' . rand(1000, 9999);
             
@@ -412,7 +355,6 @@ class PlanillasModel extends Modelo
                 'fecha_inicio' => $fechaInicio,
                 'fecha_fin' => $fechaFin,
                 'frecuencia' => $frecuencia,
-                'observaciones' => $observaciones,
                 'created_by' => $userId
             ]);
             
@@ -422,7 +364,6 @@ class PlanillasModel extends Modelo
 
         } catch (Exception $e) {
             $db->rollBack();
-            error_log("Error al generar Lote: " . $e->getMessage());
             throw new Exception("Error al generar el encabezado de la nómina.");
         }
     }
@@ -431,42 +372,29 @@ class PlanillasModel extends Modelo
     {
         $db = $this->db();
         try {
-            $movimientos = $datos['movimientos'] ?? null;
-            if (!is_array($movimientos) || empty($movimientos)) {
-                $movimientos = [[
-                    'tipo_concepto' => $datos['tipo_concepto'] ?? '',
-                    'categoria_concepto' => $datos['categoria_concepto'] ?? '',
-                    'descripcion' => $datos['descripcion'] ?? '',
-                    'monto' => $datos['monto'] ?? 0,
-                ]];
-            }
-
+            $movimientos = $datos['movimientos'] ?? [];
             $idDetalle = (int) ($datos['id_detalle_nomina'] ?? 0);
-            if ($idDetalle <= 0) {
-                throw new InvalidArgumentException('Detalle de nómina inválido.');
-            }
 
-            $stmtDetalle = $db->prepare('SELECT nd.id_nomina, n.estado
-                                         FROM rrhh_nominas_detalles nd
+            if ($idDetalle <= 0) throw new InvalidArgumentException('Detalle de nómina inválido.');
+
+            $stmtDetalle = $db->prepare('SELECT n.estado FROM rrhh_nominas_detalles nd
                                          INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
-                                         WHERE nd.id = :id_detalle
-                                         LIMIT 1');
+                                         WHERE nd.id = :id_detalle LIMIT 1');
             $stmtDetalle->execute(['id_detalle' => $idDetalle]);
             $detalle = $stmtDetalle->fetch(PDO::FETCH_ASSOC);
-            if (!$detalle || strtoupper(trim((string) ($detalle['estado'] ?? ''))) !== 'BORRADOR') {
+            
+            if (!$detalle || strtoupper(trim((string) $detalle['estado'])) !== 'BORRADOR') {
                 throw new InvalidArgumentException('Solo se pueden editar movimientos en lotes BORRADOR.');
             }
+
+            $db->beginTransaction();
+
+            $db->prepare('DELETE FROM rrhh_nominas_conceptos WHERE id_detalle_nomina = :id_detalle AND es_automatico = 0')
+               ->execute(['id_detalle' => $idDetalle]);
 
             $stmt = $db->prepare("INSERT INTO rrhh_nominas_conceptos
                 (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico)
                 VALUES (:id_detalle, :tipo, :categoria, :descripcion, :monto, 0)");
-
-            $db->beginTransaction();
-
-            $db->prepare('DELETE FROM rrhh_nominas_conceptos
-                          WHERE id_detalle_nomina = :id_detalle
-                            AND es_automatico = 0')
-               ->execute(['id_detalle' => $idDetalle]);
 
             $vistos = [];
             foreach ($movimientos as $mov) {
@@ -475,14 +403,12 @@ class PlanillasModel extends Modelo
                 $descripcion = trim((string)($mov['descripcion'] ?? ''));
                 $monto = (float)($mov['monto'] ?? 0);
 
-                if (!in_array($tipo, ['PERCEPCION', 'DEDUCCION'], true) || $categoria === '' || $descripcion === '' || $monto <= 0) {
-                    throw new InvalidArgumentException('Movimiento manual inválido.');
+                if (!in_array($tipo, ['PERCEPCION', 'DEDUCCION']) || $categoria === '' || $descripcion === '' || $monto <= 0) {
+                    continue; // Saltar inválidos silenciosamente
                 }
 
                 $llave = $tipo . '::' . strtolower($categoria) . '::' . strtolower($descripcion);
-                if (isset($vistos[$llave])) {
-                    throw new InvalidArgumentException('Hay movimientos repetidos en el formulario.');
-                }
+                if (isset($vistos[$llave])) throw new InvalidArgumentException('Hay movimientos repetidos.');
                 $vistos[$llave] = true;
 
                 $stmt->execute([
@@ -497,10 +423,7 @@ class PlanillasModel extends Modelo
             $db->commit();
             return true;
         } catch (Exception $e) {
-            if ($db->inTransaction()) {
-                $db->rollBack();
-            }
-            error_log("Error al agregar concepto manual: " . $e->getMessage());
+            if ($db->inTransaction()) $db->rollBack();
             return false;
         }
     }
@@ -511,14 +434,11 @@ class PlanillasModel extends Modelo
                 FROM rrhh_nominas_conceptos nc
                 INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
                 INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
-                WHERE nc.id_detalle_nomina = :id_detalle
-                  AND nc.es_automatico = 0
-                  AND UPPER(TRIM(n.estado)) = "BORRADOR"
+                WHERE nc.id_detalle_nomina = :id_detalle AND nc.es_automatico = 0 AND UPPER(TRIM(n.estado)) = "BORRADOR"
                 ORDER BY nc.id ASC';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_detalle' => $idDetalle]);
-
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
@@ -535,15 +455,13 @@ class PlanillasModel extends Modelo
 
             $nominaCalculada = $this->calcularNominaEnMemoria($lote);
 
-            $stmtDelAuto = $db->prepare("DELETE FROM rrhh_nominas_conceptos 
-                                         WHERE es_automatico = 1 AND id_detalle_nomina IN (
-                                            SELECT id FROM rrhh_nominas_detalles WHERE id_nomina = :id_nomina
-                                         )");
-            $stmtDelAuto->execute(['id_nomina' => $idLote]);
+            // Eliminar conceptos automáticos antiguos
+            $db->prepare("DELETE FROM rrhh_nominas_conceptos WHERE es_automatico = 1 AND id_detalle_nomina IN (SELECT id FROM rrhh_nominas_detalles WHERE id_nomina = ?)")
+               ->execute([$idLote]);
 
             $stmtUpdateDet = $db->prepare("UPDATE rrhh_nominas_detalles 
-                SET dias_pagados = :dp, dias_falta = :df, minutos_tardanza = :mt, 
-                    sueldo_base_calculado = :sbc, total_percepciones = :tp, total_deducciones = :td, neto_a_pagar = :neto
+                SET dias_pagados = :dp, sueldo_base_calculado = :sbc, 
+                    total_percepciones = :tp, total_deducciones = :td, neto_a_pagar = :neto
                 WHERE id = :id");
 
             $stmtConcepto = $db->prepare("INSERT INTO rrhh_nominas_conceptos 
@@ -552,9 +470,7 @@ class PlanillasModel extends Modelo
                 
             $stmtMarcarAsistencia = $db->prepare("UPDATE asistencia_registros 
                 SET id_nomina_pago = :id_lote 
-                WHERE id_tercero = :id_tercero 
-                  AND fecha BETWEEN :desde AND :hasta 
-                  AND id_nomina_pago IS NULL");
+                WHERE id_tercero = :id_tercero AND fecha BETWEEN :desde AND :hasta AND id_nomina_pago IS NULL");
                   
             $stmtPagarAdelanto = $db->prepare("UPDATE rrhh_adelantos 
                 SET saldo_pendiente = saldo_pendiente - :descuento,
@@ -565,16 +481,12 @@ class PlanillasModel extends Modelo
             $idsValidos = []; 
 
             foreach ($nominaCalculada as $calc) {
-                if ($calc['neto_a_pagar'] <= 0 && $calc['dias_pagados'] == 0 && $calc['monto_bonos'] == 0) {
-                    continue;
-                }
+                if ($calc['neto_a_pagar'] <= 0 && $calc['dias_pagados'] == 0 && $calc['monto_bonos'] == 0) continue;
 
                 $idsValidos[] = $calc['id']; 
 
                 $stmtUpdateDet->execute([
                     'dp' => $calc['dias_pagados'],
-                    'df' => $calc['dias_falta'],
-                    'mt' => $calc['minutos_tardanza'],
                     'sbc' => $calc['sueldo_base_calculado'],
                     'tp' => $calc['total_percepciones'],
                     'td' => $calc['total_deducciones'],
@@ -583,45 +495,26 @@ class PlanillasModel extends Modelo
                 ]);
 
                 $stmtMarcarAsistencia->execute([
-                    'id_lote' => $idLote,
-                    'id_tercero' => $calc['id_tercero'],
-                    'desde' => $lote['fecha_inicio'],
-                    'hasta' => $lote['fecha_fin']
+                    'id_lote' => $idLote, 'id_tercero' => $calc['id_tercero'],
+                    'desde' => $lote['fecha_inicio'], 'hasta' => $lote['fecha_fin']
                 ]);
 
+                // Insertar los conceptos finales para la boleta
                 if ($calc['sueldo_base_calculado'] > 0) {
-                    $stmtConcepto->execute([
-                        'id_det' => $calc['id'], 'tipo' => 'PERCEPCION', 'cat' => 'Sueldo Base',
-                        'desc' => 'Sueldo proporcional a ' . $calc['dias_pagados'] . ' días', 'monto' => $calc['sueldo_base_calculado']
-                    ]);
+                    $stmtConcepto->execute(['id_det' => $calc['id'], 'tipo' => 'PERCEPCION', 'cat' => 'Sueldo Base', 'desc' => 'Sueldo por ' . $calc['dias_pagados'] . ' días', 'monto' => $calc['sueldo_base_calculado']]);
                 }
-
-                if (($calc['pago_horas_extras'] ?? 0) > 0) {
-                    $stmtConcepto->execute([
-                        'id_det' => $calc['id'], 'tipo' => 'PERCEPCION', 'cat' => 'Horas Extras',
-                        'desc' => 'Pago por ' . $calc['horas_extras'] . ' horas extras', 'monto' => $calc['pago_horas_extras']
-                    ]);
+                if ($calc['pago_horas_extras'] > 0) {
+                    $stmtConcepto->execute(['id_det' => $calc['id'], 'tipo' => 'PERCEPCION', 'cat' => 'Horas Extras', 'desc' => 'Pago por ' . $calc['horas_extras'] . ' horas', 'monto' => $calc['pago_horas_extras']]);
                 }
-
                 if ($calc['descuento_tardanzas'] > 0) {
-                    $stmtConcepto->execute([
-                        'id_det' => $calc['id'], 'tipo' => 'DEDUCCION', 'cat' => 'Tardanza',
-                        'desc' => 'Descuento por ' . $calc['minutos_tardanza'] . ' minutos', 'monto' => $calc['descuento_tardanzas']
-                    ]);
+                    $stmtConcepto->execute(['id_det' => $calc['id'], 'tipo' => 'DEDUCCION', 'cat' => 'Tardanza', 'desc' => 'Descuento por tardanzas/salidas', 'monto' => $calc['descuento_tardanzas']]);
                 }
-
                 if ($calc['descuento_adelanto'] > 0) {
                     $adelantos = json_decode($calc['adelantos_aplicados'], true);
                     foreach ($adelantos as $ad) {
-                        $stmtPagarAdelanto->execute([
-                            'descuento' => $ad['monto'],
-                            'id_adelanto' => $ad['id']
-                        ]);
+                        $stmtPagarAdelanto->execute(['descuento' => $ad['monto'], 'id_adelanto' => $ad['id']]);
                     }
-                    $stmtConcepto->execute([
-                        'id_det' => $calc['id'], 'tipo' => 'DEDUCCION', 'cat' => 'Adelanto de Sueldo',
-                        'desc' => 'Cobro automático de adelanto/préstamo', 'monto' => $calc['descuento_adelanto']
-                    ]);
+                    $stmtConcepto->execute(['id_det' => $calc['id'], 'tipo' => 'DEDUCCION', 'cat' => 'Adelanto de Sueldo', 'desc' => 'Cobro automático de préstamo', 'monto' => $calc['descuento_adelanto']]);
                 }
 
                 $loteBruto += $calc['total_percepciones'];
@@ -629,68 +522,46 @@ class PlanillasModel extends Modelo
                 $loteNeto += $calc['neto_a_pagar'];
             }
 
+            // Limpiar empleados vacíos
             if (!empty($idsValidos)) {
                 $placeholders = implode(',', array_fill(0, count($idsValidos), '?'));
-                $stmtDelHuerfanos = $db->prepare("DELETE FROM rrhh_nominas_detalles WHERE id_nomina = ? AND id NOT IN ($placeholders)");
-                $stmtDelHuerfanos->execute(array_merge([$idLote], $idsValidos));
+                $db->prepare("DELETE FROM rrhh_nominas_detalles WHERE id_nomina = ? AND id NOT IN ($placeholders)")->execute(array_merge([$idLote], $idsValidos));
             } else {
                 $db->prepare("DELETE FROM rrhh_nominas_detalles WHERE id_nomina = ?")->execute([$idLote]);
             }
 
-            // Usamos 'APROBADO' en la base de datos para no romper la estructura, pero visualmente es 'CERRADO'
-            $stmtUpdateLote = $db->prepare("UPDATE rrhh_nominas 
-                SET estado = 'APROBADO', total_bruto = :tb, total_deducciones = :td, total_neto = :tn, cantidad_empleados = :cant
-                WHERE id = :id");
-            $stmtUpdateLote->execute([
-                'tb' => $loteBruto, 'td' => $loteDeducciones, 'tn' => $loteNeto,
-                'cant' => count($idsValidos), 'id' => $idLote
-            ]);
+            // Cerrar Lote (Guardar como APROBADO para la BD)
+            $db->prepare("UPDATE rrhh_nominas SET estado = 'APROBADO', total_bruto = :tb, total_deducciones = :td, total_neto = :tn, cantidad_empleados = :cant WHERE id = :id")
+               ->execute(['tb' => $loteBruto, 'td' => $loteDeducciones, 'tn' => $loteNeto, 'cant' => count($idsValidos), 'id' => $idLote]);
 
             $db->commit();
             return true;
         } catch (Exception $e) {
             $db->rollBack();
-            error_log("Error al cerrar lote: " . $e->getMessage());
             return false;
         }
     }
 
     public function obtenerDatosBoletaPdf(int $idDetalle): ?array
     {
-        $sqlCabecera = "SELECT 
-                            nd.*,
-                            t.nombre_completo, 
-                            t.numero_documento,
-                            te.cargo, 
-                            te.sueldo_basico,
-                            n.referencia AS referencia_lote, 
-                            n.nombre AS nombre_lote, 
-                            n.fecha_inicio, 
-                            n.fecha_fin, 
-                            n.fecha_pago,
-                            n.estado AS estado_lote
+        $sqlCabecera = "SELECT nd.*, t.nombre_completo, t.numero_documento, te.cargo, te.sueldo_basico,
+                               n.referencia AS referencia_lote, n.nombre AS nombre_lote, 
+                               n.fecha_inicio, n.fecha_fin, n.fecha_pago, n.estado AS estado_lote
                         FROM rrhh_nominas_detalles nd
                         INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
                         INNER JOIN terceros t ON t.id = nd.id_tercero
                         INNER JOIN terceros_empleados te ON te.id_tercero = t.id
                         WHERE nd.id = :id_detalle";
-        
         $stmtC = $this->db()->prepare($sqlCabecera);
         $stmtC->execute(['id_detalle' => $idDetalle]);
         $boleta = $stmtC->fetch(PDO::FETCH_ASSOC);
 
-        if (!$boleta) {
-            return null;
-        }
+        if (!$boleta) return null;
 
         $sqlConceptos = "SELECT tipo, categoria, descripcion, monto, es_automatico 
-                         FROM rrhh_nominas_conceptos 
-                         WHERE id_detalle_nomina = :id_detalle 
-                         ORDER BY tipo DESC, id ASC";
-                         
+                         FROM rrhh_nominas_conceptos WHERE id_detalle_nomina = :id_detalle ORDER BY tipo DESC, id ASC";
         $stmtConc = $this->db()->prepare($sqlConceptos);
         $stmtConc->execute(['id_detalle' => $idDetalle]);
-        
         $boleta['conceptos'] = $stmtConc->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         return $boleta;
@@ -698,58 +569,37 @@ class PlanillasModel extends Modelo
 
     public function obtenerBoletasMasivasPdf(int $idLote): array
     {
-        // 1. Obtenemos a todos los empleados del lote que tengan algo que cobrar
-        $sqlCabecera = "SELECT 
-                            nd.*,
-                            t.nombre_completo, t.numero_documento, te.cargo, te.sueldo_basico,
-                            n.referencia AS referencia_lote, n.nombre AS nombre_lote, 
-                            n.fecha_inicio, n.fecha_fin, n.fecha_pago, n.estado AS estado_lote
+        $sqlCabecera = "SELECT nd.*, t.nombre_completo, t.numero_documento, te.cargo, te.sueldo_basico,
+                               n.referencia AS referencia_lote, n.nombre AS nombre_lote, 
+                               n.fecha_inicio, n.fecha_fin, n.fecha_pago, n.estado AS estado_lote
                         FROM rrhh_nominas_detalles nd
                         INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
                         INNER JOIN terceros t ON t.id = nd.id_tercero
                         INNER JOIN terceros_empleados te ON te.id_tercero = t.id
                         WHERE nd.id_nomina = :id_lote AND nd.neto_a_pagar > 0
                         ORDER BY t.nombre_completo ASC";
-        
         $stmtC = $this->db()->prepare($sqlCabecera);
         $stmtC->execute(['id_lote' => $idLote]);
         $boletas = $stmtC->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         if (empty($boletas)) return [];
 
-        // 2. Obtenemos TODOS los conceptos de este lote de un solo golpe
         $sqlConceptos = "SELECT nc.* FROM rrhh_nominas_conceptos nc
                          INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
-                         WHERE nd.id_nomina = :id_lote 
-                         ORDER BY nc.tipo DESC, nc.id ASC";
-                         
+                         WHERE nd.id_nomina = :id_lote ORDER BY nc.tipo DESC, nc.id ASC";
         $stmtConc = $this->db()->prepare($sqlConceptos);
         $stmtConc->execute(['id_lote' => $idLote]);
         $conceptos = $stmtConc->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        // 3. Agrupamos los conceptos por el ID del detalle
         $conceptosAgrupados = [];
         foreach ($conceptos as $c) {
             $conceptosAgrupados[$c['id_detalle_nomina']][] = $c;
         }
 
-        $diasSemana = [
-            'MONDAY' => 'LUNES',
-            'TUESDAY' => 'MARTES',
-            'WEDNESDAY' => 'MIERCOLES',
-            'THURSDAY' => 'JUEVES',
-            'FRIDAY' => 'VIERNES',
-            'SATURDAY' => 'SABADO',
-            'SUNDAY' => 'DOMINGO',
-        ];
-
         $sqlAsistencia = "SELECT fecha, estado_asistencia, horas_trabajadas, horas_extras
-                         FROM asistencia_registros
-                         WHERE id_tercero = :id_tercero
-                           AND fecha BETWEEN :fecha_inicio AND :fecha_fin";
+                          FROM asistencia_registros WHERE id_tercero = :id_tercero AND fecha BETWEEN :fecha_inicio AND :fecha_fin";
         $stmtAsistencia = $this->db()->prepare($sqlAsistencia);
 
-        // 4. Armamos el arreglo final
         foreach ($boletas as &$b) {
             $b['conceptos'] = $conceptosAgrupados[$b['id']] ?? [];
 
@@ -758,36 +608,18 @@ class PlanillasModel extends Modelo
                 'fecha_inicio' => $b['fecha_inicio'],
                 'fecha_fin' => $b['fecha_fin'],
             ]);
+            
             $asistencias = $stmtAsistencia->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-            $asistenciaPorFecha = [];
+            $resumenDias = [];
+            
             foreach ($asistencias as $asistencia) {
-                $asistenciaPorFecha[$asistencia['fecha']] = [
+                $resumenDias[] = [
+                    'fecha' => $asistencia['fecha'],
                     'estado' => strtoupper((string) ($asistencia['estado_asistencia'] ?? '')),
                     'horas_normales' => round((float) ($asistencia['horas_trabajadas'] ?? 0), 2),
                     'horas_extras' => round((float) ($asistencia['horas_extras'] ?? 0), 2),
                 ];
             }
-
-            $resumenDias = [];
-            $fechaCursor = new DateTime((string) $b['fecha_inicio']);
-            $fechaFin = new DateTime((string) $b['fecha_fin']);
-            while ($fechaCursor <= $fechaFin) {
-                $fechaIso = $fechaCursor->format('Y-m-d');
-                $diaClave = strtoupper($fechaCursor->format('l'));
-                $rowAsistencia = $asistenciaPorFecha[$fechaIso] ?? null;
-                $horasNormales = (float) ($rowAsistencia['horas_normales'] ?? 0);
-                $horasExtras = (float) ($rowAsistencia['horas_extras'] ?? 0);
-
-                $resumenDias[] = [
-                    'fecha' => $fechaIso,
-                    'dia' => $diasSemana[$diaClave] ?? strtoupper($diaClave),
-                    'horas_normales' => $horasNormales,
-                    'horas_extras' => $horasExtras,
-                ];
-                $fechaCursor->modify('+1 day');
-            }
-
             $b['resumen_dias'] = $resumenDias;
         }
         unset($b);

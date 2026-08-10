@@ -58,19 +58,21 @@ class ConfigRrhhController extends Controlador
         // Capturar los nuevos parámetros de tiempo efectivo
         $metaDiaria = (float) ($_POST['meta_horas_diarias'] ?? 8.0);
         $bloqueMinutos = (int) ($_POST['bloque_minutos'] ?? 30);
-        $minutosTolerancia = (int) ($_POST['minutos_tolerancia'] ?? 14);
+        $toleranciaEntrada = (int) ($_POST['tolerancia_entrada'] ?? 14);
+        $toleranciaSalida = (int) ($_POST['tolerancia_salida'] ?? 14);
 
-        // Validación estricta en el backend
-        if ($minutosTolerancia >= $bloqueMinutos) {
-            redirect('rrhh/config_rrhh?tipo=error&msg=' . urlencode('El umbral de corte (tolerancia) debe ser estrictamente menor al tamaño del bloque.'));
+        // Validación estricta en el backend: Ninguna tolerancia puede ser mayor o igual al bloque
+        if ($toleranciaEntrada >= $bloqueMinutos || $toleranciaSalida >= $bloqueMinutos) {
+            redirect('rrhh/config_rrhh?tipo=error&msg=' . urlencode('Las tolerancias (entrada y salida) deben ser estrictamente menores al tamaño del bloque.'));
             return;
         }
 
         // Armar arreglo con los nuevos campos de la BD
         $datos = [
             'meta_horas_diarias' => $metaDiaria,
-            'bloque_minutos' => $bloqueMinutos,
-            'minutos_tolerancia' => $minutosTolerancia
+            'bloque_minutos'     => $bloqueMinutos,
+            'tolerancia_entrada' => $toleranciaEntrada,
+            'tolerancia_salida'  => $toleranciaSalida
         ];
 
         $exito = $this->model->guardarConfiguracion($datos);

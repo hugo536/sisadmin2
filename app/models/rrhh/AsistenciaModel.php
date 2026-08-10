@@ -113,9 +113,11 @@ class AsistenciaModel extends Modelo
         sort($marcasNormalizadas);
         $marcasCount = count($marcasNormalizadas);
 
+        // 1. Obtener las políticas con las dos tolerancias separadas
         $config = $this->obtenerConfiguracionRRHH();
         $bloqueMinutos = max(1, (int)($config['bloque_minutos'] ?? 30));
-        $tolerancia = (int)($config['minutos_tolerancia'] ?? 14);
+        $tolEntrada = (int)($config['tolerancia_entrada'] ?? 15);
+        $tolSalida = (int)($config['tolerancia_salida'] ?? 15);
         $metaDiaria = (float)($config['meta_horas_diarias'] ?? 8.0);
 
         $ingresos = [];
@@ -142,35 +144,49 @@ class AsistenciaModel extends Modelo
                 $tsOutReal = strpos($salidas[$k], ' ') !== false ? strtotime($salidas[$k]) : strtotime($fecha . ' ' . $salidas[$k]);
 
                 if ($tsInReal === false || $tsOutReal === false) continue;
+                if ($tsOutReal < $tsInReal) $tsOutReal = strtotime('+1 day', $tsOutReal);
+                if ($tsOutReal <= $tsInReal) continue; 
 
-                // CORRECCIÓN: Manejo de cruce de medianoche (Turno nocturno)
-                if ($tsOutReal < $tsInReal) {
-                    $tsOutReal = strtotime('+1 day', $tsOutReal);
-                }
+                // Convertir reglas a segundos para el cálculo exacto
+                $b = $bloqueMinutos * 60;
+                $tIn = $tolEntrada * 60;
+                $tOut = $tolSalida * 60;
 
-                if ($tsOutReal <= $tsInReal) continue; // Por si hay marcaciones duplicadas o ilógicas
+                // ========================================================
+                // REDONDEO INTELIGENTE DE ENTRADA (Tolerancia de Entrada)
+                // ========================================================
+                $prevIn = floor($tsInReal / $b) * $b;
+                $nextIn = ceil($tsInReal / $b) * $b;
+                $pasadoIn = $tsInReal - $prevIn;
 
-                $bloqueSegundos = $bloqueMinutos * 60;
-
-                // --- REDONDEO DE ENTRADA (Hacia adelante) ---
-                $bloquePrevIn = floor($tsInReal / $bloqueSegundos) * $bloqueSegundos;
-                $bloqueNextIn = ceil($tsInReal / $bloqueSegundos) * $bloqueSegundos;
-                
-                $diffIn = ($tsInReal - $bloquePrevIn) / 60;
-                if ($diffIn <= $tolerancia) {
-                    $tsInEfectivo = $bloquePrevIn; // Entró en tolerancia
+                if ($pasadoIn <= $tIn) {
+                    $tsInEfectivo = $prevIn; // Premio temprano o Perdona tardanza leve
                 } else {
-                    $tsInEfectivo = $bloqueNextIn; // Llegó tarde al bloque
+                    $tsInEfectivo = $nextIn; // Castiga, manda al siguiente bloque
                 }
 
-                // --- REDONDEO DE SALIDA (Hacia atrás, solo bloques completados) ---
-                $tsOutEfectivo = floor($tsOutReal / $bloqueSegundos) * $bloqueSegundos;
+                // ========================================================
+                // REDONDEO INTELIGENTE DE SALIDA (Tolerancia de Salida)
+                // ========================================================
+                $prevOut = floor($tsOutReal / $b) * $b;
+                $nextOut = ceil($tsOutReal / $b) * $b;
+                $faltaOut = $nextOut - $tsOutReal;
 
+                if ($tsOutReal == $prevOut) {
+                    $tsOutEfectivo = $tsOutReal; // Salió en el minuto exacto
+                } elseif ($faltaOut <= $tOut) {
+                    $tsOutEfectivo = $nextOut; // Premia tiempo extra o Perdona salida temprana leve
+                } else {
+                    $tsOutEfectivo = $prevOut; // Castiga cortando al bloque anterior
+                }
+
+                // Acumular las horas procesadas si son coherentes
                 if ($tsOutEfectivo > $tsInEfectivo) {
                     $totalHorasEfectivas += ($tsOutEfectivo - $tsInEfectivo) / 3600;
                 }
             }
 
+            // Separar regulares de extras según la meta diaria
             if ($totalHorasEfectivas > $metaDiaria) {
                 $horasTrabajadas = $metaDiaria;
                 $horasExtras = round($totalHorasEfectivas - $metaDiaria, 2);
@@ -188,7 +204,7 @@ class AsistenciaModel extends Modelo
             'hora_salida' => $horaSalida,
             'hora_entrada_esperada' => null, 
             'hora_salida_esperada' => null,  
-            'tolerancia_minutos' => $tolerancia,
+            'tolerancia_minutos' => $tolEntrada, // Referencial para logs
             'estado_asistencia' => $estado,
             'minutos_tardanza' => 0, 
             'horas_trabajadas' => $horasTrabajadas,
@@ -302,7 +318,10 @@ class AsistenciaModel extends Modelo
         $fechaActual = strtotime($desde);
         $fechaFinTs = strtotime($hasta);
         $diasSemanaNombres = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-        $totalHorasSemanales = 0;
+        
+        // NUEVO: Contadores separados para horas regulares y extras
+        $totalRegulares = 0.0;
+        $totalExtras = 0.0;
 
         while ($fechaActual <= $fechaFinTs) {
             $fechaStr = date('Y-m-d', $fechaActual);
@@ -331,8 +350,22 @@ class AsistenciaModel extends Modelo
                 }
             }
 
+            // NUEVO: Acumular horas separadas y formatear el total del día
+            $strTotalDia = '0h';
             if ($reg) {
-                $totalHorasSemanales += (float) ($reg['horas_trabajadas'] ?? 0) + (float) ($reg['horas_extras'] ?? 0);
+                $horasTrabajadas = (float) ($reg['horas_trabajadas'] ?? 0);
+                $horasExtrasDia = (float) ($reg['horas_extras'] ?? 0);
+                
+                $totalRegulares += $horasTrabajadas;
+                $totalExtras += $horasExtrasDia;
+
+                // Formato exacto del día para sobrescribir el cálculo del frontend
+                $totalDiaDecimal = $horasTrabajadas + $horasExtrasDia;
+                $diaH = floor($totalDiaDecimal);
+                $diaM = round(($totalDiaDecimal - $diaH) * 60);
+                if ($totalDiaDecimal > 0) {
+                    $strTotalDia = $diaH . 'h' . ($diaM > 0 ? " {$diaM}m" : '');
+                }
             }
 
             $dias[] = [
@@ -347,18 +380,28 @@ class AsistenciaModel extends Modelo
                 't3_out' => isset($salidasArr[2]) && $salidasArr[2] !== 'null' ? substr($salidasArr[2], 11, 5) : '',
                 'estado_label' => $estadoStr,
                 'badge_class' => $badgeClass,
-                'es_descanso' => false 
+                'es_descanso' => false,
+                'total_dia_formateado' => $strTotalDia // <-- INYECTAMOS EL RESULTADO MATEMÁTICO AL JS
             ];
             
             $fechaActual = strtotime('+1 day', $fechaActual);
         }
 
-        $horasStr = floor($totalHorasSemanales) . 'h ' . round(($totalHorasSemanales - floor($totalHorasSemanales)) * 60) . 'm';
+        // NUEVO: Formatear totales separados a strings ("XXh YYm")
+        $regH = floor($totalRegulares);
+        $regM = round(($totalRegulares - $regH) * 60);
+        $strTotalReg = $regH . 'h' . ($regM > 0 ? " {$regM}m" : '');
 
+        $extH = floor($totalExtras);
+        $extM = round(($totalExtras - $extH) * 60);
+        $strTotalExt = $extH . 'h' . ($extM > 0 ? " {$extM}m" : '');
+
+        // NUEVO: Retornar las llaves que el JS realmente está esperando
         return [
             'dias' => $dias,
             'rango_label' => $rangoLabel,
-            'total_horas_str' => $horasStr,
+            'total_regulares_str' => $strTotalReg,
+            'total_extras_str' => $strTotalExt,
             'empleado_sin_horario' => false
         ];
     }
@@ -424,9 +467,22 @@ class AsistenciaModel extends Modelo
             $badgeClass = 'bg-info-subtle text-info-emphasis';
         }
 
+        // ========================================================
+        // NUEVO: Calcular el total del día redondeado para el JS
+        // ========================================================
+        $totalDiaDecimal = (float)$resumenMotor['horas_trabajadas'] + (float)$resumenMotor['horas_extras'];
+        $diaH = floor($totalDiaDecimal);
+        $diaM = round(($totalDiaDecimal - $diaH) * 60);
+        
+        $strTotalDia = '0h';
+        if ($totalDiaDecimal > 0) {
+            $strTotalDia = $diaH . 'h' . ($diaM > 0 ? " {$diaM}m" : '');
+        }
+
         return [
             'nuevo_estado_label' => $estadoStr,
-            'badge_class' => $badgeClass
+            'badge_class' => $badgeClass,
+            'total_dia_formateado' => $strTotalDia // <-- ESTO SOBRESCRIBIRÁ EL CÁLCULO DEL JS
         ];
     }
 

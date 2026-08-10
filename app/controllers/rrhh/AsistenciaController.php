@@ -86,9 +86,11 @@ class AsistenciaController extends Controlador
         
         echo json_encode([
             'ok' => true,
-            'total_horas_str' => $datos['total_horas_str'],
-            'rango_label' => $datos['rango_label'],
-            'dias' => $datos['dias']
+            // CORRECCIÓN: Enviar las variables que el JS está esperando
+            'total_regulares_str' => $datos['total_regulares_str'] ?? '0h',
+            'total_extras_str'    => $datos['total_extras_str'] ?? '0h',
+            'rango_label'         => $datos['rango_label'],
+            'dias'                => $datos['dias']
         ]);
         exit;
     }
@@ -119,7 +121,11 @@ class AsistenciaController extends Controlador
                 'nuevo_estado_html' => true,
                 'nuevo_estado_label' => $res['nuevo_estado_label'],
                 'badge_class' => $res['badge_class'],
-                'total_horas_str' => $datosGrid['total_horas_str']
+                // 👇 CORRECCIÓN: Usamos las llaves nuevas que ahora devuelve el modelo
+                'total_regulares_str' => $datosGrid['total_regulares_str'] ?? '0h',
+                'total_extras_str'    => $datosGrid['total_extras_str'] ?? '0h',
+                // Enviamos también total_dia_formateado para la fila específica
+                'total_dia_formateado' => $res['total_dia_formateado'] ?? null
             ]);
         } catch (Exception $e) {
             // Captura el bloqueo de seguridad si el día es de descanso
