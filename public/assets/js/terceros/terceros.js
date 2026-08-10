@@ -956,6 +956,14 @@
 
                 const fd = new FormData(form);
 
+                // Los checkboxes desmarcados no forman parte de FormData. Enviamos
+                // siempre los cuatro roles para que una edición pueda persistir
+                // tanto la activación como la desactivación de cada switch.
+                ['es_cliente', 'es_distribuidor', 'es_proveedor', 'es_empleado'].forEach((roleName) => {
+                    const roleInput = form.querySelector(`[name="${roleName}"]`);
+                    fd.set(roleName, roleInput?.checked ? '1' : '0');
+                });
+
                 // Limpieza absoluta de la fecha si el check no está activo
                 const recordarCumpleanosInput = form.querySelector('[name="recordar_cumpleanos"]');
                 if (!recordarCumpleanosInput?.checked) {
