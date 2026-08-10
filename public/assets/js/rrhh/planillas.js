@@ -387,9 +387,48 @@
     // ==========================================
     // INICIALIZACIÓN COMPATIBLE CON SPA
     // ==========================================
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', iniciarModuloPlanillas);
-    } else {
-        iniciarModuloPlanillas();
-    }
-})();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', iniciarModuloPlanillas);
+        } else {
+            iniciarModuloPlanillas();
+        }
+
+    // 1. CERRAMOS LA BURBUJA (IIFE) AQUÍ
+    })();
+
+    // 2. CREAMOS LA FUNCIÓN GLOBAL PARA QUE EL ONCLICK DEL HTML LA ENCUENTRE
+    window.imprimirSiEsValido = function(idLote, esBorrador, tienePagos) {
+        // 1. Validar si está en borrador (Aún no guardado en BD)
+        if (esBorrador) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Planilla en Edición',
+                    text: 'Debes "Cerrar Planilla" (botón verde) para guardar los cálculos antes de poder generar e imprimir las boletas.',
+                    confirmButtonColor: '#198754'
+                });
+            } else {
+                alert('Debes "Cerrar Planilla" para guardar los cálculos antes de imprimir.');
+            }
+            return; // Detiene la ejecución
+        }
+        
+        // 2. Validar si no hay montos que cobrar
+        if (!tienePagos) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Lote sin pagos',
+                    text: 'No se encontraron empleados con montos a pagar mayores a S/ 0.00 en este lote.',
+                    confirmButtonColor: '#0d6efd'
+                });
+            } else {
+                alert('No se encontraron pagos mayores a S/ 0.00.');
+            }
+            return; // Detiene la ejecución
+        }
+
+        // 3. Abrimos el PDF usando variables de JS puro, sin etiquetas PHP
+        const url = window.BASE_URL + '?ruta=planillas/imprimir_masivo&id_lote=' + idLote;
+        window.open(url, '_blank');
+};

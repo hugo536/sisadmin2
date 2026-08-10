@@ -19,21 +19,13 @@ $csrf_token = $csrf_token ?? '';
         </div>
         
         <div class="d-flex align-items-center gap-2">
-            
-            <!-- ====== NUEVO BOTÓN DE IMPRIMIR REPORTE ====== -->
-            <?php if ($lote_actual): ?>
-            <a href="<?php echo e(route_url('planillas/imprimir_reporte_planilla?id_lote=' . $lote_actual['id'])); ?>" target="_blank" class="btn btn-outline-secondary fw-bold shadow-sm px-3 transition-hover">
-                <i class="bi bi-printer-fill me-2"></i>Imprimir Reporte
-            </a>
-            <?php endif; ?>
-            <!-- ============================================= -->
 
             <!-- Menú Desplegable: Historial de Lotes -->
             <div class="dropdown">
                 <button class="btn btn-outline-secondary fw-bold dropdown-toggle shadow-sm px-4" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="bi bi-clock-history me-2"></i>Lotes Recientes
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow shadow-lg border-0" style="max-height: 400px; overflow-y: auto; width: 320px;">
+                <ul class="dropdown-menu dropdown-menu-end shadow shadow-lg border-0" style="max-height: 400px; overflow-y: auto; width: 320px; z-index: 1050;">
                     <li class="dropdown-header fw-bold text-uppercase small text-muted bg-light border-bottom">Historial de Planillas</li>
                     <?php if (empty($lotes_recientes)): ?>
                         <li><span class="dropdown-item text-muted small py-3 text-center">No hay lotes generados.</span></li>
@@ -41,7 +33,7 @@ $csrf_token = $csrf_token ?? '';
                         <?php foreach ($lotes_recientes as $lote): ?>
                             <?php $activo = ($lote_actual && $lote_actual['id'] === $lote['id']) ? 'bg-primary-subtle' : ''; ?>
                             <li>
-                                <a class="dropdown-item py-2 border-bottom transition-hover <?php echo $activo; ?>" href="<?php echo e(route_url('planillas?id_lote=' . $lote['id'])); ?>">
+                                <a class="dropdown-item py-2 border-bottom transition-hover <?php echo $activo; ?>" href="<?php echo e(route_url('planillas')); ?>&id_lote=<?php echo $lote['id']; ?>">
                                     <div class="d-flex justify-content-between align-items-center mb-1">
                                         <strong class="small text-dark text-truncate me-2"><?php echo htmlspecialchars($lote['referencia']); ?></strong>
                                         <?php if ($lote['estado'] === 'BORRADOR'): ?>
@@ -110,15 +102,39 @@ $csrf_token = $csrf_token ?? '';
                     </div>
 
                     <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center px-4">
+                        <!-- Buscador -->
                         <div class="input-group input-group-sm bg-white shadow-sm rounded-2" style="max-width: 350px;">
                             <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search text-muted"></i></span>
                             <input type="text" class="form-control border-start-0 shadow-none py-2" id="searchDetalles" placeholder="Buscar por empleado, DNI o cargo...">
                         </div>
-                        <?php if ($lote_actual['estado'] === 'BORRADOR'): ?>
-                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill shadow-sm">
-                                <i class="bi bi-pencil-square me-1"></i> Modo Edición Activo
-                            </span>
-                        <?php endif; ?>
+                        
+                        <!-- Controles de la derecha (Botón Imprimir + Badge Edición) -->
+                        <div class="d-flex align-items-center gap-3">
+                            
+                            <?php if ($lote_actual): ?>
+                                <?php 
+                                    // Verificamos si en la tabla actual hay al menos un pago mayor a 0
+                                    $tienePagos = array_reduce($detalles_nomina, function($carry, $item) {
+                                        return $carry || ((float)($item['neto_a_pagar'] ?? 0) > 0);
+                                    }, false);
+                                    
+                                    $esBorrador = ($lote_actual['estado'] === 'BORRADOR');
+                                ?>
+                                
+                                <button type="button" 
+                                        onclick="imprimirSiEsValido(<?php echo $lote_actual['id']; ?>, <?php echo $esBorrador ? 'true' : 'false'; ?>, <?php echo $tienePagos ? 'true' : 'false'; ?>)" 
+                                        class="btn btn-sm btn-light bg-white border border-secondary-subtle shadow-sm px-3 rounded-pill fw-bold text-secondary transition-hover">
+                                    <i class="bi bi-printer-fill me-1"></i> Imprimir Reporte
+                                </button>
+                            <?php endif; ?>
+
+                            <?php if ($lote_actual['estado'] === 'BORRADOR'): ?>
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill shadow-sm">
+                                    <i class="bi bi-pencil-square me-1"></i> Modo Edición Activo
+                                </span>
+                            <?php endif; ?>
+                            
+                        </div>
                     </div>
 
                     <div class="table-responsive" style="max-height: calc(100vh - 280px);">

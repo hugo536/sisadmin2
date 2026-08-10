@@ -140,7 +140,8 @@ $puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
                             <div class="row g-3 align-items-end mb-3">
                                 <div class="col-md-6">
                                     <label class="form-label text-muted small fw-bold mb-1">Empleado <span class="text-danger">*</span></label>
-                                    <select class="form-select shadow-none" name="id_tercero" required>
+                                    <!-- Agregamos id="selectEmpleado" para inicializar TomSelect -->
+                                    <select class="form-select shadow-none" name="id_tercero" id="selectEmpleado" required>
                                         <option value="" disabled selected>Seleccione trabajador...</option>
                                         <?php foreach ($empleados as $emp): ?>
                                             <option value="<?php echo $emp['id']; ?>"><?php echo htmlspecialchars($emp['nombre_completo']); ?></option>
@@ -152,7 +153,8 @@ $puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
                                     <select class="form-select shadow-none border-secondary-subtle fw-medium" name="id_cuenta" required>
                                         <option value="" disabled selected>¿De dónde sale el dinero?</option>
                                         <?php foreach ($cuentas as $cta): ?>
-                                            <option value="<?php echo $cta['id']; ?>"><?php echo htmlspecialchars($cta['nombre']); ?> (Saldo: <?php echo $cta['moneda']; ?> <?php echo number_format((float)$cta['saldo'], 2); ?>)</option>
+                                            <!-- Corregido: Cambiamos $cta['saldo'] por $cta['saldo_actual'] -->
+                                            <option value="<?php echo $cta['id']; ?>"><?php echo htmlspecialchars($cta['nombre']); ?> (Saldo: <?php echo $cta['moneda']; ?> <?php echo number_format((float)$cta['saldo_actual'], 2); ?>)</option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>

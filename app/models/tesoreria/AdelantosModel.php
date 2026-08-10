@@ -69,30 +69,47 @@ class AdelantosModel extends Modelo
             $idCuenta = (int) $datos['id_cuenta'];
             $monto = (float) $datos['monto'];
             $fecha = $datos['fecha'];
+            
+            // 1. Manejo seguro de la observación para evitar errores de MySQL Strict Mode
             $obs = trim($datos['observacion'] ?? '');
+            $obs = $obs !== '' ? $obs : null;
 
-            // 1. Registrar la deuda en RRHH
+            // 2. Registrar la deuda en RRHH
             $sqlAdelanto = "INSERT INTO rrhh_adelantos (id_tercero, id_cuenta_tesoreria, monto, saldo_pendiente, fecha, observacion, estado, created_by) 
                             VALUES (:id_tercero, :id_cuenta, :monto, :saldo, :fecha, :obs, 'PENDIENTE', :uid)";
+            
             $db->prepare($sqlAdelanto)->execute([
-                'id_tercero' => $idTercero, 'id_cuenta' => $idCuenta, 
-                'monto' => $monto, 'saldo' => $monto, 'fecha' => $fecha, 
-                'obs' => $obs, 'uid' => $userId
+                'id_tercero' => $idTercero, 
+                'id_cuenta' => $idCuenta, 
+                'monto' => $monto, 
+                'saldo' => $monto, 
+                'fecha' => $fecha, 
+                'obs' => $obs, 
+                'uid' => $userId
             ]);
 
-            // 2. Registrar el Egreso en Tesorería
-            $sqlMovimiento = "INSERT INTO tesoreria_movimientos (id_cuenta, tipo, monto, concepto, fecha, created_by) 
-                              VALUES (:id_cuenta, 'EGRESO', :monto, :concepto, :fecha, :uid)";
-            $conceptoTesoreria = "Adelanto de sueldo a personal (ID: {$idTercero}) - " . $obs;
+            // 3. Registrar el Egreso en Tesorería (Corregido a 'observaciones')
+            $sqlMovimiento = "INSERT INTO tesoreria_movimientos (id_cuenta, tipo, monto, observaciones, fecha, estado, created_by) 
+                              VALUES (:id_cuenta, 'EGRESO', :monto, :observaciones, :fecha, 'CONFIRMADO', :uid)";
+            
+            $conceptoTesoreria = "Adelanto de sueldo a personal (ID: {$idTercero})";
+            if ($obs) {
+                $conceptoTesoreria .= " - " . $obs;
+            }
+
             $db->prepare($sqlMovimiento)->execute([
-                'id_cuenta' => $idCuenta, 'monto' => $monto, 
-                'concepto' => $conceptoTesoreria, 'fecha' => $fecha, 'uid' => $userId
+                'id_cuenta' => $idCuenta, 
+                'monto' => $monto, 
+                'observaciones' => $conceptoTesoreria, 
+                'fecha' => $fecha, 
+                'uid' => $userId
             ]);
 
             $db->commit();
             return true;
         } catch (Exception $e) {
             $db->rollBack();
+            // Restauramos el log normal para que no vuelva a salir la pantalla roja
             error_log("Error al registrar adelanto: " . $e->getMessage());
             return false;
         }
@@ -124,13 +141,17 @@ class AdelantosModel extends Modelo
                        WHERE id = :id";
             $db->prepare($sqlUpd)->execute(['monto' => $montoDevuelto, 'id' => $idAdelanto]);
 
-            // 2. Registrar Ingreso en Tesorería
-            $sqlMovimiento = "INSERT INTO tesoreria_movimientos (id_cuenta, tipo, monto, concepto, fecha, created_by) 
-                              VALUES (:id_cuenta, 'INGRESO', :monto, :concepto, CURDATE(), :uid)";
+            // 2. Registrar Ingreso en Tesorería (Corregido a 'observaciones' y 'CONFIRMADO')
+            $sqlMovimiento = "INSERT INTO tesoreria_movimientos (id_cuenta, tipo, monto, observaciones, fecha, estado, created_by) 
+                              VALUES (:id_cuenta, 'INGRESO', :monto, :observaciones, CURDATE(), 'CONFIRMADO', :uid)";
+            
             $conceptoTesoreria = "Devolución manual de adelanto - Personal ID: {$adelanto['id_tercero']}";
+            
             $db->prepare($sqlMovimiento)->execute([
-                'id_cuenta' => $idCuenta, 'monto' => $montoDevuelto, 
-                'concepto' => $conceptoTesoreria, 'uid' => $userId
+                'id_cuenta' => $idCuenta, 
+                'monto' => $montoDevuelto, 
+                'observaciones' => $conceptoTesoreria, 
+                'uid' => $userId
             ]);
 
             $db->commit();

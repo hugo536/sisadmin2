@@ -31,7 +31,8 @@ class PlanillasController extends Controlador
     {
         AuthMiddleware::handle();
 
-        $lotesRecientes = $this->planillasModel->obtenerLotesRecientes(15);
+        // Cambiamos el límite a 10 lotes
+        $lotesRecientes = $this->planillasModel->obtenerLotesRecientes(10);
         $loteActual = null;
         $detallesNomina = [];
 
@@ -228,7 +229,36 @@ class PlanillasController extends Controlador
         $boletas = $this->planillasModel->obtenerBoletasMasivasPdf($idLote);
 
         if (empty($boletas)) {
-            die("No hay recibos con montos a pagar en este lote.");
+            // Renderizamos una alerta elegante en la nueva pestaña y luego la cerramos
+            echo '<!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <title>Aviso de Sistema</title>
+                <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+                <style>body { background-color: #f3f6fb; font-family: sans-serif; }</style>
+            </head>
+            <body>
+                <script>
+                    document.addEventListener("DOMContentLoaded", function() {
+                        Swal.fire({
+                            icon: "info",
+                            title: "Lote sin pagos",
+                            text: "No se encontraron recibos con montos mayores a S/ 0.00 en este lote.",
+                            confirmButtonText: "Cerrar pestaña",
+                            confirmButtonColor: "#0d6efd",
+                            allowOutsideClick: false,
+                            allowEscapeKey: false
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.close();
+                            }
+                        });
+                    });
+                </script>
+            </body>
+            </html>';
+            exit;
         }
 
         // Aquí llamas a tu librería PDF (DOMPDF, mPDF, etc)
@@ -240,5 +270,61 @@ class PlanillasController extends Controlador
         }
 
         require_once $vistaBoletas;
+    }
+
+    /**
+     * ========================================================================
+     * 6. REPORTES (Imprimir Reporte General de Planilla)
+     * ========================================================================
+     */
+    public function imprimir_reporte_planilla(): void
+    {
+        AuthMiddleware::handle();
+
+        $idLote = (int) ($_GET['id_lote'] ?? 0);
+        if ($idLote <= 0) {
+            die("ID de lote inválido.");
+        }
+
+        // 1. Obtener la información del lote
+        $loteActual = $this->planillasModel->obtenerLotePorId($idLote);
+        if (!$loteActual) {
+            die("El lote solicitado no existe.");
+        }
+
+        // 2. Obtener los detalles de la nómina para ese lote
+        // (Asumiendo que esta función trae a todos los empleados del lote)
+        $detallesNomina = $this->planillasModel->obtenerDetallesLote($idLote);
+
+        // 3. Generar el PDF (Similar a tu método imprimir_boleta)
+        ob_start();
+        
+        // AQUÍ ES DONDE LLAMAMOS A LA VISTA DEL REPORTE
+        $this->render('rrhh/planillas_reporte_general_pdf', [
+            'lote' => $loteActual,
+            'detalles' => $detallesNomina,
+            'empresa' => [
+                'nombre' => 'Tu Empresa S.A.C.',
+                'ruc' => '20123456789',
+                'direccion' => 'Av. Principal 123, Ciudad'
+            ]
+        ], true); 
+        
+        $html = ob_get_clean();
+
+        // Inicializar DomPDF
+        $dompdf = new \Dompdf\Dompdf();
+        $options = $dompdf->getOptions();
+        $options->set(['isRemoteEnabled' => true]);
+        $dompdf->setOptions($options);
+
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'landscape'); // 'landscape' suele ser mejor para reportes anchos
+        $dompdf->render();
+
+        $nombreArchivo = 'Reporte_Planilla_' . $loteActual['referencia'] . '.pdf';
+
+        $dompdf->stream($nombreArchivo, ["Attachment" => 0]);
+        exit;
     }
 }

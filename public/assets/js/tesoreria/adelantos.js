@@ -52,6 +52,27 @@
                 }
             });
         });
+
+        // 4. Inicializar TomSelect en el modal de Nuevo Adelanto
+        const modalNuevoAdelanto = document.getElementById('modalNuevoAdelanto');
+        const selectEmpleado = document.getElementById('selectEmpleado');
+        
+        if (selectEmpleado && typeof TomSelect !== 'undefined') {
+            const tomSelectInstance = new TomSelect(selectEmpleado, {
+                create: false,
+                placeholder: 'Buscar y seleccionar trabajador...',
+                // Asegurar que el menú se vea por encima del modal
+                dropdownParent: 'body'
+            });
+
+            // Truco para limpiar el select si se cierra y vuelve a abrir el modal
+            if (modalNuevoAdelanto) {
+                modalNuevoAdelanto.addEventListener('hidden.bs.modal', () => {
+                    tomSelectInstance.clear();
+                });
+            }
+        }
+        
     }
 
     if (document.readyState === 'loading') {
