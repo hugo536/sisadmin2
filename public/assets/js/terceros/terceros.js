@@ -1068,12 +1068,30 @@
                         this.checked = !this.checked;
                         Swal.fire('Error', data.mensaje, 'error');
                     } else {
+                        const estadoTexto = estado ? 'Activo' : 'Inactivo';
                         const badge = document.getElementById(`badge_status_tercero_${id}`);
-                        if(badge) {
-                            badge.className = `badge-status status-${estado ? 'active' : 'inactive'}`;
-                            badge.innerText = estado ? 'Activo' : 'Inactivo';
+                        if (badge) {
+                            badge.className = estado
+                                ? 'badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill'
+                                : 'badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill';
+                            badge.innerText = estadoTexto;
+                        }
+
+                        const row = this.closest('tr');
+                        if (row) {
+                            row.dataset.estado = String(estado);
+                        }
+
+                        const editButton = row?.querySelector('.js-editar-tercero[data-id="' + id + '"]')
+                            || document.querySelector('.js-editar-tercero[data-id="' + id + '"]');
+                        if (editButton) {
+                            editButton.dataset.estado = String(estado);
                         }
                     }
+                })
+                .catch((err) => {
+                    this.checked = !this.checked;
+                    Swal.fire('Error', err.message || 'No se pudo actualizar el estado.', 'error');
                 });
             });
         });
