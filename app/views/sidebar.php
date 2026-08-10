@@ -235,10 +235,6 @@
                     <a class="sb-link sb-sub<?= $activo('asistencia/gestion_asistencia') ?>" href="<?= e(route_url('asistencia/gestion_asistencia')) ?>">
                         <span class="sb-link-icon"><i class="bi bi-calendar-week"></i></span><span class="sb-link-text">Gestión de Asistencia</span>
                     </a>
-                    <a class="sb-link sb-sub<?= $activo('asistencia/incidencias') ?>" href="<?= e(route_url('asistencia/incidencias')) ?>">
-                        <span class="sb-link-icon"><i class="bi bi-clipboard2-pulse"></i></span><span class="sb-link-text">Incidencias</span>
-                        <?php $renderBadge('asistencia/incidencias'); ?>
-                    </a>
                     <a class="sb-link sb-sub<?= $activo('planillas') ?>" href="<?= e(route_url('planillas')) ?>">
                         <span class="sb-link-icon"><i class="bi bi-cash-coin"></i></span><span class="sb-link-text">Planillas y Pagos</span>
                     </a>
