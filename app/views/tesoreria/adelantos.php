@@ -3,6 +3,7 @@ $adelantos = $adelantos ?? [];
 $empleados = $empleados ?? [];
 $cuentas = $cuentas ?? [];
 $csrf_token = $csrf_token ?? '';
+$puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
 ?>
 
 <div class="container-fluid p-4 fade-in" id="adelantosApp">
@@ -14,9 +15,11 @@ $csrf_token = $csrf_token ?? '';
             </h1>
             <p class="text-muted small mb-0 ms-1">Control de préstamos vinculados a cajas y planillas.</p>
         </div>
+        <?php if ($puedeRegistrar): ?>
         <button type="button" class="btn btn-primary fw-bold shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#modalNuevoAdelanto">
             <i class="bi bi-plus-lg me-2"></i>Registrar Adelanto
         </button>
+        <?php endif; ?>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
@@ -66,7 +69,7 @@ $csrf_token = $csrf_token ?? '';
                                     <?php endif; ?>
                                 </td>
                                 <td class="pe-4">
-                                    <?php if ($ad['saldo_pendiente'] > 0): ?>
+                                    <?php if ($ad['saldo_pendiente'] > 0 && $puedeRegistrar): ?>
                                         <button type="button" class="btn btn-sm btn-outline-success rounded-pill fw-bold btn-devolver" 
                                                 data-bs-toggle="modal" data-bs-target="#modalDevolver"
                                                 data-id="<?php echo $ad['id']; ?>"

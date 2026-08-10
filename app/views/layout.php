@@ -321,6 +321,10 @@ Swal.fire({
         <script src="<?php echo e(asset_url('js/tesoreria/movimientos.js')); ?>?v=<?php echo $getAssetVersion('js/tesoreria/movimientos.js'); ?>"></script>
     <?php endif; ?>
 
+    <?php if (str_starts_with($currentRoute, 'tesoreria/adelantos')): ?>
+        <script src="<?php echo e(asset_url('js/tesoreria/adelantos.js')); ?>?v=<?php echo $getAssetVersion('js/tesoreria/adelantos.js'); ?>"></script>
+    <?php endif; ?>
+
     <?php if (str_starts_with($currentRoute, 'tesoreria/prestamos')): ?>
         <script src="<?php echo e(asset_url('js/tesoreria/prestamos.js')); ?>?v=<?php echo $getAssetVersion('js/tesoreria/prestamos.js'); ?>"></script>
     <?php endif; ?>

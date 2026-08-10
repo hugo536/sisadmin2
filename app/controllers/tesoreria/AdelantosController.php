@@ -39,7 +39,7 @@ class AdelantosController extends Controlador
     public function guardar(): void
     {
         AuthMiddleware::handle();
-        require_permiso('tesoreria.crear');
+        require_permiso('tesoreria.pagos.registrar');
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $postToken = (string) ($_POST['csrf_token'] ?? '');
@@ -61,9 +61,15 @@ class AdelantosController extends Controlador
     public function devolver(): void
     {
         AuthMiddleware::handle();
-        require_permiso('tesoreria.crear');
+        require_permiso('tesoreria.pagos.registrar');
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $postToken = (string) ($_POST['csrf_token'] ?? '');
+            if (!hash_equals($_SESSION['csrf_token'] ?? '', $postToken)) {
+                redirect('tesoreria/adelantos?tipo=error&msg=' . urlencode('Error de seguridad.'));
+                return;
+            }
+
             $exito = $this->model->registrarDevolucionManual($_POST, AuthMiddleware::getUserId());
             
             if ($exito) {
