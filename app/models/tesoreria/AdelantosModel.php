@@ -3,6 +3,13 @@ declare(strict_types=1);
 
 class AdelantosModel extends Modelo
 {
+    private string $ultimoError = '';
+
+    public function obtenerUltimoError(): string
+    {
+        return $this->ultimoError;
+    }
+
     public function listarAdelantos(): array
     {
         $sql = "SELECT a.id, a.fecha, t.nombre_completo AS empleado, t.numero_documento, 
@@ -62,7 +69,9 @@ class AdelantosModel extends Modelo
     public function registrarAdelanto(array $datos, int $userId): bool
     {
         $db = $this->db();
+        $this->ultimoError = '';
         try {
+            $this->asegurarEsquemaMovimientos($db);
             $db->beginTransaction();
 
             $idTercero = (int) $datos['id_tercero'];
@@ -130,9 +139,11 @@ class AdelantosModel extends Modelo
 
             $db->commit();
             return true;
-        } catch (Exception $e) {
-            $db->rollBack();
-            // Restauramos el log normal para que no vuelva a salir la pantalla roja
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            $this->ultimoError = $this->mensajeSeguro($e);
             error_log("Error al registrar adelanto: " . $e->getMessage());
             return false;
         }
@@ -141,7 +152,9 @@ class AdelantosModel extends Modelo
     public function registrarDevolucionManual(array $datos, int $userId): bool
     {
         $db = $this->db();
+        $this->ultimoError = '';
         try {
+            $this->asegurarEsquemaMovimientos($db);
             $db->beginTransaction();
 
             $idAdelanto = (int) $datos['id_adelanto'];
@@ -195,17 +208,56 @@ class AdelantosModel extends Modelo
 
             $db->commit();
             return true;
-        } catch (Exception $e) {
-            $db->rollBack();
-            
-            // Muestra el mensaje de error exacto
-            die("<div style='background:#ffebee; padding:20px; font-family:sans-serif; color:#c62828; border-radius:8px; margin:20px; border: 1px solid #ef9a9a;'>
-                    <h3 style='margin-top:0;'>🛑 Error al registrar adelanto:</h3>
-                    <b>" . htmlspecialchars($e->getMessage()) . "</b>
-                 </div>");
-                 
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            $this->ultimoError = $this->mensajeSeguro($e);
+            error_log("Error al registrar devolución de adelanto: " . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Instalaciones anteriores solo admiten COBRO/PAGO y CXC/CXP. Sin esta
+     * comprobación MySQL rechaza ADELANTO con "Data truncated for column" y la
+     * transacción completa termina deshaciéndose.
+     */
+    private function asegurarEsquemaMovimientos(PDO $db): void
+    {
+        $stmt = $db->query("SELECT COLUMN_NAME, COLUMN_TYPE
+                            FROM information_schema.COLUMNS
+                            WHERE TABLE_SCHEMA = DATABASE()
+                              AND TABLE_NAME = 'tesoreria_movimientos'
+                              AND COLUMN_NAME IN ('tipo', 'origen')");
+        $columnas = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $columna) {
+            $columnas[(string) $columna['COLUMN_NAME']] = strtoupper((string) $columna['COLUMN_TYPE']);
+        }
+
+        if (!isset($columnas['tipo'], $columnas['origen'])) {
+            throw new RuntimeException('La estructura del ledger de tesorería está incompleta.');
+        }
+
+        $tipoCompatible = str_contains($columnas['tipo'], "'INGRESO'")
+            && str_contains($columnas['tipo'], "'EGRESO'");
+        $origenCompatible = str_contains($columnas['origen'], "'ADELANTO'");
+        if ($tipoCompatible && $origenCompatible) {
+            return;
+        }
+
+        $db->exec("ALTER TABLE tesoreria_movimientos
+                   MODIFY COLUMN tipo ENUM('COBRO','PAGO','INGRESO','EGRESO') NOT NULL,
+                   MODIFY COLUMN origen ENUM('CXC','CXP','ADELANTO') NOT NULL");
+    }
+
+    private function mensajeSeguro(Throwable $error): string
+    {
+        if ($error instanceof InvalidArgumentException || $error instanceof RuntimeException) {
+            return $error->getMessage();
+        }
+
+        return 'No se pudo completar la operación. Revise el registro técnico del servidor.';
     }
 
     private function obtenerCuentaConSaldo(PDO $db, int $idCuenta): ?array
