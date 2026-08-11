@@ -73,6 +73,63 @@
             }
         }
         
+        // ==============================================================
+        // 5. HISTORIAL DE PAGOS (VER DETALLES) - NUEVO
+        // ==============================================================
+        const modalVerDetalle = document.getElementById('modalVerDetalle');
+        if (modalVerDetalle) {
+            modalVerDetalle.addEventListener('show.bs.modal', async function (event) {
+                const button = event.relatedTarget;
+                const idAdelanto = button.getAttribute('data-id');
+                const nombreEmpleado = button.getAttribute('data-empleado');
+
+                // 5.1 Asignar el nombre al UI
+                const spanNombre = document.getElementById('detNombreEmpleado');
+                if (spanNombre) spanNombre.textContent = nombreEmpleado;
+
+                const tbody = document.getElementById('bodyHistorialAdelanto');
+                if (!tbody) return;
+
+                // 5.2 Mostrar estado de carga
+                tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Cargando historial...</td></tr>`;
+
+                try {
+                    // 5.3 Hacer petición AJAX al backend
+                    // Asume que tienes una ruta así. El fallback a '' es por si window.BASE_URL no está definido.
+                    const baseUrl = window.BASE_URL || ''; 
+                    const url = `${baseUrl}?ruta=tesoreria/adelantos&accion=historial&id=${idAdelanto}`;
+                    
+                    const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    const data = await resp.json();
+
+                    tbody.innerHTML = ''; // Limpiar tabla
+
+                    // 5.4 Procesar respuesta y dibujar filas
+                    if (data.ok && data.historial && data.historial.length > 0) {
+                        data.historial.forEach(item => {
+                            const tr = document.createElement('tr');
+                            // Identificar color según origen
+                            const isCaja = item.origen.toLowerCase().includes('caja') || item.origen.toLowerCase().includes('efectivo');
+                            const colorBadge = isCaja ? 'bg-success-subtle text-success border-success-subtle' : 'bg-primary-subtle text-primary border-primary-subtle';
+                            
+                            tr.innerHTML = `
+                                <td class="ps-4 text-start fw-medium text-dark" style="font-size: 0.9rem;">
+                                    <i class="bi bi-calendar2-check text-muted me-1"></i> ${item.fecha}
+                                </td>
+                                <td><span class="badge ${colorBadge} border">${item.origen}</span></td>
+                                <td class="pe-4 text-end fw-bold text-success">S/ ${parseFloat(item.monto).toFixed(2)}</td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    } else {
+                        tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-muted"><i class="bi bi-inbox fs-3 d-block mb-1 text-light"></i>Aún no hay descuentos ni devoluciones registradas.</td></tr>`;
+                    }
+                } catch (error) {
+                    console.error('Error al cargar historial:', error);
+                    tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error de conexión al cargar los datos.</td></tr>`;
+                }
+            });
+        }
     }
 
     if (document.readyState === 'loading') {

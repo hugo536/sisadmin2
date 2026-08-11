@@ -345,7 +345,12 @@ $csrf_token = $csrf_token ?? '';
 <!-- TEMPLATE: ITEM DE MOVIMIENTO (Para JS) -->
 <!-- ============================================================== -->
 <template id="tplMovimientoNomina">
-    <div class="movimiento-nomina-item bg-white border border-secondary-subtle rounded-3 p-3 position-relative shadow-sm">
+    <div class="movimiento-nomina-item bg-white border border-secondary-subtle rounded-3 p-3 position-relative shadow-sm mb-2 js-mov-container">
+        
+        <!-- CAMPOS OCULTOS NUEVOS: Para rastrear origen de la bd y si es un adelanto -->
+        <input type="hidden" data-name="id_concepto" value="">
+        <input type="hidden" data-name="id_adelanto_ref" value="">
+        
         <button type="button" class="btn btn-link text-danger p-0 position-absolute top-0 end-0 mt-2 me-2 js-remove-movimiento" title="Eliminar fila">
             <i class="bi bi-x-circle-fill fs-5"></i>
         </button>
@@ -355,7 +360,7 @@ $csrf_token = $csrf_token ?? '';
         <div class="row g-2 mt-1">
             <div class="col-md-3">
                 <label class="form-label small text-muted fw-bold mb-1">Tipo <span class="text-danger">*</span></label>
-                <select class="form-select form-select-sm shadow-none fw-medium border-secondary-subtle" data-name="tipo_concepto" required>
+                <select class="form-select form-select-sm shadow-none fw-medium border-secondary-subtle js-tipo-select" data-name="tipo_concepto" required>
                     <option value="PERCEPCION">Bono / Percepción</option>
                     <option value="DEDUCCION">Deducción / Descuento</option>
                 </select>
@@ -367,6 +372,8 @@ $csrf_token = $csrf_token ?? '';
                     <option value="Mérito">Mérito / Productividad</option>
                     <option value="Movilidad">Movilidad / Viáticos</option>
                     <option value="Reintegro">Reintegro de Gastos</option>
+                    <!-- NUEVA OPCIÓN AÑADIDA AQUÍ -->
+                    <option value="Adelanto">Adelanto / Préstamo</option> 
                     <option value="Penalidad">Penalidad / Multa</option>
                     <option value="Otros">Otros</option>
                 </select>
@@ -377,8 +384,13 @@ $csrf_token = $csrf_token ?? '';
             </div>
             <div class="col-md-2">
                 <label class="form-label small text-muted fw-bold mb-1">Monto (S/) <span class="text-danger">*</span></label>
-                <input type="number" step="0.01" min="0.01" class="form-control form-control-sm shadow-none fw-bold text-primary border-secondary-subtle" data-name="monto" placeholder="0.00" required>
+                <input type="number" step="0.01" min="0.01" class="form-control form-control-sm shadow-none fw-bold text-primary border-secondary-subtle js-monto-input" data-name="monto" placeholder="0.00" required>
             </div>
+        </div>
+        
+        <!-- AVISO VISUAL: Solo se mostrará vía JS si el concepto viene de un adelanto -->
+        <div class="small text-warning-emphasis bg-warning-subtle rounded px-2 py-1 mt-2 d-none js-msg-adelanto border border-warning-subtle" style="font-size: 0.75rem;">
+            <i class="bi bi-info-circle-fill me-1"></i> Descuento de Tesorería. Puede editar el monto para cobrar en cuotas.
         </div>
     </div>
 </template>

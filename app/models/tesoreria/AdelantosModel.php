@@ -227,6 +227,53 @@ class AdelantosModel extends Modelo
         }
     }
 
+    public function obtenerHistorialAdelanto(int $idAdelanto): array
+    {
+        // Usamos UNION ALL para combinar pagos en efectivo (Tesorería) 
+        // y descuentos cerrados (Planillas), ordenados desde el más reciente.
+        $sql = "SELECT 
+                    DATE_FORMAT(fecha_raw, '%d/%m/%Y') AS fecha,
+                    origen,
+                    monto
+                FROM (
+                    -- 1. Devoluciones manuales en caja/banco
+                    SELECT 
+                        m.fecha AS fecha_raw,
+                        CONCAT('Devolución en ', COALESCE(c.nombre, 'Caja')) AS origen,
+                        m.monto
+                    FROM tesoreria_movimientos m
+                    LEFT JOIN tesoreria_cuentas c ON m.id_cuenta = c.id
+                    WHERE m.origen = 'ADELANTO' 
+                      AND m.tipo = 'INGRESO' 
+                      AND m.id_origen = :id_adelanto_tesoreria
+                      AND m.deleted_at IS NULL
+                      
+                    UNION ALL
+                    
+                    -- 2. Descuentos automáticos o manuales por planilla
+                    SELECT 
+                        n.fecha_fin AS fecha_raw,
+                        CONCAT('Planilla Cerrada (Ref: ', n.referencia, ')') AS origen,
+                        nc.monto
+                    FROM rrhh_nominas_conceptos nc
+                    INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
+                    INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
+                    WHERE nc.id_adelanto_ref = :id_adelanto_planilla
+                      AND n.estado = 'APROBADO'
+                ) AS historial
+                ORDER BY fecha_raw DESC";
+
+        $stmt = $this->db()->prepare($sql);
+        
+        // Pasamos el ID dos veces (uno para cada parte del UNION)
+        $stmt->execute([
+            'id_adelanto_tesoreria' => $idAdelanto,
+            'id_adelanto_planilla' => $idAdelanto
+        ]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     private function asegurarEsquemaMovimientos(PDO $db): void
     {
         $stmt = $db->query("SELECT COLUMN_NAME, COLUMN_TYPE

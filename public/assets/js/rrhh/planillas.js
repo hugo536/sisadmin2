@@ -40,20 +40,51 @@
         function crearItemMovimiento(data = {}) {
             if (!contenedorMovimientos || !tplMovimiento) return null;
             const nodo = tplMovimiento.content.firstElementChild.cloneNode(true);
+            
+            // Datos básicos
             const tipo = (data.tipo || '').toString().trim().toUpperCase();
             const categoria = (data.categoria || '').toString().trim();
             const descripcion = (data.descripcion || '').toString().trim();
             const monto = Number.parseFloat(data.monto ?? 0);
+            
+            // Nuevos datos de control
+            const idConcepto = data.id_concepto || '';
+            const idAdelantoRef = data.id_adelanto_ref || '';
 
             const inputTipo = nodo.querySelector('[data-name="tipo_concepto"]');
             const inputCategoria = nodo.querySelector('[data-name="categoria_concepto"]');
             const inputDescripcion = nodo.querySelector('[data-name="descripcion"]');
             const inputMonto = nodo.querySelector('[data-name="monto"]');
+            
+            // Selectores de los nuevos campos ocultos y la alerta
+            const inputIdConcepto = nodo.querySelector('[data-name="id_concepto"]');
+            const inputIdAdelantoRef = nodo.querySelector('[data-name="id_adelanto_ref"]');
+            const msgAdelanto = nodo.querySelector('.js-msg-adelanto');
 
             if (inputTipo && (tipo === 'PERCEPCION' || tipo === 'DEDUCCION')) inputTipo.value = tipo;
             if (inputCategoria && categoria !== '') inputCategoria.value = categoria;
             if (inputDescripcion) inputDescripcion.value = descripcion;
             if (inputMonto && Number.isFinite(monto) && monto > 0) inputMonto.value = monto.toFixed(2);
+            
+            // Asignar IDs a los inputs hidden
+            if (inputIdConcepto) inputIdConcepto.value = idConcepto;
+            if (inputIdAdelantoRef) inputIdAdelantoRef.value = idAdelantoRef;
+
+            // LÓGICA ESPECIAL: Si es un adelanto, mostrar alerta y proteger campos vitales
+            if (idAdelantoRef !== '' || categoria === 'Adelanto') {
+                if (msgAdelanto) msgAdelanto.classList.remove('d-none');
+                
+                // Bloquear campos
+                if (inputTipo) { inputTipo.setAttribute('readonly', true); inputTipo.style.pointerEvents = 'none'; }
+                if (inputCategoria) { inputCategoria.setAttribute('readonly', true); inputCategoria.style.pointerEvents = 'none'; }
+                if (inputDescripcion) { inputDescripcion.setAttribute('readonly', true); }
+                
+                // OCULTAR EL BOTÓN DE ELIMINAR (La "X" roja)
+                const btnRemove = nodo.querySelector('.js-remove-movimiento');
+                if (btnRemove) {
+                    btnRemove.style.display = 'none';
+                }
+            }
 
             contenedorMovimientos.appendChild(nodo);
             return nodo;
@@ -82,6 +113,8 @@
 
                 movimientos.forEach((mov) => {
                     crearItemMovimiento({
+                        id_concepto: mov.id || '',                     // ID principal del registro
+                        id_adelanto_ref: mov.id_adelanto_ref || '',    // Vínculo con tabla adelantos
                         tipo: mov.tipo,
                         categoria: mov.categoria,
                         descripcion: mov.descripcion,

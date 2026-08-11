@@ -89,18 +89,27 @@ $puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
                                     </td>
                                     <td class="text-end pe-4">
                                         <div class="d-inline-flex align-items-center gap-1">
-                                        <?php if ($ad['saldo_pendiente'] > 0 && $puedeRegistrar): ?>
-                                            <button type="button" class="btn btn-sm btn-light text-success border-0 rounded-circle btn-devolver" 
-                                                    data-bs-toggle="modal" data-bs-target="#modalDevolver"
+                                            <!-- NUEVO: Botón Ver Detalles (Ojo) -->
+                                            <button type="button" class="btn btn-sm btn-light text-primary border-0 rounded-circle btn-detalles" 
+                                                    data-bs-toggle="modal" data-bs-target="#modalVerDetalle"
                                                     data-id="<?php echo $ad['id']; ?>"
                                                     data-empleado="<?php echo htmlspecialchars($ad['empleado']); ?>"
-                                                    data-saldo="<?php echo $ad['saldo_pendiente']; ?>"
-                                                    data-bs-toggle="tooltip" title="Devolver Efectivo">
-                                                <i class="bi bi-arrow-counterclockwise fs-5"></i>
+                                                    data-bs-toggle="tooltip" title="Ver Historial">
+                                                <i class="bi bi-eye-fill fs-5"></i>
                                             </button>
-                                        <?php else: ?>
-                                            <span class="text-muted small"><i class="bi bi-check2-all"></i> Cancelado</span>
-                                        <?php endif; ?>
+
+                                            <?php if ($ad['saldo_pendiente'] > 0 && $puedeRegistrar): ?>
+                                                <button type="button" class="btn btn-sm btn-light text-success border-0 rounded-circle btn-devolver" 
+                                                        data-bs-toggle="modal" data-bs-target="#modalDevolver"
+                                                        data-id="<?php echo $ad['id']; ?>"
+                                                        data-empleado="<?php echo htmlspecialchars($ad['empleado']); ?>"
+                                                        data-saldo="<?php echo $ad['saldo_pendiente']; ?>"
+                                                        data-bs-toggle="tooltip" title="Devolver Efectivo">
+                                                    <i class="bi bi-arrow-counterclockwise fs-5"></i>
+                                                </button>
+                                            <?php else: ?>
+                                                <span class="text-muted small ms-2"><i class="bi bi-check2-all"></i> Cancelado</span>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -239,6 +248,57 @@ $puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
             <div class="modal-footer bg-white border-top-0 d-flex justify-content-end align-items-center gap-2">
                 <button type="button" class="btn btn-light text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
                 <button type="submit" form="formDevolverAdelanto" class="btn btn-success px-4 fw-bold"><i class="bi bi-check-lg me-2"></i>Registrar Ingreso</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- MODAL: VER DETALLES (HISTORIAL DE PAGOS) -->
+<!-- ============================================================== -->
+<div class="modal fade" id="modalVerDetalle" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white border-bottom-0 pb-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-journal-text me-2"></i>Historial de Pagos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                
+                <div class="mb-3 d-flex align-items-center">
+                    <div class="bg-primary-subtle text-primary rounded-circle d-flex justify-content-center align-items-center me-3" style="width: 45px; height: 45px;">
+                        <i class="bi bi-person-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <span class="text-muted small fw-bold d-block text-uppercase">Empleado</span>
+                        <span class="fw-bold fs-5 text-dark" id="detNombreEmpleado">--</span>
+                    </div>
+                </div>
+                
+                <div class="card border-0 shadow-sm mb-0">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 text-center" id="tablaHistorialAdelanto">
+                                <thead class="table-light text-secondary small" style="text-transform: uppercase;">
+                                    <tr>
+                                        <th class="ps-4 text-start py-3">Fecha</th>
+                                        <th class="py-3">Origen</th>
+                                        <th class="pe-4 text-end py-3">Descuento (S/)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bodyHistorialAdelanto">
+                                    <!-- Se llena vía JS -->
+                                    <tr>
+                                        <td colspan="3" class="py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Cargando historial...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top shadow-sm rounded-bottom-4">
+                <button type="button" class="btn btn-light fw-bold text-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>

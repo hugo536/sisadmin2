@@ -106,7 +106,6 @@ class PlanillasModel extends Modelo
         
         $paramsEmp = [];
         if ($frecuencia !== 'TODOS') {
-            // Incluimos a los que coinciden con la frecuencia, O a los que no tienen ninguna frecuencia asignada (NULL/Vacío)
             $sqlEmp .= " AND (UPPER(te.tipo_pago) = :frecuencia OR te.tipo_pago IS NULL OR te.tipo_pago = '')";
             $paramsEmp['frecuencia'] = $frecuencia;
         }
@@ -213,7 +212,7 @@ class PlanillasModel extends Modelo
         }
 
         // Obtener adelantos pendientes para descontar automáticamente
-        $sqlAdelantos = "SELECT id, id_tercero, saldo_pendiente FROM rrhh_adelantos WHERE estado = 'PENDIENTE' AND saldo_pendiente > 0 ORDER BY fecha ASC";
+        $sqlAdelantos = "SELECT id, id_tercero, saldo_pendiente, fecha FROM rrhh_adelantos WHERE estado = 'PENDIENTE' AND saldo_pendiente > 0 ORDER BY fecha ASC";
         $mapaAdelantos = [];
         try {
             $adelantosPendientes = $db->query($sqlAdelantos)->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -222,8 +221,8 @@ class PlanillasModel extends Modelo
             }
         } catch (Exception $e) { /* La tabla aún no existe, omitir */ }
 
-        // Obtener ajustes manuales guardados (Bonos/Deducciones extras)
-        $sqlManuales = "SELECT nc.id_detalle_nomina, nc.tipo, nc.categoria, nc.descripcion, nc.monto 
+        // Obtener ajustes manuales guardados y Mapear los Adelantos Editados
+        $sqlManuales = "SELECT nc.id_detalle_nomina, nc.tipo, nc.categoria, nc.descripcion, nc.monto, nc.id_adelanto_ref
                         FROM rrhh_nominas_conceptos nc
                         INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
                         WHERE nd.id_nomina = :id_nomina AND nc.es_automatico = 0";
@@ -234,13 +233,17 @@ class PlanillasModel extends Modelo
         $mapaManuales = [];
         foreach ($conceptosManuales as $cm) {
             $idD = $cm['id_detalle_nomina'];
-            if (!isset($mapaManuales[$idD])) $mapaManuales[$idD] = ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0, 'movimientos' => []];
+            if (!isset($mapaManuales[$idD])) $mapaManuales[$idD] = ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0, 'adelantos_editados' => []];
             
             if ($cm['tipo'] === 'PERCEPCION') {
                 $mapaManuales[$idD]['percepciones'] += $cm['monto'];
                 $mapaManuales[$idD]['bonos'] += $cm['monto'];
             } else {
                 $mapaManuales[$idD]['deducciones'] += $cm['monto'];
+                // Identificar si la deducción manual es sobrecarga de un adelanto
+                if (!empty($cm['id_adelanto_ref'])) {
+                    $mapaManuales[$idD]['adelantos_editados'][(int)$cm['id_adelanto_ref']] = (float)$cm['monto'];
+                }
             }
         }
 
@@ -276,12 +279,10 @@ class PlanillasModel extends Modelo
                 }
             }
 
-            // Las horas extras se pagan 1x (Valor normal) si el ERP lo dicta, 
-            // esto se puede parametrizar más adelante.
             $horasExtras = $tieneConflicto ? 0 : $asis['horas_extras'];
             $pagoHorasExtras = round($pagoPorHora * $horasExtras, 2);
 
-            $manuales = $mapaManuales[$idDetalle] ?? ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0];
+            $manuales = $mapaManuales[$idDetalle] ?? ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0, 'adelantos_editados' => []];
 
             $totalPercepciones = $sueldoBaseCalculado + $pagoHorasExtras + $manuales['percepciones'];
             $deduccionesPrevias = $descuentoTardanzas + $manuales['deducciones'];
@@ -291,14 +292,23 @@ class PlanillasModel extends Modelo
             $descuentoAdelanto = 0;
             $adelantosAplicados = [];
             
-            // Cobro automático de adelantos si el neto alcanza
-            if (!$tieneConflicto && isset($mapaAdelantos[$idTercero]) && $netoTemporal > 0) {
+            // Cobro automático de adelantos si el neto alcanza (respetando si RRHH ya los editó)
+            if (!$tieneConflicto && isset($mapaAdelantos[$idTercero])) {
                 foreach ($mapaAdelantos[$idTercero] as &$ad) {
-                    if ($netoTemporal <= 0) break;
+                    $idAd = (int)$ad['id'];
+                    
+                    // Si RRHH editó manualmente el préstamo, NO lo cobramos automático, pero sí lo marcamos para Tesorería
+                    if (isset($manuales['adelantos_editados'][$idAd])) {
+                        $montoEditado = $manuales['adelantos_editados'][$idAd];
+                        $adelantosAplicados[] = ['id' => $idAd, 'monto' => $montoEditado, 'es_manual' => true];
+                        continue;
+                    }
+
+                    if ($netoTemporal <= 0) continue;
                     $aDescontar = min($netoTemporal, (float)$ad['saldo_pendiente']);
                     $descuentoAdelanto += $aDescontar;
                     $netoTemporal -= $aDescontar;
-                    $adelantosAplicados[] = ['id' => $ad['id'], 'monto' => $aDescontar];
+                    $adelantosAplicados[] = ['id' => $idAd, 'monto' => $aDescontar, 'es_manual' => false];
                     $ad['saldo_pendiente'] -= $aDescontar;
                 }
             }
@@ -395,8 +405,8 @@ class PlanillasModel extends Modelo
                ->execute(['id_detalle' => $idDetalle]);
 
             $stmt = $db->prepare("INSERT INTO rrhh_nominas_conceptos
-                (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico)
-                VALUES (:id_detalle, :tipo, :categoria, :descripcion, :monto, 0)");
+                (id_detalle_nomina, tipo, categoria, descripcion, monto, id_adelanto_ref, es_automatico)
+                VALUES (:id_detalle, :tipo, :categoria, :descripcion, :monto, :id_adelanto_ref, 0)");
 
             $vistos = [];
             foreach ($movimientos as $mov) {
@@ -404,9 +414,10 @@ class PlanillasModel extends Modelo
                 $categoria = trim((string)($mov['categoria_concepto'] ?? ''));
                 $descripcion = trim((string)($mov['descripcion'] ?? ''));
                 $monto = (float)($mov['monto'] ?? 0);
+                $idAdelantoRef = !empty($mov['id_adelanto_ref']) ? (int)$mov['id_adelanto_ref'] : null;
 
                 if (!in_array($tipo, ['PERCEPCION', 'DEDUCCION']) || $categoria === '' || $descripcion === '' || $monto <= 0) {
-                    continue; // Saltar inválidos silenciosamente
+                    continue;
                 }
 
                 $llave = $tipo . '::' . strtolower($categoria) . '::' . strtolower($descripcion);
@@ -418,7 +429,8 @@ class PlanillasModel extends Modelo
                     'tipo' => $tipo,
                     'categoria' => $categoria,
                     'descripcion' => $descripcion,
-                    'monto' => $monto
+                    'monto' => $monto,
+                    'id_adelanto_ref' => $idAdelantoRef
                 ]);
             }
 
@@ -432,7 +444,8 @@ class PlanillasModel extends Modelo
 
     public function obtenerMovimientosManualesDetalle(int $idDetalle): array
     {
-        $sql = 'SELECT nc.tipo, nc.categoria, nc.descripcion, nc.monto
+        // 1. Obtener los ajustes manuales ya guardados
+        $sql = 'SELECT nc.id, nc.tipo, nc.categoria, nc.descripcion, nc.monto, nc.id_adelanto_ref
                 FROM rrhh_nominas_conceptos nc
                 INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
                 INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
@@ -441,7 +454,40 @@ class PlanillasModel extends Modelo
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_detalle' => $idDetalle]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $movimientos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // Rastrear cuáles adelantos ya fueron editados manualmente
+        $adelantosEditados = [];
+        foreach ($movimientos as $mov) {
+            if (!empty($mov['id_adelanto_ref'])) {
+                $adelantosEditados[] = (int) $mov['id_adelanto_ref'];
+            }
+        }
+
+        // 2. Traer adelantos de tesorería para proponerlos en la vista
+        $sqlAdelantos = 'SELECT a.id, a.saldo_pendiente, a.fecha 
+                         FROM rrhh_adelantos a
+                         INNER JOIN rrhh_nominas_detalles nd ON nd.id_tercero = a.id_tercero
+                         WHERE nd.id = :id_detalle AND a.estado = "PENDIENTE" AND a.saldo_pendiente > 0';
+        $stmtAd = $this->db()->prepare($sqlAdelantos);
+        $stmtAd->execute(['id_detalle' => $idDetalle]);
+        $adelantosPendientes = $stmtAd->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        // Si un adelanto NO está editado, lo inyectamos como propuesta
+        foreach ($adelantosPendientes as $ad) {
+            if (!in_array((int)$ad['id'], $adelantosEditados)) {
+                $movimientos[] = [
+                    'id' => '',
+                    'tipo' => 'DEDUCCION',
+                    'categoria' => 'Adelanto',
+                    'descripcion' => 'Préstamo del ' . date('d/m/Y', strtotime($ad['fecha'])),
+                    'monto' => $ad['saldo_pendiente'], // Sugiere el 100% por defecto
+                    'id_adelanto_ref' => $ad['id']
+                ];
+            }
+        }
+
+        return $movimientos;
     }
 
     public function aprobarLote(int $idLote): bool
@@ -511,12 +557,27 @@ class PlanillasModel extends Modelo
                 if ($calc['descuento_tardanzas'] > 0) {
                     $stmtConcepto->execute(['id_det' => $calc['id'], 'tipo' => 'DEDUCCION', 'cat' => 'Tardanza', 'desc' => 'Descuento por tardanzas/salidas', 'monto' => $calc['descuento_tardanzas']]);
                 }
-                if ($calc['descuento_adelanto'] > 0) {
+                
+                // Lógica final del descuento de adelantos a tesorería
+                if (!empty($calc['adelantos_aplicados']) && $calc['adelantos_aplicados'] !== '[]') {
                     $adelantos = json_decode($calc['adelantos_aplicados'], true);
-                    foreach ($adelantos as $ad) {
-                        $stmtPagarAdelanto->execute(['descuento' => $ad['monto'], 'id_adelanto' => $ad['id']]);
+                    if (is_array($adelantos)) {
+                        $sumaAutomatica = 0;
+                        foreach ($adelantos as $ad) {
+                            // Restar el saldo de tesorería, sin importar si lo cobró RRHH o el robot
+                            $stmtPagarAdelanto->execute(['descuento' => $ad['monto'], 'id_adelanto' => $ad['id']]);
+                            
+                            // Si fue automático, sumamos para imprimir el concepto extra
+                            if (empty($ad['es_manual'])) {
+                                $sumaAutomatica += $ad['monto'];
+                            }
+                        }
+                        
+                        // Solo insertamos un concepto extra (automático) si sobró monto que el sistema procesó solo
+                        if ($sumaAutomatica > 0) {
+                            $stmtConcepto->execute(['id_det' => $calc['id'], 'tipo' => 'DEDUCCION', 'cat' => 'Adelanto de Sueldo', 'desc' => 'Cobro automático de préstamo', 'monto' => $sumaAutomatica]);
+                        }
                     }
-                    $stmtConcepto->execute(['id_det' => $calc['id'], 'tipo' => 'DEDUCCION', 'cat' => 'Adelanto de Sueldo', 'desc' => 'Cobro automático de préstamo', 'monto' => $calc['descuento_adelanto']]);
                 }
 
                 $loteBruto += $calc['total_percepciones'];
