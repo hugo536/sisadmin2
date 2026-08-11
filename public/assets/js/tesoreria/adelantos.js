@@ -94,18 +94,37 @@
                 tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Cargando historial...</td></tr>`;
 
                 try {
-                    // 5.3 Hacer petición AJAX al backend
-                    // Asume que tienes una ruta así. El fallback a '' es por si window.BASE_URL no está definido.
-                    const baseUrl = window.BASE_URL || ''; 
-                    const url = `${baseUrl}?ruta=tesoreria/adelantos&accion=historial&id=${idAdelanto}`;
-                    
-                    const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    // 5.3 Hacer petición AJAX al endpoint explícito del historial.
+                    const endpoint = appContenedor.dataset.historialUrl;
+                    if (!endpoint) throw new Error('No se configuró el endpoint del historial.');
+
+                    const url = new URL(endpoint, window.location.href);
+                    url.searchParams.set('id', idAdelanto);
+                    const controller = new AbortController();
+                    const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+                    let resp;
+                    try {
+                        resp = await fetch(url.toString(), {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                            signal: controller.signal
+                        });
+                    } finally {
+                        window.clearTimeout(timeoutId);
+                    }
+
+                    if (!resp.ok) {
+                        throw new Error(`El servidor respondió con estado ${resp.status}.`);
+                    }
                     const data = await resp.json();
+
+                    if (!data.ok) {
+                        throw new Error(data.mensaje || 'No se pudo cargar el historial.');
+                    }
 
                     tbody.innerHTML = ''; // Limpiar tabla
 
                     // 5.4 Procesar respuesta y dibujar filas
-                    if (data.ok && data.historial && data.historial.length > 0) {
+                    if (Array.isArray(data.historial) && data.historial.length > 0) {
                         data.historial.forEach(item => {
                             const tr = document.createElement('tr');
                             // Identificar color según origen
@@ -126,7 +145,10 @@
                     }
                 } catch (error) {
                     console.error('Error al cargar historial:', error);
-                    tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error de conexión al cargar los datos.</td></tr>`;
+                    const mensaje = error.name === 'AbortError'
+                        ? 'La consulta tardó demasiado. Inténtalo nuevamente.'
+                        : 'No se pudo cargar el historial. Inténtalo nuevamente.';
+                    tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>${mensaje}</td></tr>`;
                 }
             });
         }

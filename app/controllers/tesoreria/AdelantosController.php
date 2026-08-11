@@ -19,27 +19,6 @@ class AdelantosController extends Controlador
         AuthMiddleware::handle();
         require_permiso('tesoreria.ver');
 
-        // ==============================================================
-        // NUEVO: Endpoint AJAX para cargar Historial de Adelantos
-        // ==============================================================
-        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'historial') {
-            $idAdelanto = (int) ($_GET['id'] ?? 0);
-            
-            if ($idAdelanto <= 0) {
-                json_response(['ok' => false, 'mensaje' => 'Adelanto inválido.']);
-                return;
-            }
-
-            // Llamamos al modelo para traer la combinación de pagos de planilla y caja
-            $historial = $this->model->obtenerHistorialAdelanto($idAdelanto);
-            
-            json_response([
-                'ok' => true,
-                'historial' => $historial
-            ]);
-            return;
-        }
-
         // Renderizado normal de la vista
         if (empty($_SESSION['csrf_token'])) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -56,6 +35,28 @@ class AdelantosController extends Controlador
                 'texto' => (string) ($_GET['msg'] ?? ''),
             ],
         ]);
+    }
+
+    public function historial(): void
+    {
+        AuthMiddleware::handle();
+        require_permiso('tesoreria.ver');
+
+        $idAdelanto = (int) ($_GET['id'] ?? 0);
+        if ($idAdelanto <= 0) {
+            json_response(['ok' => false, 'mensaje' => 'Adelanto inválido.'], 422);
+            return;
+        }
+
+        try {
+            json_response([
+                'ok' => true,
+                'historial' => $this->model->obtenerHistorialAdelanto($idAdelanto),
+            ]);
+        } catch (Throwable $error) {
+            error_log('Error al consultar el historial del adelanto: ' . $error->getMessage());
+            json_response(['ok' => false, 'mensaje' => 'No se pudo consultar el historial.'], 500);
+        }
     }
 
     public function guardar(): void

@@ -6,7 +6,8 @@ $csrf_token = $csrf_token ?? '';
 $puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
 ?>
 
-<div class="container-fluid p-4" id="adelantosApp">
+<div class="container-fluid p-4" id="adelantosApp"
+     data-historial-url="<?php echo e(route_url('tesoreria/adelantos/historial')); ?>">
     
     <!-- CABECERA -->
     <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
