@@ -75,10 +75,10 @@ $logsFiltrados = $logs;
                 <div class="col-12 col-md-5">
                     <div class="input-group shadow-sm">
                         <span class="input-group-text bg-white text-muted border-end-0 border-secondary-subtle">Desde</span>
-                        <input type="date" name="fecha_inicio" form="formFiltros" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary fw-medium" value="<?php echo e($fechaInicio); ?>" onchange="document.getElementById('formFiltros').requestSubmit();" required>
+                        <input type="date" name="fecha_inicio" form="formFiltros" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary fw-medium" value="<?php echo e($fechaInicio); ?>" required>
                         
                         <span class="input-group-text bg-white text-muted border-start-0 border-end-0 border-secondary-subtle">Hasta</span>
-                        <input type="date" name="fecha_fin" form="formFiltros" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary fw-medium" value="<?php echo e($fechaFin); ?>" onchange="document.getElementById('formFiltros').requestSubmit();" required>
+                        <input type="date" name="fecha_fin" form="formFiltros" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary fw-medium" value="<?php echo e($fechaFin); ?>" required>
                         
                         <!-- Botones aligerados -->
                         <button class="btn btn-light border border-secondary-subtle text-primary px-3 transition-hover" type="submit" form="formFiltros" title="Aplicar filtros" style="z-index: 0;">
