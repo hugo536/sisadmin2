@@ -123,19 +123,36 @@ $csrf_token = $csrf_token ?? '';
                             
                             <?php if ($lote_actual): ?>
                                 <?php 
-                                    // Verificamos si en la tabla actual hay al menos un pago mayor a 0
                                     $tienePagos = array_reduce($detalles_nomina, function($carry, $item) {
                                         return $carry || ((float)($item['neto_a_pagar'] ?? 0) > 0);
                                     }, false);
-                                    
                                     $esBorrador = ($lote_actual['estado'] === 'BORRADOR');
                                 ?>
                                 
-                                <button type="button" 
-                                        onclick="imprimirSiEsValido(<?php echo $lote_actual['id']; ?>, <?php echo $esBorrador ? 'true' : 'false'; ?>, <?php echo $tienePagos ? 'true' : 'false'; ?>)" 
-                                        class="btn btn-sm btn-light bg-white border border-secondary-subtle shadow-sm px-3 rounded-pill fw-bold text-secondary transition-hover">
-                                    <i class="bi bi-printer-fill me-1"></i> Imprimir Reporte
-                                </button>
+                                <!-- NUEVO BOTÓN EXPORTAR -->
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-light bg-white border border-secondary-subtle shadow-sm px-3 rounded-pill fw-bold text-secondary dropdown-toggle transition-hover" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-cloud-download me-1"></i> Exportar
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" style="font-size: 0.85rem; min-width: 200px; z-index: 1060;">
+                                        <li>
+                                            <a class="dropdown-item py-2 fw-medium" href="#" onclick="event.preventDefault(); exportarSiEsValido('excel', <?php echo $lote_actual['id']; ?>, <?php echo $esBorrador ? 'true' : 'false'; ?>, <?php echo $tienePagos ? 'true' : 'false'; ?>)">
+                                                <i class="bi bi-file-earmark-excel-fill text-success me-2 fs-6"></i>Formato Excel (.xlsx)
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item py-2 fw-medium" href="#" onclick="event.preventDefault(); exportarSiEsValido('csv', <?php echo $lote_actual['id']; ?>, <?php echo $esBorrador ? 'true' : 'false'; ?>, <?php echo $tienePagos ? 'true' : 'false'; ?>)">
+                                                <i class="bi bi-filetype-csv text-secondary me-2 fs-6"></i>Datos Crudos (.csv)
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item py-2 fw-medium" href="#" onclick="event.preventDefault(); exportarSiEsValido('pdf', <?php echo $lote_actual['id']; ?>, <?php echo $esBorrador ? 'true' : 'false'; ?>, <?php echo $tienePagos ? 'true' : 'false'; ?>)">
+                                                <i class="bi bi-file-earmark-pdf-fill text-danger me-2 fs-6"></i>Formato PDF (.pdf)
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
                             <?php endif; ?>
 
                             <?php if ($lote_actual['estado'] === 'BORRADOR'): ?>
@@ -237,7 +254,7 @@ $csrf_token = $csrf_token ?? '';
                                                     <?php endif; ?>
                                                 <?php else: ?>
                                                     <!-- Botón de boleta individual -->
-                                                    <a href="<?php echo e(route_url('planillas/imprimir_boleta?id=' . $det['id'])); ?>" target="_blank" class="btn btn-sm btn-outline-secondary shadow-sm px-3 rounded-pill fw-bold">
+                                                    <a href="<?php echo e(route_url('planillas/imprimir_boleta')); ?>&id=<?php echo $det['id']; ?>" target="_blank" class="btn btn-sm btn-outline-secondary shadow-sm px-3 rounded-pill fw-bold">
                                                         <i class="bi bi-file-earmark-pdf me-1"></i> Boleta
                                                     </a>
                                                 <?php endif; ?>
@@ -436,6 +453,7 @@ $csrf_token = $csrf_token ?? '';
                     <option value="Mérito">Mérito / Productividad</option>
                     <option value="Movilidad">Movilidad / Viáticos</option>
                     <option value="Reintegro">Reintegro de Gastos</option>
+                    <!-- ¡Opción de Adelanto eliminada de aquí! -->
                     <option value="Penalidad">Penalidad / Multa</option>
                     <option value="Otros">Otros</option>
                 </select>

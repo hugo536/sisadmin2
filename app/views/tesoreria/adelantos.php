@@ -89,7 +89,7 @@ $puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
                                     </td>
                                     <td class="text-end pe-4">
                                         <div class="d-inline-flex align-items-center gap-1">
-                                            <!-- NUEVO: Botón Ver Detalles (Ojo) -->
+                                            <!-- Botón Ver Detalles (Ojo) -->
                                             <button type="button" class="btn btn-sm btn-light text-primary border-0 rounded-circle btn-detalles" 
                                                     data-bs-toggle="modal" data-bs-target="#modalVerDetalle"
                                                     data-id="<?php echo $ad['id']; ?>"
@@ -107,9 +107,8 @@ $puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
                                                         title="Devolver Efectivo">
                                                     <i class="bi bi-arrow-counterclockwise fs-5"></i>
                                                 </button>
-                                            <?php else: ?>
-                                                <span class="text-muted small ms-2"><i class="bi bi-check2-all"></i> Cancelado</span>
                                             <?php endif; ?>
+                                            <!-- Se eliminó el "else" para que solo quede el ojito cuando esté pagado -->
                                         </div>
                                     </td>
                                 </tr>
@@ -258,47 +257,47 @@ $puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
 <!-- ============================================================== -->
 <div class="modal fade" id="modalVerDetalle" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-dark text-white border-bottom-0 pb-4">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white border-bottom-0 pb-3 rounded-top-4">
                 <h5 class="modal-title fw-bold"><i class="bi bi-journal-text me-2"></i>Historial de Pagos</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+            <div class="modal-body bg-light p-4" style="margin-top: -10px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 
-                <div class="mb-3 d-flex align-items-center">
-                    <div class="bg-primary-subtle text-primary rounded-circle d-flex justify-content-center align-items-center me-3" style="width: 45px; height: 45px;">
+                <!-- Tarjeta del Empleado -->
+                <div class="mb-4 d-flex align-items-center bg-white p-3 rounded-3 shadow-sm border border-secondary-subtle">
+                    <div class="bg-primary-subtle text-primary rounded-circle d-flex justify-content-center align-items-center me-3 shadow-sm" style="width: 45px; height: 45px;">
                         <i class="bi bi-person-fill fs-4"></i>
                     </div>
                     <div>
-                        <span class="text-muted small fw-bold d-block text-uppercase">Empleado</span>
-                        <span class="fw-bold fs-5 text-dark" id="detNombreEmpleado">--</span>
+                        <span class="text-muted fw-bold d-block text-uppercase mb-1" style="font-size: 0.65rem; letter-spacing: 0.5px;">Empleado</span>
+                        <span class="fw-bold fs-6 text-dark lh-1" id="detNombreEmpleado">--</span>
                     </div>
                 </div>
                 
-                <div class="card border-0 shadow-sm mb-0">
+                <!-- Tabla de Historial -->
+                <div class="card border border-secondary-subtle shadow-sm mb-0 rounded-3 overflow-hidden">
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0 text-center" id="tablaHistorialAdelanto">
-                                <thead class="table-light text-secondary small" style="text-transform: uppercase;">
+                            <table class="table table-hover align-middle mb-0" id="tablaHistorialAdelanto">
+                                <thead class="table-light text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
                                     <tr>
-                                        <th class="ps-4 text-start py-3">Fecha</th>
-                                        <th class="py-3">Origen</th>
-                                        <th class="pe-4 text-end py-3">Descuento (S/)</th>
+                                        <th class="ps-4 text-start py-3 text-nowrap border-bottom" style="width: 25%;">Fecha</th>
+                                        <th class="py-3 text-start border-bottom" style="width: 50%;">Origen</th>
+                                        <th class="pe-4 text-end py-3 text-nowrap border-bottom" style="width: 25%;">Monto (S/)</th>
                                     </tr>
                                 </thead>
                                 <tbody id="bodyHistorialAdelanto">
                                     <!-- Se llena vía JS -->
-                                    <tr>
-                                        <td colspan="3" class="py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Cargando historial...</td>
-                                    </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
+
             </div>
-            <div class="modal-footer bg-white border-top shadow-sm rounded-bottom-4">
-                <button type="button" class="btn btn-light fw-bold text-secondary" data-bs-dismiss="modal">Cerrar</button>
+            <div class="modal-footer bg-light border-top-0 pt-0 pb-3 pe-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4 rounded-pill shadow-sm" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>

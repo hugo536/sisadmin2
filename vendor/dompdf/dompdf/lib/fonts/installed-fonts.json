@@ -15,5 +15,10 @@
     },
     "fontawesome": {
         "normal": "fontawesome_normal_7a14673ce35632e39e645a3d6f1a41c1"
+    },
+    "dm sans": {
+        "normal": "C:\\xampp\\htdocs\\sisadmin2\\vendor\\dompdf\\dompdf\/lib\/fonts\/dm_sans_normal_42fcd0ea12ff589f4ccf7cd1eb4b0bb8",
+        "500": "C:\\xampp\\htdocs\\sisadmin2\\vendor\\dompdf\\dompdf\/lib\/fonts\/dm_sans_500_e3bc8d7bbed7eb5328692f20824bd3d5",
+        "600": "dm_sans_600_95b1ff7d73eecd4f24f1e5335a68fdd5"
     }
 }

@@ -238,7 +238,7 @@ class AdelantosModel extends Modelo
                         -- 1. Devoluciones manuales en caja/banco
                         SELECT 
                             DATE(m.fecha) AS fecha_raw,
-                            CONCAT('Devolución en ', COALESCE(c.nombre, 'Caja')) AS origen,
+                            CAST(CONCAT('Devolución en ', COALESCE(c.nombre, 'Caja')) AS CHAR) AS origen,
                             m.monto
                         FROM tesoreria_movimientos m
                         LEFT JOIN tesoreria_cuentas c ON m.id_cuenta = c.id
@@ -249,15 +249,16 @@ class AdelantosModel extends Modelo
                           
                         UNION ALL
                         
-                        -- 2. Descuentos automáticos o manuales por planilla (SIN FILTRO DE ESTADO POR AHORA)
+                        -- 2. Descuentos automáticos o manuales por planilla
                         SELECT 
                             DATE(n.fecha_fin) AS fecha_raw,
-                            CONCAT('Planilla Cerrada (Ref: ', COALESCE(n.referencia, 'S/R'), ')') AS origen,
+                            CAST(CONCAT('Planilla Cerrada (Ref: ', COALESCE(n.referencia, 'S/R'), ')') AS CHAR) AS origen,
                             nc.monto
                         FROM rrhh_nominas_conceptos nc
                         INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
                         INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
                         WHERE nc.id_adelanto_ref = :id_adelanto_planilla
+                           OR nc.descripcion LIKE CONCAT('%adelanto #', :id_adelanto_desc)
                     ) AS historial
                     ORDER BY fecha_raw DESC";
 
@@ -265,7 +266,8 @@ class AdelantosModel extends Modelo
             
             $stmt->execute([
                 ':id_adelanto_tesoreria' => $idAdelanto,
-                ':id_adelanto_planilla' => $idAdelanto
+                ':id_adelanto_planilla'  => $idAdelanto,
+                ':id_adelanto_desc'      => $idAdelanto
             ]);
 
             return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];

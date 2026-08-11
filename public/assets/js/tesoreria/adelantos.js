@@ -105,7 +105,7 @@
                     // 5.3 Hacer petición AJAX al backend
                     // Asume que tienes una ruta así. El fallback a '' es por si window.BASE_URL no está definido.
                     const baseUrl = window.BASE_URL || ''; 
-                    const url = `${baseUrl}?ruta=tesoreria/adelantos&accion=historial&id=${idAdelanto}`;
+                    const url = `${baseUrl}?ruta=tesoreria/adelantos&accion=historial&id=${idAdelanto}&_t=${new Date().getTime()}`;
                     
                     historialController?.abort();
                     historialController = new AbortController();
@@ -129,11 +129,17 @@
                             const colorBadge = isCaja ? 'bg-success-subtle text-success border-success-subtle' : 'bg-primary-subtle text-primary border-primary-subtle';
                             
                             tr.innerHTML = `
-                                <td class="ps-4 text-start fw-medium text-dark" style="font-size: 0.9rem;">
-                                    <i class="bi bi-calendar2-check text-muted me-1"></i> ${item.fecha}
+                                <td class="ps-4 text-start fw-medium text-dark text-nowrap" style="font-size: 0.85rem;">
+                                    <i class="bi bi-calendar2-check text-muted me-2"></i>${item.fecha}
                                 </td>
-                                <td><span class="badge ${colorBadge} border">${item.origen}</span></td>
-                                <td class="pe-4 text-end fw-bold text-success">S/ ${parseFloat(item.monto).toFixed(2)}</td>
+                                <td class="text-start py-3">
+                                    <span class="badge ${colorBadge} border px-3 py-2 text-wrap text-start lh-sm" style="font-size: 0.75rem; max-width: 220px;">
+                                        ${item.origen}
+                                    </span>
+                                </td>
+                                <td class="pe-4 text-end fw-bold text-success text-nowrap" style="font-size: 0.9rem;">
+                                    S/ ${parseFloat(item.monto).toFixed(2)}
+                                </td>
                             `;
                             tbody.appendChild(tr);
                         });

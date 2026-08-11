@@ -413,17 +413,17 @@
 
 })();
 
-window.imprimirSiEsValido = function(idLote, esBorrador, tienePagos) {
+window.exportarSiEsValido = function(formato, idLote, esBorrador, tienePagos) {
     if (esBorrador) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 icon: 'warning',
                 title: 'Planilla en Edición',
-                text: 'Debes "Cerrar Planilla" (botón verde) para guardar los cálculos antes de poder generar e imprimir las boletas.',
+                text: 'Debes "Cerrar Planilla" (botón verde) para guardar los cálculos antes de poder exportar los reportes.',
                 confirmButtonColor: '#198754'
             });
         } else {
-            alert('Debes "Cerrar Planilla" para guardar los cálculos antes de imprimir.');
+            alert('Debes "Cerrar Planilla" para guardar los cálculos antes de exportar.');
         }
         return;
     }
@@ -442,6 +442,20 @@ window.imprimirSiEsValido = function(idLote, esBorrador, tienePagos) {
         return; 
     }
 
-    const url = window.BASE_URL + '?ruta=planillas/imprimir_masivo&id_lote=' + idLote;
-    window.open(url, '_blank');
+    // Rutas dinámicas según el formato elegido
+    const baseUrl = window.BASE_URL || '';
+    let url = '';
+
+    if (formato === 'pdf') {
+        // Enlaza a tu método de imprimir reporte general (PDF)
+        url = baseUrl + 'index.php?ruta=planillas/imprimir_reporte_planilla&id_lote=' + idLote;
+    } else if (formato === 'excel') {
+        url = baseUrl + 'index.php?ruta=planillas/exportar_excel&id_lote=' + idLote;
+    } else if (formato === 'csv') {
+        url = baseUrl + 'index.php?ruta=planillas/exportar_csv&id_lote=' + idLote;
+    }
+
+    if (url !== '') {
+        window.open(url, '_blank');
+    }
 };
