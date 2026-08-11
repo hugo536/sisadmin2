@@ -740,7 +740,7 @@ class PlanillasModel extends Modelo
             $totalAPagar = 0;
             $sqlInsertMovimiento = "INSERT INTO tesoreria_movimientos
                 (id_cuenta, id_metodo_pago, id_tercero, tipo, origen, id_origen, moneda, monto, observaciones, fecha, estado, created_by, updated_by, created_at, updated_at)
-                VALUES (:cta, :met, :tercero, 'PAGO', 'PLANILLA', :origen, :mon, :monto, :obs, CURDATE(), 'CONFIRMADO', :uid, :uid, NOW(), NOW())";
+                VALUES (:cta, :met, :tercero, 'PAGO', 'PLANILLA', :origen, :mon, :monto, :obs, CURDATE(), 'CONFIRMADO', :created_by, :updated_by, NOW(), NOW())";
             $stmtMov = $db->prepare($sqlInsertMovimiento);
 
             // 4. Insertar un movimiento por cada empleado pagado
@@ -758,7 +758,10 @@ class PlanillasModel extends Modelo
                         'mon' => $cuentaInfo['moneda'],
                         'monto' => $monto,
                         'obs' => $obs,
-                        'uid' => $userId
+                        // PDO con consultas preparadas nativas exige un marcador
+                        // distinto por cada valor, aunque ambos usuarios coincidan.
+                        'created_by' => $userId,
+                        'updated_by' => $userId,
                     ]);
                 }
             }
