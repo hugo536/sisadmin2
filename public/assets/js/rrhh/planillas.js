@@ -10,13 +10,9 @@
     function iniciarModuloPlanillas() {
         const appContenedor = document.getElementById('planillasApp');
         
-        // Evitar inicialización doble en la SPA
         if (!appContenedor || appContenedor.dataset.iniciado === '1') return;
         appContenedor.dataset.iniciado = '1';
 
-        // ==============================================================
-        // 1. GESTIÓN DEL MODAL DE AJUSTES (BONOS/DEDUCCIONES)
-        // ==============================================================
         const modalAjustar = document.getElementById('modalAjustarNomina');
         const contenedorMovimientos = document.getElementById('contenedorMovimientosNomina');
         const tplMovimiento = document.getElementById('tplMovimientoNomina');
@@ -41,13 +37,11 @@
             if (!contenedorMovimientos || !tplMovimiento) return null;
             const nodo = tplMovimiento.content.firstElementChild.cloneNode(true);
             
-            // Datos básicos
             const tipo = (data.tipo || '').toString().trim().toUpperCase();
             const categoria = (data.categoria || '').toString().trim();
             const descripcion = (data.descripcion || '').toString().trim();
             const monto = Number.parseFloat(data.monto ?? 0);
             
-            // Nuevos datos de control
             const idConcepto = data.id_concepto || '';
             const idAdelantoRef = data.id_adelanto_ref || '';
 
@@ -56,7 +50,6 @@
             const inputDescripcion = nodo.querySelector('[data-name="descripcion"]');
             const inputMonto = nodo.querySelector('[data-name="monto"]');
             
-            // Selectores de los nuevos campos ocultos y la alerta
             const inputIdConcepto = nodo.querySelector('[data-name="id_concepto"]');
             const inputIdAdelantoRef = nodo.querySelector('[data-name="id_adelanto_ref"]');
             const msgAdelanto = nodo.querySelector('.js-msg-adelanto');
@@ -66,20 +59,16 @@
             if (inputDescripcion) inputDescripcion.value = descripcion;
             if (inputMonto && Number.isFinite(monto) && monto > 0) inputMonto.value = monto.toFixed(2);
             
-            // Asignar IDs a los inputs hidden
             if (inputIdConcepto) inputIdConcepto.value = idConcepto;
             if (inputIdAdelantoRef) inputIdAdelantoRef.value = idAdelantoRef;
 
-            // LÓGICA ESPECIAL: Si es un adelanto, mostrar alerta y proteger campos vitales
             if (idAdelantoRef !== '' || categoria === 'Adelanto') {
                 if (msgAdelanto) msgAdelanto.classList.remove('d-none');
                 
-                // Bloquear campos
                 if (inputTipo) { inputTipo.setAttribute('readonly', true); inputTipo.style.pointerEvents = 'none'; }
                 if (inputCategoria) { inputCategoria.setAttribute('readonly', true); inputCategoria.style.pointerEvents = 'none'; }
                 if (inputDescripcion) { inputDescripcion.setAttribute('readonly', true); }
                 
-                // OCULTAR EL BOTÓN DE ELIMINAR (La "X" roja)
                 const btnRemove = nodo.querySelector('.js-remove-movimiento');
                 if (btnRemove) {
                     btnRemove.style.display = 'none';
@@ -113,8 +102,8 @@
 
                 movimientos.forEach((mov) => {
                     crearItemMovimiento({
-                        id_concepto: mov.id || '',                     // ID principal del registro
-                        id_adelanto_ref: mov.id_adelanto_ref || '',    // Vínculo con tabla adelantos
+                        id_concepto: mov.id || '',
+                        id_adelanto_ref: mov.id_adelanto_ref || '',
                         tipo: mov.tipo,
                         categoria: mov.categoria,
                         descripcion: mov.descripcion,
@@ -206,9 +195,6 @@
             });
         }
 
-        // ==============================================================
-        // 2. MODAL GENERAR LOTE: FECHAS AUTOMÁTICAS
-        // ==============================================================
         const modalGenerarLote = document.getElementById('modalGenerarLote');
         const selectFrecuenciaLote = document.getElementById('frecuenciaLote');
         const inputFechaInicioLote = document.getElementById('fechaInicioLote');
@@ -305,9 +291,6 @@
             });
         }
 
-        // ==============================================================
-        // 3. BUSCADOR LOCAL EN LA TABLA DE DETALLES (RECIBOS)
-        // ==============================================================
         const searchInput = document.getElementById('searchDetalles');
         const tablaDetalles = document.getElementById('tablaDetallesNomina');
 
@@ -346,9 +329,6 @@
             });
         }
 
-        // ==============================================================
-        // 4. SEGURIDAD ADICIONAL (Cerrar Lote y UI)
-        // ==============================================================
         function bloquearBotonSubmit(form, textoCarga = "Procesando...") {
             const btnSubmit = form.querySelector('button[type="submit"]');
             if (btnSubmit) {
@@ -373,7 +353,6 @@
             formCerrar.addEventListener('submit', function (e) {
                 e.preventDefault();
 
-                // Verificar si hay empleados con conflictos en la tabla (candadito rojo)
                 const hayConflictos = tablaDetalles && tablaDetalles.querySelector('.bi-exclamation-triangle-fill') !== null;
 
                 if (hayConflictos) {
@@ -390,11 +369,10 @@
                     return;
                 }
 
-                // Confirmación para cerrar lote
                 if (!window.Swal) {
                     if (confirm("¿Estás seguro? Cerrarás la planilla y ya no podrás agregar bonos ni descuentos.")) {
                         bloquearBotonSubmit(formCerrar, "Cerrando...");
-                        formCerrar.submit();
+                        HTMLFormElement.prototype.submit.call(formCerrar);
                     }
                 } else {
                     Swal.fire({
@@ -409,7 +387,8 @@
                     }).then((result) => {
                         if (result.isConfirmed) {
                             bloquearBotonSubmit(formCerrar, "Cerrando...");
-                            formCerrar.submit();
+                            // CAMBIO CLAVE AQUI: Forzamos el submit real saltando el EventListener
+                            HTMLFormElement.prototype.submit.call(formCerrar);
                         }
                     });
                 }
@@ -417,51 +396,43 @@
         }
     }
 
-    // ==========================================
-    // INICIALIZACIÓN COMPATIBLE CON SPA
-    // ==========================================
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', iniciarModuloPlanillas);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', iniciarModuloPlanillas);
+    } else {
+        iniciarModuloPlanillas();
+    }
+
+})();
+
+window.imprimirSiEsValido = function(idLote, esBorrador, tienePagos) {
+    if (esBorrador) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Planilla en Edición',
+                text: 'Debes "Cerrar Planilla" (botón verde) para guardar los cálculos antes de poder generar e imprimir las boletas.',
+                confirmButtonColor: '#198754'
+            });
         } else {
-            iniciarModuloPlanillas();
+            alert('Debes "Cerrar Planilla" para guardar los cálculos antes de imprimir.');
         }
-
-    // 1. CERRAMOS LA BURBUJA (IIFE) AQUÍ
-    })();
-
-    // 2. CREAMOS LA FUNCIÓN GLOBAL PARA QUE EL ONCLICK DEL HTML LA ENCUENTRE
-    window.imprimirSiEsValido = function(idLote, esBorrador, tienePagos) {
-        // 1. Validar si está en borrador (Aún no guardado en BD)
-        if (esBorrador) {
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Planilla en Edición',
-                    text: 'Debes "Cerrar Planilla" (botón verde) para guardar los cálculos antes de poder generar e imprimir las boletas.',
-                    confirmButtonColor: '#198754'
-                });
-            } else {
-                alert('Debes "Cerrar Planilla" para guardar los cálculos antes de imprimir.');
-            }
-            return; // Detiene la ejecución
+        return;
+    }
+    
+    if (!tienePagos) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'info',
+                title: 'Lote sin pagos',
+                text: 'No se encontraron empleados con montos a pagar mayores a S/ 0.00 en este lote.',
+                confirmButtonColor: '#0d6efd'
+            });
+        } else {
+            alert('No se encontraron pagos mayores a S/ 0.00.');
         }
-        
-        // 2. Validar si no hay montos que cobrar
-        if (!tienePagos) {
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Lote sin pagos',
-                    text: 'No se encontraron empleados con montos a pagar mayores a S/ 0.00 en este lote.',
-                    confirmButtonColor: '#0d6efd'
-                });
-            } else {
-                alert('No se encontraron pagos mayores a S/ 0.00.');
-            }
-            return; // Detiene la ejecución
-        }
+        return; 
+    }
 
-        // 3. Abrimos el PDF usando variables de JS puro, sin etiquetas PHP
-        const url = window.BASE_URL + '?ruta=planillas/imprimir_masivo&id_lote=' + idLote;
-        window.open(url, '_blank');
+    const url = window.BASE_URL + '?ruta=planillas/imprimir_masivo&id_lote=' + idLote;
+    window.open(url, '_blank');
 };
