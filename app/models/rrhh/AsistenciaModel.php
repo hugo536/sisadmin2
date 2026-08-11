@@ -62,11 +62,13 @@ class AsistenciaModel extends Modelo
                 FROM asistencia_logs_biometrico alb
                 LEFT JOIN terceros_empleados te ON alb.codigo_biometrico = te.codigo_biometrico
                 LEFT JOIN terceros t ON te.id_tercero = t.id AND t.deleted_at IS NULL
-                WHERE DATE(alb.fecha_hora_marca) BETWEEN :fecha_inicio AND :fecha_fin';
+                WHERE alb.fecha_hora_marca >= :fecha_inicio 
+                  AND alb.fecha_hora_marca <= :fecha_fin';
 
+        // Le agregamos la hora mínima y máxima para abarcar el día completo
         $params = [
-            'fecha_inicio' => $filtros['fecha_inicio'],
-            'fecha_fin' => $filtros['fecha_fin'],
+            'fecha_inicio' => $filtros['fecha_inicio'] . ' 00:00:00',
+            'fecha_fin' => $filtros['fecha_fin'] . ' 23:59:59',
         ];
 
         if ($filtros['estado'] !== '') {
