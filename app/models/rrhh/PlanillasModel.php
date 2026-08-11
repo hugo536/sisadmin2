@@ -140,20 +140,38 @@ class PlanillasModel extends Modelo
             $empleadosProcesar[] = $emp;
         }
 
+        // ========================================================
+        // MODIFICACIÓN UX: Obtenemos todas las asistencias (Incluso pagadas)
+        // ========================================================
         $sqlAsistencia = "SELECT id_tercero, fecha, hora_ingreso, hora_salida,
-                                 marcas_ingresos, marcas_salidas, estado_asistencia, minutos_tardanza, horas_trabajadas, horas_extras
+                                 marcas_ingresos, marcas_salidas, estado_asistencia, minutos_tardanza, horas_trabajadas, horas_extras,
+                                 id_nomina_pago
                           FROM asistencia_registros
-                          WHERE fecha BETWEEN :desde AND :hasta
-                          AND (id_nomina_pago IS NULL OR id_nomina_pago = :id_lote)";
+                          WHERE fecha BETWEEN :desde AND :hasta";
                           
         $stmtAsist = $db->prepare($sqlAsistencia);
-        $stmtAsist->execute(['desde' => $fechaInicio, 'hasta' => $fechaFin, 'id_lote' => $idLote]);
+        $stmtAsist->execute(['desde' => $fechaInicio, 'hasta' => $fechaFin]);
         $registrosAsistencia = $stmtAsist->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $mapaAsistencia = [];
         foreach ($registrosAsistencia as $ar) {
             $idT = (int)$ar['id_tercero'];
             $fecha = $ar['fecha'];
+
+            // 1. Inicializamos con el nuevo contador de UX
+            if (!isset($mapaAsistencia[$idT])) {
+                $mapaAsistencia[$idT] = [
+                    'asistidos' => 0, 'justificados' => 0, 'faltas' => 0,
+                    'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0, 'tiene_conflicto' => false,
+                    'dias_ya_pagados' => 0
+                ];
+            }
+
+            // 2. ESCUDO UX: Si el día tiene firma de pago y NO es de esta planilla actual, se cuenta y se salta.
+            if ($ar['id_nomina_pago'] !== null && $ar['id_nomina_pago'] != $idLote) {
+                $mapaAsistencia[$idT]['dias_ya_pagados']++;
+                continue; 
+            }
 
             $marcasDia = [];
             if (!empty($ar['marcas_ingresos'])) $marcasDia = array_merge($marcasDia, explode('|', (string)$ar['marcas_ingresos']));
@@ -173,13 +191,6 @@ class PlanillasModel extends Modelo
                 $ar['horas_extras'] = (float)($resumenVivo['horas_extras'] ?? $ar['horas_extras']);
             }
             
-            if (!isset($mapaAsistencia[$idT])) {
-                $mapaAsistencia[$idT] = [
-                    'asistidos' => 0, 'justificados' => 0, 'faltas' => 0,
-                    'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0, 'tiene_conflicto' => false
-                ];
-            }
-
             $estado = strtoupper((string)$ar['estado_asistencia']);
             $ingresos = !empty($ar['marcas_ingresos']) ? explode('|', $ar['marcas_ingresos']) : (!empty($ar['hora_ingreso']) ? [$ar['hora_ingreso']] : []);
             $salidas = !empty($ar['marcas_salidas']) ? explode('|', $ar['marcas_salidas']) : (!empty($ar['hora_salida']) ? [$ar['hora_salida']] : []);
@@ -248,7 +259,8 @@ class PlanillasModel extends Modelo
             
             $asis = $mapaAsistencia[$idTercero] ?? [
                 'asistidos' => 0, 'justificados' => 0, 'faltas' => 0, 
-                'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0, 'tiene_conflicto' => false
+                'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0, 'tiene_conflicto' => false,
+                'dias_ya_pagados' => 0
             ];
             
             $tieneConflicto = $asis['tiene_conflicto'];
@@ -327,7 +339,8 @@ class PlanillasModel extends Modelo
                 'descuento_tardanzas' => round($descuentoTardanzas, 2),
                 'descuento_adelanto' => round($descuentoAdelanto, 2),
                 'adelantos_aplicados' => json_encode($adelantosAplicados),
-                'tiene_conflicto' => $tieneConflicto
+                'tiene_conflicto' => $tieneConflicto,
+                'dias_ya_pagados' => $asis['dias_ya_pagados'] // NUEVA VARIABLE PARA UX
             ];
         }
 
@@ -411,13 +424,11 @@ class PlanillasModel extends Modelo
                     continue;
                 }
 
-                // 🔒 NUEVO CANDADO DE SEGURIDAD:
                 if (strtoupper($categoria) === 'ADELANTO' && $idAdelantoRef === null) {
                     throw new InvalidArgumentException('Intento de fraude o error de sistema: No se puede registrar un descuento por Adelanto sin estar vinculado a un registro válido de Tesorería.');
                 }
 
                 $llave = $tipo . '::' . strtolower($categoria) . '::' . strtolower($descripcion);
-                // ... código existente ...
                 if (isset($vistos[$llave])) throw new InvalidArgumentException('Hay movimientos repetidos.');
                 $vistos[$llave] = true;
 
@@ -508,9 +519,6 @@ class PlanillasModel extends Modelo
                 (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico) 
                 VALUES (:id_det, :tipo, :cat, :desc, :monto, 1)");
 
-            // Los descuentos de adelantos necesitan conservar su referencia individual.
-            // Sin ella, el saldo se cancelaba correctamente, pero Tesorería no podía
-            // relacionar el descuento con el adelanto al mostrar su historial.
             $stmtConceptoAdelanto = $db->prepare("INSERT INTO rrhh_nominas_conceptos
                 (id_detalle_nomina, tipo, categoria, descripcion, monto, id_adelanto_ref, es_automatico)
                 VALUES (:id_det, 'DEDUCCION', 'Adelanto de Sueldo', :desc, :monto, :id_adelanto_ref, 1)");
@@ -689,10 +697,6 @@ class PlanillasModel extends Modelo
         return $boletas;
     }
 
-    // ========================================================================
-    // MÉTODOS PARA EL PAGO DE LA NÓMINA (INTEGRACIÓN CON TESORERÍA)
-    // ========================================================================
-
     public function obtenerCuentasTesoreria(): array
     {
         $sql = "SELECT c.id, c.nombre, c.moneda, c.tipo,
@@ -721,13 +725,11 @@ class PlanillasModel extends Modelo
             $idCuenta = (int) ($datos['id_cuenta'] ?? 0);
             if ($idCuenta <= 0) throw new Exception("Cuenta de tesorería inválida.");
 
-            // 1. Verificar estado del lote
             $lote = $this->obtenerLotePorId($idLote);
             if (!$lote || strtoupper(trim((string)$lote['estado'])) !== 'APROBADO') {
                 throw new Exception("El lote no está aprobado o ya fue pagado.");
             }
 
-            // 2. Obtener saldo de cuenta y método de pago
             $stmtCta = $db->prepare("SELECT tipo, moneda FROM tesoreria_cuentas WHERE id = ? FOR UPDATE");
             $stmtCta->execute([$idCuenta]);
             $cuentaInfo = $stmtCta->fetch(PDO::FETCH_ASSOC);
@@ -735,7 +737,6 @@ class PlanillasModel extends Modelo
             
             $idMetodoPago = $this->obtenerMetodoPagoPlanilla($db, (string) $cuentaInfo['tipo']);
             
-            // 3. Obtener empleados a pagar (Neto > 0)
             $detalles = $this->obtenerDetallesLote($idLote);
             $totalAPagar = 0;
             $sqlInsertMovimiento = "INSERT INTO tesoreria_movimientos
@@ -743,7 +744,6 @@ class PlanillasModel extends Modelo
                 VALUES (:cta, :met, :tercero, 'PAGO', 'PLANILLA', :origen, :mon, :monto, :obs, CURDATE(), 'CONFIRMADO', :created_by, :updated_by, NOW(), NOW())";
             $stmtMov = $db->prepare($sqlInsertMovimiento);
 
-            // 4. Insertar un movimiento por cada empleado pagado
             foreach ($detalles as $det) {
                 $monto = (float) $det['neto_a_pagar'];
                 if ($monto > 0) {
@@ -758,15 +758,12 @@ class PlanillasModel extends Modelo
                         'mon' => $cuentaInfo['moneda'],
                         'monto' => $monto,
                         'obs' => $obs,
-                        // PDO con consultas preparadas nativas exige un marcador
-                        // distinto por cada valor, aunque ambos usuarios coincidan.
                         'created_by' => $userId,
                         'updated_by' => $userId,
                     ]);
                 }
             }
 
-            // 5. Actualizar Lote a Pagado
             $db->prepare("UPDATE rrhh_nominas SET estado = 'PAGADO', fecha_pago = CURDATE() WHERE id = ?")->execute([$idLote]);
 
             $db->commit();
@@ -794,6 +791,6 @@ class PlanillasModel extends Modelo
         $nombre = strtoupper($tipoCuenta) === 'BANCO' ? 'Transferencia' : 'Efectivo';
         $stmt = $db->prepare('SELECT id FROM tesoreria_metodos_pago WHERE nombre = :nombre AND estado = 1 AND deleted_at IS NULL LIMIT 1');
         $stmt->execute(['nombre' => $nombre]);
-        return (int) $stmt->fetchColumn() ?: 1; // Fallback al id 1 si no encuentra
+        return (int) $stmt->fetchColumn() ?: 1; 
     }
 }

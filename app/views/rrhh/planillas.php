@@ -188,7 +188,19 @@ $csrf_token = $csrf_token ?? '';
                                             <!-- EMPLEADO -->
                                             <td class="text-start ps-4">
                                                 <div class="fw-bold text-dark" style="font-size: 0.95rem;"><?php echo htmlspecialchars($det['nombre_completo']); ?></div>
-                                                <div class="text-muted" style="font-size: 0.75rem;"><?php echo htmlspecialchars($det['cargo']); ?> | DNI: <?php echo htmlspecialchars((string)($det['numero_documento'] ?? 'No registrado')); ?></div>
+                                                <div class="text-muted" style="font-size: 0.75rem;">
+                                                    <?php echo htmlspecialchars($det['cargo']); ?> | DNI: <?php echo htmlspecialchars((string)($det['numero_documento'] ?? 'No registrado')); ?>
+                                                </div>
+                                                
+                                                <!-- NUEVA ALERTA PROFESIONAL UX -->
+                                                <?php if (!empty($det['dias_ya_pagados']) && $det['dias_ya_pagados'] > 0): ?>
+                                                    <div class="mt-1">
+                                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;" title="Estos días caen en el rango de fechas, pero se omitieron automáticamente porque ya fueron pagados en una planilla anterior.">
+                                                            <i class="bi bi-info-circle-fill me-1"></i> 
+                                                            <?php echo $det['dias_ya_pagados']; ?> día(s) omitido(s) por pago previo
+                                                        </span>
+                                                    </div>
+                                                <?php endif; ?>
                                             </td>
                                             
                                             <!-- ASISTENCIA -->
