@@ -33,7 +33,7 @@ class TesoreriaMovimientoModel extends Modelo
         // --- QUERY 1: Movimientos Normales ---
         $whereMov = ['m.deleted_at IS NULL'];
         
-        if (in_array($origenFilter, ['CXC', 'CXP'], true)) {
+        if (in_array($origenFilter, ['CXC', 'CXP', 'ADELANTO'], true)) {
             $whereMov[] = 'm.origen = :origen_mov';
             $paramsFinal['origen_mov'] = $origenFilter;
         }

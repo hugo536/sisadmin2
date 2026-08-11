@@ -64,15 +64,15 @@ $puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
                             </tr>
                         <?php else: ?>
                             <?php foreach ($adelantos as $ad): ?>
-                                <tr class="border-bottom" data-search="<?php echo strtolower(htmlspecialchars($ad['empleado'] . ' ' . $ad['numero_documento'] . ' ' . $ad['observacion'])); ?>">
+                                <tr class="border-bottom" data-search="<?php echo strtolower(htmlspecialchars((string)($ad['empleado'] ?? '') . ' ' . (string)($ad['numero_documento'] ?? '') . ' ' . (string)($ad['observacion'] ?? ''))); ?>">
                                     <td class="ps-4">
-                                        <div class="fw-bold text-dark" title="Fecha de Entrega: <?php echo date('d/m/Y', strtotime($ad['fecha'])); ?>">
-                                            <i class="bi bi-calendar3 me-1 text-muted"></i> <?php echo date('d/m/Y', strtotime($ad['fecha'])); ?>
+                                        <div class="fw-bold text-dark" title="Fecha de Entrega: <?php echo !empty($ad['fecha']) ? date('d/m/Y', strtotime($ad['fecha'])) : '-'; ?>">
+                                            <i class="bi bi-calendar3 me-1 text-muted"></i> <?php echo !empty($ad['fecha']) ? date('d/m/Y', strtotime($ad['fecha'])) : '-'; ?>
                                         </div>
                                     </td>
                                     <td>
                                         <div class="fw-semibold text-dark"><?php echo htmlspecialchars($ad['empleado']); ?></div>
-                                        <div class="small text-muted mt-1">DNI: <?php echo htmlspecialchars($ad['numero_documento']); ?></div>
+                                        <div class="small text-muted mt-1">DNI: <?php echo htmlspecialchars((string) ($ad['numero_documento'] ?? 'No registrado')); ?></div>
                                     </td>
                                     <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($ad['cuenta_origen'] ?? 'Desconocida'); ?></span></td>
                                     

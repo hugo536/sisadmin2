@@ -90,7 +90,7 @@ class AdelantosModel extends Modelo
 
             $idMetodoPago = $this->obtenerMetodoPago($db, (string) $cuenta['tipo']);
             
-            // 1. Manejo seguro de la observación para evitar errores de MySQL Strict Mode
+            // 1. Manejo seguro de la observación
             $obs = trim($datos['observacion'] ?? '');
             $obs = $obs !== '' ? $obs : null;
 
@@ -110,14 +110,14 @@ class AdelantosModel extends Modelo
 
             $idAdelanto = (int) $db->lastInsertId();
 
-            // 3. Registrar el egreso con todos los campos obligatorios del ledger.
+            // 3. Registrar el egreso en Tesorería
             $sqlMovimiento = "INSERT INTO tesoreria_movimientos
                                 (id_cuenta, id_metodo_pago, id_tercero, tipo, origen, id_origen,
                                  moneda, monto, observaciones, fecha, estado, created_by, updated_by,
                                  created_at, updated_at)
                               VALUES
                                 (:id_cuenta, :id_metodo_pago, :id_tercero, 'EGRESO', 'ADELANTO', :id_origen,
-                                 :moneda, :monto, :observaciones, :fecha, 'CONFIRMADO', :uid, :uid,
+                                 :moneda, :monto, :observaciones, :fecha, 'CONFIRMADO', :created_by, :updated_by,
                                  NOW(), NOW())";
             
             $conceptoTesoreria = "Adelanto de sueldo a personal (ID: {$idTercero})";
@@ -134,7 +134,8 @@ class AdelantosModel extends Modelo
                 'monto' => $monto, 
                 'observaciones' => $conceptoTesoreria, 
                 'fecha' => $fecha, 
-                'uid' => $userId
+                'created_by' => $userId,
+                'updated_by' => $userId
             ]);
 
             $db->commit();
@@ -171,11 +172,18 @@ class AdelantosModel extends Modelo
             }
 
             // 1. Actualizar deuda
+            $nuevoSaldo = (float)$adelanto['saldo_pendiente'] - $montoDevuelto;
+            $nuevoEstado = $nuevoSaldo <= 0.001 ? 'PAGADO' : 'PENDIENTE'; 
+
             $sqlUpd = "UPDATE rrhh_adelantos 
-                       SET saldo_pendiente = saldo_pendiente - :monto,
-                           estado = IF(saldo_pendiente - :monto <= 0, 'PAGADO', 'PENDIENTE')
+                       SET saldo_pendiente = :nuevoSaldo,
+                           estado = :nuevoEstado
                        WHERE id = :id";
-            $db->prepare($sqlUpd)->execute(['monto' => $montoDevuelto, 'id' => $idAdelanto]);
+            $db->prepare($sqlUpd)->execute([
+                'nuevoSaldo' => $nuevoSaldo,
+                'nuevoEstado' => $nuevoEstado,
+                'id' => $idAdelanto
+            ]);
 
             $cuenta = $this->obtenerCuentaConSaldo($db, $idCuenta);
             if (!$cuenta) {
@@ -183,14 +191,14 @@ class AdelantosModel extends Modelo
             }
             $idMetodoPago = $this->obtenerMetodoPago($db, (string) $cuenta['tipo']);
 
-            // 2. Registrar el ingreso con todos los campos obligatorios del ledger.
+            // 2. Registrar el ingreso en Tesorería
             $sqlMovimiento = "INSERT INTO tesoreria_movimientos
                                 (id_cuenta, id_metodo_pago, id_tercero, tipo, origen, id_origen,
                                  moneda, monto, observaciones, fecha, estado, created_by, updated_by,
                                  created_at, updated_at)
                               VALUES
                                 (:id_cuenta, :id_metodo_pago, :id_tercero, 'INGRESO', 'ADELANTO', :id_origen,
-                                 :moneda, :monto, :observaciones, CURDATE(), 'CONFIRMADO', :uid, :uid,
+                                 :moneda, :monto, :observaciones, CURDATE(), 'CONFIRMADO', :created_by, :updated_by,
                                  NOW(), NOW())";
             
             $conceptoTesoreria = "Devolución manual de adelanto - Personal ID: {$adelanto['id_tercero']}";
@@ -203,7 +211,8 @@ class AdelantosModel extends Modelo
                 'moneda' => $cuenta['moneda'],
                 'monto' => $montoDevuelto, 
                 'observaciones' => $conceptoTesoreria, 
-                'uid' => $userId
+                'created_by' => $userId,
+                'updated_by' => $userId
             ]);
 
             $db->commit();
@@ -218,11 +227,6 @@ class AdelantosModel extends Modelo
         }
     }
 
-    /**
-     * Instalaciones anteriores solo admiten COBRO/PAGO y CXC/CXP. Sin esta
-     * comprobación MySQL rechaza ADELANTO con "Data truncated for column" y la
-     * transacción completa termina deshaciéndose.
-     */
     private function asegurarEsquemaMovimientos(PDO $db): void
     {
         $stmt = $db->query("SELECT COLUMN_NAME, COLUMN_TYPE

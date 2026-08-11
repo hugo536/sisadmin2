@@ -161,7 +161,7 @@ $csrf_token = $csrf_token ?? '';
                                             <!-- EMPLEADO -->
                                             <td class="text-start ps-4">
                                                 <div class="fw-bold text-dark" style="font-size: 0.95rem;"><?php echo htmlspecialchars($det['nombre_completo']); ?></div>
-                                                <div class="text-muted" style="font-size: 0.75rem;"><?php echo htmlspecialchars($det['cargo']); ?> | DNI: <?php echo htmlspecialchars($det['numero_documento']); ?></div>
+                                                <div class="text-muted" style="font-size: 0.75rem;"><?php echo htmlspecialchars($det['cargo']); ?> | DNI: <?php echo htmlspecialchars((string)($emp['numero_documento'] ?? 'No registrado')); ?>
                                             </td>
                                             
                                             <!-- ASISTENCIA -->

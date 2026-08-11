@@ -97,15 +97,17 @@ class PlanillasModel extends Modelo
         require_once BASE_PATH . '/app/models/rrhh/AsistenciaModel.php';
         $asistenciaModel = new AsistenciaModel();
 
-        // Obtener empleados activos
-        $sqlEmp = "SELECT t.id, te.tipo_pago, te.sueldo_basico, t.nombre_completo, t.numero_documento, te.cargo
+        // Cambiamos INNER JOIN por LEFT JOIN para incluir empleados aunque les falte el perfil de RRHH
+        $sqlEmp = "SELECT t.id, te.tipo_pago, COALESCE(te.sueldo_basico, 0) as sueldo_basico, 
+                          t.nombre_completo, t.numero_documento, COALESCE(te.cargo, 'Sin Cargo') as cargo
                    FROM terceros t
-                   INNER JOIN terceros_empleados te ON te.id_tercero = t.id
+                   LEFT JOIN terceros_empleados te ON te.id_tercero = t.id
                    WHERE t.es_empleado = 1 AND t.estado = 1 AND t.deleted_at IS NULL";
         
         $paramsEmp = [];
         if ($frecuencia !== 'TODOS') {
-            $sqlEmp .= " AND UPPER(te.tipo_pago) = :frecuencia";
+            // Incluimos a los que coinciden con la frecuencia, O a los que no tienen ninguna frecuencia asignada (NULL/Vacío)
+            $sqlEmp .= " AND (UPPER(te.tipo_pago) = :frecuencia OR te.tipo_pago IS NULL OR te.tipo_pago = '')";
             $paramsEmp['frecuencia'] = $frecuencia;
         }
         
