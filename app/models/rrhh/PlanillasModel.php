@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 class PlanillasModel extends Modelo
 {
+    public string $ultimoError = '';
+    
     private function resolverPagoDiario(float $sueldoBasico, string $tipoPago): float
     {
         $tipoPagoEmpleado = strtoupper(trim($tipoPago));

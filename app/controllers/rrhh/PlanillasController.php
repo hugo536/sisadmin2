@@ -160,9 +160,14 @@ class PlanillasController extends Controlador
                     }
                 }
 
-                // Al cerrar, el modelo llama a calcularNominaEnMemoria() una última vez
-                // y hace todos los INSERT en la base de datos final.
-                $this->planillasModel->aprobarLote($idLote);
+                // Intentamos cerrar y capturamos si hay éxito o fallo
+                $exito = $this->planillasModel->aprobarLote($idLote);
+                
+                if (!$exito) {
+                    $errorMsg = $this->planillasModel->ultimoError ?? 'Ocurrió un error en la base de datos al cerrar el lote.';
+                    redirect("planillas?id_lote={$idLote}&error=" . urlencode($errorMsg));
+                    return;
+                }
             }
             
             redirect("planillas?id_lote={$idLote}&ok=" . urlencode('Planilla cerrada, calculada y guardada con éxito.'));
