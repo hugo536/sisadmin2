@@ -180,9 +180,34 @@ class AsistenciaController extends Controlador
             return;
         }
 
+        $fechaInicio = trim((string) ($_GET['fecha_inicio'] ?? date('Y-m-d', strtotime('-1 month'))));
+        $fechaFin = trim((string) ($_GET['fecha_fin'] ?? date('Y-m-d')));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio)) {
+            $fechaInicio = date('Y-m-d', strtotime('-1 month'));
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
+            $fechaFin = date('Y-m-d');
+        }
+        if ($fechaInicio > $fechaFin) {
+            [$fechaInicio, $fechaFin] = [$fechaFin, $fechaInicio];
+        }
+
+        $estado = (string) ($_GET['estado'] ?? '');
+        if (!in_array($estado, ['', '0', '1'], true)) {
+            $estado = '';
+        }
+
+        $filtros = [
+            'fecha_inicio' => $fechaInicio,
+            'fecha_fin' => $fechaFin,
+            'estado' => $estado,
+        ];
+
         $this->render('rrhh/asistencia_importar', [
             'ruta_actual' => 'asistencia/importar',
-            'logs'        => $this->asistenciaModel->listarLogsBiometricos(),
+            'logs'        => $this->asistenciaModel->listarLogsBiometricos($filtros),
+            'filtros'     => $filtros,
+            'pendientes_count' => $this->asistenciaModel->contarLogsPendientes(),
             'flash'       => [
                 'tipo'  => (string) ($_GET['tipo'] ?? ''),
                 'texto' => (string) ($_GET['msg'] ?? ''),

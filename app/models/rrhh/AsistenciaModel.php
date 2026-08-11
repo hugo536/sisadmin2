@@ -55,16 +55,37 @@ class AsistenciaModel extends Modelo
         ]);
     }
 
-    public function listarLogsBiometricos(): array
+    public function listarLogsBiometricos(array $filtros): array
     {
         $sql = 'SELECT alb.id, alb.codigo_biometrico, alb.fecha_hora_marca, alb.tipo_marca, alb.nombre_dispositivo, 
                        alb.procesado, alb.created_at, alb.created_by, t.nombre_completo
                 FROM asistencia_logs_biometrico alb
                 LEFT JOIN terceros_empleados te ON alb.codigo_biometrico = te.codigo_biometrico
                 LEFT JOIN terceros t ON te.id_tercero = t.id AND t.deleted_at IS NULL
-                ORDER BY alb.fecha_hora_marca DESC, alb.id DESC';
+                WHERE DATE(alb.fecha_hora_marca) BETWEEN :fecha_inicio AND :fecha_fin';
 
-        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $params = [
+            'fecha_inicio' => $filtros['fecha_inicio'],
+            'fecha_fin' => $filtros['fecha_fin'],
+        ];
+
+        if ($filtros['estado'] !== '') {
+            $sql .= ' AND alb.procesado = :estado';
+            $params['estado'] = (int) $filtros['estado'];
+        }
+
+        $sql .= ' ORDER BY alb.fecha_hora_marca DESC, alb.id DESC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function contarLogsPendientes(): int
+    {
+        return (int) $this->db()
+            ->query('SELECT COUNT(*) FROM asistencia_logs_biometrico WHERE procesado = 0')
+            ->fetchColumn();
     }
 
     public function obtenerLogsPendientes(): array
