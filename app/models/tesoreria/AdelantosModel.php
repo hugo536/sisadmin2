@@ -270,7 +270,36 @@ class AdelantosModel extends Modelo
                 ':id_adelanto_planilla' => $idAdelanto
             ]);
 
-            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $historial = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            // Compatibilidad con descuentos realizados antes de que los conceptos
+            // de planilla guardaran id_adelanto_ref. El saldo es la fuente contable
+            // del importe cancelado; mostramos cualquier diferencia no trazada para
+            // evitar afirmar que no hubo descuentos cuando la deuda ya fue reducida.
+            $stmtResumen = $this->db()->prepare(
+                "SELECT monto, saldo_pendiente FROM rrhh_adelantos WHERE id = :id LIMIT 1"
+            );
+            $stmtResumen->execute(['id' => $idAdelanto]);
+            $resumen = $stmtResumen->fetch(PDO::FETCH_ASSOC);
+
+            if ($resumen) {
+                $montoCancelado = max(0.0, (float) $resumen['monto'] - (float) $resumen['saldo_pendiente']);
+                $montoTrazado = array_sum(array_map(
+                    static fn(array $item): float => (float) ($item['monto'] ?? 0),
+                    $historial
+                ));
+                $montoAnterior = round($montoCancelado - $montoTrazado, 2);
+
+                if ($montoAnterior > 0.001) {
+                    $historial[] = [
+                        'fecha' => 'Sin fecha',
+                        'origen' => 'Descuento aplicado (registro anterior)',
+                        'monto' => $montoAnterior,
+                    ];
+                }
+            }
+
+            return $historial;
             
         } catch (PDOException $e) {
             // CORRECCIÓN 2: Si falla la BD, registramos el error real para poder leerlo

@@ -501,6 +501,13 @@ class PlanillasModel extends Modelo
             $stmtConcepto = $db->prepare("INSERT INTO rrhh_nominas_conceptos 
                 (id_detalle_nomina, tipo, categoria, descripcion, monto, es_automatico) 
                 VALUES (:id_det, :tipo, :cat, :desc, :monto, 1)");
+
+            // Los descuentos de adelantos necesitan conservar su referencia individual.
+            // Sin ella, el saldo se cancelaba correctamente, pero Tesorería no podía
+            // relacionar el descuento con el adelanto al mostrar su historial.
+            $stmtConceptoAdelanto = $db->prepare("INSERT INTO rrhh_nominas_conceptos
+                (id_detalle_nomina, tipo, categoria, descripcion, monto, id_adelanto_ref, es_automatico)
+                VALUES (:id_det, 'DEDUCCION', 'Adelanto de Sueldo', :desc, :monto, :id_adelanto_ref, 1)");
                 
             $stmtMarcarAsistencia = $db->prepare("UPDATE asistencia_registros 
                 SET id_nomina_pago = :id_lote 
@@ -546,7 +553,6 @@ class PlanillasModel extends Modelo
                 if (!empty($calc['adelantos_aplicados']) && $calc['adelantos_aplicados'] !== '[]') {
                     $adelantos = json_decode($calc['adelantos_aplicados'], true);
                     if (is_array($adelantos)) {
-                        $sumaAutomatica = 0;
                         foreach ($adelantos as $ad) {
                             $stmtPagarAdelanto->execute([
                                 'descuento' => $ad['monto'],
@@ -554,11 +560,13 @@ class PlanillasModel extends Modelo
                                 'id_adelanto' => $ad['id'],
                             ]);
                             if (empty($ad['es_manual'])) {
-                                $sumaAutomatica += $ad['monto'];
+                                $stmtConceptoAdelanto->execute([
+                                    'id_det' => $calc['id'],
+                                    'desc' => 'Cobro automático de adelanto #' . (int) $ad['id'],
+                                    'monto' => $ad['monto'],
+                                    'id_adelanto_ref' => $ad['id'],
+                                ]);
                             }
-                        }
-                        if ($sumaAutomatica > 0) {
-                            $stmtConcepto->execute(['id_det' => $calc['id'], 'tipo' => 'DEDUCCION', 'cat' => 'Adelanto de Sueldo', 'desc' => 'Cobro automático de préstamo', 'monto' => $sumaAutomatica]);
                         }
                     }
                 }
