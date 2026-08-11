@@ -89,21 +89,4 @@
         }
     });
 
-    // EVENTOS KEYUP (Buscador en tiempo real)
-    document.addEventListener('keyup', function (e) {
-        if (e.target && e.target.id === 'searchLogs') {
-            const searchTerm = e.target.value.toLowerCase().trim();
-            const tableRows = document.querySelectorAll('#logsTableBody tr:not(.empty-msg-row)');
-
-            tableRows.forEach(row => {
-                const rowData = row.getAttribute('data-search') || '';
-                if (rowData.includes(searchTerm)) {
-                    row.style.display = ''; // Muestra
-                } else {
-                    row.style.display = 'none'; // Oculta
-                }
-            });
-        }
-    });
-
 })();

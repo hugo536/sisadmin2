@@ -1,22 +1,12 @@
 <?php
 $logs = $logs ?? [];
-$fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-d', strtotime('-1 month'));
-$fechaFin = $_GET['fecha_fin'] ?? date('Y-m-d');
-$estadoFiltro = $_GET['estado'] ?? ''; // '' = Todos, '1' = Sincronizados, '0' = Pendientes
+$filtros = $filtros ?? [];
+$fechaInicio = (string) ($filtros['fecha_inicio'] ?? date('Y-m-d', strtotime('-1 month')));
+$fechaFin = (string) ($filtros['fecha_fin'] ?? date('Y-m-d'));
+$estadoFiltro = (string) ($filtros['estado'] ?? ''); // '' = Todos, '1' = Sincronizados, '0' = Pendientes
 
-$pendientesCount = 0;
-$logsFiltrados = [];
-
-// Filtramos la data directamente en la vista para no sobrecargar el controlador
-foreach ($logs as $l) {
-    $procesado = (int)($l['procesado'] ?? 0) === 1;
-    if (!$procesado) $pendientesCount++;
-    
-    if ($estadoFiltro === '1' && !$procesado) continue;
-    if ($estadoFiltro === '0' && $procesado) continue;
-    
-    $logsFiltrados[] = $l;
-}
+$pendientesCount = (int) ($pendientes_count ?? 0);
+$logsFiltrados = $logs;
 ?>
 
 <div class="container-fluid p-4" id="importarLogsApp">
@@ -61,7 +51,7 @@ foreach ($logs as $l) {
                 
                 <!-- 1. Filtro de Estado (Izquierda) -->
                 <div class="col-12 col-md-3">
-                    <select name="estado" form="formFiltros" class="form-select bg-white border-secondary-subtle shadow-sm text-secondary fw-medium" onchange="document.getElementById('formFiltros').submit();">
+                    <select name="estado" form="formFiltros" class="form-select bg-white border-secondary-subtle shadow-sm text-secondary fw-medium" aria-label="Filtrar por estado" onchange="document.getElementById('formFiltros').requestSubmit();">
                         <option value="" <?php echo $estadoFiltro === '' ? 'selected' : ''; ?>>Todas las marcas</option>
                         <option value="1" <?php echo $estadoFiltro === '1' ? 'selected' : ''; ?>>Ya sincronizadas</option>
                         <option value="0" <?php echo $estadoFiltro === '0' ? 'selected' : ''; ?>>Faltan sincronizar</option>
