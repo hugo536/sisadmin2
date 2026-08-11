@@ -508,7 +508,7 @@ class PlanillasModel extends Modelo
                   
             $stmtPagarAdelanto = $db->prepare("UPDATE rrhh_adelantos 
                 SET saldo_pendiente = saldo_pendiente - :descuento,
-                    estado = IF(saldo_pendiente - :descuento <= 0, 'PAGADO', 'PENDIENTE')
+                    estado = IF(saldo_pendiente - :descuento_estado <= 0, 'PAGADO', 'PENDIENTE')
                 WHERE id = :id_adelanto");
 
             $loteBruto = 0; $loteDeducciones = 0; $loteNeto = 0;
@@ -548,7 +548,11 @@ class PlanillasModel extends Modelo
                     if (is_array($adelantos)) {
                         $sumaAutomatica = 0;
                         foreach ($adelantos as $ad) {
-                            $stmtPagarAdelanto->execute(['descuento' => $ad['monto'], 'id_adelanto' => $ad['id']]);
+                            $stmtPagarAdelanto->execute([
+                                'descuento' => $ad['monto'],
+                                'descuento_estado' => $ad['monto'],
+                                'id_adelanto' => $ad['id'],
+                            ]);
                             if (empty($ad['es_manual'])) {
                                 $sumaAutomatica += $ad['monto'];
                             }

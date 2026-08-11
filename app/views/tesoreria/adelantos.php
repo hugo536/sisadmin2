@@ -94,7 +94,7 @@ $puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
                                                     data-bs-toggle="modal" data-bs-target="#modalVerDetalle"
                                                     data-id="<?php echo $ad['id']; ?>"
                                                     data-empleado="<?php echo htmlspecialchars($ad['empleado']); ?>"
-                                                    data-bs-toggle="tooltip" title="Ver Historial">
+                                                    title="Ver Historial">
                                                 <i class="bi bi-eye-fill fs-5"></i>
                                             </button>
 
@@ -104,7 +104,7 @@ $puedeRegistrar = tiene_permiso('tesoreria.pagos.registrar');
                                                         data-id="<?php echo $ad['id']; ?>"
                                                         data-empleado="<?php echo htmlspecialchars($ad['empleado']); ?>"
                                                         data-saldo="<?php echo $ad['saldo_pendiente']; ?>"
-                                                        data-bs-toggle="tooltip" title="Devolver Efectivo">
+                                                        title="Devolver Efectivo">
                                                     <i class="bi bi-arrow-counterclockwise fs-5"></i>
                                                 </button>
                                             <?php else: ?>

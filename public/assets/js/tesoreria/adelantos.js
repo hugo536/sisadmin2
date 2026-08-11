@@ -78,10 +78,12 @@
         // ==============================================================
         const modalVerDetalle = document.getElementById('modalVerDetalle');
         if (modalVerDetalle) {
+            let historialController = null;
+
             modalVerDetalle.addEventListener('show.bs.modal', async function (event) {
-                const button = event.relatedTarget;
-                const idAdelanto = button.getAttribute('data-id');
-                const nombreEmpleado = button.getAttribute('data-empleado');
+                const button = event.relatedTarget?.closest('.btn-detalles');
+                const idAdelanto = button?.getAttribute('data-id');
+                const nombreEmpleado = button?.getAttribute('data-empleado') || '--';
 
                 // 5.1 Asignar el nombre al UI
                 const spanNombre = document.getElementById('detNombreEmpleado');
@@ -90,16 +92,30 @@
                 const tbody = document.getElementById('bodyHistorialAdelanto');
                 if (!tbody) return;
 
+                if (!button || !idAdelanto) {
+                    tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>No se pudo identificar el adelanto.</td></tr>`;
+                    return;
+                }
+
                 // 5.2 Mostrar estado de carga
                 tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Cargando historial...</td></tr>`;
 
+                let timeoutId = null;
                 try {
                     // 5.3 Hacer petición AJAX al backend
                     // Asume que tienes una ruta así. El fallback a '' es por si window.BASE_URL no está definido.
                     const baseUrl = window.BASE_URL || ''; 
                     const url = `${baseUrl}?ruta=tesoreria/adelantos&accion=historial&id=${idAdelanto}`;
                     
-                    const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    historialController?.abort();
+                    historialController = new AbortController();
+                    const requestController = historialController;
+                    timeoutId = window.setTimeout(() => requestController.abort(), 10000);
+                    const resp = await fetch(url, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                        signal: requestController.signal
+                    });
+                    if (!resp.ok) throw new Error(`Respuesta HTTP ${resp.status}`);
                     const data = await resp.json();
 
                     tbody.innerHTML = ''; // Limpiar tabla
@@ -126,8 +142,20 @@
                     }
                 } catch (error) {
                     console.error('Error al cargar historial:', error);
-                    tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error de conexión al cargar los datos.</td></tr>`;
+                    const mensaje = error.name === 'AbortError'
+                        ? 'La consulta tardó demasiado. Vuelve a intentarlo.'
+                        : 'Error de conexión al cargar los datos.';
+                    tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>${mensaje}</td></tr>`;
+                } finally {
+                    if (timeoutId !== null) window.clearTimeout(timeoutId);
                 }
+            });
+
+            modalVerDetalle.addEventListener('hidden.bs.modal', () => {
+                historialController?.abort();
+                historialController = null;
+                const tbody = document.getElementById('bodyHistorialAdelanto');
+                if (tbody) tbody.innerHTML = '';
             });
         }
     }
