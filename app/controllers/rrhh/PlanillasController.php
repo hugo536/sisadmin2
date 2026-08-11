@@ -77,11 +77,15 @@ class PlanillasController extends Controlador
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
 
+        // NUEVO: Obtener cuentas de tesorería activas
+        $cuentasTesoreria = $this->planillasModel->obtenerCuentasTesoreria();
+
         $this->render('rrhh/planillas', [
             'ruta_actual' => 'planillas',
             'lotes_recientes' => $lotesRecientes,
             'lote_actual' => $loteActual,
             'detalles_nomina' => $detallesNomina,
+            'cuentas' => $cuentasTesoreria, // Pasa la variable aquí
             'csrf_token' => $_SESSION['csrf_token']
         ]);
     }
@@ -331,5 +335,33 @@ class PlanillasController extends Controlador
 
         $dompdf->stream($nombreArchivo, ["Attachment" => 0]);
         exit;
+    }
+
+    /**
+     * ========================================================================
+     * 7. PAGAR PLANILLA (Egreso desde Tesorería)
+     * ========================================================================
+     */
+    public function pagar(): void
+    {
+        AuthMiddleware::handle();
+        // Aquí puedes requerir un permiso específico si lo deseas, ej: require_permiso('tesoreria.pagos');
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $idLote = (int) ($_POST['id_lote'] ?? 0);
+            
+            if ($idLote > 0) {
+                $exito = $this->planillasModel->registrarPagoLote($idLote, $_POST, AuthMiddleware::getUserId());
+                
+                if ($exito) {
+                    redirect("planillas?id_lote={$idLote}&ok=" . urlencode('Planilla pagada. El dinero ha sido descontado de tesorería correctamente.'));
+                } else {
+                    $errorMsg = $this->planillasModel->ultimoError ?? 'No se pudo registrar el pago. Verifica el saldo de la cuenta.';
+                    redirect("planillas?id_lote={$idLote}&error=" . urlencode($errorMsg));
+                }
+            } else {
+                redirect("planillas?error=" . urlencode('ID de lote inválido.'));
+            }
+        }
     }
 }

@@ -394,6 +394,15 @@
                 }
             });
         }
+
+        const formPagarLote = document.getElementById('formPagarLote');
+        if (formPagarLote) {
+            formPagarLote.addEventListener('submit', function (e) {
+                if (this.checkValidity()) {
+                    bloquearBotonSubmit(this, "Emitiendo Pagos...");
+                }
+            });
+        }
     }
 
     if (document.readyState === 'loading') {

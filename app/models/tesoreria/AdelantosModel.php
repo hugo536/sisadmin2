@@ -237,72 +237,40 @@ class AdelantosModel extends Modelo
                     FROM (
                         -- 1. Devoluciones manuales en caja/banco
                         SELECT 
-                            m.fecha AS fecha_raw,
+                            DATE(m.fecha) AS fecha_raw,
                             CONCAT('Devolución en ', COALESCE(c.nombre, 'Caja')) AS origen,
                             m.monto
                         FROM tesoreria_movimientos m
                         LEFT JOIN tesoreria_cuentas c ON m.id_cuenta = c.id
                         WHERE m.origen = 'ADELANTO' 
-                        AND m.tipo = 'INGRESO' 
-                        AND m.id_origen = :id_adelanto_tesoreria
-                        AND m.deleted_at IS NULL
-                        
+                          AND m.tipo = 'INGRESO' 
+                          AND m.id_origen = :id_adelanto_tesoreria
+                          AND m.deleted_at IS NULL
+                          
                         UNION ALL
                         
-                        -- 2. Descuentos automáticos o manuales por planilla
+                        -- 2. Descuentos automáticos o manuales por planilla (SIN FILTRO DE ESTADO POR AHORA)
                         SELECT 
-                            n.fecha_fin AS fecha_raw,
+                            DATE(n.fecha_fin) AS fecha_raw,
                             CONCAT('Planilla Cerrada (Ref: ', COALESCE(n.referencia, 'S/R'), ')') AS origen,
                             nc.monto
                         FROM rrhh_nominas_conceptos nc
                         INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
                         INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
                         WHERE nc.id_adelanto_ref = :id_adelanto_planilla
-                        AND n.estado = 'APROBADO'
                     ) AS historial
                     ORDER BY fecha_raw DESC";
 
             $stmt = $this->db()->prepare($sql);
             
-            // CORRECCIÓN 1: Se añadieron los ':' en las claves
             $stmt->execute([
                 ':id_adelanto_tesoreria' => $idAdelanto,
                 ':id_adelanto_planilla' => $idAdelanto
             ]);
 
-            $historial = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-            // Compatibilidad con descuentos realizados antes de que los conceptos
-            // de planilla guardaran id_adelanto_ref. El saldo es la fuente contable
-            // del importe cancelado; mostramos cualquier diferencia no trazada para
-            // evitar afirmar que no hubo descuentos cuando la deuda ya fue reducida.
-            $stmtResumen = $this->db()->prepare(
-                "SELECT monto, saldo_pendiente FROM rrhh_adelantos WHERE id = :id LIMIT 1"
-            );
-            $stmtResumen->execute(['id' => $idAdelanto]);
-            $resumen = $stmtResumen->fetch(PDO::FETCH_ASSOC);
-
-            if ($resumen) {
-                $montoCancelado = max(0.0, (float) $resumen['monto'] - (float) $resumen['saldo_pendiente']);
-                $montoTrazado = array_sum(array_map(
-                    static fn(array $item): float => (float) ($item['monto'] ?? 0),
-                    $historial
-                ));
-                $montoAnterior = round($montoCancelado - $montoTrazado, 2);
-
-                if ($montoAnterior > 0.001) {
-                    $historial[] = [
-                        'fecha' => 'Sin fecha',
-                        'origen' => 'Descuento aplicado (registro anterior)',
-                        'monto' => $montoAnterior,
-                    ];
-                }
-            }
-
-            return $historial;
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
             
         } catch (PDOException $e) {
-            // CORRECCIÓN 2: Si falla la BD, registramos el error real para poder leerlo
             error_log("❌ Error SQL en obtenerHistorialAdelanto: " . $e->getMessage());
             return []; 
         }

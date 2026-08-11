@@ -38,8 +38,10 @@ $csrf_token = $csrf_token ?? '';
                                         <strong class="small text-dark text-truncate me-2"><?php echo htmlspecialchars($lote['referencia']); ?></strong>
                                         <?php if ($lote['estado'] === 'BORRADOR'): ?>
                                             <span class="badge bg-warning text-dark" style="font-size: 0.65rem;">BORRADOR</span>
+                                        <?php elseif ($lote['estado'] === 'APROBADO'): ?>
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.65rem;">POR PAGAR</span>
                                         <?php else: ?>
-                                            <span class="badge bg-success" style="font-size: 0.65rem;">CERRADO</span>
+                                            <span class="badge bg-success" style="font-size: 0.65rem;">PAGADO</span>
                                         <?php endif; ?>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-center">
@@ -92,11 +94,19 @@ $csrf_token = $csrf_token ?? '';
                                         <i class="bi bi-lock-fill me-2"></i>Cerrar Planilla
                                     </button>
                                 </form>
-                            <?php else: ?>
-                                <!-- Nota: Este es el botón que imprime todas las BOLETAS (El HTML de tickets que compartiste antes) -->
-                                <a href="<?php echo e(route_url('planillas/imprimir_masivo?id_lote=' . $lote_actual['id'])); ?>" target="_blank" class="btn btn-outline-secondary fw-bold px-4">
-                                    <i class="bi bi-files me-2"></i>Imprimir Boletas
-                                </a>
+                            <?php elseif ($lote_actual['estado'] === 'APROBADO'): ?>
+                                <!-- Indicador de Pendiente y Botón de Pagar (Sin botón redundante) -->
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 rounded-pill shadow-sm d-flex align-items-center fw-bold me-2">
+                                    <i class="bi bi-clock-history me-2"></i> Falta Pagar
+                                </span>
+                                <button type="button" class="btn btn-primary fw-bold shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#modalPagarPlanilla">
+                                    <i class="bi bi-cash-stack me-2"></i>Registrar Pago
+                                </button>
+                            <?php elseif ($lote_actual['estado'] === 'PAGADO'): ?>
+                                <!-- Indicador de Pagado Exitoso (Sin botón redundante) -->
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill shadow-sm d-flex align-items-center fw-bold me-2">
+                                    <i class="bi bi-check-circle-fill me-2"></i> Planilla Pagada
+                                </span>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -161,7 +171,7 @@ $csrf_token = $csrf_token ?? '';
                                             <!-- EMPLEADO -->
                                             <td class="text-start ps-4">
                                                 <div class="fw-bold text-dark" style="font-size: 0.95rem;"><?php echo htmlspecialchars($det['nombre_completo']); ?></div>
-                                                <div class="text-muted" style="font-size: 0.75rem;"><?php echo htmlspecialchars($det['cargo']); ?> | DNI: <?php echo htmlspecialchars((string)($emp['numero_documento'] ?? 'No registrado')); ?>
+                                                <div class="text-muted" style="font-size: 0.75rem;"><?php echo htmlspecialchars($det['cargo']); ?> | DNI: <?php echo htmlspecialchars((string)($det['numero_documento'] ?? 'No registrado')); ?></div>
                                             </td>
                                             
                                             <!-- ASISTENCIA -->
@@ -341,6 +351,60 @@ $csrf_token = $csrf_token ?? '';
     </div>
 </div>
 
+<?php if ($lote_actual && $lote_actual['estado'] === 'APROBADO'): ?>
+<!-- ============================================================== -->
+<!-- MODAL: REGISTRAR PAGO DE PLANILLA -->
+<!-- ============================================================== -->
+<div class="modal fade" id="modalPagarPlanilla" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-3 rounded-top-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack me-2"></i>Registrar Pago Masivo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form action="<?php echo e(route_url('planillas/pagar')); ?>" method="POST" id="formPagarLote">
+                <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token); ?>">
+                <input type="hidden" name="id_lote" value="<?php echo $lote_actual['id']; ?>">
+                
+                <div class="modal-body p-4 bg-light" style="margin-top: -10px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
+                    
+                    <div class="alert alert-primary bg-primary-subtle border-primary-subtle text-primary-emphasis fw-medium mb-4">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        El dinero saldrá directamente de Tesorería a los empleados, afectando el saldo de la cuenta seleccionada.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Monto Total a Pagar (Neto)</label>
+                        <div class="input-group shadow-sm">
+                            <span class="input-group-text bg-white border-secondary-subtle border-end-0 text-success fw-bold">S/</span>
+                            <input type="text" class="form-control bg-white shadow-none text-success fw-bold border-secondary-subtle border-start-0 fs-5" value="<?php echo number_format((float)($lote_actual['total_neto'] ?? 0), 2); ?>" readonly>
+                        </div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label fw-bold small text-muted">¿De qué cuenta saldrá el dinero? <span class="text-danger">*</span></label>
+                        <select class="form-select bg-white shadow-none border-secondary-subtle fw-medium" name="id_cuenta" required>
+                            <option value="" disabled selected>Seleccione cuenta origen...</option>
+                            <?php foreach (($cuentas ?? []) as $cta): ?>
+                                <option value="<?php echo $cta['id']; ?>">
+                                    <?php echo htmlspecialchars($cta['nombre']); ?> 
+                                    (Saldo: <?php echo $cta['moneda']; ?> <?php echo number_format((float)$cta['saldo_actual'], 2); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                </div>
+                <div class="modal-footer bg-white border-top shadow-sm rounded-bottom-4">
+                    <button type="button" class="btn btn-light fw-bold text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary fw-bold px-4"><i class="bi bi-check-lg me-2"></i>Procesar Pago</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- ============================================================== -->
 <!-- TEMPLATE: ITEM DE MOVIMIENTO (Para JS) -->
 <!-- ============================================================== -->
@@ -372,8 +436,6 @@ $csrf_token = $csrf_token ?? '';
                     <option value="Mérito">Mérito / Productividad</option>
                     <option value="Movilidad">Movilidad / Viáticos</option>
                     <option value="Reintegro">Reintegro de Gastos</option>
-                    <!-- NUEVA OPCIÓN AÑADIDA AQUÍ -->
-                    <option value="Adelanto">Adelanto / Préstamo</option> 
                     <option value="Penalidad">Penalidad / Multa</option>
                     <option value="Otros">Otros</option>
                 </select>
@@ -394,3 +456,4 @@ $csrf_token = $csrf_token ?? '';
         </div>
     </div>
 </template>
+

@@ -411,7 +411,13 @@ class PlanillasModel extends Modelo
                     continue;
                 }
 
+                // 🔒 NUEVO CANDADO DE SEGURIDAD:
+                if (strtoupper($categoria) === 'ADELANTO' && $idAdelantoRef === null) {
+                    throw new InvalidArgumentException('Intento de fraude o error de sistema: No se puede registrar un descuento por Adelanto sin estar vinculado a un registro válido de Tesorería.');
+                }
+
                 $llave = $tipo . '::' . strtolower($categoria) . '::' . strtolower($descripcion);
+                // ... código existente ...
                 if (isset($vistos[$llave])) throw new InvalidArgumentException('Hay movimientos repetidos.');
                 $vistos[$llave] = true;
 
@@ -681,5 +687,110 @@ class PlanillasModel extends Modelo
         unset($b);
 
         return $boletas;
+    }
+
+    // ========================================================================
+    // MÉTODOS PARA EL PAGO DE LA NÓMINA (INTEGRACIÓN CON TESORERÍA)
+    // ========================================================================
+
+    public function obtenerCuentasTesoreria(): array
+    {
+        $sql = "SELECT c.id, c.nombre, c.moneda, c.tipo,
+                       (COALESCE(c.saldo_inicial, 0)
+                        + COALESCE((SELECT SUM(CASE
+                            WHEN m.estado = 'CONFIRMADO' AND m.tipo IN ('COBRO', 'INGRESO') THEN m.monto
+                            WHEN m.estado = 'CONFIRMADO' AND m.tipo IN ('PAGO', 'EGRESO') THEN -m.monto
+                            ELSE 0 END)
+                          FROM tesoreria_movimientos m
+                          WHERE m.id_cuenta = c.id AND m.deleted_at IS NULL), 0)) AS saldo_actual
+                FROM tesoreria_cuentas c
+                WHERE c.estado = 1 AND c.deleted_at IS NULL
+                ORDER BY c.nombre ASC";
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function registrarPagoLote(int $idLote, array $datos, int $userId): bool
+    {
+        $db = $this->db();
+        $this->ultimoError = '';
+        
+        try {
+            $this->asegurarEsquemaMovimientosPlanilla($db);
+            $db->beginTransaction();
+
+            $idCuenta = (int) ($datos['id_cuenta'] ?? 0);
+            if ($idCuenta <= 0) throw new Exception("Cuenta de tesorería inválida.");
+
+            // 1. Verificar estado del lote
+            $lote = $this->obtenerLotePorId($idLote);
+            if (!$lote || strtoupper(trim((string)$lote['estado'])) !== 'APROBADO') {
+                throw new Exception("El lote no está aprobado o ya fue pagado.");
+            }
+
+            // 2. Obtener saldo de cuenta y método de pago
+            $stmtCta = $db->prepare("SELECT tipo, moneda FROM tesoreria_cuentas WHERE id = ? FOR UPDATE");
+            $stmtCta->execute([$idCuenta]);
+            $cuentaInfo = $stmtCta->fetch(PDO::FETCH_ASSOC);
+            if (!$cuentaInfo) throw new Exception("La cuenta seleccionada no existe.");
+            
+            $idMetodoPago = $this->obtenerMetodoPagoPlanilla($db, (string) $cuentaInfo['tipo']);
+            
+            // 3. Obtener empleados a pagar (Neto > 0)
+            $detalles = $this->obtenerDetallesLote($idLote);
+            $totalAPagar = 0;
+            $sqlInsertMovimiento = "INSERT INTO tesoreria_movimientos
+                (id_cuenta, id_metodo_pago, id_tercero, tipo, origen, id_origen, moneda, monto, observaciones, fecha, estado, created_by, updated_by, created_at, updated_at)
+                VALUES (:cta, :met, :tercero, 'PAGO', 'PLANILLA', :origen, :mon, :monto, :obs, CURDATE(), 'CONFIRMADO', :uid, :uid, NOW(), NOW())";
+            $stmtMov = $db->prepare($sqlInsertMovimiento);
+
+            // 4. Insertar un movimiento por cada empleado pagado
+            foreach ($detalles as $det) {
+                $monto = (float) $det['neto_a_pagar'];
+                if ($monto > 0) {
+                    $totalAPagar += $monto;
+                    $obs = "Pago de Planilla ({$lote['referencia']}) - Lote ID: {$idLote}";
+                    
+                    $stmtMov->execute([
+                        'cta' => $idCuenta,
+                        'met' => $idMetodoPago,
+                        'tercero' => $det['id_tercero'],
+                        'origen' => $idLote,
+                        'mon' => $cuentaInfo['moneda'],
+                        'monto' => $monto,
+                        'obs' => $obs,
+                        'uid' => $userId
+                    ]);
+                }
+            }
+
+            // 5. Actualizar Lote a Pagado
+            $db->prepare("UPDATE rrhh_nominas SET estado = 'PAGADO', fecha_pago = CURDATE() WHERE id = ?")->execute([$idLote]);
+
+            $db->commit();
+            return true;
+        } catch (Exception $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            $this->ultimoError = $e->getMessage();
+            error_log("Error al pagar Lote ID {$idLote}: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function asegurarEsquemaMovimientosPlanilla(PDO $db): void
+    {
+        $stmt = $db->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS 
+                            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tesoreria_movimientos' AND COLUMN_NAME = 'origen'");
+        $columna = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($columna && !str_contains(strtoupper((string)$columna['COLUMN_TYPE']), "'PLANILLA'")) {
+            $db->exec("ALTER TABLE tesoreria_movimientos MODIFY COLUMN origen ENUM('CXC','CXP','ADELANTO','PLANILLA') NOT NULL");
+        }
+    }
+
+    private function obtenerMetodoPagoPlanilla(PDO $db, string $tipoCuenta): int
+    {
+        $nombre = strtoupper($tipoCuenta) === 'BANCO' ? 'Transferencia' : 'Efectivo';
+        $stmt = $db->prepare('SELECT id FROM tesoreria_metodos_pago WHERE nombre = :nombre AND estado = 1 AND deleted_at IS NULL LIMIT 1');
+        $stmt->execute(['nombre' => $nombre]);
+        return (int) $stmt->fetchColumn() ?: 1; // Fallback al id 1 si no encuentra
     }
 }
