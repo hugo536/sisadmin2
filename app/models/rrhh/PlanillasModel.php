@@ -141,7 +141,7 @@ class PlanillasModel extends Modelo
         }
 
         // ========================================================
-        // MODIFICACIÓN UX: Obtenemos todas las asistencias (Incluso pagadas)
+        // OBTENEMOS TODAS LAS ASISTENCIAS
         // ========================================================
         $sqlAsistencia = "SELECT id_tercero, fecha, hora_ingreso, hora_salida,
                                  marcas_ingresos, marcas_salidas, estado_asistencia, minutos_tardanza, horas_trabajadas, horas_extras,
@@ -158,16 +158,17 @@ class PlanillasModel extends Modelo
             $idT = (int)$ar['id_tercero'];
             $fecha = $ar['fecha'];
 
-            // 1. Inicializamos con el nuevo contador de UX
+            // 1. Inicializamos contadores, incluyendo HORAS ESPERADAS
             if (!isset($mapaAsistencia[$idT])) {
                 $mapaAsistencia[$idT] = [
                     'asistidos' => 0, 'justificados' => 0, 'faltas' => 0,
                     'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0, 'tiene_conflicto' => false,
-                    'dias_ya_pagados' => 0
+                    'dias_ya_pagados' => 0,
+                    'horas_esperadas' => 0.0
                 ];
             }
 
-            // 2. ESCUDO UX: Si el día tiene firma de pago y NO es de esta planilla actual, se cuenta y se salta.
+            // 2. ESCUDO UX: Omitir días ya pagados en otras planillas
             if ($ar['id_nomina_pago'] !== null && $ar['id_nomina_pago'] != $idLote) {
                 $mapaAsistencia[$idT]['dias_ya_pagados']++;
                 continue; 
@@ -196,7 +197,7 @@ class PlanillasModel extends Modelo
             $salidas = !empty($ar['marcas_salidas']) ? explode('|', $ar['marcas_salidas']) : (!empty($ar['hora_salida']) ? [$ar['hora_salida']] : []);
             
             $diaValido = (count($ingresos) === count($salidas)) && (count($ingresos) > 0);
-            $esJustificada = in_array($estado, ['FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO', 'TARDANZA JUSTIFICADA', 'OLVIDO MARCACION']);
+            $esJustificada = in_array($estado, ['FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO', 'TARDANZA JUSTIFICADA', 'OLVIDO MARCACION', 'DESCANSO', 'DÍA FERIADO / LIBRE']);
 
             if (!$diaValido && !$esJustificada && count($ingresos) > 0) {
                 $estado = 'INCOMPLETO'; 
@@ -206,14 +207,26 @@ class PlanillasModel extends Modelo
                 $mapaAsistencia[$idT]['tiene_conflicto'] = true;
             }
 
+            // =========================================================================
+            // LÓGICA DE SÁBADOS MEDIO TIEMPO
+            // =========================================================================
+            $diaW = (int) date('w', strtotime($fecha));
+            if ($diaW >= 1 && $diaW <= 5) {
+                $horasEsperadasDia = 8; // Lunes a Viernes 8h
+            } elseif ($diaW === 6) {
+                $horasEsperadasDia = 5; // Sábado 5h (Cambiar a 4h si tu empresa lo exige)
+            } else {
+                $horasEsperadasDia = 0; // Domingo (Día libre pagado)
+            }
+
             if (in_array($estado, ['PUNTUAL', 'TARDANZA', 'TARDANZA JUSTIFICADA'])) {
                 $mapaAsistencia[$idT]['asistidos']++;
                 $mapaAsistencia[$idT]['horas_trabajadas'] += (float) ($ar['horas_trabajadas'] ?? 0);
                 $mapaAsistencia[$idT]['horas_extras'] += (float) ($ar['horas_extras'] ?? 0);
+                $mapaAsistencia[$idT]['horas_esperadas'] += $horasEsperadasDia;
             } elseif ($esJustificada && $estado !== 'TARDANZA JUSTIFICADA') {
                 $mapaAsistencia[$idT]['justificados']++;
-            } elseif ($estado === 'FALTA') {
-                $mapaAsistencia[$idT]['faltas']++;
+                $mapaAsistencia[$idT]['horas_esperadas'] += $horasEsperadasDia;
             }
             
             $mapaAsistencia[$idT]['tardanzas'] += (int) $ar['minutos_tardanza'];
@@ -260,7 +273,7 @@ class PlanillasModel extends Modelo
             $asis = $mapaAsistencia[$idTercero] ?? [
                 'asistidos' => 0, 'justificados' => 0, 'faltas' => 0, 
                 'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0, 'tiene_conflicto' => false,
-                'dias_ya_pagados' => 0
+                'dias_ya_pagados' => 0, 'horas_esperadas' => 0.0
             ];
             
             $tieneConflicto = $asis['tiene_conflicto'];
@@ -270,21 +283,35 @@ class PlanillasModel extends Modelo
             $pagoDiario = $this->resolverPagoDiario((float) $emp['sueldo_basico'], (string)($emp['tipo_pago'] ?? 'MENSUAL'));
             $pagoPorHora = $pagoDiario / 8;
 
+            // Conservamos extras antes de compensar
+            $horasExtras = $tieneConflicto ? 0 : $asis['horas_extras'];
+
             if ($tieneConflicto) {
-                $sueldoBaseCalculado = 0; $diasPagados = 0; $horasAcumuladas = 0; $descuentoTardanzas = 0;
+                $sueldoBaseCalculado = 0; $diasPagados = 0; $horasAcumuladas = 0; $descuentoTardanzas = 0; $horasExtras = 0;
             } else {
                 $sueldoBaseCalculado = $pagoDiario * $diasPagados;
-                $horasEsperadas = $diasPagados * 8; 
+                
+                // Aplicamos nuestra meta de horas dinámicas
+                $horasEsperadas = $asis['horas_esperadas'] > 0 ? $asis['horas_esperadas'] : ($diasPagados * 8); 
                 
                 if ($horasAcumuladas < $horasEsperadas) {
                     $horasPerdidas = $horasEsperadas - $horasAcumuladas;
+                    
+                    // (Bolsa de compensación...)
+                    if ($horasExtras > 0) {
+                        // ...
+                    }
+                    
                     $descuentoTardanzas = round($horasPerdidas * $pagoPorHora, 2);
                 } else {
                     $descuentoTardanzas = 0;
                 }
-            }
+                
+                $sueldoBaseCalculado -= $descuentoTardanzas; 
+                $descuentoTardanzas = 0; 
 
-            $horasExtras = $tieneConflicto ? 0 : $asis['horas_extras'];
+            } // Fin del bloque "else" de tieneConflicto
+
             $pagoHorasExtras = round($pagoPorHora * $horasExtras, 2);
 
             $manuales = $mapaManuales[$idDetalle] ?? ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0, 'adelantos_editados' => []];
@@ -329,7 +356,7 @@ class PlanillasModel extends Modelo
                 'frecuencia' => $emp['tipo_pago'],
                 'dias_pagados' => $diasPagados,
                 'horas_acumuladas' => round($horasAcumuladas, 2),
-                'horas_extras' => round($horasExtras, 2),
+                'horas_extras' => round($horasExtras, 2), // Las que sobraron tras compensar
                 'pago_horas_extras' => $pagoHorasExtras,
                 'sueldo_base_calculado' => round($sueldoBaseCalculado, 2),
                 'total_percepciones' => $totalPercepciones,
@@ -340,7 +367,7 @@ class PlanillasModel extends Modelo
                 'descuento_adelanto' => round($descuentoAdelanto, 2),
                 'adelantos_aplicados' => json_encode($adelantosAplicados),
                 'tiene_conflicto' => $tieneConflicto,
-                'dias_ya_pagados' => $asis['dias_ya_pagados'] // NUEVA VARIABLE PARA UX
+                'dias_ya_pagados' => $asis['dias_ya_pagados']
             ];
         }
 

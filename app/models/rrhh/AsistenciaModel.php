@@ -219,11 +219,16 @@ class AsistenciaModel extends Modelo
         } elseif ($marcasCount > 0 && !$paresCompletos) {
             $estado = 'INCOMPLETO';
         } else {
-            $estado = 'FALTA';
+            // Evaluamos qué día de la semana es la fecha que se está procesando
+            $diaW = (int) date('w', strtotime($fecha));
+            
+            // Si es 0 (Domingo), automáticamente es Descanso, si no, es Falta real.
+            $estado = ($diaW === 0) ? 'DESCANSO' : 'FALTA';
         }
 
         return [
             'hora_ingreso' => $horaIngreso,
+            // ... (el retorno sigue igual)
             'hora_salida' => $horaSalida,
             'hora_entrada_esperada' => null, 
             'hora_salida_esperada' => null,  
@@ -354,10 +359,17 @@ class AsistenciaModel extends Modelo
             $ingresosArr = $reg && $reg['marcas_ingresos'] ? array_filter(explode('|', $reg['marcas_ingresos']), fn($h) => $h !== '') : [];
             $salidasArr = $reg && $reg['marcas_salidas'] ? array_filter(explode('|', $reg['marcas_salidas']), fn($h) => $h !== '') : [];
             
+            // BÚSCALO ASÍ Y REEMPLÁZALO:
             if (!$reg) {
                 if ($fechaStr < date('Y-m-d')) {
-                    $estadoStr = 'FALTA';
-                    $badgeClass = 'bg-danger-subtle text-danger border border-danger-subtle fw-bold';
+                    // --- NUEVA LÓGICA AUTOMÁTICA PARA EL DOMINGO ---
+                    if ($diaW === 0) { // 0 = Domingo en PHP
+                        $estadoStr = 'DESCANSO';
+                        $badgeClass = 'bg-info-subtle text-info border border-info-subtle fw-bold';
+                    } else {
+                        $estadoStr = 'FALTA';
+                        $badgeClass = 'bg-danger-subtle text-danger border border-danger-subtle fw-bold';
+                    }
                 } else {
                     $estadoStr = 'Sin datos';
                     $badgeClass = 'bg-light text-muted border';
