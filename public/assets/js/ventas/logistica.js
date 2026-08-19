@@ -17,23 +17,14 @@ const modalDevolucionVentaEl = document.getElementById('modalDevolucionVenta');
 const tbodyDevolucionVenta = document.querySelector('#tablaDetalleDevolucionVenta tbody');
 const devolucionVentaDocumentoId = document.getElementById('devolucionVentaDocumentoId');
 const devolucionVentaMotivo = document.getElementById('devolucionVentaMotivo');
-const devolucionVentaResolucion = document.getElementById('devolucionVentaResolucion');
 const devolucionVentaTotal = document.getElementById('devolucionVentaTotal');
 const devolucionVentaMotivoHint = document.getElementById('devolucionVentaMotivoHint');
-const devolucionVentaResolucionHint = document.getElementById('devolucionVentaResolucionHint');
 
 const DEVOLUCION_VENTA_MOTIVOS = {
     producto_incorrecto: { label: 'Producto incorrecto entregado', reingresaInventario: true, hint: 'La mercadería regresa al stock vendible.' },
     error_despacho: { label: 'Error de despacho / cantidad excedente', reingresaInventario: true, hint: 'La devolución corrige la salida y repone stock vendible.' },
     cliente_rechaza: { label: 'Cliente rechaza pedido (packs sellados)', reingresaInventario: true, hint: 'La mercadería vuelve al stock vendible si está sellada e intacta.' },
     producto_defectuoso: { label: 'Producto defectuoso, roto o dañado', reingresaInventario: false, hint: 'No reingresa a stock vendible (cuarentena/merma).' },
-};
-
-const DEVOLUCION_VENTA_RESOLUCIONES = {
-    saldo_favor: 'Se registra como saldo a favor del cliente (sin salida de caja).',
-    descuento_cxc: 'Se descuenta en CxC / próxima facturación.',
-    salida_dinero: 'Se registra para reembolso en tesorería (salida de dinero).',
-    reembolso_dinero: 'Se registra para reembolso en tesorería (salida de dinero).',
 };
 
 // --- REFERENCIAS DOM: DESPACHO ---
@@ -74,25 +65,7 @@ function actualizarHintDevolucionVenta() {
     
     if (devolucionVentaMotivoHint) {
         const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoActual];
-        devolucionVentaMotivoHint.textContent = motivoCfg ? motivoCfg.hint : 'Selecciona un motivo para definir cómo tratar la mercadería devuelta.';
-    }
-
-    if (devolucionVentaResolucionHint) {
-        const resolucionSeleccionada = devolucionVentaResolucion?.value || '';
-        const resolucionHint = DEVOLUCION_VENTA_RESOLUCIONES[resolucionSeleccionada];
-        devolucionVentaResolucionHint.textContent = resolucionHint || 'Selecciona una resolución comercial para registrar el impacto financiero.';
-    }
-
-    const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
-    const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazo');
-
-    if (filaSwitchReemplazo && checkReemplazo) {
-        if (motivoActual === 'producto_defectuoso') {
-            filaSwitchReemplazo.classList.remove('d-none');
-        } else {
-            filaSwitchReemplazo.classList.add('d-none');
-            checkReemplazo.checked = false;
-        }
+        devolucionVentaMotivoHint.textContent = motivoCfg ? motivoCfg.hint : 'Selecciona por qué regresa la mercadería.';
     }
 }
 
@@ -113,24 +86,37 @@ function agregarFilaDevolucionVenta(linea) {
     if (!tbodyDevolucionVenta) return;
 
     const cantidadDespachada = Number(linea.cantidad_despachada || 0);
-    const precioUnitario = Number(linea.precio_unitario || 0);
+    const esBonificacion = Number(linea.es_bonificacion || 0);
+    
+    // Si es regalo, el precio a devolver es 0 financieramente
+    const precioUnitario = esBonificacion === 1 ? 0 : Number(linea.precio_unitario || 0);
+
+    let nombreItemHtml = linea.item_nombre || '';
+    let claseFila = '';
+
+    // Distinción visual para los regalos
+    if (esBonificacion === 1) {
+        claseFila = 'bg-info bg-opacity-10';
+        nombreItemHtml += ` <span class="badge bg-info-subtle text-info border border-info-subtle ms-2">🎁 Regalo</span>`;
+    }
 
     const tr = document.createElement('tr');
     tr.dataset.idDetalle = Number(linea.id || 0);
     tr.dataset.idItem = String(linea.id_item || '');
     tr.dataset.max = String(cantidadDespachada);
     tr.dataset.precio = String(precioUnitario);
+    if (claseFila) tr.className = claseFila;
 
     tr.innerHTML = `
         <td class="align-middle py-3 ps-3">
-            <div class="fw-bold text-dark" style="font-size: 0.95rem;">${linea.item_nombre || ''}</div>
+            <div class="fw-bold text-dark" style="font-size: 0.95rem;">${nombreItemHtml}</div>
         </td>
         <td class="text-center align-middle">
             <span class="badge bg-info-subtle text-info rounded-pill px-3 py-2 fw-bold">
                 ${cantidadDespachada.toFixed(2)}
             </span>
         </td>
-        <td class="text-center align-middle fw-semibold text-secondary">
+        <td class="text-center align-middle fw-semibold ${esBonificacion === 1 ? 'text-success' : 'text-secondary'}">
             S/ ${precioUnitario.toFixed(2)}
         </td>
         <td class="align-middle px-2">
@@ -178,31 +164,6 @@ export async function abrirModalDevolucionVenta(idDocumento) {
     tbodyDevolucionVenta.innerHTML = '';
     if (devolucionVentaTotal) devolucionVentaTotal.textContent = 'S/ 0.00';
 
-    if (devolucionVentaResolucion) {
-        const montoPagado = Number(venta.monto_pagado || 0);
-        const totalPedido = Number(venta.total || 0);
-        
-        devolucionVentaResolucion.innerHTML = ''; 
-
-        if (montoPagado < totalPedido) {
-            devolucionVentaResolucion.innerHTML = `
-                <optgroup label="🔄 Ajuste de Deuda (Sin pagos previos)">
-                    <option value="descuento_cxc" selected>Reducción / Anulación de Deuda</option>
-                </optgroup>
-            `;
-        } 
-        else {
-            devolucionVentaResolucion.innerHTML = `
-                <optgroup label="💳 Saldo a Favor (No sale dinero)">
-                    <option value="saldo_favor" selected>Nota de Crédito (Descontar de futuras compras / CxC)</option>
-                </optgroup>
-                <optgroup label="💵 Salida de Dinero (Tesorería)">
-                    <option value="reembolso_dinero">Reembolso al cliente (Efectivo / Transferencia)</option>
-                </optgroup>
-            `;
-        }
-    }
-
     let lineasDisponibles = 0;
     detalle.forEach((linea) => {
         if (Number(linea.cantidad_despachada || 0) > 0.0001) {
@@ -222,30 +183,13 @@ export async function abrirModalDevolucionVenta(idDocumento) {
 
 // Event Listeners Estáticos para Devoluciones
 devolucionVentaMotivo?.addEventListener('change', actualizarHintDevolucionVenta);
-devolucionVentaResolucion?.addEventListener('change', actualizarHintDevolucionVenta);
 
+// Evento del botón para confirmar la devolución
 document.getElementById('btnConfirmarDevolucionVenta')?.addEventListener('click', async () => {
     try {
         const motivoSeleccionado = devolucionVentaMotivo?.value || '';
         const motivoCfg = DEVOLUCION_VENTA_MOTIVOS[motivoSeleccionado];
         if (!motivoCfg) throw new Error('Seleccione un motivo de devolución válido.');
-
-        const resolucionSeleccionada = devolucionVentaResolucion?.value || '';
-        if (!DEVOLUCION_VENTA_RESOLUCIONES[resolucionSeleccionada]) {
-            throw new Error('Seleccione una resolución comercial válida.');
-        }
-
-        if (resolucionSeleccionada === 'salida_dinero' || resolucionSeleccionada === 'reembolso_dinero') {
-            const confirmacionTesoreria = await Swal.fire({
-                icon: 'warning',
-                title: 'Se registrará salida de dinero',
-                text: 'Verifique que tesorería procese el reembolso para completar la devolución.',
-                showCancelButton: true,
-                confirmButtonText: 'Continuar',
-                cancelButtonText: 'Cancelar',
-            });
-            if (!confirmacionTesoreria.isConfirmed) return;
-        }
 
         const detalle = [];
         tbodyDevolucionVenta?.querySelectorAll('tr').forEach((tr) => {
@@ -262,15 +206,12 @@ document.getElementById('btnConfirmarDevolucionVenta')?.addEventListener('click'
 
         if (!detalle.length) throw new Error('Ingrese al menos una cantidad a devolver mayor a cero.');
 
-        const checkReemplazo = document.getElementById('devolucionEnviarReemplazo');
-        const enviarReemplazo = checkReemplazo ? checkReemplazo.checked : false;
-
         const payload = await postJson(`${urls.index}&accion=guardar_devolucion`, {
             id_documento: Number(devolucionVentaDocumentoId?.value || 0),
             motivo: motivoCfg.label,
             motivo_codigo: motivoSeleccionado,
-            resolucion: resolucionSeleccionada,
-            enviar_reemplazo: enviarReemplazo, 
+            resolucion: 'saldo_favor', // <-- Envío automático al backend
+            enviar_reemplazo: false, // <-- Apagado permanentemente para evitar conflictos
             detalle,
         });
 

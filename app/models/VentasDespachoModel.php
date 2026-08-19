@@ -801,8 +801,8 @@ class VentasDespachoModel extends Modelo
             require_once BASE_PATH . '/app/models/inventario/InventarioModel.php';
             $inventarioModel = new InventarioModel();
 
-            // FÓRMULA ANTIBALAS: Leemos precio_unitario y cantidad desde la BD
-            $stmtDetVenta = $db->prepare('SELECT id, id_item, id_presentacion, cantidad_despachada, cantidad, precio_unitario, (cantidad * precio_unitario) as subtotal_linea
+            // FÓRMULA ANTIBALAS CORREGIDA: Leemos total_linea real y si es bonificación
+            $stmtDetVenta = $db->prepare('SELECT id, id_item, id_presentacion, cantidad_despachada, cantidad, precio_unitario, total_linea, COALESCE(es_bonificacion, 0) as es_bonificacion
                                           FROM ventas_documentos_detalle
                                           WHERE id = :id_detalle
                                             AND id_documento_venta = :id_documento
@@ -846,10 +846,18 @@ class VentasDespachoModel extends Modelo
                     throw new RuntimeException('No puede devolver más cantidad que la ya despachada.');
                 }
 
-                // CÁLCULO SEGURO DEL PRECIO DE DEVOLUCIÓN
-                $subtotalLineaBD = (float) ($detVenta['subtotal_linea'] ?? 0);
-                $cantidadTotalBD = (float) ($detVenta['cantidad'] ?? 1);
-                $precioSeguro = $cantidadTotalBD > 0 ? ($subtotalLineaBD / $cantidadTotalBD) : (float) ($detVenta['precio_unitario'] ?? 0);
+                // 👇 CÁLCULO SEGURO DEL PRECIO CORREGIDO 👇
+                $esBonificacion = (int) ($detVenta['es_bonificacion'] ?? 0);
+                
+                if ($esBonificacion === 1) {
+                    // Si fue un regalo, el cliente no pagó nada, por lo tanto el reembolso es S/ 0.00
+                    $precioSeguro = 0.0;
+                } else {
+                    // Usamos el total_linea REAL que se guardó al crear la venta
+                    $subtotalLineaBD = (float) ($detVenta['total_linea'] ?? 0);
+                    $cantidadTotalBD = (float) ($detVenta['cantidad'] ?? 1);
+                    $precioSeguro = $cantidadTotalBD > 0 ? ($subtotalLineaBD / $cantidadTotalBD) : (float) ($detVenta['precio_unitario'] ?? 0);
+                }
 
                 $subtotal = round($cantidad * $precioSeguro, 4);
                 $totalDevuelto += $subtotal;

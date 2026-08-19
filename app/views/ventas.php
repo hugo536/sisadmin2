@@ -3,11 +3,10 @@ $ventas = $ventas ?? [];
 $filtros = $filtros ?? [];
 $almacenes = $almacenes ?? [];
 
-// Configuración de Estados con diseño "Subtle" (Estándar del sistema)
+// Configuración de Estados Optimizada
 $estadoLabels = [
     0 => ['texto' => 'Borrador', 'clase' => 'bg-secondary-subtle text-secondary border border-secondary-subtle'],
-    1 => ['texto' => 'Pendiente', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'],
-    2 => ['texto' => 'Aprobado', 'clase' => 'bg-primary-subtle text-primary border border-primary-subtle'],
+    2 => ['texto' => 'Aprobado (Por Despachar)', 'clase' => 'bg-primary-subtle text-primary border border-primary-subtle'],
     3 => ['texto' => 'Cerrado/Entregado', 'clase' => 'bg-success-subtle text-success border border-success-subtle'],
     4 => ['texto' => 'Devuelto Total', 'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
     5 => ['texto' => 'Dev. Parcial', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'], 
@@ -58,7 +57,9 @@ $formatearFechaDMY = static function ($fecha): string {
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
             <form method="get" action="" class="row g-2 align-items-center" id="formFiltrosVentas">
-                <input type="hidden" name="ruta" value="ventas/index"> <div class="col-12 col-lg-3">
+                <input type="hidden" name="ruta" value="ventas/index"> 
+                
+                <div class="col-12 col-lg-3">
                     <div class="input-group shadow-sm">
                         <span class="input-group-text bg-light border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
                         <input type="search" name="q" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="filtroBusqueda" placeholder="Buscar código, cliente..." value="<?php echo e((string) ($filtros['q'] ?? '')); ?>">
@@ -75,28 +76,26 @@ $formatearFechaDMY = static function ($fecha): string {
                         <?php endforeach; ?>
                     </select>
                 </div>
-      
+
                 <div class="col-12 col-lg-2">
                     <select name="orden_fecha" class="form-select bg-light border-secondary-subtle shadow-sm text-secondary" id="filtroOrdenFecha" title="Ordenar por fecha">
                         <option value="pedido" <?php echo (($filtros['orden_fecha'] ?? 'pedido') === 'pedido') ? 'selected' : ''; ?>>Orden: Pedido</option>
                         <option value="emision" <?php echo (($filtros['orden_fecha'] ?? '') === 'emision') ? 'selected' : ''; ?>>Orden: Emisión</option>
                     </select>
                 </div>
-                <div class="col-12 col-md-7 col-lg-5">  
+                
+                <div class="col-12 col-md-12 col-lg-5">  
                     <div class="input-group shadow-sm">
                         <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
-                        <!-- JS intercepta este ID: filtroFechaDesde -->
-                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0" value="<?php echo e($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-30 days'))); ?>">
-                        <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
-                        <!-- JS intercepta este ID: filtroFechaHasta -->
-                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0" value="<?php echo e($filtros['fecha_hasta'] ?? date('Y-m-d')); ?>">
+                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle" value="<?php echo e($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-30 days'))); ?>">
                         
-                        <!-- Botón cambiado a type="button" con id="btnFiltrarFechas" -->
+                        <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
+                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0 border-secondary-subtle" value="<?php echo e($filtros['fecha_hasta'] ?? date('Y-m-d')); ?>">
+                        
                         <button type="button" id="btnFiltrarFechas" class="btn btn-light border text-primary px-3 transition-hover" title="Aplicar filtros" style="z-index: 0;">
                             <i class="bi bi-funnel-fill"></i>
                         </button>
                         
-                        <!-- Enlace corregido para resetear la vista de ventas -->
                         <a href="<?php echo e(route_url('ventas/index')); ?>" class="btn btn-light border text-danger px-3 transition-hover d-flex align-items-center spa-link" title="Limpiar filtros" style="z-index: 0;">
                             <i class="bi bi-eraser-fill"></i>
                         </a>
@@ -163,13 +162,16 @@ $formatearFechaDMY = static function ($fecha): string {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <div class="fw-bold text-dark" title="Fecha de Registro: <?php echo date('d/m/Y H:i', strtotime($venta['created_at'])); ?>">
-                                            <i class="bi bi-calendar3 me-1 text-muted"></i> <?php echo e($formatearFechaDMY($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?>
+                                        <!-- Fecha de Emisión y Hora (Todo en una sola línea) -->
+                                        <div class="fw-bold text-dark mb-1" title="Registro en sistema: <?php echo date('d/m/Y H:i', strtotime($venta['created_at'])); ?>">
+                                            <i class="bi bi-calendar3 me-1 text-primary"></i> 
+                                            <?php echo e($formatearFechaDMY($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?> - <?php echo date('H:i', strtotime($venta['created_at'])); ?>
                                         </div>
                                         
+                                        <!-- Fecha de salida de almacén (Solo aparece si ya se despachó) -->
                                         <?php if (!empty($venta['fecha_despacho'])): ?>
-                                            <div class="text-info small fw-semibold mt-1" title="Fecha de salida de almacén">
-                                                <i class="bi bi-truck me-1"></i> <?php echo e($formatearFechaDMY($venta['fecha_despacho'])); ?>
+                                            <div class="text-success small fw-semibold" title="Fecha de salida de almacén">
+                                                <i class="bi bi-truck me-1"></i> Despachado: <?php echo e($formatearFechaDMY($venta['fecha_despacho'])); ?>
                                             </div>
                                         <?php endif; ?>
                                     </td>
@@ -461,7 +463,6 @@ $formatearFechaDMY = static function ($fecha): string {
     </div>
 </div>
 
-
 <div class="modal fade" id="modalDespacho" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
@@ -593,7 +594,6 @@ $formatearFechaDMY = static function ($fecha): string {
     </div>
 </div>
 
-
 <div class="modal fade" id="modalDevolucionVenta" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow">
@@ -605,58 +605,33 @@ $formatearFechaDMY = static function ($fecha): string {
                 <input type="hidden" id="devolucionVentaDocumentoId" value="0">
 
                 <div class="row mb-4 g-3">
-                    <div class="col-md-6">
+                    <!-- Columna 1: El Motivo (Lo único que el usuario debe elegir) -->
+                    <div class="col-md-7">
                         <label class="form-label fw-bold small text-muted">Motivo de Devolución <span class="text-danger">*</span></label>
-                        <select id="devolucionVentaMotivo" class="form-select border-warning-subtle" required>
+                        <select id="devolucionVentaMotivo" class="form-select border-warning-subtle shadow-sm" required>
                             <option value="">Seleccione un motivo...</option>
                             <optgroup label="📦 Restaura al Inventario Vendible">
                                 <option value="producto_incorrecto">Producto incorrecto entregado</option>
                                 <option value="error_despacho">Error de despacho / cantidad excedente</option>
                                 <option value="cliente_rechaza">Cliente rechaza pedido (Packs sellados e intactos)</option>
                             </optgroup>
-
                             <optgroup label="⚠️ Descuenta o Va a Cuarentena / Mermas">
                                 <option value="producto_defectuoso">Producto defectuoso, roto o dañado</option>
                             </optgroup>
                         </select>
-                        <small id="devolucionVentaMotivoHint" class="text-muted d-block mt-1"></small>
+                        <small id="devolucionVentaMotivoHint" class="text-muted d-block mt-1">Selecciona por qué regresa la mercadería.</small>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold small text-muted">Resolución Comercial <span class="text-danger">*</span></label>
-                        <select id="devolucionVentaResolucion" class="form-select border-warning-subtle" required>
-
-                            <optgroup label="🔄 Ajuste de Deuda (Sin pagos previos)">
-                                <option value="descuento_cxc" selected>Reducción / Anulación de Deuda</option>
-                            </optgroup>
-
-                            <optgroup label="💳 Saldo a Favor (No sale dinero)">
-                                <option value="saldo_favor">Nota de Crédito (Descontar de futuras compras / CxC)</option>
-                            </optgroup>
-                            
-                            <optgroup label="💵 Salida de Dinero (Tesorería)">
-                                <option value="reembolso_dinero">Reembolso al cliente (Efectivo / Transferencia)</option>
-                            </optgroup>
-                            
-                        </select>
-                        <small id="devolucionVentaResolucionHint" class="text-muted d-block mt-1"></small>
-                    </div>
-                </div>
-
-                <div class="row mb-4" id="filaSwitchReemplazo">
-                     <div class="col-12">
-                        <div class="form-check form-switch bg-white border rounded-3 p-3 d-flex align-items-center shadow-sm">
-                            <input class="form-check-input ms-0 me-3" type="checkbox" id="devolucionEnviarReemplazo" checked style="cursor: pointer; transform: scale(1.3); margin-top: 0;">
-                            <div>
-                                <label class="form-check-label fw-bold text-dark d-block" for="devolucionEnviarReemplazo" style="cursor: pointer;">
-                                    Enviar mercadería de reemplazo (Cambio / Garantía)
-                                </label>
-                                <small class="text-muted">
-                                    El pedido volverá a estado "Pendiente" para que almacén pueda despachar los productos de reemplazo.
-                                </small>
-                            </div>
+                    
+                    <!-- Columna 2: Mensaje Automático (Reemplaza al Select) -->
+                    <div class="col-md-5">
+                        <label class="form-label fw-bold small text-muted">Impacto Financiero</label>
+                        <div class="p-2 bg-light border border-secondary-subtle rounded text-secondary" style="font-size: 0.8rem; line-height: 1.4;">
+                            <i class="bi bi-info-circle-fill text-primary me-1"></i>
+                            El valor devuelto <strong>descontará la deuda</strong> automáticamente. Si el pedido ya está pagado, se generará un <strong>Saldo a Favor</strong> para el cliente.
                         </div>
                     </div>
                 </div>
+
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="table-responsive border rounded-3 mb-0">
@@ -909,6 +884,31 @@ $formatearFechaDMY = static function ($fecha): string {
                     </div>
                 </div>
 
+                <!-- Tarjeta de Historial de Devoluciones (Aparece solo si hay devoluciones) -->
+                <div class="card border-warning-subtle shadow-sm mt-4 d-none fade-in" id="resumenVentaDevolucionesContenedor">
+                    <div class="card-body p-0">
+                        <div class="p-3 border-bottom bg-warning-subtle rounded-top d-flex align-items-center">
+                            <i class="bi bi-arrow-return-left text-warning-emphasis me-2 fs-5"></i>
+                            <h6 class="mb-0 fw-bold text-warning-emphasis">Historial de Devoluciones</h6>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0 table-hover" id="tablaResumenDevoluciones">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3 text-secondary small fw-bold">Fecha / Hora</th>
+                                        <th class="text-secondary small fw-bold">Motivo</th>
+                                        <th class="text-secondary small fw-bold">Productos Devueltos</th>
+                                        <th class="text-end pe-3 text-secondary small fw-bold">Monto Devuelto</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white">
+                                    <!-- Contenido inyectado por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
             </div>
             
             <!-- Pie del Modal -->
@@ -987,30 +987,25 @@ $formatearFechaDMY = static function ($fecha): string {
 
 <template id="templateFilaPago">
     <div class="d-flex align-items-center gap-2 mb-2 fila-pago fade-in">
-        <!-- Select de Cuentas poblado con PHP -->
-        <select class="form-select form-select-sm shadow-none pago-cuenta border-success-subtle" required>
-            <option value="">Cuenta Destino...</option>
+        <!-- Select de Cuentas -->
+        <select class="form-select form-select-sm shadow-none pago-cuenta border-success-subtle select-cuenta-inmediato" required>
+            <option value="" selected disabled>Cuenta Destino...</option>
             <?php foreach ($cuentas as $cuenta): ?>
                 <option value="<?php echo (int) ($cuenta['id'] ?? 0); ?>">
-                    <?php echo e($cuenta['nombre'] ?? ''); ?>
+                    <?php echo e($cuenta['nombre'] ?? ''); ?> (<?php echo e($cuenta['moneda'] ?? 'PEN'); ?>)
                 </option>
             <?php endforeach; ?>
         </select>
         
-        <!-- Select de Métodos poblado con PHP -->
-        <select class="form-select form-select-sm shadow-none pago-metodo border-success-subtle" required>
-            <option value="">Método...</option>
-            <?php foreach ($metodos as $metodo): ?>
-                <option value="<?php echo (int) ($metodo['id'] ?? 0); ?>">
-                    <?php echo e($metodo['nombre'] ?? ''); ?>
-                </option>
-            <?php endforeach; ?>
+        <!-- Select de Métodos (AHORA VACÍO PARA FILTRADO DINÁMICO) -->
+        <select class="form-select form-select-sm shadow-none pago-metodo border-success-subtle select-metodo-inmediato" required disabled>
+            <option value="" selected disabled>Método...</option>
         </select>
         
         <!-- Monto -->
         <div class="input-group input-group-sm" style="width: 150px;">
             <span class="input-group-text bg-success-subtle text-success border-success-subtle fw-bold">S/</span>
-            <input type="number" class="form-control text-end shadow-none pago-monto border-success-subtle fw-bold text-dark" min="0.01" step="0.01" placeholder="0.00" required>
+            <input type="number" class="form-control text-end shadow-none pago-monto border-success-subtle fw-bold text-dark input-monto-inmediato" min="0.01" step="0.01" placeholder="0.00" required readonly>
         </div>
         
         <!-- Botón Eliminar Fila -->
@@ -1019,4 +1014,3 @@ $formatearFechaDMY = static function ($fecha): string {
         </button>
     </div>
 </template>
-

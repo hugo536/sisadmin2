@@ -153,7 +153,14 @@ function arrancarModuloVentas() {
                         const res = await postJson(urls.anular, { id });
                         await Swal.fire('Anulado', res.mensaje, 'success');
                         recargarTabla();
-                    } catch (err) { Swal.fire('Error', err.message, 'error'); }
+                    } catch (err) { 
+                        // 👇 CAMBIO AQUÍ: Usamos formato de objeto y la propiedad 'html'
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se puede anular',
+                            html: err.message
+                        }); 
+                    }
                 }
             }
             if (btn.classList.contains('btn-aprobar')) {
@@ -163,7 +170,14 @@ function arrancarModuloVentas() {
                         const res = await postJson(urls.aprobar, { id });
                         await Swal.fire('Aprobado', res.mensaje, 'success');
                         recargarTabla();
-                    } catch (err) { Swal.fire('Error', err.message, 'error'); }
+                    } catch (err) { 
+                        // 👇 CAMBIO AQUÍ TAMBIÉN
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se puede aprobar',
+                            html: err.message
+                        }); 
+                    }
                 }
             }
 

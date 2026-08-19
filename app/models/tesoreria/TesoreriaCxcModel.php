@@ -232,10 +232,30 @@ class TesoreriaCxcModel extends Modelo
         $this->recalcularEstado($idCxc, $userId);
     }
 
+    public function pagarConSaldoFavor(int $idCxc, int $idCliente, float $monto, int $userId): void
+    {
+        $db = $this->db();
+        
+        // 1. Descontamos el crédito del cliente en su perfil
+        $stmtRestar = $db->prepare('UPDATE terceros SET saldo_favor = GREATEST(COALESCE(saldo_favor, 0) - :monto, 0) WHERE id = :id_cliente AND deleted_at IS NULL');
+        $stmtRestar->execute(['monto' => $monto, 'id_cliente' => $idCliente]);
+
+        // 2. Sumamos el pago a la deuda (Sin tocar las cajas ni los bancos)
+        $stmtCxc = $db->prepare('UPDATE tesoreria_cxc 
+                                 SET monto_pagado = COALESCE(monto_pagado, 0) + :monto,
+                                     updated_by = :user, 
+                                     updated_at = NOW()
+                                 WHERE id = :id');
+        $stmtCxc->execute(['monto' => $monto, 'id' => $idCxc, 'user' => $userId]);
+
+        // 3. Recalculamos si el pedido ya se pagó completo
+        $this->recalcularEstado($idCxc, $userId);
+    }
+
     public function obtenerCuentasActivas(): array
     {
-        // Consulta corregida: Se retiró "metodos_pago" para evitar el error de SQL
-        $stmt = $this->db()->query('SELECT id, nombre, moneda FROM tesoreria_cuentas WHERE estado = 1 AND deleted_at IS NULL');
+        // 👇 CAMBIO AQUÍ: Agregamos "metodos_pago" a la lista de columnas seleccionadas 👇
+        $stmt = $this->db()->query('SELECT id, nombre, moneda, metodos_pago FROM tesoreria_cuentas WHERE estado = 1 AND deleted_at IS NULL');
         
         if (!$stmt) {
             return []; // Protección por si la consulta falla

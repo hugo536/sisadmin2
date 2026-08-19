@@ -405,53 +405,60 @@ class VentasDocumentoModel extends Modelo
         $stmtVenta->execute(['id' => $idDocumento]);
         $estadoActual = (int) $stmtVenta->fetchColumn();
 
+        // 1. Bloqueo de Despachos (Estados 3, 4 y 5). Si ya salió mercadería, la única forma es devolverla.
         if ($estadoActual === 3 || $estadoActual === 4 || $estadoActual === 5) {
-            throw new RuntimeException('El pedido ya tiene mercadería despachada. No se puede anular, debe ir a la opción "Registrar Devolución".');
+            throw new RuntimeException(
+                "Este pedido ya tiene mercadería despachada.<br><br>" .
+                "<b>Pasos a seguir:</b><br>" .
+                "1. Vaya a 'Registrar Devolución' para retornar el stock.<br>" .
+                "2. Si el cliente ya pagó, vaya a Tesorería y anule el recibo."
+            );
         }
 
         // B. Verificar si hay dinero en caja (Cuentas por Cobrar)
         try {
-            // Buscamos usando la columna correcta: id_documento_venta
             $stmtCxc = $db->prepare('SELECT monto_pagado FROM tesoreria_cxc WHERE id_documento_venta = :id_documento AND deleted_at IS NULL LIMIT 1');
             $stmtCxc->execute(['id_documento' => $idDocumento]);
             $cxc = $stmtCxc->fetch(PDO::FETCH_ASSOC);
 
             if ($cxc !== false && (float)$cxc['monto_pagado'] > 0) {
-                throw new RuntimeException('El pedido tiene pagos registrados (S/ ' . number_format((float)$cxc['monto_pagado'], 2) . '). Primero debe ir a Tesorería y anular el recibo de pago.');
+                throw new RuntimeException(
+                    "El pedido tiene pagos registrados por S/ " . number_format((float)$cxc['monto_pagado'], 2) . ".<br><br>" .
+                    "<b>Pasos para anular:</b><br>" .
+                    "1. Vaya al menú lateral: <b>Tesorería ➔ Movimientos</b>.<br>" .
+                    "2. Busque el cobro de este cliente y anúlelo (botón rojo en Acciones).<br>" .
+                    "3. Regrese a esta pantalla y vuelva a intentar anular el pedido."
+                );
             }
-        } catch (\Throwable $e) {
-            // Ignoramos pacíficamente si por alguna razón la tabla no está accesible
+        } catch (PDOException $e) {
+            // Solo atrapamos PDOException (errores de BD si la tabla no existe).
         }
 
         // --- 2. PROCESO DE ANULACIÓN ---
         $db->beginTransaction();
 
         try {
-            // Anular la cabecera del documento
             $stmt = $db->prepare('UPDATE ventas_documentos
                                   SET estado = 9,
-                                      deleted_at = NOW(),
-                                      deleted_by = :deleted_user,
                                       updated_by = :updated_user,
                                       updated_at = NOW()
                                   WHERE id = :id
                                     AND deleted_at IS NULL');
             $stmt->execute([
                 'id' => $idDocumento,
-                'deleted_user' => $userId,
                 'updated_user' => $userId,
             ]);
             
             if ($stmt->rowCount() === 0) {
                 throw new RuntimeException('No se pudo anular el pedido o ya estaba anulado.');
             }
-
-            // Anular el detalle
+            // cuando abras el ojo (ver), te sigan apareciendo los productos que se anularon
             $db->prepare('UPDATE ventas_documentos_detalle
-                          SET deleted_at = NOW(), updated_by = :user, updated_at = NOW()
+                          SET updated_by = :user, updated_at = NOW()
                           WHERE id_documento_venta = :id_documento
                             AND deleted_at IS NULL')
                 ->execute(['id_documento' => $idDocumento, 'user' => $userId]);
+
 
             // --- 3. LIMPIEZA: Anular también la deuda pendiente en Tesorería ---
             try {

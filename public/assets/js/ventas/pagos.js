@@ -17,6 +17,13 @@ export const DOM_PAGOS = {
     btnAgregarPagoInmediato: document.getElementById('btnAgregarPagoInmediato')
 };
 
+// --- ESTADO VIRTUAL DE SALDOS ---
+export let saldoFavorAplicado = 0;
+
+export function limpiarSaldoFavor() {
+    saldoFavorAplicado = 0;
+}
+
 // ==========================================
 // 1. FILTRADO DINÁMICO (LA MAGIA DE OPCIÓN B)
 // ==========================================
@@ -30,7 +37,6 @@ export function filtrarMetodosPorCuentaVentas(selectCuenta, selectMetodo) {
     // Limpiamos el select
     selectMetodo.innerHTML = '<option value="" selected disabled>Método...</option>';
 
-    // Conversión segura
     const arrayCuentas = Array.isArray(cuentasDisponibles) 
                          ? cuentasDisponibles 
                          : Object.values(cuentasDisponibles || {});
@@ -40,9 +46,7 @@ export function filtrarMetodosPorCuentaVentas(selectCuenta, selectMetodo) {
                          : Object.values(metodosDisponibles || {});
 
     if (!idCuentaSeleccionada) {
-        arrayMetodos.forEach(m => {
-            selectMetodo.insertAdjacentHTML('beforeend', `<option value="${m.id}">${m.nombre}</option>`);
-        });
+        selectMetodo.disabled = true;
         return;
     }
 
@@ -54,11 +58,7 @@ export function filtrarMetodosPorCuentaVentas(selectCuenta, selectMetodo) {
 
     let rawMetodos = cuentaObj.metodos_pago;
 
-    if (rawMetodos === null || rawMetodos === "" || rawMetodos === "null" || rawMetodos === "[]") {
-        tieneFiltro = true;       
-        metodosPermitidos = [];   
-    } 
-    else if (rawMetodos !== undefined) {
+    if (rawMetodos !== null && rawMetodos !== "" && rawMetodos !== "null" && rawMetodos !== "[]" && rawMetodos !== undefined) {
         try {
             let parsed = rawMetodos;
             while(typeof parsed === 'string') {
@@ -73,38 +73,47 @@ export function filtrarMetodosPorCuentaVentas(selectCuenta, selectMetodo) {
         }
     }
 
+    // Normalizamos para comparar tanto por ID como por Nombre (insensible a mayúsculas/acentos)
     const permitidosNormalizados = metodosPermitidos.map(m => String(m).trim().toLowerCase());
-    let encontroPrevio = false;
 
     arrayMetodos.forEach(m => {
-        const nombreDB = String(m.nombre).trim().toLowerCase();
-        const esValido = !tieneFiltro || permitidosNormalizados.some(p => nombreDB.includes(p) || p.includes(nombreDB));
+        const idStr = String(m.id).trim().toLowerCase();
+        const nombreStr = String(m.nombre).trim().toLowerCase();
+
+        // Es válido si no hay filtro, o si coincide el ID o el Nombre con los checks guardados
+        const esValido = !tieneFiltro || permitidosNormalizados.some(p => p === idStr || p === nombreStr || nombreStr.includes(p));
 
         if (esValido) {
             const opt = document.createElement('option');
             opt.value = m.id;
             opt.textContent = m.nombre;
             selectMetodo.appendChild(opt);
-
-            if (String(m.id) === String(valorPrevio)) encontroPrevio = true;
         }
     });
 
     // ========================================================
-    // LÓGICA DE SELECCIÓN AUTOMÁTICA
+    // AUTO-SELECCIÓN POR DEFECTO
     // ========================================================
-    if (selectMetodo.options.length <= 1) {
-        // No hay métodos válidos
+    const opcionesValidas = selectMetodo.querySelectorAll('option:not([disabled])');
+
+    if (opcionesValidas.length === 0) {
+        // No tiene métodos vinculados
         selectMetodo.innerHTML = '<option value="" selected disabled>Sin métodos configurados</option>';
-    } else if (selectMetodo.options.length === 2) {
-        // Solo hay 1 método válido (Opción 0 es "Método...", Opción 1 es el método real como "Efectivo")
-        selectMetodo.selectedIndex = 1;
-        // IMPORTANTE: Disparamos el evento 'change' para que se desbloquee el input del monto
+        selectMetodo.disabled = true;
+    } else if (opcionesValidas.length === 1) {
+        // 👇 SI SOLO HAY 1 MÉTODO (Ej: Solo Efectivo), SE SELECCIONA AUTOMÁTICAMENTE
+        selectMetodo.disabled = false;
+        selectMetodo.value = opcionesValidas[0].value;
+        // Disparamos el evento para habilitar el campo del monto
         selectMetodo.dispatchEvent(new Event('change'));
     } else {
-        // Hay 2 o más métodos válidos. Mantenemos el previo o forzamos al usuario a elegir.
-        if (encontroPrevio) selectMetodo.value = valorPrevio;
-        else selectMetodo.value = ""; 
+        // Hay varios métodos: si existía uno antes lo mantiene, si no deja para que el usuario elija
+        selectMetodo.disabled = false;
+        if (valorPrevio && [...opcionesValidas].some(o => o.value === String(valorPrevio))) {
+            selectMetodo.value = valorPrevio;
+        } else {
+            selectMetodo.value = "";
+        }
     }
 }
 
@@ -115,23 +124,29 @@ export function filtrarMetodosPorCuentaVentas(selectCuenta, selectMetodo) {
 export function calcularTotalCobroInmediato() {
     if (!DOM_PAGOS.contenedorMetodosPago) return;
     
-    let total = 0;
+    let pagosFisicos = 0;
     const filas = DOM_PAGOS.contenedorMetodosPago.querySelectorAll('.fila-pago-inmediato');
     
     filas.forEach(fila => {
-        const monto = parseFloat(fila.querySelector('.input-monto-inmediato').value) || 0;
-        total += monto;
+        pagosFisicos += parseFloat(fila.querySelector('.input-monto-inmediato').value) || 0;
     });
     
+    // El total real que cubre el cliente es su dinero físico + su crédito
+    const totalCubierto = pagosFisicos + saldoFavorAplicado;
+    
     if (DOM_PAGOS.totalPagadoInmediato) {
-        DOM_PAGOS.totalPagadoInmediato.textContent = `S/ ${total.toFixed(2)}`;
+        // Texto dinámico para que el cajero sepa qué es físico y qué es saldo
+        if (saldoFavorAplicado > 0) {
+            DOM_PAGOS.totalPagadoInmediato.innerHTML = `S/ ${totalCubierto.toFixed(2)} <br><small class="text-secondary" style="font-size: 0.7rem;">(S/ ${pagosFisicos.toFixed(2)} físico + S/ ${saldoFavorAplicado.toFixed(2)} crédito)</small>`;
+        } else {
+            DOM_PAGOS.totalPagadoInmediato.innerHTML = `S/ ${totalCubierto.toFixed(2)}`;
+        }
         
         const ventaTotal = document.getElementById('ventaTotal');
-        const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
-        const totalPedido = parseFloat(totalTexto) || 0;
+        const totalPedido = parseFloat(ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0') || 0;
 
-        if (total > totalPedido) DOM_PAGOS.totalPagadoInmediato.className = 'fw-bold fs-5 text-danger'; 
-        else if (total === totalPedido && total > 0) DOM_PAGOS.totalPagadoInmediato.className = 'fw-bold fs-5 text-success';
+        if (totalCubierto > totalPedido) DOM_PAGOS.totalPagadoInmediato.className = 'fw-bold fs-5 text-danger'; 
+        else if (totalCubierto === totalPedido && totalCubierto > 0) DOM_PAGOS.totalPagadoInmediato.className = 'fw-bold fs-5 text-success';
         else DOM_PAGOS.totalPagadoInmediato.className = 'fw-bold fs-5 text-dark';
     }
 
@@ -188,10 +203,12 @@ export function agregarFilaPagoInmediato(montoSugerido = '') {
     const btnQuitar = div.querySelector('.btn-quitar-pago');
 
     selCuentaInmediato.addEventListener('change', () => {
+        // 1. Esto filtra los métodos y autoselecciona si solo hay uno
         filtrarMetodosPorCuentaVentas(selCuentaInmediato, selMetodoInmediato);
-        selMetodoInmediato.disabled = !selCuentaInmediato.value;
-        selMetodoInmediato.value = '';
-        inputMontoInmediato.readOnly = true;
+        
+        // 2. Si se logró autoseleccionar un método, desbloqueamos el monto
+        inputMontoInmediato.readOnly = !selMetodoInmediato.value;
+        
         calcularTotalCobroInmediato();
     });
 
@@ -213,6 +230,10 @@ export function agregarFilaPagoInmediato(montoSugerido = '') {
     });
 
     calcularTotalCobroInmediato();
+    if (cuentasDisponibles.length === 1) {
+        selCuentaInmediato.value = cuentasDisponibles[0].id;
+        selCuentaInmediato.dispatchEvent(new Event('change'));
+    }
     return div;
 }
 
@@ -249,72 +270,47 @@ export function renderAlertaSaldoFavor(saldoFavor) {
 }
 
 function aplicarSaldoFavorAutomatizado(saldoDisponible) {
+    const btnUsar = document.getElementById('btnAplicarSaldoFavor');
     const ventaTotal = document.getElementById('ventaTotal');
-    const totalTexto = ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0';
-    const totalPedido = parseFloat(totalTexto) || 0;
+    const totalPedido = parseFloat(ventaTotal ? ventaTotal.textContent.replace(/[^\d.-]/g, '') : '0') || 0;
 
+    // 👇 1. LÓGICA PARA QUITAR EL SALDO (DESHACER) 👇
+    if (saldoFavorAplicado > 0) {
+        saldoFavorAplicado = 0; // Reseteamos nuestra variable virtual
+        if (btnUsar) {
+            btnUsar.innerHTML = 'Usar';
+            btnUsar.classList.replace('btn-secondary', 'btn-success');
+        }
+        calcularTotalCobroInmediato();
+        return; // Salimos de la función
+    }
+
+    // 👇 2. LÓGICA PARA APLICAR EL SALDO 👇
     if (totalPedido <= 0) return;
 
+    // Guardamos el monto virtualmente
+    saldoFavorAplicado = Math.min(saldoDisponible, totalPedido);
+
+    // Encendemos el switch de cobro si estaba apagado
     if (DOM_PAGOS.switchCobroInmediato && !DOM_PAGOS.switchCobroInmediato.checked) {
         DOM_PAGOS.switchCobroInmediato.checked = true;
         DOM_PAGOS.seccionCobroInmediato.classList.remove('d-none');
     }
     
-    DOM_PAGOS.contenedorMetodosPago.innerHTML = '';
+    // Limpiamos cajas de texto previas para evitar el problema de los S/ 13.00 de tu imagen
+    DOM_PAGOS.contenedorMetodosPago.innerHTML = ''; 
 
-    const montoAAplicar = Math.min(saldoDisponible, totalPedido);
-    const saldoRestante = totalPedido - montoAAplicar;
-
-    if (montoAAplicar > 0) {
-        const filaSaldo = agregarFilaPagoInmediato(montoAAplicar.toFixed(2));
-        if (filaSaldo) {
-            const cuentaSelect = filaSaldo.querySelector('.select-cuenta-inmediato');
-            const metodoSelect = filaSaldo.querySelector('.select-metodo-inmediato');
-            const inputMonto = filaSaldo.querySelector('.input-monto-inmediato');
-            const btnQuitar = filaSaldo.querySelector('.btn-quitar-pago');
-
-            const metodoSaldo = metodosDisponibles.find(m => m.nombre.toLowerCase().includes('saldo') || m.nombre.toLowerCase().includes('favor'));
-            if (metodoSaldo) metodoSelect.value = metodoSaldo.id;
-
-            const cuentaVirtual = cuentasDisponibles.find(c => c.nombre.toLowerCase().includes('saldo') || c.nombre.toLowerCase().includes('caja'));
-            if (cuentaVirtual) cuentaSelect.value = cuentaVirtual.id;
-
-            cuentaSelect.disabled = true;
-            metodoSelect.disabled = true;
-            inputMonto.readOnly = false; 
-            inputMonto.max = montoAAplicar.toFixed(2);
-            
-            inputMonto.addEventListener('input', function() {
-                const maxPermitido = Math.min(saldoDisponible, parseFloat(ventaTotal.textContent.replace(/[^\d.-]/g, '')) || 0);
-                if (parseFloat(this.value) > maxPermitido) {
-                    this.value = maxPermitido.toFixed(2); 
-                }
-            });
-
-            if (btnQuitar) {
-                btnQuitar.classList.remove('d-none');
-                btnQuitar.addEventListener('click', () => {
-                    const btnUsar = document.getElementById('btnAplicarSaldoFavor');
-                    if (btnUsar) {
-                        btnUsar.disabled = false;
-                        btnUsar.innerHTML = 'Usar';
-                        btnUsar.classList.replace('btn-secondary', 'btn-success');
-                    }
-                });
-            }
-        }
+    // Cambiamos el botón para que ahora diga "Quitar"
+    if (btnUsar) {
+        // YA NO USAMOS disabled = true;
+        btnUsar.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i>Quitar (S/ ${saldoFavorAplicado.toFixed(2)})`;
+        btnUsar.classList.replace('btn-success', 'btn-secondary');
     }
 
+    // Si el pedido es mayor al saldo (ej. Pedido S/ 100 y Saldo S/ 40), agregamos fila para cobrar la diferencia física
+    const saldoRestante = totalPedido - saldoFavorAplicado;
     if (saldoRestante > 0.001) {
         agregarFilaPagoInmediato(saldoRestante.toFixed(2));
-        DOM_PAGOS.contenedorMetodosPago.querySelectorAll('.btn-quitar-pago').forEach(btn => btn.classList.remove('d-none'));
-    }
-
-    const btnUsar = document.getElementById('btnAplicarSaldoFavor');
-    if (btnUsar) {
-        btnUsar.disabled = true;
-        btnUsar.innerHTML = '<i class="bi bi-check2"></i> Aplicado';
-        btnUsar.classList.replace('btn-success', 'btn-secondary');
     }
 
     calcularTotalCobroInmediato();

@@ -16,6 +16,7 @@ class VentasController extends Controlador
     private VentasDespachoModel $despachoModel;
     private InventarioModel $inventarioModel; 
     private TesoreriaCxcModel $tesoreriaCxcModel;
+    private TercerosClientesModel $clienteModel;
 
     public function __construct()
     {
@@ -23,6 +24,7 @@ class VentasController extends Controlador
         $this->despachoModel = new VentasDespachoModel();
         $this->inventarioModel = new InventarioModel(); 
         $this->tesoreriaCxcModel = new TesoreriaCxcModel();
+        $this->clienteModel = new TercerosClientesModel();
     }
 
     public function index(): void
@@ -45,7 +47,7 @@ class VentasController extends Controlador
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar') {
             json_response(['ok' => true, 'data' => $this->documentoModel->listar($filtros)]);
-            exit; // <-- CAMBIO VITAL
+            exit; 
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'ver') {
@@ -60,8 +62,7 @@ class VentasController extends Controlador
 
             // 👇 NUEVA MAGIA: Consultar el saldo a favor del cliente 👇
             $idCliente = (int) ($venta['id_cliente'] ?? 0);
-            $clienteModel = new TercerosClientesModel();
-            $venta['saldo_favor_cliente'] = $clienteModel->obtenerSaldoFavor($idCliente);
+            $venta['saldo_favor_cliente'] = $this->clienteModel->obtenerSaldoFavor($idCliente);
             // 👆 FIN DE LA NUEVA MAGIA 👆
 
             if (!empty($venta['detalle']) && is_array($venta['detalle'])) {
@@ -87,7 +88,7 @@ class VentasController extends Controlador
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_clientes') {
             $q = trim((string) ($_GET['q'] ?? ''));
             json_response(['ok' => true, 'data' => $this->documentoModel->buscarClientes($q)]);
-            exit; // <-- CAMBIO VITAL: Usar exit en lugar de return
+            exit; 
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_items') {
@@ -102,7 +103,7 @@ class VentasController extends Controlador
                 'data' => $this->documentoModel->buscarItems($q, $idAlmacen, $idCliente, $cantidad),
                 'meta' => $metaAcuerdo,
             ]);
-            exit; // <-- CAMBIO VITAL
+            exit; 
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'guardar_devolucion') {
@@ -114,10 +115,8 @@ class VentasController extends Controlador
                     throw new RuntimeException('Faltan datos obligatorios para la devolución.');
                 }
 
-                // NUEVO: Capturamos la decisión logística (por defecto falso si no viene, para cerrar la orden)
                 $enviarReemplazo = isset($payload['enviar_reemplazo']) ? (bool) $payload['enviar_reemplazo'] : false;
 
-                // Modificamos la llamada para pasar el nuevo parámetro al final
                 $this->despachoModel->registrarDevolucion(
                     (int) ($payload['id_documento'] ?? 0),
                     (string) ($payload['motivo'] ?? ''),
@@ -125,7 +124,7 @@ class VentasController extends Controlador
                     is_array($payload['detalle'] ?? null) ? $payload['detalle'] : [],
                     $userId,
                     (string) ($payload['motivo_codigo'] ?? ''),
-                    $enviarReemplazo // <-- AQUÍ PASAMOS EL DATO AL MODELO
+                    $enviarReemplazo
                 );
 
                 json_response([
@@ -157,10 +156,8 @@ class VentasController extends Controlador
 
                 // 2. Gestionar el Saldo a Favor si existen pagos
                 if ($montoPagado > 0 && $idCliente > 0) {
-                    $clienteModel = new TercerosClientesModel(); // <-- NOMBRE CORREGIDO
-                    
                     // A) Sumar al perfil del cliente
-                    $clienteModel->sumarSaldoFavor($idCliente, $montoPagado);
+                    $this->clienteModel->sumarSaldoFavor($idCliente, $montoPagado);
                     
                     // B) Desvincular pagos en tesorería y eliminar cuenta por cobrar
                     $this->tesoreriaCxcModel->convertirPagosASaldoFavor($idDocumento, $userId);
@@ -213,7 +210,6 @@ class VentasController extends Controlador
             $config = $empresaModel->obtener();
             require_once BASE_PATH . '/vendor/autoload.php';
 
-            // 👇 SOLUCIÓN: Aumentar la memoria a 512 MB o 1 GB temporalmente 👇
             ini_set('memory_limit', '1024M'); 
             
             $dompdf = new \Dompdf\Dompdf();
@@ -244,6 +240,8 @@ class VentasController extends Controlador
             $config = $empresaModel->obtener();
             require_once BASE_PATH . '/vendor/autoload.php';
 
+            ini_set('memory_limit', '1024M'); 
+
             $dompdf = new \Dompdf\Dompdf();
             $options = $dompdf->getOptions();
             $options->set(array('isRemoteEnabled' => true));
@@ -260,7 +258,6 @@ class VentasController extends Controlador
             return;
         }
 
-        // 👇 NUEVO BLOQUE: Impresión de Nota de Venta 👇
         if ((string) ($_GET['accion'] ?? '') === 'imprimir_nota_venta') {
             $id = (int) ($_GET['id'] ?? 0);
             if ($id <= 0) die('ID de pedido inválido.');
@@ -273,6 +270,8 @@ class VentasController extends Controlador
             $config = $empresaModel->obtener();
             require_once BASE_PATH . '/vendor/autoload.php';
 
+            ini_set('memory_limit', '1024M'); 
+
             $dompdf = new \Dompdf\Dompdf();
             $options = $dompdf->getOptions();
             $options->set(array('isRemoteEnabled' => true));
@@ -282,7 +281,6 @@ class VentasController extends Controlador
             $tipo_impresion = 'nota_venta';
 
             ob_start();
-            // Llamamos a la misma vista que ahora es dinámica
             require BASE_PATH . '/app/views/reportes/pdf_proforma.php';
             $html = (string) ob_get_clean();
 
@@ -292,7 +290,6 @@ class VentasController extends Controlador
             $dompdf->stream('NotaVenta_' . $venta['codigo'] . '.pdf', ['Attachment' => false]);
             return;
         }
-        // 👆 FIN DEL NUEVO BLOQUE 👆
 
         // Carga inicial de la página
         $this->render('ventas', [
@@ -300,7 +297,6 @@ class VentasController extends Controlador
             'ventas'      => $this->documentoModel->listar($filtros),
             'filtros'     => $filtros,
             'almacenes'   => $this->documentoModel->listarAlmacenesActivos(),
-            // Llamadas correctas y seguras al modelo
             'cuentas'     => $this->tesoreriaCxcModel->obtenerCuentasActivas(),
             'metodos'     => $this->tesoreriaCxcModel->obtenerMetodosActivos(),
         ]);
@@ -329,6 +325,7 @@ class VentasController extends Controlador
             
             $esCobroInmediato = filter_var($payload['cobro_inmediato'] ?? false, FILTER_VALIDATE_BOOLEAN);
             $metodosPago = is_array($payload['metodos_pago'] ?? null) ? $payload['metodos_pago'] : [];
+            $saldoFavorAplicado = (float) ($payload['saldo_favor_aplicado'] ?? 0);
 
             if ($idCliente <= 0 || !$this->documentoModel->clienteEsValido($idCliente)) {
                 throw new RuntimeException('Seleccione un cliente válido.');
@@ -338,9 +335,10 @@ class VentasController extends Controlador
                 throw new RuntimeException('Debe agregar al menos un ítem al pedido.');
             }
 
+            // VALIDACIÓN CORREGIDA: Exigimos métodos físicos SOLO si no hay saldo a favor cubriéndolo
             if ($esCobroInmediato && $tipoOperacion !== 'DONACION') {
-                if (empty($metodosPago)) {
-                    throw new RuntimeException('Debe especificar al menos un método de pago para el cobro inmediato.');
+                if (empty($metodosPago) && $saldoFavorAplicado <= 0) {
+                    throw new RuntimeException('Debe especificar al menos un método de pago físico o usar su saldo a favor para el cobro inmediato.');
                 }
                 foreach ($metodosPago as $pago) {
                     if (empty($pago['id_cuenta']) || empty($pago['id_metodo']) || empty($pago['monto']) || (float)$pago['monto'] <= 0) {
@@ -355,14 +353,12 @@ class VentasController extends Controlador
                 $rawId = trim((string) ($linea['id_item'] ?? ''));
                 $cantidad = (float) ($linea['cantidad'] ?? 0);
                 $precio = (float) ($linea['precio_unitario'] ?? 0);
-                $esBonificacion = (int) ($linea['es_bonificacion'] ?? 0); // <-- NUEVO: Capturar si es regalo
+                $esBonificacion = (int) ($linea['es_bonificacion'] ?? 0);
 
                 if ($rawId === '' || $rawId === '0') {
                     throw new RuntimeException('Hay líneas sin producto válido.');
                 }
 
-                // <-- CAMBIO CLAVE: Combinamos ID + Estado de Bonificación
-                // Esto permite comprar "Agua Belén" y tener "Agua Belén" como regalo simultáneamente
                 $claveUnica = $rawId . '_' . $esBonificacion;
 
                 if (isset($itemsUnicos[$claveUnica])) {
@@ -396,6 +392,12 @@ class VentasController extends Controlador
                 $deuda = $this->tesoreriaCxcModel->obtenerPorVenta($id);
                 if (empty($deuda)) throw new RuntimeException('No se pudo encontrar la deuda generada para aplicar el cobro.');
                 
+                // 1. APLICAMOS EL SALDO VIRTUAL (CRUCE DE CUENTAS)
+                if ($saldoFavorAplicado > 0) {
+                    $this->tesoreriaCxcModel->pagarConSaldoFavor((int) $deuda['id'], $idCliente, $saldoFavorAplicado, $userId);
+                }
+
+                // 2. APLICAMOS EL DINERO FÍSICO A LAS CAJAS
                 foreach ($metodosPago as $pago) {
                     $idCuenta = (int) $pago['id_cuenta'];
                     $idMetodo = (int) $pago['id_metodo'];
@@ -407,7 +409,7 @@ class VentasController extends Controlador
                         $idMetodo,
                         $montoPago,
                         $fechaEmision ?? date('Y-m-d'),
-                        'Cobro Inmediato (Múltiple) - Caja',
+                        'Cobro Inmediato (Caja)',
                         $userId
                     );
                 }
@@ -482,6 +484,7 @@ class VentasController extends Controlador
     public function despachar(): void
     {
         AuthMiddleware::handle();
+        require_permiso('ventas.despachar'); 
 
         if (!es_ajax()) {
             json_response(['ok' => false, 'mensaje' => 'Acceso denegado'], 400);
