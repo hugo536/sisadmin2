@@ -101,6 +101,37 @@ if (!function_exists('require_permiso')) {
     }
 }
 
+if (!function_exists('tiene_algun_permiso')) {
+    /**
+     * Comprueba alternativas de permiso sin debilitar la excepción del Super Admin.
+     * Es útil durante la transición de permisos que antes estaban incluidos en otro.
+     *
+     * @param array<int, string> $slugs
+     */
+    function tiene_algun_permiso(array $slugs): bool
+    {
+        foreach ($slugs as $slug) {
+            if (is_string($slug) && $slug !== '' && tiene_permiso($slug)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('require_algun_permiso')) {
+    /** @param array<int, string> $slugs */
+    function require_algun_permiso(array $slugs): void
+    {
+        if (tiene_algun_permiso($slugs)) {
+            return;
+        }
+
+        require_permiso((string) ($slugs[0] ?? 'permiso.no_configurado'));
+    }
+}
+
 // --------------------------------------------------------------------------
 // FUNCIONES DE URL Y REDIRECCIÓN (ADAPTADAS PARA TU ESTRUCTURA /public)
 // --------------------------------------------------------------------------

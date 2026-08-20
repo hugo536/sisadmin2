@@ -107,6 +107,7 @@ class VentasController extends Controlador
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'guardar_devolucion') {
+            require_algun_permiso(['ventas.despachar', 'ventas.aprobar']);
             try {
                 $payload = $this->leerJson();
                 $userId = $this->obtenerUsuarioId();
@@ -138,6 +139,7 @@ class VentasController extends Controlador
         }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'revertir') {
+            require_permiso('ventas.aprobar');
             try {
                 $payload = $this->leerJson();
                 $idDocumento = (int) ($payload['id'] ?? 0);
@@ -484,7 +486,9 @@ class VentasController extends Controlador
     public function despachar(): void
     {
         AuthMiddleware::handle();
-        require_permiso('ventas.despachar'); 
+        // Compatibilidad: los roles existentes recibían esta capacidad mediante
+        // ventas.aprobar antes de que ventas.despachar existiera en el catálogo.
+        require_algun_permiso(['ventas.despachar', 'ventas.aprobar']);
 
         if (!es_ajax()) {
             json_response(['ok' => false, 'mensaje' => 'Acceso denegado'], 400);

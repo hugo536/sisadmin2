@@ -152,6 +152,7 @@ class PermisoModel extends Modelo
             ['slug' => 'ventas.ver', 'nombre' => 'Ver Ventas', 'modulo' => 'VENTAS'],
             ['slug' => 'ventas.crear', 'nombre' => 'Crear Ventas', 'modulo' => 'VENTAS'],
             ['slug' => 'ventas.aprobar', 'nombre' => 'Aprobar Ventas', 'modulo' => 'VENTAS'],
+            ['slug' => 'ventas.despachar', 'nombre' => 'Despachar Ventas', 'modulo' => 'VENTAS'],
             ['slug' => 'ventas.eliminar', 'nombre' => 'Eliminar Ventas', 'modulo' => 'VENTAS'],
             ['slug' => 'compras.ver', 'nombre' => 'Ver Compras', 'modulo' => 'COMPRAS'],
             ['slug' => 'compras.crear', 'nombre' => 'Crear Compras', 'modulo' => 'COMPRAS'],

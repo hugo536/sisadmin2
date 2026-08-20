@@ -156,7 +156,7 @@ class TercerosController extends Controlador
                 }
 
                 if (es_ajax() && $accion === 'guardar_cargo') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
                     if ($nombre === '') throw new Exception('El nombre del cargo es obligatorio');
                     
@@ -166,7 +166,7 @@ class TercerosController extends Controlador
                 }
 
                 if (es_ajax() && $accion === 'editar_cargo') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int)($_POST['id'] ?? 0);
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
                     if ($id <= 0 || $nombre === '') throw new Exception('Datos inválidos');
@@ -177,7 +177,7 @@ class TercerosController extends Controlador
                 }
 
                 if (es_ajax() && $accion === 'eliminar_cargo') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int)($_POST['id'] ?? 0);
                     if ($id <= 0) throw new Exception('ID inválido');
                     
@@ -187,7 +187,7 @@ class TercerosController extends Controlador
                 }
 
                 if (es_ajax() && $accion === 'toggle_estado_cargo') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int)($_POST['id'] ?? 0);
                     $estado = ((int)($_POST['estado'] ?? 0) === 1) ? 1 : 0;
                     if ($id <= 0) throw new Exception('ID inválido');
@@ -204,7 +204,7 @@ class TercerosController extends Controlador
                 }
 
                 if (es_ajax() && $accion === 'guardar_area') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
                     if ($nombre === '') throw new Exception('El nombre del área es obligatorio');
                     
@@ -214,7 +214,7 @@ class TercerosController extends Controlador
                 }
 
                 if (es_ajax() && $accion === 'editar_area') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int)($_POST['id'] ?? 0);
                     $nombre = trim((string)($_POST['nombre'] ?? ''));
                     if ($id <= 0 || $nombre === '') throw new Exception('Datos inválidos');
@@ -225,7 +225,7 @@ class TercerosController extends Controlador
                 }
 
                 if (es_ajax() && $accion === 'eliminar_area') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int)($_POST['id'] ?? 0);
                     if ($id <= 0) throw new Exception('ID inválido');
                     
@@ -235,7 +235,7 @@ class TercerosController extends Controlador
                 }
 
                 if (es_ajax() && $accion === 'toggle_estado_area') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int)($_POST['id'] ?? 0);
                     $estado = ((int)($_POST['estado'] ?? 0) === 1) ? 1 : 0;
                     if ($id <= 0) throw new Exception('ID inválido');
