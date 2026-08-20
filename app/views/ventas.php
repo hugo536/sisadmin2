@@ -109,6 +109,7 @@ $formatearFechaDMY = static function ($fecha): string {
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table align-middle mb-0 table-pro" id="tablaVentas"
+                       data-manager-global="ventasManager" 
                        data-erp-table="true"
                        data-search-input="#filtroBusqueda"
                        data-pagination-controls="#ventasPaginationControls"
@@ -792,16 +793,16 @@ $formatearFechaDMY = static function ($fecha): string {
                                     </div>
                                     
                                     <div class="col-12"><hr class="text-muted opacity-25 my-1"></div>
-
                                     <div class="col-6">
-                                        <small class="text-muted fw-bold d-block mb-2">Fechas</small>
-                                        <div class="small mb-1">
-                                            <i class="bi bi-calendar3 text-muted me-1"></i> <span class="d-none d-sm-inline">Emisión:</span> 
-                                            <span class="fw-semibold text-dark d-block d-sm-inline" id="resumenVentaFechaEmision">-</span>
+                                        <small class="text-muted fw-bold d-block mb-1">Registro / Venta</small>
+                                        <div class="text-dark small text-truncate" title="Usuario que registró el pedido">
+                                            <i class="bi bi-person-circle text-secondary me-1"></i><span id="resumenVentaUsuarioRegistro" class="fw-medium">-</span>
                                         </div>
-                                        <div class="small">
-                                            <i class="bi bi-truck text-success me-1"></i> <span class="d-none d-sm-inline">Despacho:</span> 
-                                            <span class="fw-semibold text-success d-block d-sm-inline" id="resumenVentaFechaDespacho">-</span>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted fw-bold d-block mb-1">Despacho</small>
+                                        <div class="text-dark small text-truncate" title="Usuario que despachó la mercadería">
+                                            <i class="bi bi-person-check-fill text-success me-1"></i><span id="resumenVentaUsuarioDespacho" class="fw-medium">-</span>
                                         </div>
                                     </div>
                                     

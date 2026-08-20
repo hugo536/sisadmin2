@@ -18,10 +18,22 @@ function arrancarModuloCompras() {
     initPagosCompras();
     initLogistica();
 
-    // 2. Filtros y Búsquedas
+    // ==========================================
+    // 2. Filtros y Búsquedas (Secuestro SPA)
+    // ==========================================
+    
+    // BLOQUEAMOS EL ENVÍO NATIVO DEL FORMULARIO
+    const formFiltros = document.getElementById('formFiltrosCompras'); // Asegúrate que tu <form> en compras.php tenga este ID
+    if (formFiltros) {
+        formFiltros.addEventListener('submit', (e) => {
+            e.preventDefault(); 
+            recargarPagina();
+        });
+    }
+
     const filtroBusqueda = document.getElementById('filtroBusqueda');
     if (filtroBusqueda) {
-        filtroBusqueda.addEventListener('keydown', (e) => {
+        filtroBusqueda.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 recargarPagina();
@@ -29,11 +41,15 @@ function arrancarModuloCompras() {
         });
     }
 
-    const filtroEstado = document.getElementById('filtroEstado');
-    if (filtroEstado) filtroEstado.addEventListener('change', recargarPagina);
-
     const btnFiltrarFechas = document.getElementById('btnFiltrarFechas'); 
     if (btnFiltrarFechas) btnFiltrarFechas.addEventListener('click', recargarPagina);
+
+    // Múltiples selectores que recargan
+    const filtrosChange = ['filtroEstado', 'filtroOrdenFecha'];
+    filtrosChange.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', recargarPagina);
+    });
 
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
     const filtroFechaHasta = document.getElementById('filtroFechaHasta');

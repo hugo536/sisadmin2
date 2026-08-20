@@ -64,6 +64,7 @@ $formatearFechaDMY = static function ($fecha): string {
         </button>
     </div>
 
+    <!-- TARJETA DE FILTROS ALINEADA EXACTAMENTE COMO EN VENTAS -->
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
             <form method="get" action="" class="row g-2 align-items-center" id="formFiltrosCompras">
@@ -94,14 +95,13 @@ $formatearFechaDMY = static function ($fecha): string {
                     </select>
                 </div>
 
-                <div class="col-12 col-lg-5">
+                <div class="col-12 col-md-12 col-lg-5">  
                     <div class="input-group shadow-sm">
                         <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
-                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0" value="<?= e((string) ($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-30 days')))) ?>">
+                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle" value="<?= e((string) ($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-30 days')))) ?>">
                         
                         <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
-                        
-                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0" value="<?= e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d'))) ?>">
+                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0 border-secondary-subtle" value="<?= e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d'))) ?>">
                         
                         <!-- Botón de Filtrar -->
                         <button type="button" id="btnFiltrarFechas" class="btn btn-light border text-primary px-3 transition-hover" title="Aplicar filtros" style="z-index: 0;">
@@ -118,10 +118,12 @@ $formatearFechaDMY = static function ($fecha): string {
         </div>
     </div>
 
+    <!-- TABLA PRINCIPAL DE COMPRAS -->
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table align-middle mb-0 table-pro" id="tablaCompras"
+                       data-manager-global="comprasManager"
                        data-erp-table="true"
                        data-search-input="#filtroBusqueda"
                        data-pagination-controls="#comprasPaginationControls"
@@ -162,12 +164,16 @@ $formatearFechaDMY = static function ($fecha): string {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <div class="fw-bold text-dark" title="Fecha de Registro: <?= isset($orden['created_at']) ? date('d/m/Y H:i', strtotime($orden['created_at'])) : '' ?>">
-                                            <i class="bi bi-calendar3 me-1 text-muted"></i> <?= e($formatearFechaDMY($orden['fecha_orden'] ?? $orden['fecha_documento'] ?? '')) ?>
+                                        <!-- Fecha de Emisión y Hora (Todo en una sola línea) -->
+                                        <div class="fw-bold text-dark mb-1" title="Registro en sistema: <?= isset($orden['created_at']) ? date('d/m/Y H:i', strtotime($orden['created_at'])) : '' ?>">
+                                            <i class="bi bi-calendar3 me-1 text-primary"></i> 
+                                            <?= e($formatearFechaDMY($orden['fecha_orden'] ?? $orden['fecha_documento'] ?? '')) ?> - <?= isset($orden['created_at']) ? date('H:i', strtotime($orden['created_at'])) : '' ?>
                                         </div>
+                                        
+                                        <!-- Fecha de recepción (Solo aparece si ya se recepcionó) -->
                                         <?php if (!empty($orden['fecha_recepcion'])): ?>
-                                            <div class="text-info small fw-semibold mt-1" title="Fecha de ingreso a almacén">
-                                                <i class="bi bi-box-arrow-in-down me-1"></i> <?= e($formatearFechaDMY($orden['fecha_recepcion'])) ?>
+                                            <div class="text-success small fw-semibold" title="Fecha de ingreso a almacén">
+                                                <i class="bi bi-box-arrow-in-down me-1"></i> Recepcionado: <?= e($formatearFechaDMY($orden['fecha_recepcion'])) ?>
                                             </div>
                                         <?php endif; ?>
                                     </td>
@@ -473,7 +479,6 @@ $formatearFechaDMY = static function ($fecha): string {
             <div class="modal-body bg-light p-4" style="margin-top: -15px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
                 <input type="hidden" id="devolucionOrdenId" value="0">
 
-                <!-- Alerta de devoluciones pasadas agregada aquí -->
                 <div id="alertaDevolucionesPrevias" class="alert alert-info border-info-subtle d-none shadow-sm mb-4">
                     <i class="bi bi-info-circle-fill me-2"></i><strong>Atención:</strong> Esta orden ya tiene devoluciones pasadas. La columna "Cant. Recibida" te muestra el <strong>stock neto actual</strong> que aún tienes disponible para devolver.
                 </div>
@@ -588,11 +593,27 @@ $formatearFechaDMY = static function ($fecha): string {
                                 <small class="text-muted fw-bold d-block mb-1">Observaciones</small>
                                 <div class="text-secondary small text-break" id="resumenCompraObservaciones">Sin observaciones.</div>
                             </div>
+                            
+                            <!-- Inicia bloque Responsables Compras -->
+                            <div class="col-12"><hr class="text-muted opacity-25 my-1"></div>
+                            <div class="col-md-6">
+                                <small class="text-muted fw-bold d-block mb-1">Registro / Orden</small>
+                                <div class="text-dark small text-truncate" title="Usuario que creó la orden">
+                                    <i class="bi bi-person-circle text-secondary me-1"></i><span id="resumenCompraUsuarioRegistro" class="fw-medium">-</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted fw-bold d-block mb-1">Recepción</small>
+                                <div class="text-dark small text-truncate" title="Usuario que recibió la mercadería">
+                                    <i class="bi bi-person-check-fill text-info me-1"></i><span id="resumenCompraUsuarioRecepcion" class="fw-medium">-</span>
+                                </div>
+                            </div>
+                            <!-- Fin bloque Responsables Compras -->
+                            
                         </div>
                     </div>
                 </div>
 
-                <!-- Historial de devoluciones agregado aquí -->
                 <div id="contenedorHistorialDevoluciones" class="d-none mb-4">
                     <div class="alert alert-warning border-warning-subtle shadow-sm mb-0 p-3">
                         <h6 class="fw-bold text-warning-emphasis mb-2"><i class="bi bi-clock-history me-2"></i>Historial de Devoluciones Realizadas</h6>
@@ -613,18 +634,15 @@ $formatearFechaDMY = static function ($fecha): string {
                                         <th class="ps-3 text-secondary small fw-bold" style="min-width: 180px;">Producto</th>
                                         <th class="text-center text-secondary small fw-bold text-nowrap" style="min-width: 130px;">Cant. Pedida</th>
                                         <th class="text-center text-secondary small fw-bold text-nowrap" style="min-width: 130px;">Cant. Recibida</th>
-                                        <!-- Nueva columna de Devuelto agregada aquí -->
                                         <th class="text-center text-danger small fw-bold text-nowrap" style="width: 100px;">Devuelto</th>
                                         <th class="text-end text-secondary small fw-bold text-nowrap" style="width: 100px;">Costo Unit.</th>
                                         <th class="text-end pe-3 text-secondary small fw-bold text-nowrap" style="width: 110px;">Subtotal</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white">
-                                    <!-- Contenido inyectado por JS -->
                                 </tbody>
                                 <tfoot class="bg-light border-top">
                                     <tr>
-                                        <!-- colspan="5" para alinear con la nueva columna -->
                                         <td colspan="5" class="text-end fw-bold py-3 text-secondary align-middle">TOTAL FINAL:</td>
                                         <td class="text-end fw-bold py-3 fs-5 text-primary pe-3 text-nowrap align-middle" id="resumenCompraTotalFinal">S/ 0.00</td>
                                     </tr>
@@ -700,10 +718,8 @@ $formatearFechaDMY = static function ($fecha): string {
     </tr>
 </template>
 
-<!-- TEMPLATE PARA FILAS DE PAGO RÁPIDO (COMPRAS) -->
 <template id="templateFilaPagoCompra">
     <div class="d-flex align-items-center gap-2 mb-2 fila-pago fade-in">
-        <!-- Select de Cuentas (El JS lo llenará usando cuentasDisponibles) -->
         <select class="form-select form-select-sm shadow-none pago-cuenta border-success-subtle" required>
             <option value="">Cuenta Origen...</option>
             <?php foreach ($cuentas as $cuenta): ?>
@@ -713,7 +729,6 @@ $formatearFechaDMY = static function ($fecha): string {
             <?php endforeach; ?>
         </select>
         
-        <!-- Select de Métodos (El JS lo llenará usando metodosDisponibles) -->
         <select class="form-select form-select-sm shadow-none pago-metodo border-success-subtle" required>
             <option value="">Método...</option>
             <?php foreach ($metodos as $metodo): ?>
@@ -723,13 +738,11 @@ $formatearFechaDMY = static function ($fecha): string {
             <?php endforeach; ?>
         </select>
         
-        <!-- Monto -->
         <div class="input-group input-group-sm" style="width: 150px;">
             <span class="input-group-text bg-success-subtle text-success border-success-subtle fw-bold">S/</span>
             <input type="number" class="form-control text-end shadow-none pago-monto border-success-subtle fw-bold text-dark" min="0.01" step="0.01" placeholder="0.00" required>
         </div>
         
-        <!-- Botón Eliminar Fila -->
         <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-pago p-1" data-bs-toggle="tooltip" title="Quitar método" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
             <i class="bi bi-trash-fill"></i>
         </button>

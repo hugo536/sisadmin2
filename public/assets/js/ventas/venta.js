@@ -777,10 +777,16 @@ export async function abrirModalVenta(id, tr = null) {
                 }
 
                 const nombreClienteTabla = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente No Especificado';
-                // ... (sigue tu código normal)
-            document.getElementById('resumenVentaCodigo').textContent = venta.codigo || '-';
-            document.getElementById('resumenVentaCliente').textContent = nombreClienteTabla;
-            document.getElementById('resumenVentaOperacion').textContent = venta.tipo_operacion || 'VENTA';
+                
+            // 👇 BLOQUE SEGURO (No choca si falta un ID en el HTML) 👇
+            const elCodigo = document.getElementById('resumenVentaCodigo');
+            if (elCodigo) elCodigo.textContent = venta.codigo || '-';
+
+            const elCliente = document.getElementById('resumenVentaCliente');
+            if (elCliente) elCliente.textContent = nombreClienteTabla;
+
+            const elOperacion = document.getElementById('resumenVentaOperacion');
+            if (elOperacion) elOperacion.textContent = venta.tipo_operacion || 'VENTA';
             
             const formatearFechaVista = (fechaStr) => {
                 if (!fechaStr) return '-';
@@ -790,8 +796,12 @@ export async function abrirModalVenta(id, tr = null) {
                 return fechaStr;
             };
 
-            document.getElementById('resumenVentaFechaEmision').textContent = formatearFechaVista(venta.fecha_emision);
-            document.getElementById('resumenVentaFechaDespacho').textContent = venta.fecha_despacho ? formatearFechaVista(venta.fecha_despacho) : 'Pendiente';
+            const elFechaEmision = document.getElementById('resumenVentaFechaEmision');
+            if (elFechaEmision) elFechaEmision.textContent = formatearFechaVista(venta.fecha_emision);
+            
+            const elFechaDespacho = document.getElementById('resumenVentaFechaDespacho');
+            if (elFechaDespacho) elFechaDespacho.textContent = venta.fecha_despacho ? formatearFechaVista(venta.fecha_despacho) : 'Pendiente';
+            // 👆 FIN DEL BLOQUE SEGURO 👆
             
             const obsPedido = venta.observaciones ? venta.observaciones.trim() : '';
             const obsDespacho = venta.observaciones_despacho ? venta.observaciones_despacho.trim() : '';
@@ -801,6 +811,19 @@ export async function abrirModalVenta(id, tr = null) {
             
             const elObsDespacho = document.getElementById('resumenVentaObsDespacho');
             if (elObsDespacho) elObsDespacho.innerHTML = `<i class="bi bi-truck text-info opacity-75 me-1"></i><strong>Despacho:</strong> <span class="${obsDespacho ? 'text-dark' : 'fst-italic opacity-50'}">${obsDespacho || 'Sin guía/nota'}</span>`;
+
+            // =========================================================
+            // 👇 INYECCIÓN DE RESPONSABLES DE VENTAS 👇
+            // =========================================================
+            const userRegistroVenta = venta.usuario_registro || venta.usuario_creacion || 'Administrador';
+            const userDespachoVenta = venta.usuario_despacho || 'Pendiente';
+
+            const elUserRegVenta = document.getElementById('resumenVentaUsuarioRegistro');
+            if (elUserRegVenta) elUserRegVenta.textContent = userRegistroVenta;
+
+            const elUserDespVenta = document.getElementById('resumenVentaUsuarioDespacho');
+            if (elUserDespVenta) elUserDespVenta.textContent = userDespachoVenta;
+            // =========================================================
 
             const totalPedido = Number(venta.total || 0);
             const montoPagado = Number(venta.monto_pagado || 0);

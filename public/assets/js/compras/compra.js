@@ -542,6 +542,16 @@ export async function abrirModalResumenCompra(id, target = null) {
     const sim = d.moneda === 'USD' ? '$' : 'S/';
     document.getElementById('resumenCompraTotalFinal').textContent = `${sim} ${Number(d.total || 0).toFixed(2)}`;
 
+    // --- Inyectar Responsables (Compras) ---
+    const userRegistroCompra = d.usuario_registro || d.usuario_creacion || 'Administrador';
+    const userRecepcionCompra = d.usuario_recepcion || d.usuario_despacho || 'Pendiente';
+
+    const elUserRegCompra = document.getElementById('resumenCompraUsuarioRegistro');
+    if (elUserRegCompra) elUserRegCompra.textContent = userRegistroCompra;
+
+    const elUserRecepCompra = document.getElementById('resumenCompraUsuarioRecepcion');
+    if (elUserRecepCompra) elUserRecepCompra.textContent = userRecepcionCompra;
+
     const tbodyResumen = document.querySelector('#tablaResumenProductosCompra tbody');
     if (tbodyResumen) {
         tbodyResumen.innerHTML = '';

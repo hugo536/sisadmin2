@@ -86,9 +86,16 @@ class ComprasOrdenModel extends Modelo
                        o.fecha_entrega_estimada AS fecha_entrega, 
                        o.moneda, 
                        o.observaciones, o.subtotal, o.total, o.estado,
-                       o.cobro_inmediato, o.metodos_pago 
+                       o.cobro_inmediato, o.metodos_pago,
+                       u_reg.nombre_completo AS usuario_registro,
+                       (SELECT u_rec.nombre_completo 
+                        FROM compras_recepciones cr 
+                        JOIN usuarios u_rec ON u_rec.id = cr.created_by 
+                        WHERE cr.id_orden_compra = o.id 
+                        ORDER BY cr.id DESC LIMIT 1) AS usuario_recepcion
                 FROM compras_ordenes o
                 INNER JOIN terceros t ON t.id = o.id_proveedor AND t.deleted_at IS NULL
+                LEFT JOIN usuarios u_reg ON o.created_by = u_reg.id
                 WHERE o.id = :id
                   AND o.deleted_at IS NULL
                 LIMIT 1';

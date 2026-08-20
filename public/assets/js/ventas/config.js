@@ -20,7 +20,7 @@ function parseDatasetJson(value, fallback = []) {
         const parsed = JSON.parse(value);
         return Array.isArray(parsed) ? parsed : Object.values(parsed || {});
     } catch (error) {
-        console.warn('No se pudo leer datos de tesorería para ventas:', error);
+        console.warn('No se pudo leer datos para ventas:', error);
         return fallback;
     }
 }
@@ -28,8 +28,10 @@ function parseDatasetJson(value, fallback = []) {
 export const cuentasDisponibles = parseDatasetJson(app?.dataset.cuentas, []);
 export const metodosDisponibles = parseDatasetJson(app?.dataset.metodos, []);
 
-// Extraemos la lógica de recarga para que pueda ser llamada desde cualquier módulo
-export function recargarTabla() {
+// ==============================================================
+// RECARGA SILENCIOSA (Evita el parpadeo de la pantalla)
+// ==============================================================
+export async function recargarTabla() {
     const nextUrl = new URL(window.location.href);
     const urlParams = nextUrl.searchParams;
 
@@ -47,14 +49,33 @@ export function recargarTabla() {
     if (filtroFechaHasta && filtroFechaHasta.value) urlParams.set('fecha_hasta', filtroFechaHasta.value); else urlParams.delete('fecha_hasta');
     if (filtroOrdenFecha && filtroOrdenFecha.value) urlParams.set('orden_fecha', filtroOrdenFecha.value); else urlParams.delete('orden_fecha');
 
-    // SOLUCIÓN APLICADA: Comentamos la recarga silenciosa (SPA) para forzar la recarga nativa
-    // Esto asegura que los módulos ES6 se reinicien y los botones nunca pierdan sus eventos.
-    /*
-    if (typeof window.navigateWithoutReload === 'function') {
-        window.navigateWithoutReload(nextUrl, false);
-        return;
-    }
-    */
+    const tbodyActual = document.querySelector('#tablaVentas tbody');
+    if (tbodyActual) tbodyActual.style.opacity = '0.4';
 
-    window.location.href = nextUrl.toString();
+    try {
+        const response = await fetch(nextUrl.toString());
+        if (!response.ok) throw new Error('Error en red');
+        const html = await response.text();
+        
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // 1. Extraemos y reemplazamos SOLO las filas
+        const nuevoTbody = doc.querySelector('#tablaVentas tbody');
+        if (tbodyActual && nuevoTbody) {
+            tbodyActual.innerHTML = nuevoTbody.innerHTML;
+            tbodyActual.style.opacity = '1';
+        }
+        
+        // 2. Le avisamos a renderizadores.js que las filas cambiaron para que recalcule la paginación
+        if (window.ventasManager) {
+            window.ventasManager.refresh();
+        }
+
+        window.history.pushState({}, '', nextUrl.toString());
+        
+    } catch (error) {
+        console.error('Fallo en recarga silenciosa, aplicando recarga tradicional:', error);
+        window.location.href = nextUrl.toString();
+    }
 }

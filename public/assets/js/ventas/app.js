@@ -74,15 +74,29 @@ function arrancarModuloVentas() {
     // ==========================================
     // 3. CONFIGURACIÓN DE FILTROS
     // ==========================================
-    const btnFiltrarFechas = document.getElementById('btnFiltrarFechas');
-    if (btnFiltrarFechas) btnFiltrarFechas.addEventListener('click', recargarTabla);
 
+    // 1. BLOQUEAMOS EL ENVÍO NATIVO DEL FORMULARIO (Evita que el Sidebar parpadee)
+    const formFiltros = document.getElementById('formFiltrosVentas');
+    if (formFiltros) {
+        formFiltros.addEventListener('submit', (e) => {
+            e.preventDefault(); 
+            recargarTabla();
+        });
+    }
+
+    // 2. BLOQUEAMOS EL ENTER EN EL BUSCADOR
     const filtroBusqueda = document.getElementById('filtroBusqueda');
     if (filtroBusqueda) {
         filtroBusqueda.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') recargarTabla();
+            if (e.key === 'Enter') {
+                e.preventDefault(); 
+                recargarTabla();
+            }
         });
     }
+
+    const btnFiltrarFechas = document.getElementById('btnFiltrarFechas');
+    if (btnFiltrarFechas) btnFiltrarFechas.addEventListener('click', recargarTabla);
 
     const filtrosChange = ['filtroEstado', 'filtroOrdenFecha'];
     filtrosChange.forEach(id => {
@@ -92,6 +106,7 @@ function arrancarModuloVentas() {
 
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
     const filtroFechaHasta = document.getElementById('filtroFechaHasta');
+    
 
     if (filtroFechaDesde && filtroFechaHasta) {
         filtroFechaDesde.addEventListener('change', () => {

@@ -73,10 +73,17 @@ class VentasDocumentoModel extends Modelo
                        t.numero_documento AS cliente_doc, 
                        t.direccion AS cliente_direccion, 
                        v.fecha_emision, v.fecha_despacho, v.observaciones, 
-                       v.observaciones_despacho, /* <-- COLUMNA AGREGADA AQUÍ */
-                       v.subtotal, v.total, v.estado, v.created_at
+                       v.observaciones_despacho,
+                       v.subtotal, v.total, v.estado, v.created_at,
+                       u_reg.nombre_completo AS usuario_registro,
+                       (SELECT u_desp.nombre_completo 
+                        FROM ventas_despachos vd 
+                        JOIN usuarios u_desp ON u_desp.id = vd.created_by 
+                        WHERE vd.id_documento_venta = v.id 
+                        ORDER BY vd.id DESC LIMIT 1) AS usuario_despacho
                 FROM ventas_documentos v
                 LEFT JOIN terceros t ON t.id = v.id_cliente
+                LEFT JOIN usuarios u_reg ON v.created_by = u_reg.id
                 WHERE v.id = :id
                   AND v.deleted_at IS NULL
                 LIMIT 1';
