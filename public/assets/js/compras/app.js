@@ -11,19 +11,32 @@ import { abrirModalRecepcion, abrirModalDevolucion, initLogistica } from './logi
 // Envolvemos todo en una función de "Arranque"
 function arrancarModuloCompras() {
     const app = document.getElementById('comprasApp');
-    if (!app) return; // Si estamos en otra vista, se detiene aquí
+    if (!app) return; // Si estamos en otra vista (ej. Ventas), se detiene aquí.
 
-    // 1. Inicializamos submódulos (Esto refresca las variables del DOM)
+    // Extraemos las URLs directamente del DOM "fresco"
+    const urls = {
+        index: app.dataset.urlIndex,
+        aprobar: app.dataset.urlAprobar,
+        revertirBorrador: app.dataset.urlRevertirBorrador,
+        anular: app.dataset.urlAnular
+    };
+
+    // ==========================================
+    // 1. INICIALIZACIÓN DE SUBMÓDULOS
+    // ==========================================
     initCompras();
     initPagosCompras();
     initLogistica();
 
+    // NOTA: Si en un futuro agregas impresión de órdenes de compra, 
+    // el bloque de configuración "window.imprimirPedido" iría aquí, idéntico a Ventas.
+
     // ==========================================
-    // 2. Filtros y Búsquedas (Secuestro SPA)
+    // 2. CONFIGURACIÓN DE FILTROS
     // ==========================================
-    
-    // BLOQUEAMOS EL ENVÍO NATIVO DEL FORMULARIO
-    const formFiltros = document.getElementById('formFiltrosCompras'); // Asegúrate que tu <form> en compras.php tenga este ID
+
+    // 1. BLOQUEAMOS EL ENVÍO NATIVO DEL FORMULARIO (Evita que el Sidebar parpadee)
+    const formFiltros = document.getElementById('formFiltrosCompras');
     if (formFiltros) {
         formFiltros.addEventListener('submit', (e) => {
             e.preventDefault(); 
@@ -31,6 +44,7 @@ function arrancarModuloCompras() {
         });
     }
 
+    // 2. BLOQUEAMOS EL ENTER EN EL BUSCADOR
     const filtroBusqueda = document.getElementById('filtroBusqueda');
     if (filtroBusqueda) {
         filtroBusqueda.addEventListener('keypress', (e) => {
@@ -44,7 +58,7 @@ function arrancarModuloCompras() {
     const btnFiltrarFechas = document.getElementById('btnFiltrarFechas'); 
     if (btnFiltrarFechas) btnFiltrarFechas.addEventListener('click', recargarPagina);
 
-    // Múltiples selectores que recargan
+    // Múltiples selectores que recargan automáticamente
     const filtrosChange = ['filtroEstado', 'filtroOrdenFecha'];
     filtrosChange.forEach(id => {
         const el = document.getElementById(id);
@@ -78,79 +92,114 @@ function arrancarModuloCompras() {
         });
     }
 
-    // 3. Delegación de Eventos (Tabla Principal)
+    // ==========================================
+    // 3. DELEGACIÓN DE EVENTOS (TABLA PRINCIPAL)
+    // ==========================================
     const tbodyTabla = document.querySelector('#tablaCompras tbody');
     if (tbodyTabla) {
         tbodyTabla.addEventListener('click', async (e) => {
-            const target = e.target.closest('button');
-            if (!target) return;
+            const btn = e.target.closest('button');
+            if (!btn) return;
 
-            target.blur();
+            btn.blur();
+            // Limpiamos los tooltips de bootstrap para que no se queden congelados en pantalla
             if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-                const tooltip = bootstrap.Tooltip.getInstance(target);
+                const tooltip = bootstrap.Tooltip.getInstance(btn);
                 if (tooltip) tooltip.hide();
             }
 
-            const fila = target.closest('tr');
-            const id = Number(target.dataset.id || fila?.dataset?.id || 0);
-            // Obtenemos el estado actual de la fila desde el atributo data-estado que pusimos en la vista
+            const fila = btn.closest('tr');
+            const id = Number(btn.dataset.id || fila?.dataset?.id || 0);
             const estadoFila = Number(fila?.dataset?.estado || 0);
             
-            if (!id) return Swal.fire('Error', 'Identificador no encontrado.', 'error');
+            if (!id) {
+                Swal.fire('Error', 'No se encontró el identificador de la orden.', 'error');
+                return;
+            }
 
-            // A. Módulo Compra / Resumen
-            if (target.classList.contains('btn-editar')) {
+            // A. Acciones del módulo COMPRA (compra.js / resumen)
+            if (btn.classList.contains('btn-editar')) {
                 // Si la orden ya está recepcionada (3) o anulada (9), abrimos el Resumen en lugar de la edición
                 if (estadoFila === 3 || estadoFila === 9) {
                     abrirModalResumenCompra(id);
                 } else {
-                    abrirModalCompra(id, target);
+                    abrirModalCompra(id, btn);
                 }
                 return;
             }
 
-            // B. Acciones Rápidas
-            if (target.classList.contains('btn-aprobar')) {
+            // B. Acciones Rápidas (Aprobar / Revertir / Anular)
+            if (btn.classList.contains('btn-aprobar')) {
                 const confirm = await Swal.fire({ title: '¿Aprobar Orden?', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, aprobar' });
-                if (!confirm.isConfirmed) return;
-                try {
-                    const res = await postJsonConCarga(app.dataset.urlAprobar, { id }, target);
-                    await Swal.fire('Aprobada', res.mensaje, 'success');
-                    recargarPagina();
-                } catch (err) { Swal.fire('Error', err.message, 'error'); }
+                if (confirm.isConfirmed) {
+                    try {
+                        const res = await postJsonConCarga(urls.aprobar, { id }, btn);
+                        await Swal.fire('Aprobada', res.mensaje, 'success');
+                        recargarPagina();
+                    } catch (err) { 
+                        // 👇 Formato alineado a Ventas, usando la propiedad 'html' para el backend
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se puede aprobar',
+                            html: err.message
+                        });
+                    }
+                }
                 return;
             }
 
-            if (target.classList.contains('btn-revertir-borrador')) {
+            if (btn.classList.contains('btn-revertir-borrador')) {
                 const confirm = await Swal.fire({ title: '¿Revertir a borrador?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, revertir' });
-                if (!confirm.isConfirmed) return;
-                try {
-                    const res = await postJsonConCarga(app.dataset.urlRevertirBorrador, { id }, target);
-                    await Swal.fire('Revertida', res.mensaje, 'success');
-                    recargarPagina();
-                } catch (err) { Swal.fire('Error', err.message, 'error'); }
+                if (confirm.isConfirmed) {
+                    try {
+                        const res = await postJsonConCarga(urls.revertirBorrador, { id }, btn);
+                        await Swal.fire('Revertida', res.mensaje, 'success');
+                        recargarPagina();
+                    } catch (err) { 
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se puede revertir',
+                            html: err.message
+                        });
+                    }
+                }
                 return;
             }
 
-            if (target.classList.contains('btn-anular')) {
+            if (btn.classList.contains('btn-anular')) {
                 const confirm = await Swal.fire({ title: '¿Anular Orden?', icon: 'error', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sí, anular' });
-                if (!confirm.isConfirmed) return;
-                try {
-                    const res = await postJson(app.dataset.urlAnular, { id }); 
-                    await Swal.fire('Anulada', res.mensaje, 'success');
-                    recargarPagina();
-                } catch (err) { Swal.fire('Error', err.message, 'error'); }
+                if (confirm.isConfirmed) {
+                    try {
+                        const res = await postJson(urls.anular, { id }); 
+                        await Swal.fire('Anulada', res.mensaje, 'success');
+                        recargarPagina();
+                    } catch (err) { 
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se puede anular',
+                            html: err.message
+                        }); 
+                    }
+                }
                 return;
             }
 
-            // C. Módulo Logística
-            if (target.classList.contains('btn-recepcionar')) {
-                abrirModalRecepcion(id);
+            // C. Acciones del módulo LOGÍSTICA (logistica.js)
+            if (btn.classList.contains('btn-recepcionar')) {
+                try { 
+                    await abrirModalRecepcion(id); 
+                } catch (err) { 
+                    Swal.fire('Error', err.message, 'error'); 
+                }
                 return;
             }
 
-            if (target.classList.contains('btn-devolver')) {
-                abrirModalDevolucion(id);
+            if (btn.classList.contains('btn-devolver')) {
+                try { 
+                    await abrirModalDevolucion(id); 
+                } catch (err) { 
+                    Swal.fire('Error', err.message, 'error'); 
+                }
                 return;
             }
         });

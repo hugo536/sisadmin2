@@ -5,9 +5,38 @@
 import { getJson, obtenerFechaLocalISO } from '../api.js';
 import { urls, postJsonConCarga, recargarPagina } from './config.js';
 
+// --- CONSTANTES Y ESTADO LOGÍSTICA ---
 const cacheUnidades = new Map();
 const DECIMALES_RECEPCION = 4;
 const EPSILON_RECEPCION = 0.0001;
+
+// --- REFERENCIAS DOM: DEVOLUCIONES ---
+const modalDevolucionCompraEl = document.getElementById('modalDevolucionCompra');
+const devolucionOrdenId = document.getElementById('devolucionOrdenId');
+const devolucionMotivo = document.getElementById('devolucionMotivo');
+const devolucionResolucion = document.getElementById('devolucionResolucion');
+const devolucionResolucionHint = document.getElementById('devolucionResolucionHint');
+const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazoCompra');
+const checkReemplazo = document.getElementById('devolucionEsperarReemplazo');
+const tbodyDevolucion = document.querySelector('#tablaDetalleDevolucion tbody');
+const devolucionTotal = document.getElementById('devolucionTotal');
+const alertaDevolucionesPrevias = document.getElementById('alertaDevolucionesPrevias');
+const btnConfirmarDevolucion = document.getElementById('btnConfirmarDevolucion');
+
+// --- REFERENCIAS DOM: RECEPCIÓN ---
+const modalRecepcionCompraEl = document.getElementById('modalRecepcionCompra');
+const recepcionOrdenId = document.getElementById('recepcionOrdenId');
+const recepcionProveedorNombre = document.getElementById('recepcionProveedorNombre');
+const recepcionFecha = document.getElementById('recepcionFecha');
+const recepcionObservaciones = document.getElementById('recepcionObservaciones');
+const cerrarForzadoRecepcion = document.getElementById('cerrarForzadoRecepcion');
+const tbodyRecepcion = document.querySelector('#tablaDetalleRecepcion tbody');
+const btnConfirmarRecepcion = document.getElementById('btnConfirmarRecepcion');
+const selectTemplateAlmacen = document.getElementById('recepcionAlmacen');
+
+// ==========================================
+// UTILIDADES LOCALES
+// ==========================================
 
 function formatearCantidadRecepcion(valor) {
     return Number(valor || 0).toFixed(DECIMALES_RECEPCION);
@@ -21,6 +50,7 @@ async function obtenerUnidadesItem(idItem) {
     const res = await fetch(`${urls.unidadesItem}${separador}accion=unidades_item&id_item=${idItem}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
     });
+    
     const json = await res.json();
     if (!res.ok || !json.ok) throw new Error(json.mensaje || 'No se pudieron cargar unidades de conversión.');
 
@@ -29,25 +59,29 @@ async function obtenerUnidadesItem(idItem) {
     return items;
 }
 
+// Limpiar el nombre del proveedor cuando se cierra el modal de recepción
+modalRecepcionCompraEl?.addEventListener('hidden.bs.modal', () => {
+    if (recepcionProveedorNombre) recepcionProveedorNombre.textContent = '';
+});
+
+// ==============================================================
+// 1. MÓDULO: DEVOLUCIONES Y AJUSTES (COMPRAS)
+// ==============================================================
+
 function actualizarHintResolucionDevolucion() {
-    const devolucionResolucion = document.getElementById('devolucionResolucion');
-    const devolucionResolucionHint = document.getElementById('devolucionResolucionHint');
     if (!devolucionResolucionHint || !devolucionResolucion) return;
 
     const resolucion = devolucionResolucion.value;
     if (resolucion === 'descuento_cxp') {
-        devolucionResolucionHint.textContent = '✅ Recomendado cuando tienes facturas pendientes: reduce tu cuenta por pagar automáticamente.';
+        devolucionResolucionHint.innerHTML = '✅ Recomendado cuando tienes facturas pendientes: reduce tu cuenta por pagar automáticamente.';
         devolucionResolucionHint.className = 'form-text text-secondary mt-1';
-        return;
+    } else {
+        devolucionResolucionHint.innerHTML = '💸 Úsalo cuando el proveedor te devolverá dinero (caja/transferencia). No descuenta la deuda automáticamente.';
+        devolucionResolucionHint.className = 'form-text text-secondary mt-1';
     }
-    devolucionResolucionHint.textContent = '💸 Úsalo cuando el proveedor te devolverá dinero (caja/transferencia). No descuenta la deuda automáticamente.';
-    devolucionResolucionHint.className = 'form-text text-secondary mt-1';
 }
 
 function actualizarLogicaDevolucionCompra() {
-    const filaSwitchReemplazo = document.getElementById('filaSwitchReemplazoCompra');
-    const checkReemplazo = document.getElementById('devolucionEsperarReemplazo');
-    const devolucionMotivo = document.getElementById('devolucionMotivo');
     const motivoActual = devolucionMotivo?.value || '';
 
     if (filaSwitchReemplazo && checkReemplazo) {
@@ -61,9 +95,7 @@ function actualizarLogicaDevolucionCompra() {
 }
 
 function recalcularTotalDevolucion() {
-    const tbodyDevolucion = document.querySelector('#tablaDetalleDevolucion tbody');
-    const devolucionTotal = document.getElementById('devolucionTotal');
-    if(!tbodyDevolucion || !devolucionTotal) return;
+    if (!tbodyDevolucion || !devolucionTotal) return;
 
     let total = 0;
     tbodyDevolucion.querySelectorAll('tr').forEach((fila) => {
@@ -77,7 +109,8 @@ function recalcularTotalDevolucion() {
 }
 
 async function agregarFilaDevolucion(linea, cantRecibidaBase) {
-    const tbodyDevolucion = document.querySelector('#tablaDetalleDevolucion tbody');
+    if (!tbodyDevolucion) return;
+
     const tr = document.createElement('tr');
     
     const factorCompra = parseFloat(linea.factor_conversion_aplicado || 1);
@@ -96,7 +129,7 @@ async function agregarFilaDevolucion(linea, cantRecibidaBase) {
     tr.dataset.costoBase = costoBaseReal; 
     tr.dataset.maxBase = cantRecibidaBase; 
 
-    // Aquí inyectamos el historial de devoluciones en la celda
+    // Aquí inyectamos el historial de devoluciones previas
     const devueltoPrevio = parseFloat(linea.cantidad_devuelta || 0);
     const htmlDevolucionPrevia = devueltoPrevio > 0 
         ? `<div class="text-danger small mt-2 fw-bold"><i class="bi bi-arrow-return-left"></i> Ya devolviste: ${devueltoPrevio.toFixed(2)} ${linea.unidad_base}</div>` 
@@ -184,8 +217,11 @@ async function agregarFilaDevolucion(linea, cantRecibidaBase) {
         const subtotal = cantInput * costoUnitarioSegunUnidad;
         tdSubtotal.textContent = `S/ ${subtotal.toFixed(2)}`;
         
-        if (factorSeleccionado > 1) infoConv.innerHTML = `Saldrán: <strong>${cantBaseCalculada.toFixed(2)} ${linea.unidad_base}</strong>`;
-        else infoConv.textContent = `Unidad base: ${linea.unidad_base}`;
+        if (factorSeleccionado > 1) {
+            infoConv.innerHTML = `Saldrán: <strong>${cantBaseCalculada.toFixed(2)} ${linea.unidad_base}</strong>`;
+        } else {
+            infoConv.textContent = `Unidad base: ${linea.unidad_base}`;
+        }
 
         recalcularTotalDevolucion();
     };
@@ -194,34 +230,31 @@ async function agregarFilaDevolucion(linea, cantRecibidaBase) {
     selectUnidad.addEventListener('change', recalcularLinea);
 }
 
+// Función expuesta a app.js para abrir el modal desde la tabla principal
 export async function abrirModalDevolucion(idOrden) {
     try {
         const separador = urls.index.includes('?') ? '&' : '?';
         const res = await getJson(`${urls.index}${separador}accion=ver&id=${idOrden}`);
-        const orden = res.data;
+        const orden = res.data || {};
 
-        // Mostrar alerta de devoluciones previas si existe el historial
-        const alertaPrevias = document.getElementById('alertaDevolucionesPrevias');
-        if (alertaPrevias) {
+        if (alertaDevolucionesPrevias) {
             if (orden.devoluciones_historial && orden.devoluciones_historial.length > 0) {
-                alertaPrevias.classList.remove('d-none');
+                alertaDevolucionesPrevias.classList.remove('d-none');
             } else {
-                alertaPrevias.classList.add('d-none');
+                alertaDevolucionesPrevias.classList.add('d-none');
             }
         }
 
-        document.getElementById('devolucionOrdenId').value = orden.id;
-        document.getElementById('devolucionMotivo').value = '';
+        if (devolucionOrdenId) devolucionOrdenId.value = orden.id;
+        if (devolucionMotivo) devolucionMotivo.value = '';
         
-        const devolucionResolucion = document.getElementById('devolucionResolucion');
         if (devolucionResolucion) {
             devolucionResolucion.value = 'descuento_cxp';
             actualizarHintResolucionDevolucion();
         }
         
-        const tbodyDevolucion = document.querySelector('#tablaDetalleDevolucion tbody');
-        if(tbodyDevolucion) tbodyDevolucion.innerHTML = '';
-        document.getElementById('devolucionTotal').textContent = 'S/ 0.00';
+        if (tbodyDevolucion) tbodyDevolucion.innerHTML = '';
+        if (devolucionTotal) devolucionTotal.textContent = 'S/ 0.00';
 
         const detalle = Array.isArray(orden.detalle) ? orden.detalle : [];
         let lineasRecibidas = 0;
@@ -236,21 +269,24 @@ export async function abrirModalDevolucion(idOrden) {
         });
 
         if (lineasRecibidas === 0) {
-            Swal.fire('Aviso', 'Esta orden no tiene productos recepcionados para devolver.', 'info');
+            Swal.fire('Aviso', 'Esta orden no tiene productos recepcionados disponibles para devolver.', 'info');
             return;
         }
 
         await Promise.all(promesasLineas);
-        const modalEl = document.getElementById('modalDevolucionCompra');
-        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        bootstrap.Modal.getOrCreateInstance(modalDevolucionCompraEl).show();
     } catch (error) {
         Swal.fire('Error', error.message || 'No se pudo preparar la devolución.', 'error');
     }
 }
 
+
+// ==============================================================
+// 2. MÓDULO: RECEPCIONES DE MERCADERÍA
+// ==============================================================
+
 function agregarFilaRecepcion(linea, filaReferencia = null) {
-    const tbodyRecepcion = document.querySelector('#tablaDetalleRecepcion tbody');
-    const selectTemplateAlmacen = document.getElementById('recepcionAlmacen');
+    if (!tbodyRecepcion || !selectTemplateAlmacen) return;
     
     const tr = document.createElement('tr');
     tr.dataset.idDetalle = linea.id;
@@ -318,11 +354,11 @@ function agregarFilaRecepcion(linea, filaReferencia = null) {
         const badge = filas[0].querySelector('.badge-pendiente-rec');
         if ((sumaCargada - pendienteGlobal) > EPSILON_RECEPCION) {
             filas.forEach(f => f.querySelector('.recepcion-cantidad').classList.add('is-invalid'));
-            badge.className = "badge bg-danger text-white badge-pendiente-rec rounded-pill px-3 py-2";
+            badge.className = "badge bg-danger text-white badge-pendiente-rec rounded-pill px-3 py-2 shadow-sm";
             badge.textContent = `Excedido (Máx: ${formatearCantidadRecepcion(pendienteGlobal)})`;
         } else {
             filas.forEach(f => f.querySelector('.recepcion-cantidad').classList.remove('is-invalid'));
-            badge.className = "badge bg-warning text-dark badge-pendiente-rec rounded-pill px-3 py-2";
+            badge.className = "badge bg-warning text-dark badge-pendiente-rec rounded-pill px-3 py-2 shadow-sm";
             badge.textContent = `${formatearCantidadRecepcion(pendienteGlobal)} ${linea.unidad_base}`;
         }
     };
@@ -346,34 +382,29 @@ function agregarFilaRecepcion(linea, filaReferencia = null) {
     return tr;
 }
 
+// Función expuesta a app.js para abrir el modal de recepción
 export async function abrirModalRecepcion(idOrden) {
     try {
         const separador = urls.index.includes('?') ? '&' : '?';
         const res = await getJson(`${urls.index}${separador}accion=ver&id=${idOrden}`);
         const orden = res.data;
 
-        document.getElementById('recepcionOrdenId').value = orden.id;
-        const cerrarForzadoRecepcion = document.getElementById('cerrarForzadoRecepcion');
-        if(cerrarForzadoRecepcion) cerrarForzadoRecepcion.checked = false;
+        if (recepcionOrdenId) recepcionOrdenId.value = orden.id;
+        if (cerrarForzadoRecepcion) cerrarForzadoRecepcion.checked = false;
         
-        const recepcionProveedorNombre = document.getElementById('recepcionProveedorNombre');
         if (recepcionProveedorNombre) {
             const proveedor = String(orden.proveedor || '').trim();
             recepcionProveedorNombre.textContent = proveedor ? `- ${proveedor}` : '';
         }
         
-        const recepcionFecha = document.getElementById('recepcionFecha');
         if (recepcionFecha) {
             recepcionFecha.value = orden.fecha_recepcion_sugerida || obtenerFechaLocalISO();
             if (orden.fecha_orden) recepcionFecha.min = String(orden.fecha_orden).split(' ')[0];
             else recepcionFecha.removeAttribute('min');
         }
         
-        const recepcionObservaciones = document.getElementById('recepcionObservaciones');
         if (recepcionObservaciones) recepcionObservaciones.value = '';
-        
-        const tbodyRecepcion = document.querySelector('#tablaDetalleRecepcion tbody');
-        if(tbodyRecepcion) tbodyRecepcion.innerHTML = '';
+        if (tbodyRecepcion) tbodyRecepcion.innerHTML = '';
 
         const detalle = Array.isArray(orden.detalle) ? orden.detalle : [];
         detalle.forEach((linea) => {
@@ -385,19 +416,20 @@ export async function abrirModalRecepcion(idOrden) {
             return;
         }
         
-        const modalEl = document.getElementById('modalRecepcionCompra');
-        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        bootstrap.Modal.getOrCreateInstance(modalRecepcionCompraEl).show();
     } catch (error) {
         Swal.fire('Error', error.message || 'No se pudo preparar la recepción.', 'error');
     }
 }
 
-export function initLogistica() {
-    // Enganches de Devolución
-    const devolucionMotivo = document.getElementById('devolucionMotivo');
-    const devolucionResolucion = document.getElementById('devolucionResolucion');
-    const btnConfirmarDevolucion = document.getElementById('btnConfirmarDevolucion');
 
+// ==============================================================
+// 3. INICIALIZACIÓN (Eventos Estáticos)
+// ==============================================================
+
+export function initLogistica() {
+    
+    // --- EVENTOS: DEVOLUCIONES ---
     devolucionMotivo?.addEventListener('change', actualizarLogicaDevolucionCompra);
     devolucionResolucion?.addEventListener('change', actualizarHintResolucionDevolucion);
 
@@ -407,7 +439,7 @@ export function initLogistica() {
         const detalle = [];
         let totalDevolverBase = 0;
 
-        document.querySelector('#tablaDetalleDevolucion tbody').querySelectorAll('tr').forEach(tr => {
+        tbodyDevolucion?.querySelectorAll('tr').forEach(tr => {
             const cant = parseFloat(tr.querySelector('.input-devolver').value || 0);
             if (cant > 0) {
                 const selectU = tr.querySelector('.dev-select-unidad');
@@ -427,17 +459,15 @@ export function initLogistica() {
             }
         });
 
-        if (detalle.length === 0 || totalDevolverBase <= 0) return Swal.fire('Aviso', 'Ingrese al menos una cantidad.', 'warning');
+        if (detalle.length === 0 || totalDevolverBase <= 0) return Swal.fire('Aviso', 'Ingrese al menos una cantidad mayor a cero.', 'warning');
 
         try {
             const separador = urls.index.includes('?') ? '&' : '?';
             const urlPost = `${urls.index}${separador}accion=guardar_devolucion`;
-
-            const checkReemplazo = document.getElementById('devolucionEsperarReemplazo');
             const esperarReemplazo = checkReemplazo ? checkReemplazo.checked : true;
 
             const payload = {
-                id_orden: Number(document.getElementById('devolucionOrdenId').value),
+                id_orden: Number(devolucionOrdenId.value),
                 motivo: devolucionMotivo.value,
                 resolucion: devolucionResolucion.value,
                 esperar_reemplazo: esperarReemplazo, 
@@ -446,18 +476,22 @@ export function initLogistica() {
 
             const res = await postJsonConCarga(urlPost, payload, btnConfirmarDevolucion);
             await Swal.fire('Éxito', res.mensaje, 'success');
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDevolucionCompra')).hide();
+            bootstrap.Modal.getInstance(modalDevolucionCompraEl)?.hide();
             recargarPagina();
         } catch (e) {
-            Swal.fire('Error', e.message, 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'No se procesó la devolución',
+                html: e.message
+            });
         }
     });
 
-    // Enganches de Recepción
-    const btnConfirmarRecepcion = document.getElementById('btnConfirmarRecepcion');
+
+    // --- EVENTOS: RECEPCIONES ---
     btnConfirmarRecepcion?.addEventListener('click', async () => {
         try {
-            const filas = [...document.querySelector('#tablaDetalleRecepcion tbody').querySelectorAll('tr')];
+            const filas = [...tbodyRecepcion.querySelectorAll('tr')];
             const detalle = filas.map(fila => {
                 const idAlmacen = fila.querySelector('.fila-almacen-rec').value;
                 const cantidad = parseFloat(fila.querySelector('.recepcion-cantidad').value || 0);
@@ -470,7 +504,7 @@ export function initLogistica() {
 
             if (detalle.length === 0) throw new Error('Debe ingresar cantidad en al menos un producto.');
             if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione un almacén destino para todas las filas.');
-            if (document.querySelector('#tablaDetalleRecepcion tbody').querySelector('.is-invalid')) throw new Error('Corrija las cantidades en rojo.');
+            if (tbodyRecepcion.querySelector('.is-invalid')) throw new Error('Corrija las cantidades en rojo (exceden lo permitido).');
 
             let esParcial = false;
             const resumenPorItem = {}; 
@@ -484,30 +518,38 @@ export function initLogistica() {
                 if (resumenPorItem[f.dataset.idDetalle] < pendiente - EPSILON_RECEPCION) esParcial = true;
             });
 
-            const cerrarForzadoRecepcion = document.getElementById('cerrarForzadoRecepcion');
             if (esParcial && cerrarForzadoRecepcion && !cerrarForzadoRecepcion.checked) {
                 const resp = await Swal.fire({
-                    icon: 'info', title: 'Recepción Parcial', 
+                    icon: 'warning', 
+                    title: 'Recepción Parcial', 
                     text: 'Está ingresando menos cantidad. La orden quedará abierta. ¿Desea continuar?', 
-                    showCancelButton: true, confirmButtonText: 'Sí, ingresar parcial'
+                    showCancelButton: true, 
+                    confirmButtonColor: '#ffc107',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="bi bi-check2-circle me-1"></i> Sí, ingresar parcial',
+                    cancelButtonText: 'Cancelar'
                 });
                 if (!resp.isConfirmed) return;
             }
 
             const payload = {
-                id_orden: Number(document.getElementById('recepcionOrdenId').value || 0),
+                id_orden: Number(recepcionOrdenId?.value || 0),
                 cerrar_forzado: cerrarForzadoRecepcion ? cerrarForzadoRecepcion.checked : false,
-                fecha_recepcion: (document.getElementById('recepcionFecha')?.value || '').trim(),
-                observaciones: (document.getElementById('recepcionObservaciones')?.value || '').trim(),
+                fecha_recepcion: (recepcionFecha?.value || '').trim(),
+                observaciones: (recepcionObservaciones?.value || '').trim(),
                 detalle: detalle
             };
 
             const res = await postJsonConCarga(urls.recepcionar, payload, btnConfirmarRecepcion);
             await Swal.fire('Ingresado', res.mensaje, 'success');
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalRecepcionCompra')).hide();
+            bootstrap.Modal.getInstance(modalRecepcionCompraEl)?.hide();
             recargarPagina();
         } catch (error) {
-            Swal.fire('Error', error.message, 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error al recepcionar',
+                html: error.message
+            });
         }
     });
 }

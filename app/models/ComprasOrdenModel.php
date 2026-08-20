@@ -13,16 +13,16 @@ class ComprasOrdenModel extends Modelo
                 t.nombre_completo AS proveedor,
                 o.fecha_emision AS fecha_orden,
                 o.fecha_entrega_estimada AS fecha_entrega,
-                o.moneda, /* <--- CAMBIO BIMONETARIO */
+                o.moneda,
                 (SELECT cr.fecha_recepcion
-                    FROM compras_recepciones cr
-                    WHERE cr.id_orden_compra = o.id
-                    ORDER BY cr.id DESC LIMIT 1) AS fecha_recepcion,
+                 FROM compras_recepciones cr
+                 WHERE cr.id_orden_compra = o.id
+                 ORDER BY cr.id DESC LIMIT 1) AS fecha_recepcion,
                 COALESCE(
                     NULLIF(TRIM((SELECT cr.observaciones
-                                    FROM compras_recepciones cr
-                                    WHERE cr.id_orden_compra = o.id
-                                    ORDER BY cr.id DESC LIMIT 1)), ''),
+                                 FROM compras_recepciones cr
+                                 WHERE cr.id_orden_compra = o.id
+                                 ORDER BY cr.id DESC LIMIT 1)), ''),
                     NULLIF(TRIM(o.observaciones), '')
                 ) AS observacion_subtitulo,
                 o.total,
@@ -31,9 +31,8 @@ class ComprasOrdenModel extends Modelo
             FROM compras_ordenes o
             INNER JOIN terceros t ON t.id = o.id_proveedor
             WHERE o.deleted_at IS NULL
-            AND t.deleted_at IS NULL
-            SQL;
-
+              AND t.deleted_at IS NULL
+        SQL;
 
         $params = [];
 
@@ -86,7 +85,7 @@ class ComprasOrdenModel extends Modelo
                        o.fecha_entrega_estimada AS fecha_entrega, 
                        o.moneda, 
                        o.observaciones, o.subtotal, o.total, o.estado,
-                       o.cobro_inmediato, o.metodos_pago,
+                       o.cobro_inmediato, o.metodos_pago, o.tipo_impuesto,
                        u_reg.nombre_completo AS usuario_registro,
                        (SELECT u_rec.nombre_completo 
                         FROM compras_recepciones cr 
@@ -111,14 +110,26 @@ class ComprasOrdenModel extends Modelo
         $orden['fecha_recepcion_sugerida'] = date('Y-m-d');
         $orden['moneda'] = !empty($orden['moneda']) ? $orden['moneda'] : 'PEN';
 
-        // Detalle mejorado: Calculamos dinámicamente la cantidad devuelta por ítem
-        $detalleSql = 'SELECT d.id,
-                              d.id_item,
+        // 👇 SOLUCIÓN: Definición de variables SQL faltantes para Packs 👇
+        $stockSqlPacksTotal = $this->resolverSubqueryStockCombo('d.id_presentacion', 0);
+        $pesoSqlPacksTotal = "(SELECT COALESCE(SUM(ppd.cantidad * i_comp.peso_kg), 0) 
+                               FROM precios_presentaciones_detalle ppd 
+                               JOIN items i_comp ON i_comp.id = ppd.id_item 
+                               WHERE ppd.id_presentacion = d.id_presentacion)";
+
+        $detalleSql = "SELECT d.id,
+                              d.id_item AS raw_id_item, 
+                              d.id_presentacion AS raw_id_presentacion, 
+                              CASE 
+                                  WHEN d.id_item > 0 THEN CONCAT('ITEM-', d.id_item)
+                                  WHEN d.id_presentacion > 0 THEN CONCAT('PACK-', d.id_presentacion)
+                                  ELSE 'DESCONOCIDO'
+                              END AS id_item,
                               i.sku,
-                              i.nombre AS item_nombre,
+                              COALESCE(i.nombre, pp.nombre) AS item_nombre,
                               d.id_item_unidad,
                               COALESCE(d.unidad_nombre, i.unidad_base) AS unidad_nombre,
-                              COALESCE(i.unidad_base, "UND") AS unidad_base,
+                              COALESCE(i.unidad_base, 'UND') AS unidad_base,
                               COALESCE(d.factor_conversion_aplicado, 1) AS factor_conversion_aplicado,
                               COALESCE(d.cantidad_conversion, d.cantidad_solicitada) AS cantidad,
                               COALESCE(d.cantidad_conversion, d.cantidad_solicitada) AS cantidad_unidad,
@@ -128,7 +139,15 @@ class ComprasOrdenModel extends Modelo
                               d.id_centro_costo,
                               d.costo_unitario_pactado AS costo_unitario,
                               (COALESCE(d.cantidad_conversion, d.cantidad_solicitada) * d.costo_unitario_pactado) AS subtotal,
-                              -- Subconsulta para saber cuánto se devolvió de esta línea
+                              COALESCE(d.es_bonificacion, 0) AS es_bonificacion,
+                              CASE 
+                                  WHEN d.id_item > 0 THEN COALESCE(i.peso_kg, 0)
+                                  ELSE {$pesoSqlPacksTotal}
+                              END AS peso_kg,
+                              CASE 
+                                  WHEN d.id_item > 0 THEN (SELECT COALESCE(SUM(s.stock_actual), 0) FROM inventario_stock s WHERE s.id_item = d.id_item)
+                                  ELSE {$stockSqlPacksTotal}
+                              END AS stock_actual,
                               COALESCE((
                                   SELECT SUM(cdd.cantidad)
                                   FROM compras_devoluciones_detalle cdd
@@ -136,16 +155,16 @@ class ComprasOrdenModel extends Modelo
                                   WHERE cd.id_orden = d.id_orden AND cdd.id_item = d.id_item
                               ), 0) AS cantidad_devuelta
                        FROM compras_ordenes_detalle d
-                       INNER JOIN items i ON i.id = d.id_item AND i.deleted_at IS NULL
+                       LEFT JOIN items i ON i.id = d.id_item AND i.deleted_at IS NULL
+                       LEFT JOIN precios_presentaciones pp ON pp.id = d.id_presentacion AND pp.deleted_at IS NULL
                        WHERE d.id_orden = :id_orden
                          AND d.deleted_at IS NULL
-                       ORDER BY d.id ASC';
+                       ORDER BY d.id ASC";
 
         $stmtDetalle = $this->db()->prepare($detalleSql);
         $stmtDetalle->execute(['id_orden' => $id]);
         $orden['detalle'] = $stmtDetalle->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        // NUEVO: Traemos el historial de devoluciones para mostrarlo en el resumen
         $sqlDev = 'SELECT id, motivo, tipo_resolucion, total_devuelto, created_at 
                    FROM compras_devoluciones 
                    WHERE id_orden = :id_orden 
@@ -159,13 +178,8 @@ class ComprasOrdenModel extends Modelo
 
     public function crearOActualizar(array $cabecera, array $detalle, int $userId): int
     {
-        if ($userId <= 0) {
-            throw new RuntimeException('Usuario inválido para registrar la orden.');
-        }
-
-        if (empty($detalle)) {
-            throw new RuntimeException('Debe agregar al menos un ítem al detalle de la orden.');
-        }
+        if ($userId <= 0) throw new RuntimeException('Usuario inválido para registrar la orden.');
+        if (empty($detalle)) throw new RuntimeException('Debe agregar al menos un ítem al detalle de la orden.');
 
         $db = $this->db();
         $db->beginTransaction();
@@ -179,38 +193,29 @@ class ComprasOrdenModel extends Modelo
                 throw new RuntimeException('La fecha de emisión no es válida.');
             }
 
-            // NUEVA LÍNEA: Leer moneda del payload
             $moneda = strtoupper(trim((string) ($cabecera['moneda'] ?? 'PEN')));
-            if (!in_array($moneda, ['PEN', 'USD'], true)) {
-                $moneda = 'PEN';
-            }
+            if (!in_array($moneda, ['PEN', 'USD'], true)) $moneda = 'PEN';
 
             if ($idOrden > 0) {
                 $actual = $this->obtener($idOrden);
-                if ($actual === []) {
-                    throw new RuntimeException('La orden no existe o fue eliminada.');
-                }
+                if ($actual === []) throw new RuntimeException('La orden no existe o fue eliminada.');
+                if ((int) ($actual['estado'] ?? 0) !== 0) throw new RuntimeException('Solo se pueden editar órdenes en borrador.');
 
-                if ((int) ($actual['estado'] ?? 0) !== 0) {
-                    throw new RuntimeException('Solo se pueden editar órdenes en borrador.');
-                }
-
-                // Agregamos la columna moneda al UPDATE
                 $sqlUpdate = 'UPDATE compras_ordenes
-                                  SET id_proveedor = :id_proveedor,
-                                      fecha_emision = :fecha_emision,
-                                      fecha_entrega_estimada = :fecha_entrega,
-                                      moneda = :moneda, /* NUEVO */
-                                      observaciones = :observaciones,
-                                      tipo_impuesto = :tipo_impuesto,
-                                      subtotal = :subtotal,
-                                      igv_monto = :igv_monto,
-                                      total = :total,
-                                      estado = :estado,
-                                      cobro_inmediato = :cobro_inmediato, 
-                                      metodos_pago = :metodos_pago,       
-                                      updated_by = :updated_by,
-                                      updated_at = NOW()
+                              SET id_proveedor = :id_proveedor,
+                                  fecha_emision = :fecha_emision,
+                                  fecha_entrega_estimada = :fecha_entrega,
+                                  moneda = :moneda,
+                                  observaciones = :observaciones,
+                                  tipo_impuesto = :tipo_impuesto,
+                                  subtotal = :subtotal,
+                                  igv_monto = :igv_monto,
+                                  total = :total,
+                                  estado = :estado,
+                                  cobro_inmediato = :cobro_inmediato, 
+                                  metodos_pago = :metodos_pago,       
+                                  updated_by = :updated_by,
+                                  updated_at = NOW()
                               WHERE id = :id
                                 AND deleted_at IS NULL';
 
@@ -219,7 +224,7 @@ class ComprasOrdenModel extends Modelo
                     'id_proveedor' => (int) $cabecera['id_proveedor'],
                     'fecha_emision' => $fechaEmision,
                     'fecha_entrega' => $fechaEmision,
-                    'moneda' => $moneda, // NUEVO
+                    'moneda' => $moneda,
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'tipo_impuesto' => $cabecera['tipo_impuesto'],
                     'subtotal' => (float) $cabecera['subtotal'],
@@ -232,11 +237,10 @@ class ComprasOrdenModel extends Modelo
                 ]);
 
                 $db->prepare('UPDATE compras_ordenes_detalle SET deleted_at = NOW(), deleted_by = :user WHERE id_orden = :id_orden AND deleted_at IS NULL')
-                    ->execute(['user' => $userId, 'id_orden' => $idOrden]);
+                   ->execute(['user' => $userId, 'id_orden' => $idOrden]);
             } else {
                 $codigo = $this->generarCodigo($db);
 
-                // Agregamos moneda al INSERT
                 $sqlInsert = 'INSERT INTO compras_ordenes (
                                 codigo, id_proveedor, fecha_emision, fecha_entrega_estimada, moneda, observaciones,
                                 tipo_impuesto, subtotal, igv_monto, total, estado,
@@ -254,7 +258,7 @@ class ComprasOrdenModel extends Modelo
                     'id_proveedor' => (int) $cabecera['id_proveedor'],
                     'fecha_emision' => $fechaEmision,
                     'fecha_entrega' => $fechaEmision,
-                    'moneda' => $moneda, // NUEVO
+                    'moneda' => $moneda,
                     'observaciones' => $cabecera['observaciones'] ?: null,
                     'tipo_impuesto' => $cabecera['tipo_impuesto'],
                     'subtotal' => (float) $cabecera['subtotal'],
@@ -270,37 +274,16 @@ class ComprasOrdenModel extends Modelo
                 $idOrden = (int) $db->lastInsertId();
             }
 
-            // Inserción del detalle
             $sqlDet = 'INSERT INTO compras_ordenes_detalle (
-                            id_orden,
-                            id_item,
-                            id_item_unidad,
-                            unidad_nombre,
-                            factor_conversion_aplicado,
-                            cantidad_conversion,
-                            cantidad_base_solicitada,
-                            cantidad_solicitada,
-                            costo_unitario_pactado,
-                            id_centro_costo,
-                            created_by,
-                            updated_by,
-                            created_at,
-                            updated_at
+                            id_orden, id_item, id_item_unidad, unidad_nombre, factor_conversion_aplicado,
+                            cantidad_conversion, cantidad_base_solicitada, cantidad_solicitada,
+                            costo_unitario_pactado, id_centro_costo, es_bonificacion,
+                            created_by, updated_by, created_at, updated_at
                        ) VALUES (
-                            :id_orden,
-                            :id_item,
-                            :id_item_unidad,
-                            :unidad_nombre,
-                            :factor_conversion_aplicado,
-                            :cantidad_conversion,
-                            :cantidad_base,
-                            :cantidad,
-                            :costo_unitario,
-                            :id_centro_costo,
-                            :created_by,
-                            :updated_by,
-                            NOW(),
-                            NOW()
+                            :id_orden, :id_item, :id_item_unidad, :unidad_nombre, :factor_conversion_aplicado,
+                            :cantidad_conversion, :cantidad_base, :cantidad,
+                            :costo_unitario, :id_centro_costo, :es_bonificacion,
+                            :created_by, :updated_by, NOW(), NOW()
                        )';
 
             $stmtDet = $db->prepare($sqlDet);
@@ -310,6 +293,7 @@ class ComprasOrdenModel extends Modelo
                 $cantidadBase = (float) ($linea['cantidad_base'] ?? 0);
                 $factorAplicado = (float) ($linea['factor_conversion_aplicado'] ?? 1);
                 $costo = (float) ($linea['costo_unitario'] ?? 0);
+                $esBonificacion = (int) ($linea['es_bonificacion'] ?? 0);
                 
                 if ($cantidadConversion <= 0 || $cantidadBase <= 0 || $factorAplicado <= 0 || $costo < 0) {
                     throw new RuntimeException('Hay líneas con cantidad o costo inválido.');
@@ -326,6 +310,7 @@ class ComprasOrdenModel extends Modelo
                     'cantidad' => $cantidadConversion, 
                     'costo_unitario' => $costo,
                     'id_centro_costo' => !empty($linea['id_centro_costo']) ? (int) $linea['id_centro_costo'] : null,
+                    'es_bonificacion' => $esBonificacion,
                     'created_by' => $userId,
                     'updated_by' => $userId,
                 ]);
@@ -334,9 +319,7 @@ class ComprasOrdenModel extends Modelo
             $db->commit();
             return $idOrden;
         } catch (Throwable $e) {
-            if ($db->inTransaction()) {
-                $db->rollBack();
-            }
+            if ($db->inTransaction()) $db->rollBack();
             throw $e;
         }
     }
@@ -360,8 +343,39 @@ class ComprasOrdenModel extends Modelo
     public function anular(int $idOrden, int $userId): bool
     {
         $db = $this->db();
-        $db->beginTransaction();
 
+        // 👇 NUEVO: BLINDAJE DE SEGURIDAD (Igual a Ventas)
+        $stmtOrd = $db->prepare('SELECT estado FROM compras_ordenes WHERE id = :id AND deleted_at IS NULL LIMIT 1');
+        $stmtOrd->execute(['id' => $idOrden]);
+        $estadoActual = (int) $stmtOrd->fetchColumn();
+
+        if ($estadoActual >= 3 && $estadoActual !== 9) {
+            throw new RuntimeException(
+                "Esta orden ya tiene mercadería recepcionada.<br><br>" .
+                "<b>Pasos a seguir:</b><br>" .
+                "1. Vaya a 'Registrar Devolución' para retornar el stock al proveedor.<br>" .
+                "2. Si ya pagó, vaya a Tesorería y anule el egreso."
+            );
+        }
+
+        try {
+            $stmtCxp = $db->prepare('SELECT monto_pagado FROM tesoreria_cxp WHERE id_orden_compra = :id_orden AND deleted_at IS NULL LIMIT 1');
+            $stmtCxp->execute(['id_orden' => $idOrden]);
+            $cxp = $stmtCxp->fetch(PDO::FETCH_ASSOC);
+
+            if ($cxp !== false && (float)$cxp['monto_pagado'] > 0) {
+                throw new RuntimeException(
+                    "La orden tiene pagos registrados por " . document_moneda_simbolo() . number_format((float)$cxp['monto_pagado'], 2) . ".<br><br>" .
+                    "<b>Pasos para anular:</b><br>" .
+                    "1. Vaya al menú lateral: <b>Tesorería ➔ Movimientos</b>.<br>" .
+                    "2. Busque el egreso de este proveedor y anúlelo.<br>" .
+                    "3. Regrese a esta pantalla y vuelva a intentar anular la orden."
+                );
+            }
+        } catch (PDOException $e) { }
+        // 👆 FIN DEL BLINDAJE
+
+        $db->beginTransaction();
         try {
             $stmt = $db->prepare('UPDATE compras_ordenes
                                   SET estado = 9,
@@ -378,72 +392,72 @@ class ComprasOrdenModel extends Modelo
                 'updated_by' => $userId
             ]);
 
-            if ($stmt->rowCount() === 0) {
-                throw new RuntimeException('No se pudo anular la orden.');
-            }
+            if ($stmt->rowCount() === 0) throw new RuntimeException('No se pudo anular la orden.');
 
             $db->prepare('UPDATE compras_ordenes_detalle
-                          SET deleted_at = NOW(), 
-                              deleted_by = :deleted_by, 
-                              updated_by = :updated_by, 
-                              updated_at = NOW()
-                          WHERE id_orden = :id_orden
-                            AND deleted_at IS NULL')
-                ->execute([
-                    'id_orden' => $idOrden, 
-                    'deleted_by' => $userId,
-                    'updated_by' => $userId
-                ]);
+                          SET deleted_at = NOW(), deleted_by = :deleted_by, updated_by = :updated_by, updated_at = NOW()
+                          WHERE id_orden = :id_orden AND deleted_at IS NULL')
+                ->execute(['id_orden' => $idOrden, 'deleted_by' => $userId, 'updated_by' => $userId]);
+
+            // Limpieza Financiera: Borrado lógico de la CxP
+            try {
+                $db->prepare('UPDATE tesoreria_cxp SET estado = "ANULADA", deleted_at = NOW(), updated_by = :user, updated_at = NOW() 
+                              WHERE id_orden_compra = :id AND deleted_at IS NULL')
+                   ->execute(['id' => $idOrden, 'user' => $userId]);
+            } catch (\Throwable $e) {}
 
             $db->commit();
             return true;
         } catch (Throwable $e) {
-            if ($db->inTransaction()) {
-                $db->rollBack();
-            }
+            if ($db->inTransaction()) $db->rollBack();
             throw $e;
         }
     }
 
     public function revertirABorrador(int $idOrden, int $userId): bool
     {
-        if ($idOrden <= 0) {
-            throw new RuntimeException('Orden inválida.');
+        if ($idOrden <= 0) throw new RuntimeException('Orden inválida.');
+
+        $db = $this->db();
+        $db->beginTransaction();
+
+        try {
+            $stmtExiste = $db->prepare('SELECT estado FROM compras_ordenes WHERE id = :id AND deleted_at IS NULL LIMIT 1 FOR UPDATE');
+            $stmtExiste->execute(['id' => $idOrden]);
+            $estadoActual = $stmtExiste->fetchColumn();
+
+            if ($estadoActual === false) throw new RuntimeException('La orden no existe o fue eliminada.');
+            if ((int) $estadoActual !== 2) throw new RuntimeException('Solo se pueden revertir órdenes en estado aprobada.');
+
+            // 👇 NUEVO: Validación anti-descuadre físico 👇
+            $stmtRecepciones = $db->prepare('SELECT COALESCE(SUM(cantidad_recibida), 0) FROM compras_ordenes_detalle WHERE id_orden = :id AND deleted_at IS NULL');
+            $stmtRecepciones->execute(['id' => $idOrden]);
+            if ((float) $stmtRecepciones->fetchColumn() > 0) {
+                throw new RuntimeException('No se puede revertir a borrador porque ya existen productos recepcionados físicamente. Debe realizar una devolución primero.');
+            }
+
+            $stmt = $db->prepare('UPDATE compras_ordenes
+                                  SET estado = 0,
+                                      updated_by = :user,
+                                      updated_at = NOW()
+                                  WHERE id = :id AND estado = 2 AND deleted_at IS NULL');
+            $stmt->execute(['id' => $idOrden, 'user' => $userId]);
+
+            if ($stmt->rowCount() <= 0) throw new RuntimeException('No se pudo revertir la orden a borrador.');
+
+            // Limpieza Financiera: Borrado lógico de la CxP
+            try {
+                $db->prepare('UPDATE tesoreria_cxp SET deleted_at = NOW(), estado="ANULADA", updated_by = :user, updated_at = NOW() 
+                              WHERE id_orden_compra = :id AND deleted_at IS NULL')
+                   ->execute(['id' => $idOrden, 'user' => $userId]);
+            } catch (\Throwable $e) {}
+
+            $db->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $e;
         }
-
-        $stmtExiste = $this->db()->prepare('SELECT estado
-                                            FROM compras_ordenes
-                                            WHERE id = :id
-                                              AND deleted_at IS NULL
-                                            LIMIT 1');
-        $stmtExiste->execute(['id' => $idOrden]);
-        $orden = $stmtExiste->fetch(PDO::FETCH_ASSOC);
-
-        if (!$orden) {
-            throw new RuntimeException('La orden no existe o fue eliminada.');
-        }
-
-        if ((int) ($orden['estado'] ?? -1) !== 2) {
-            throw new RuntimeException('Solo se pueden revertir órdenes en estado aprobada.');
-        }
-
-        $stmt = $this->db()->prepare('UPDATE compras_ordenes
-                                      SET estado = 0,
-                                          updated_by = :user,
-                                          updated_at = NOW()
-                                      WHERE id = :id
-                                        AND estado = 2
-                                        AND deleted_at IS NULL');
-        $stmt->execute([
-            'id' => $idOrden,
-            'user' => $userId,
-        ]);
-
-        if ($stmt->rowCount() <= 0) {
-            throw new RuntimeException('No se pudo revertir la orden a borrador.');
-        }
-
-        return true;
     }
 
     public function listarProveedoresActivos(): array
@@ -462,9 +476,7 @@ class ComprasOrdenModel extends Modelo
 
     public function proveedorEsValido(int $idProveedor): bool
     {
-        if ($idProveedor <= 0) {
-            return false;
-        }
+        if ($idProveedor <= 0) return false;
 
         $sql = 'SELECT 1
                 FROM terceros_proveedores tp
@@ -497,9 +509,7 @@ class ComprasOrdenModel extends Modelo
 
     public function listarUnidadesConversionItem(int $idItem): array
     {
-        if ($idItem <= 0) {
-            return [];
-        }
+        if ($idItem <= 0) return [];
 
         $sql = 'SELECT u.id,
                     u.nombre,
@@ -520,28 +530,6 @@ class ComprasOrdenModel extends Modelo
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    private function tablaTieneColumna(string $tabla, string $columna): bool
-    {
-        try {
-            $stmt = $this->db()->prepare("SHOW COLUMNS FROM {$tabla} LIKE :columna");
-            $stmt->execute(['columna' => $columna]);
-            return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (Throwable $e) {
-            return false;
-        }
-    }
-
-    private function tablaExiste(string $tabla): bool
-    {
-        try {
-            $stmt = $this->db()->prepare('SHOW TABLES LIKE :tabla');
-            $stmt->execute(['tabla' => $tabla]);
-            return (bool) $stmt->fetch(PDO::FETCH_NUM);
-        } catch (Throwable $e) {
-            return false;
-        }
-    }
-
     private function generarCodigo(PDO $db): string
     {
         $correlativo = (int) $db->query('SELECT COUNT(*) FROM compras_ordenes')->fetchColumn() + 1;
@@ -550,9 +538,7 @@ class ComprasOrdenModel extends Modelo
 
     public function obtenerPrecioProveedor(int $idProveedor, int $idItem, ?int $idUnidad = null): float
     {
-        if ($idProveedor <= 0 || $idItem <= 0) {
-            return 0.0;
-        }
+        if ($idProveedor <= 0 || $idItem <= 0) return 0.0;
 
         $sqlAcuerdo = "SELECT capp.precio_recomendado
                        FROM comercial_acuerdos_proveedor_precios capp
@@ -583,10 +569,7 @@ class ComprasOrdenModel extends Modelo
             ]);
             
             $precioPactado = $stmt->fetchColumn();
-
-            if ($precioPactado !== false) {
-                return (float)$precioPactado;
-            }
+            if ($precioPactado !== false) return (float)$precioPactado;
 
             $stmtItem = $this->db()->prepare("SELECT costo_referencial FROM items WHERE id = :id");
             $stmtItem->execute([':id' => $idItem]);
@@ -609,12 +592,8 @@ class ComprasOrdenModel extends Modelo
             $stmtOrd->execute([$idOrden]);
             $ordenData = $stmtOrd->fetch(PDO::FETCH_ASSOC);
             $idProveedor = (int) ($ordenData['id_proveedor'] ?? 0);
-            $codigoOrden = (string) ($ordenData['codigo'] ?? '');
 
-            if (!$idProveedor) {
-                throw new RuntimeException("La orden no existe.");
-            }
-
+            if (!$idProveedor) throw new RuntimeException("La orden no existe.");
             if (trim($motivo) === '') throw new RuntimeException('Debe indicar el motivo de la devolución.');
             if (trim($resolucion) === '') throw new RuntimeException('Debe indicar cómo se resolverá la devolución.');
 
@@ -626,9 +605,7 @@ class ComprasOrdenModel extends Modelo
                 $stmtFallback = $db->query("SELECT id FROM almacenes WHERE estado = 1 AND deleted_at IS NULL ORDER BY id ASC LIMIT 1");
                 $idAlmacenPreferido = (int) $stmtFallback->fetchColumn();
             }
-            if ($idAlmacenPreferido <= 0) {
-                throw new RuntimeException('No existe un almacén activo para procesar la salida de la devolución.');
-            }
+            if ($idAlmacenPreferido <= 0) throw new RuntimeException('No existe un almacén activo para procesar la salida de la devolución.');
 
             $totalDevuelto = 0.0;
 
@@ -653,7 +630,7 @@ class ComprasOrdenModel extends Modelo
                                               FROM compras_ordenes_detalle 
                                               WHERE id = :id_det AND id_orden = :id_orden AND deleted_at IS NULL LIMIT 1");
                                               
-            $stmtUpdateOrdenDet = $db->prepare("UPDATE compras_ordenes_detalle SET cantidad_recibida = cantidad_recibida - :cant_base WHERE id = :id_doc_det");
+            $stmtUpdateOrdenDet = $db->prepare("UPDATE compras_ordenes_detalle SET cantidad_recibida = GREATEST(cantidad_recibida - :cant_base, 0) WHERE id = :id_doc_det");
 
             foreach ($detalle as $linea) {
                 $idDetalleOrden = (int) ($linea['id_documento_detalle'] ?? 0);
@@ -700,7 +677,7 @@ class ComprasOrdenModel extends Modelo
                     'id_item_unidad' => !empty($linea['id_unidad']) ? (int) $linea['id_unidad'] : 0,
                     'id_almacen_origen' => $idAlmacenOrigen, 'cantidad' => $cantidadBase,
                     'costo_unitario' => $costoBaseSeguro,
-                    'referencia' => 'Devolución OC ' . $codigoOrden . ' | ' . trim($motivo),
+                    'referencia' => 'Devolución OC ' . $ordenData['codigo'] . ' | ' . trim($motivo),
                     'id_centro_costo' => !empty($ordenDet['id_centro_costo']) ? (int) $ordenDet['id_centro_costo'] : null,
                     'created_by' => $userId, 'fecha_documento' => date('Y-m-d'),
                 ]);
@@ -736,13 +713,8 @@ class ComprasOrdenModel extends Modelo
 
     private function resolverAlmacenOrigenDevolucion(PDO $db, int $idItem, float $cantidadBase, int $idAlmacenPreferido): int
     {
-        if ($idItem <= 0) {
-            throw new RuntimeException('Ítem inválido para calcular almacén de salida.');
-        }
-
-        if ($cantidadBase <= 0) {
-            throw new RuntimeException('Cantidad inválida para calcular almacén de salida.');
-        }
+        if ($idItem <= 0) throw new RuntimeException('Ítem inválido para calcular almacén de salida.');
+        if ($cantidadBase <= 0) throw new RuntimeException('Cantidad inválida para calcular almacén de salida.');
 
         $sql = 'SELECT s.id_almacen
                 FROM inventario_stock s
@@ -765,7 +737,7 @@ class ComprasOrdenModel extends Modelo
 
         $idAlmacen = (int) $stmt->fetchColumn();
         if ($idAlmacen <= 0) {
-            throw new RuntimeException('Stock insuficiente para realizar el movimiento.');
+            throw new RuntimeException('Stock insuficiente en todos los almacenes para procesar la devolución.');
         }
 
         return $idAlmacen;
@@ -773,13 +745,8 @@ class ComprasOrdenModel extends Modelo
 
     private function aplicarAjusteCxpPorDevolucion(PDO $db, int $idOrden, string $resolucion, float $totalDevuelto, int $userId): void
     {
-        if ($totalDevuelto <= 0) {
-            return;
-        }
-
-        if (trim(strtolower($resolucion)) !== 'descuento_cxp') {
-            return;
-        }
+        if ($totalDevuelto <= 0) return;
+        if (trim(strtolower($resolucion)) !== 'descuento_cxp') return;
 
         $stmtCxp = $db->prepare('SELECT id, monto_total, monto_pagado
                                  FROM tesoreria_cxp
@@ -791,13 +758,12 @@ class ComprasOrdenModel extends Modelo
                                  FOR UPDATE');
         $stmtCxp->execute(['id_orden' => $idOrden]);
         $cxp = $stmtCxp->fetch(PDO::FETCH_ASSOC);
-        if (!$cxp) {
-            return;
-        }
+        if (!$cxp) return;
 
         $idCxp = (int) ($cxp['id'] ?? 0);
         $montoTotalActual = (float) ($cxp['monto_total'] ?? 0);
         $montoPagadoActual = (float) ($cxp['monto_pagado'] ?? 0);
+        
         $nuevoMontoTotal = max(0.0, $montoTotalActual - $totalDevuelto);
         $nuevoPagado = min($montoPagadoActual, $nuevoMontoTotal);
         $nuevoSaldo = max(0.0, $nuevoMontoTotal - $nuevoPagado);
@@ -825,5 +791,25 @@ class ComprasOrdenModel extends Modelo
             'user' => $userId,
             'id' => $idCxp,
         ]);
+    }
+
+    // 👇 SOLUCIÓN: Agregada la función faltante para Combos (Packs) 👇
+    private function resolverSubqueryStockCombo(string $idPresentacionRef, int $idAlmacen = 0): string
+    {
+        if ($idAlmacen > 0) {
+            return "(SELECT COALESCE(MIN(FLOOR(COALESCE(s.stock_actual, 0) / NULLIF(ppd.cantidad, 0))), 0)
+                     FROM precios_presentaciones_detalle ppd
+                     LEFT JOIN inventario_stock s ON s.id_item = ppd.id_item AND s.id_almacen = {$idAlmacen}
+                     WHERE ppd.id_presentacion = {$idPresentacionRef})";
+        }
+        
+        return "(SELECT COALESCE(MIN(FLOOR(COALESCE(st.stock_total, 0) / NULLIF(ppd.cantidad, 0))), 0)
+                 FROM precios_presentaciones_detalle ppd
+                 LEFT JOIN (
+                     SELECT id_item, SUM(stock_actual) AS stock_total 
+                     FROM inventario_stock 
+                     GROUP BY id_item
+                 ) st ON st.id_item = ppd.id_item
+                 WHERE ppd.id_presentacion = {$idPresentacionRef})";
     }
 }

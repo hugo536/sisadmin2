@@ -6,9 +6,11 @@ import { getJson, obtenerFechaLocalISO, esperarTomSelect } from '../api.js';
 import { urls, postJsonConCarga, recargarPagina } from './config.js';
 import { calcularTotalPagoInmediatoCompra, agregarFilaPagoInmediatoCompra, filtrarMetodosPorCuentaCompras } from './pagos.js';
 
-// --- ESTADO LOCAL ---
+// --- ESTADO GLOBAL LOCAL ---
 let ordenEnEdicionId = 0;
 let modalSoloLecturaActiva = false;
+
+// --- TOM SELECT GLOBAL ---
 let tomSelectProveedor = null;
 let tomSelectListo = false;
 const cacheUnidades = new Map();
@@ -16,6 +18,7 @@ const cacheUnidades = new Map();
 // ==========================================
 // 1. UTILIDADES LOCALES Y TOMSELECT
 // ==========================================
+
 function formatearFechaDMY(fechaTexto) {
     const texto = String(fechaTexto || '').trim();
     if (!texto) return '-';
@@ -41,13 +44,24 @@ function initSelectLocal(target, options = {}) {
 function setOrdenEnEdicion(id = 0) {
     const parsedId = Number(id || 0);
     ordenEnEdicionId = Number.isFinite(parsedId) ? parsedId : 0;
-    const ordenId = document.getElementById('ordenId');
-    if (ordenId) ordenId.value = String(ordenEnEdicionId);
+    const ordenIdEl = document.getElementById('ordenId');
+    if (ordenIdEl) ordenIdEl.value = String(ordenEnEdicionId);
 }
+
+// Utilidad SPA: Evita duplicación de eventos al navegar por el menú lateral
+const rebindClick = (id, callback) => {
+    const btn = document.getElementById(id);
+    if (btn) {
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        newBtn.addEventListener('click', callback);
+    }
+};
 
 // ==========================================
 // 2. LÓGICA DE FILAS Y PRECIOS
 // ==========================================
+
 async function obtenerUnidadesItem(idItem) {
     if (!idItem || idItem <= 0) return [];
     if (cacheUnidades.has(idItem)) return cacheUnidades.get(idItem);
@@ -67,7 +81,7 @@ async function obtenerUnidadesItem(idItem) {
 async function aplicarPrecioSugeridoProveedor(fila) {
     if (modalSoloLecturaActiva) return;
     const idProveedor = document.getElementById('idProveedor');
-    const idProv = Number(idProveedor?.value || 0);
+    const idProv = Number(tomSelectProveedor ? tomSelectProveedor.getValue() : idProveedor?.value || 0);
     const inputItem = fila.querySelector('.detalle-item');
     const inputUnidad = fila.querySelector('.detalle-unidad-compra');
     const inputCosto = fila.querySelector('.detalle-costo');
@@ -118,9 +132,9 @@ function filaToPayload(fila) {
 
     if (info) {
         if (idItem > 0 && factor > 1) {
-             info.innerHTML = `<small class="text-muted fw-bold">Entrarán al almacén: ${cantidadBase.toFixed(2)} ${getUnidadBaseDesdeSelect(inputItem)}</small>`;
+             info.innerHTML = `Entrarán al almacén: <strong class="text-dark">${cantidadBase.toFixed(2)} ${getUnidadBaseDesdeSelect(inputItem)}</strong>`;
         } else if (idItem > 0) {
-             info.innerHTML = `<small class="text-muted">Unidad base: ${getUnidadBaseDesdeSelect(inputItem)}</small>`;
+             info.innerHTML = `Unidad base: ${getUnidadBaseDesdeSelect(inputItem)}`;
         } else {
              info.innerHTML = '';
         }
@@ -147,8 +161,20 @@ function recalcularFila(fila) {
     recalcularTotalGeneral();
 }
 
+function actualizarNumeracionFilas() {
+    const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
+    if (tbodyDetalle) {
+        tbodyDetalle.querySelectorAll('tr').forEach((fila, index) => {
+            const celdaNumero = fila.querySelector('.fila-numero');
+            if (celdaNumero) celdaNumero.textContent = index + 1;
+        });
+    }
+}
+
 function recalcularTotalGeneral() {
     const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
+    if (!tbodyDetalle) return;
+
     let sumaLineas = 0;
     tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
         const item = filaToPayload(fila);
@@ -184,6 +210,7 @@ function recalcularTotalGeneral() {
     if (ordenIgv) ordenIgv.innerHTML = `<span class="simbolo-moneda">${sim}</span> ${igv.toFixed(2)}`;
     if (ordenTotal) ordenTotal.innerHTML = `<span class="simbolo-moneda">${sim}</span> ${total.toFixed(2)}`;
 
+    // Validación del Pago Inmediato
     const switchCobroInmediatoCompra = document.getElementById('switchCobroInmediatoCompra');
     if (switchCobroInmediatoCompra) {
         if (total <= 0) {
@@ -205,13 +232,15 @@ function recalcularTotalGeneral() {
     
     if (switchCobroInmediatoCompra && switchCobroInmediatoCompra.checked) {
         const contenedor = document.getElementById('contenedorMetodosPagoCompra');
-        const filasPago = contenedor.querySelectorAll('.fila-pago-inmediato');
-        if (filasPago.length === 1) { 
-            const inputMonto = filasPago[0].querySelector('.input-monto-inmediato');
-            inputMonto.value = total.toFixed(2);
-            inputMonto.dispatchEvent(new Event('input', { bubbles: true }));
-        } else {
-            calcularTotalPagoInmediatoCompra();
+        if (contenedor) {
+            const filasPago = contenedor.querySelectorAll('.fila-pago-inmediato');
+            if (filasPago.length === 1) { 
+                const inputMonto = filasPago[0].querySelector('.input-monto-inmediato');
+                inputMonto.value = total.toFixed(2);
+                inputMonto.dispatchEvent(new Event('input', { bubbles: true }));
+            } else {
+                calcularTotalPagoInmediatoCompra();
+            }
         }
     }
 }
@@ -273,7 +302,7 @@ async function actualizarUnidadPorItem(fila, itemGuardado = null) {
         }
     } catch (error) {
         console.error(error);
-        Swal.fire('Atención', 'No se pudieron cargar las unidades de este ítem.', 'warning');
+        Swal.fire({ icon: 'warning', title: 'Atención', html: 'No se pudieron cargar las unidades de este ítem.' });
     }
 
     sincronizarBloqueoFilaDetalle(fila);
@@ -337,7 +366,7 @@ function agregarFila(item = null) {
         });
 
         if (contadorDuplicados > 1) {
-            Swal.fire({ icon: 'warning', title: 'Ítem duplicado', text: 'Este producto ya está en la lista.', confirmButtonColor: '#3085d6' });
+            Swal.fire({ icon: 'warning', title: 'Ítem duplicado', text: 'Este producto ya está en la orden.', confirmButtonColor: '#0d6efd' });
             if (tomSelectItem) tomSelectItem.clear();
             else inputItem.value = '';
             return;
@@ -351,6 +380,7 @@ function agregarFila(item = null) {
     btnQuitar?.addEventListener('click', () => {
         if (tomSelectItem) tomSelectItem.destroy();
         fila.remove();
+        actualizarNumeracionFilas();
         recalcularTotalGeneral();
     });
 
@@ -368,6 +398,7 @@ function agregarFila(item = null) {
     }
 
     sincronizarBloqueoFilaDetalle(fila);
+    actualizarNumeracionFilas();
     recalcularFila(fila);
 
     if (!item) {
@@ -381,6 +412,7 @@ function agregarFila(item = null) {
 // ==========================================
 // 3. CONTROL DE MODALES (LECTURA Y EDICIÓN)
 // ==========================================
+
 function sincronizarBloqueoFilaDetalle(fila) {
     if (!fila) return;
     const inputItem = fila.querySelector('.detalle-item');
@@ -416,7 +448,8 @@ function setModoSoloLectura(esSoloLectura = false, estado = 0) {
         document.getElementById('idProveedor'),
         document.getElementById('fechaEntrega'),
         document.getElementById('observaciones'),
-        document.getElementById('ordenMoneda')
+        document.getElementById('ordenMoneda'),
+        document.getElementById('tipoImpuesto')
     ];
 
     arrInputs.forEach((el) => {
@@ -476,7 +509,10 @@ function limpiarModalOrden() {
     setOrdenEnEdicion(0);
     
     const idProveedor = document.getElementById('idProveedor');
-    if (tomSelectProveedor) tomSelectProveedor.clear();
+    if (tomSelectProveedor) {
+        tomSelectProveedor.clear();
+        tomSelectProveedor.enable();
+    }
     else if(idProveedor) idProveedor.value = '';
 
     const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
@@ -489,6 +525,9 @@ function limpiarModalOrden() {
     
     const ordenMoneda = document.getElementById('ordenMoneda');
     if (ordenMoneda) ordenMoneda.value = 'PEN';
+    
+    const tipoImpuesto = document.getElementById('tipoImpuesto');
+    if (tipoImpuesto) tipoImpuesto.value = 'incluido';
 
     ['ordenTotal', 'ordenSubtotal', 'ordenIgv'].forEach(id => {
         const el = document.getElementById(id);
@@ -518,85 +557,123 @@ function limpiarModalOrden() {
 // ==========================================
 // 4. EXPORTACIONES Y EVENTOS PRINCIPALES
 // ==========================================
+
 export async function abrirModalResumenCompra(id, target = null) {
-    const separador = urls.index.includes('?') ? '&' : '?';
-    const json = await getJson(`${urls.index}${separador}accion=ver&id=${id}`);
+    try {
+        const separador = urls.index.includes('?') ? '&' : '?';
+        const json = await getJson(`${urls.index}${separador}accion=ver&id=${id}`);
 
-    if (!json.ok || !json.data) return;
+        if (!json.ok || !json.data) throw new Error('No se encontró información de la orden.');
 
-    const d = json.data;
-    const modalResumenEl = document.getElementById('modalResumenCompra');
-    if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
+        const d = json.data;
+        const modalResumenEl = document.getElementById('modalResumenCompra');
+        if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
 
-    document.getElementById('resumenCompraCodigo').textContent = d.codigo || '-';
-    
-    const filaTabla = target?.closest('tr');
-    const nombreProveedor = filaTabla?.querySelector('td:nth-child(2)')?.textContent?.trim() || d.proveedor || 'Proveedor';
-    const fechaRecepcionTabla = filaTabla?.querySelector('.bi-box-arrow-in-down')?.parentElement?.textContent?.trim() || formatearFechaDMY(d.fecha_recepcion || d.fecha_entrega || d.fecha_orden) || '-';
-    
-    document.getElementById('resumenCompraProveedor').textContent = nombreProveedor;
-    document.getElementById('resumenCompraFechaOrden').textContent = formatearFechaDMY(d.fecha_orden);
-    document.getElementById('resumenCompraFechaRecepcion').textContent = fechaRecepcionTabla;
-    document.getElementById('resumenCompraObservaciones').textContent = d.observaciones || 'Sin observaciones.';
-    
-    const sim = d.moneda === 'USD' ? '$' : 'S/';
-    document.getElementById('resumenCompraTotalFinal').textContent = `${sim} ${Number(d.total || 0).toFixed(2)}`;
-
-    // --- Inyectar Responsables (Compras) ---
-    const userRegistroCompra = d.usuario_registro || d.usuario_creacion || 'Administrador';
-    const userRecepcionCompra = d.usuario_recepcion || d.usuario_despacho || 'Pendiente';
-
-    const elUserRegCompra = document.getElementById('resumenCompraUsuarioRegistro');
-    if (elUserRegCompra) elUserRegCompra.textContent = userRegistroCompra;
-
-    const elUserRecepCompra = document.getElementById('resumenCompraUsuarioRecepcion');
-    if (elUserRecepCompra) elUserRecepCompra.textContent = userRecepcionCompra;
-
-    const tbodyResumen = document.querySelector('#tablaResumenProductosCompra tbody');
-    if (tbodyResumen) {
-        tbodyResumen.innerHTML = '';
-
-        if (d.detalle && d.detalle.length > 0) {
-            d.detalle.forEach(item => {
-                const factor = Number(item.factor_conversion_aplicado || 1);
-                const cantPedidaCompra = Number(item.cantidad || 0); 
-                const cantPedidaBase = cantPedidaCompra * factor;    
-                const cantRecibidaBase = Number(item.cantidad_recibida || 0); 
-                const cantRecibidaCompra = factor > 0 ? (cantRecibidaBase / factor) : cantRecibidaBase; 
-
-                const unidadCompra = item.unidad_nombre || 'UND';
-                const unidadBase = item.unidad_base || 'UND';
-                const requiereSubtitulo = factor > 1; 
-
-                const precio = Number(item.costo_unitario || 0);
-                const subtotal = cantRecibidaCompra * precio; 
-
-                let htmlPedida = `<span class="d-block fw-bold text-dark">${cantPedidaCompra.toFixed(2)} ${unidadCompra}</span>`;
-                if (requiereSubtitulo) {
-                    htmlPedida += `<small class="text-muted">(${cantPedidaBase.toFixed(2)} ${unidadBase})</small>`;
-                }
-
-                let htmlRecibida = `<span class="d-block fw-bold text-success">${cantRecibidaCompra.toFixed(2)} ${unidadCompra}</span>`;
-                if (requiereSubtitulo) {
-                    htmlRecibida += `<small class="text-muted">(${cantRecibidaBase.toFixed(2)} ${unidadBase})</small>`;
-                }
-
-                const trItem = document.createElement('tr');
-                trItem.innerHTML = `
-                    <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
-                    <td class="text-center py-2 align-middle">${htmlPedida}</td>
-                    <td class="text-center py-2 align-middle">${htmlRecibida}</td>
-                    <td class="text-end py-2 text-muted align-middle">${sim} ${precio.toFixed(2)}</td>
-                    <td class="text-end pe-3 py-2 fw-bold text-dark align-middle">${sim} ${subtotal.toFixed(2)}</td>
-                `;
-                tbodyResumen.appendChild(trItem);
-            });
-        } else {
-            tbodyResumen.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
+        document.getElementById('resumenCompraCodigo').textContent = d.codigo || '-';
+        
+        const filaTabla = target?.closest('tr');
+        const nombreProveedor = filaTabla?.querySelector('td:nth-child(2)')?.textContent?.trim() || d.proveedor || 'Proveedor';
+        const fechaRecepcionTabla = filaTabla?.querySelector('.bi-box-arrow-in-down')?.parentElement?.textContent?.trim() || formatearFechaDMY(d.fecha_recepcion || d.fecha_entrega || d.fecha_orden) || '-';
+        
+        document.getElementById('resumenCompraProveedor').textContent = nombreProveedor;
+        document.getElementById('resumenCompraFechaOrden').textContent = formatearFechaDMY(d.fecha_orden);
+        document.getElementById('resumenCompraFechaRecepcion').textContent = fechaRecepcionTabla;
+        
+        const obsEl = document.getElementById('resumenCompraObservaciones');
+        if (obsEl) {
+            obsEl.innerHTML = d.observaciones 
+                ? `<span class="text-dark">${d.observaciones}</span>` 
+                : `<span class="fst-italic opacity-50">Sin observaciones.</span>`;
         }
-    }
+        
+        const sim = d.moneda === 'USD' ? '$' : 'S/';
+        document.getElementById('resumenCompraTotalFinal').textContent = `${sim} ${Number(d.total || 0).toFixed(2)}`;
 
-    bootstrap.Modal.getOrCreateInstance(modalResumenEl).show();
+        // Responsables (Compras)
+        const userRegistroCompra = d.usuario_registro || d.usuario_creacion || 'Administrador';
+        const userRecepcionCompra = d.usuario_recepcion || d.usuario_despacho || 'Pendiente';
+
+        const elUserRegCompra = document.getElementById('resumenCompraUsuarioRegistro');
+        if (elUserRegCompra) elUserRegCompra.textContent = userRegistroCompra;
+
+        const elUserRecepCompra = document.getElementById('resumenCompraUsuarioRecepcion');
+        if (elUserRecepCompra) elUserRecepCompra.textContent = userRecepcionCompra;
+
+        // Historial de Devoluciones (Si las tiene)
+        const contDevoluciones = document.getElementById('contenedorHistorialDevoluciones');
+        const listaHistorialDevoluciones = document.getElementById('listaHistorialDevoluciones');
+        
+        if (contDevoluciones && listaHistorialDevoluciones) {
+            listaHistorialDevoluciones.innerHTML = '';
+            if (d.devoluciones_historial && d.devoluciones_historial.length > 0) {
+                contDevoluciones.classList.remove('d-none');
+                d.devoluciones_historial.forEach(dev => {
+                    const li = document.createElement('li');
+                    li.className = 'mb-1';
+                    li.innerHTML = `<strong>${dev.fecha}</strong> - ${dev.motivo} <span class="text-danger fw-bold">(S/ ${Number(dev.monto).toFixed(2)})</span>`;
+                    listaHistorialDevoluciones.appendChild(li);
+                });
+            } else {
+                contDevoluciones.classList.add('d-none');
+            }
+        }
+
+        const tbodyResumen = document.querySelector('#tablaResumenProductosCompra tbody');
+        if (tbodyResumen) {
+            tbodyResumen.innerHTML = '';
+
+            if (d.detalle && d.detalle.length > 0) {
+                d.detalle.forEach(item => {
+                    const factor = Number(item.factor_conversion_aplicado || 1);
+                    const cantPedidaCompra = Number(item.cantidad || 0); 
+                    const cantPedidaBase = cantPedidaCompra * factor;    
+                    const cantRecibidaBase = Number(item.cantidad_recibida || 0); 
+                    const cantRecibidaCompra = factor > 0 ? (cantRecibidaBase / factor) : cantRecibidaBase; 
+                    const cantDevueltaBase = Number(item.cantidad_devuelta || 0);
+                    const cantDevueltaCompra = factor > 0 ? (cantDevueltaBase / factor) : cantDevueltaBase;
+
+                    const unidadCompra = item.unidad_nombre || 'UND';
+                    const unidadBase = item.unidad_base || 'UND';
+                    const requiereSubtitulo = factor > 1; 
+
+                    const precio = Number(item.costo_unitario || 0);
+                    const subtotal = cantRecibidaCompra * precio; 
+
+                    let htmlPedida = `<span class="d-block fw-bold text-dark">${cantPedidaCompra.toFixed(2)} ${unidadCompra}</span>`;
+                    if (requiereSubtitulo) {
+                        htmlPedida += `<small class="text-muted">(${cantPedidaBase.toFixed(2)} ${unidadBase})</small>`;
+                    }
+
+                    let htmlRecibida = `<span class="d-block fw-bold text-success">${cantRecibidaCompra.toFixed(2)} ${unidadCompra}</span>`;
+                    if (requiereSubtitulo) {
+                        htmlRecibida += `<small class="text-muted">(${cantRecibidaBase.toFixed(2)} ${unidadBase})</small>`;
+                    }
+                    
+                    let htmlDevuelta = '-';
+                    if (cantDevueltaCompra > 0) {
+                        htmlDevuelta = `<span class="fw-bold text-danger">${cantDevueltaCompra.toFixed(2)} ${unidadCompra}</span>`;
+                    }
+
+                    const trItem = document.createElement('tr');
+                    trItem.innerHTML = `
+                        <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
+                        <td class="text-center py-2 align-middle">${htmlPedida}</td>
+                        <td class="text-center py-2 align-middle">${htmlRecibida}</td>
+                        <td class="text-center py-2 align-middle">${htmlDevuelta}</td>
+                        <td class="text-end py-2 text-muted align-middle">${sim} ${precio.toFixed(2)}</td>
+                        <td class="text-end pe-3 py-2 fw-bold text-dark align-middle">${sim} ${subtotal.toFixed(2)}</td>
+                    `;
+                    tbodyResumen.appendChild(trItem);
+                });
+            } else {
+                tbodyResumen.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No hay productos registrados.</td></tr>';
+            }
+        }
+
+        bootstrap.Modal.getOrCreateInstance(modalResumenEl).show();
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'No se pudo cargar el resumen', html: err.message });
+    }
 }
 
 export async function abrirModalCompra(id, target) {
@@ -617,7 +694,11 @@ export async function abrirModalCompra(id, target) {
             setOrdenEnEdicion(d.id);
             
             const idProveedor = document.getElementById('idProveedor');
-            if (tomSelectProveedor) tomSelectProveedor.setValue(d.id_proveedor);
+            if (tomSelectProveedor) {
+                // Inyectamos la opción para asegurar que exista al cargar
+                tomSelectProveedor.addOption({ value: d.id_proveedor, text: d.proveedor || 'Proveedor' });
+                tomSelectProveedor.setValue(d.id_proveedor);
+            }
             else if(idProveedor) idProveedor.value = d.id_proveedor;
 
             const fechaEntrega = document.getElementById('fechaEntrega');
@@ -669,21 +750,27 @@ export async function abrirModalCompra(id, target) {
         }
     } catch (error) {
         console.error(error);
-        Swal.fire('Error', 'No se pudo cargar la orden.', 'error');
+        Swal.fire({ icon: 'error', title: 'Error', html: 'No se pudo cargar la orden solicitada.' });
     }
 }
 
 export async function initCompras() {
     tomSelectListo = await esperarTomSelect();
     
-    if (document.getElementById('idProveedor') && tomSelectListo) {
+    // Destruimos el TomSelect anterior si estamos recargando por AJAX en SPA
+    const idProveedorEl = document.getElementById('idProveedor');
+    if (tomSelectProveedor && idProveedorEl && !idProveedorEl.tomselect) {
+        tomSelectProveedor = null; 
+    }
+
+    if (idProveedorEl && tomSelectListo && !tomSelectProveedor) {
         tomSelectProveedor = initSelectLocal('#idProveedor', {
             placeholder: 'Escribe para buscar proveedor...',
             dropdownParent: 'body',
         });
     }
 
-    document.getElementById('btnNuevaOrden')?.addEventListener('click', () => {
+    rebindClick('btnNuevaOrden', () => {
         limpiarModalOrden();
         setOrdenEnEdicion(0);
         agregarFila();
@@ -692,8 +779,7 @@ export async function initCompras() {
         bootstrap.Modal.getOrCreateInstance(modalOrdenElement).show();
     });
 
-    const btnAgregarFila = document.getElementById('btnAgregarFila');
-    if (btnAgregarFila) btnAgregarFila.addEventListener('click', () => agregarFila());
+    rebindClick('btnAgregarFila', () => agregarFila());
 
     const refrescarPreciosSugeridos = async () => {
         const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
@@ -704,18 +790,23 @@ export async function initCompras() {
         }
     };
 
-    const idProveedor = document.getElementById('idProveedor');
     if (tomSelectProveedor) tomSelectProveedor.on('change', refrescarPreciosSugeridos);
-    else if (idProveedor) idProveedor.addEventListener('change', refrescarPreciosSugeridos);
+    else if (idProveedorEl) idProveedorEl.addEventListener('change', refrescarPreciosSugeridos);
 
     const tipoImpuesto = document.getElementById('tipoImpuesto');
-    if (tipoImpuesto) tipoImpuesto.addEventListener('change', recalcularTotalGeneral);
+    if (tipoImpuesto) {
+        const newTipoImpuesto = tipoImpuesto.cloneNode(true);
+        tipoImpuesto.parentNode.replaceChild(newTipoImpuesto, tipoImpuesto);
+        newTipoImpuesto.addEventListener('change', recalcularTotalGeneral);
+    }
     
     const ordenMoneda = document.getElementById('ordenMoneda');
     if (ordenMoneda) {
-        ordenMoneda.addEventListener('change', () => {
+        const newOrdenMoneda = ordenMoneda.cloneNode(true);
+        ordenMoneda.parentNode.replaceChild(newOrdenMoneda, ordenMoneda);
+        newOrdenMoneda.addEventListener('change', () => {
             recalcularTotalGeneral();
-            const sim = ordenMoneda.value === 'USD' ? '$' : 'S/';
+            const sim = newOrdenMoneda.value === 'USD' ? '$' : 'S/';
             document.querySelectorAll('.simbolo-moneda').forEach(el => el.textContent = sim);
         });
     }
@@ -723,10 +814,11 @@ export async function initCompras() {
     const fechaEntrega = document.getElementById('fechaEntrega');
     if (fechaEntrega && !fechaEntrega.value) fechaEntrega.value = obtenerFechaLocalISO();
 
-    const btnGuardarOrden = document.getElementById('btnGuardarOrden');
-    btnGuardarOrden?.addEventListener('click', async () => {
+    // Guardado de la Orden
+    rebindClick('btnGuardarOrden', async () => {
         const idProv = document.getElementById('idProveedor');
-        if (!idProv || !idProv.value) return Swal.fire('Falta Proveedor', 'Debe seleccionar un proveedor.', 'warning');
+        const idProvValue = tomSelectProveedor ? tomSelectProveedor.getValue() : idProv?.value;
+        if (!idProvValue) return Swal.fire('Falta Proveedor', 'Debe seleccionar un proveedor.', 'warning');
         
         const fEntrega = document.getElementById('fechaEntrega');
         if (!fEntrega || !fEntrega.value) return Swal.fire('Falta Fecha', 'La fecha de emisión es obligatoria.', 'warning');
@@ -758,8 +850,8 @@ export async function initCompras() {
             }
         });
 
-        if (detalle.length === 0) return Swal.fire({ icon: 'error', title: 'Orden vacía', text: 'Debe agregar al menos un producto.' });
-        if (errorCentroCosto) return Swal.fire('Falta Centro de Costo', 'Debe seleccionar un Centro de Costo.', 'warning');
+        if (detalle.length === 0) return Swal.fire({ icon: 'error', title: 'Orden vacía', text: 'Debe agregar al menos un producto a la compra.' });
+        if (errorCentroCosto) return Swal.fire('Falta Centro de Costo', 'Debe seleccionar un Centro de Costo para cada línea.', 'warning');
         if (errorDetalle) return Swal.fire('Verifique cantidades', 'Hay líneas con conversión o cantidad inválida.', 'warning');
 
         let esCobroInmediato = false;
@@ -832,22 +924,27 @@ export async function initCompras() {
             let erroresSaldo = [];
             for (const idC in montosPorCuenta) {
                 if (montosPorCuenta[idC] > saldosPorCuenta[idC]) {
-                    erroresSaldo.push(`La cuenta <b>${nombresCuentas[idC]}</b> no tiene fondos suficientes. Intentas retirar ${montosPorCuenta[idC].toFixed(2)} pero solo dispone de ${saldosPorCuenta[idC].toFixed(2)}.`);
+                    erroresSaldo.push(`La cuenta <b>${nombresCuentas[idC]}</b> no tiene fondos suficientes. Retiro: ${montosPorCuenta[idC].toFixed(2)}, Disponible: ${saldosPorCuenta[idC].toFixed(2)}.`);
                 }
             }
 
-            if (erroresSaldo.length > 0) return Swal.fire({ icon: 'error', title: 'Fondos insuficientes', html: erroresSaldo.join('<br><br>') });
+            if (erroresSaldo.length > 0) {
+                return Swal.fire({ icon: 'error', title: 'Fondos insuficientes', html: erroresSaldo.join('<br><br>') });
+            }
 
             const ordenTotal = document.getElementById('ordenTotal');
             const totalTexto = ordenTotal ? ordenTotal.textContent.replace(/[^\d.-]/g, '') : '0';
             const totalPedido = parseFloat(totalTexto) || 0;
-            if (sumaTotalPagos > totalPedido) return Swal.fire('Aviso', 'El total pagado no puede superar el total de la orden.', 'warning');
+            
+            if (sumaTotalPagos > totalPedido) {
+                return Swal.fire('Aviso', 'El total pagado no puede superar el total de la orden.', 'warning');
+            }
         }
 
         try {
             const payload = {
                 id: Number(ordenEnEdicionId || 0),
-                id_proveedor: Number(idProv.value),
+                id_proveedor: Number(idProvValue),
                 fecha_emision: fEntrega.value,
                 observaciones: document.getElementById('observaciones')?.value || '',
                 tipo_impuesto: document.getElementById('tipoImpuesto') ? document.getElementById('tipoImpuesto').value : 'incluido',
@@ -857,13 +954,29 @@ export async function initCompras() {
                 metodos_pago: metodosPagoFinales 
             };
 
-            const res = await postJsonConCarga(urls.guardar, payload, btnGuardarOrden);
+            const btnGuardarOrdenReal = document.getElementById('btnGuardarOrden');
+            const res = await postJsonConCarga(urls.guardar, payload, btnGuardarOrdenReal);
+            
             await Swal.fire('Guardado', res.mensaje, 'success');
             const modalOrdenElement = document.getElementById('modalOrdenCompra');
             bootstrap.Modal.getOrCreateInstance(modalOrdenElement).hide();
             recargarPagina();
         } catch (e) {
-            Swal.fire('Error', e.message, 'error');
+            Swal.fire({ icon: 'error', title: 'No se pudo guardar la orden', html: e.message });
         }
     });
+
+    // Cleanup modales Bootstrap
+    const modalOrdenEl = document.getElementById('modalOrdenCompra');
+    if (modalOrdenEl) {
+        modalOrdenEl.addEventListener('hidden.bs.modal', () => {
+            const hayModalesAbiertos = document.querySelectorAll('.modal.show').length > 0;
+            if (!hayModalesAbiertos) {
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('padding-right');
+                document.body.style.removeProperty('overflow');
+                document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove());
+            }
+        });
+    }
 }
