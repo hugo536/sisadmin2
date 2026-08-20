@@ -11,15 +11,25 @@
     <title>Despacho <?php echo htmlspecialchars($venta['codigo']); ?></title>
     <style>
         /* ESTILOS FLUIDOS PARA CUALQUIER TAMAÑO DE HOJA */
+        @page { margin: 1cm; }
+
+        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 12px; color: #000; margin: 0; padding: 0; position: relative; }
         
-        /* 1. Regla general para los márgenes de impresión sin forzar el tamaño */
-        @page {
-            margin: 1cm;
+        /* 🚨 MARCA DE AGUA PARA ESTADOS CRÍTICOS 🚨 */
+        .watermark {
+            position: fixed;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80px;
+            color: rgba(220, 53, 69, 0.15); /* Rojo semi-transparente */
+            font-weight: bold;
+            z-index: -1;
+            white-space: nowrap;
+            text-align: center;
+            width: 100%;
         }
 
-        /* 2. Tamaños de fuente equilibrados y uso de anchos al 100% */
-        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 12px; color: #000; margin: 0; padding: 0; }
-        
         /* Contenedores elásticos */
         .cabecera { width: 100%; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; box-sizing: border-box; }
         .logo-container { width: 45%; float: left; }
@@ -53,9 +63,20 @@
         // 1. Recibimos la variable $paginas desde el controlador (por defecto 1)
         $totalPaginas = isset($paginas) && $paginas > 0 ? (int) $paginas : 1;
 
+        // ESTADO GLOBAL DEL PEDIDO
+        $estadoPedido = (int) ($venta['estado'] ?? 0);
+        $marcaAgua = '';
+        if ($estadoPedido === 9) $marcaAgua = 'ANULADO';
+        elseif ($estadoPedido === 4) $marcaAgua = 'DEVUELTO TOTAL';
+        elseif ($estadoPedido === 5) $marcaAgua = 'DEVUELTO PARCIAL';
+
         // 2. Iniciamos el bucle para generar las copias solicitadas
         for ($i = 1; $i <= $totalPaginas; $i++): 
     ?>
+
+        <?php if ($marcaAgua !== ''): ?>
+            <div class="watermark"><?php echo $marcaAgua; ?></div>
+        <?php endif; ?>
 
         <?php
             $tipoDocumentoCliente = strtoupper(trim((string) ($venta['cliente_doc_tipo'] ?? '')));
@@ -116,7 +137,7 @@
                 <td><?php echo htmlspecialchars($venta['cliente_doc'] ?? 'S/D'); ?></td>
                 <td class="label">FECHA EMISIÓN:</td>
                 <td><?php echo date('d/m/Y', strtotime($venta['fecha_emision'])); ?></td>
-                <td class="label">PESO:</td>
+                <td class="label">PESO TOTAL:</td>
                 <td><?php echo number_format($pesoTotal, 2); ?> kg</td>
             </tr>
             <tr>
@@ -161,28 +182,53 @@
                     $contadorItems = 1; 
                 ?>
                 
-                <?php foreach ($itemsAgrupados as $nombre => $cantidadTotal): ?>
+                <?php if (empty($itemsAgrupados)): ?>
                     <tr>
-                        <td class="text-center"><?php echo $contadorItems++; ?></td>
-                        <td><?php echo $nombre; ?></td>
-                        <td class="text-center" style="font-size: 14px;">
-                            <strong>
-                                <?php 
-                                    // LÓGICA INTELIGENTE: Si no hay decimales reales, muestra el número entero.
-                                    echo floor($cantidadTotal) == $cantidadTotal 
-                                        ? number_format($cantidadTotal, 0) 
-                                        : number_format($cantidadTotal, 2); 
-                                ?>
-                            </strong>
+                        <td colspan="3" class="text-center" style="color: #dc3545; font-weight: bold; padding: 20px;">
+                            ESTE PEDIDO NO TIENE PRODUCTOS PARA DESPACHAR (DEVUELTO O ANULADO)
                         </td>
                     </tr>
-                <?php endforeach; ?>
+                <?php else: ?>
+                    <?php foreach ($itemsAgrupados as $nombre => $cantidadTotal): ?>
+                        <tr>
+                            <td class="text-center"><?php echo $contadorItems++; ?></td>
+                            <td><?php echo $nombre; ?></td>
+                            <td class="text-center" style="font-size: 14px;">
+                                <strong>
+                                    <?php 
+                                        // LÓGICA INTELIGENTE: Si no hay decimales reales, muestra el número entero.
+                                        echo floor($cantidadTotal) == $cantidadTotal 
+                                            ? number_format($cantidadTotal, 0) 
+                                            : number_format($cantidadTotal, 2); 
+                                    ?>
+                                </strong>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </tbody>
         </table>
 
         <div class="observaciones">
-            <div class="observaciones-titulo">Observaciones de Entrega:</div>
-            <?php echo nl2br(htmlspecialchars($venta['observaciones'] ?? 'Ninguna.')); ?>
+            <div class="observaciones-titulo">Observaciones de Entrega / Despacho:</div>
+            <?php 
+                $obsOriginal = trim((string) ($venta['observaciones'] ?? ''));
+                $obsDespacho = trim((string) ($venta['observaciones_despacho'] ?? ''));
+                
+                $observacionesCombinadas = '';
+                if ($obsOriginal !== '') {
+                    $observacionesCombinadas .= "Pedido: " . $obsOriginal . "\n";
+                }
+                if ($obsDespacho !== '') {
+                    $observacionesCombinadas .= "Despacho: " . $obsDespacho;
+                }
+
+                if ($observacionesCombinadas === '') {
+                    echo "Ninguna.";
+                } else {
+                    echo nl2br(htmlspecialchars($observacionesCombinadas));
+                }
+            ?>
         </div>
 
         <?php 

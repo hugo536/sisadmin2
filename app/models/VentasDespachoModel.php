@@ -14,8 +14,8 @@ class VentasDespachoModel extends Modelo
             throw new RuntimeException('Usuario inválido para registrar despacho.');
         }
 
-        if (empty($lineas)) {
-            throw new RuntimeException('Debe indicar al menos una línea a despachar.');
+        if (empty($lineas) && !$cerrarForzado) {
+            throw new RuntimeException('Debe indicar al menos una línea a despachar o forzar el cierre.');
         }
 
         // Si la fecha viene vacía o inválida, por seguridad tomamos la fecha actual
@@ -35,8 +35,8 @@ class VentasDespachoModel extends Modelo
                 throw new RuntimeException('El pedido no existe.');
             }
 
-            if ((int) ($documento['estado'] ?? 0) !== 2) {
-                throw new RuntimeException('Solo se puede despachar pedidos aprobados.');
+            if (!in_array((int) ($documento['estado'] ?? 0), [2, 6], true)) {
+                throw new RuntimeException('Solo se puede despachar pedidos aprobados o con despacho parcial.');
             }
 
             // Validar que la fecha de despacho no sea anterior a la fecha de creación del pedido
@@ -150,162 +150,169 @@ class VentasDespachoModel extends Modelo
                 ];
             }
 
-            if (empty($despachosAgrupados)) {
+            if (empty($despachosAgrupados) && !$cerrarForzado) {
                 throw new RuntimeException('No hay cantidades válidas para despachar.');
             }
 
-            $stmtInsertDespacho = $db->prepare('INSERT INTO ventas_despachos (
-                                            codigo, id_documento_venta, id_almacen, fecha_despacho, documento_referencia, created_by, created_at
-                                        ) VALUES (
-                                            :codigo, :id_documento, :id_almacen, :fecha_despacho, :observaciones, :created_by, NOW()
-                                        )');
+            // 👇 NUEVO: Envolvemos toda la inserción física en un IF 👇
+            if (!empty($despachosAgrupados)) {
+                $stmtInsertDespacho = $db->prepare('INSERT INTO ventas_despachos (
+                                                        codigo, id_documento_venta, id_almacen, fecha_despacho, documento_referencia, created_by, created_at
+                                                    ) VALUES (
+                                                        :codigo, :id_documento, :id_almacen, :fecha_despacho, :observaciones, :created_by, NOW()
+                                                    )');
 
-            $detalleTieneCreatedBy = $this->tablaTieneColumna($db, 'ventas_despachos_detalle', 'created_by');
+                $detalleTieneCreatedBy = $this->tablaTieneColumna($db, 'ventas_despachos_detalle', 'created_by');
 
-            if ($detalleTieneCreatedBy) {
-                $stmtDetalle = $db->prepare('INSERT INTO ventas_despachos_detalle (
-                                                id_despacho, id_item, id_presentacion, cantidad_despachada, created_by, created_at
-                                             ) VALUES (
-                                                :id_despacho, :id_item, :id_presentacion, :cantidad, :created_by, NOW()
-                                             )');
-            } else {
-                $stmtDetalle = $db->prepare('INSERT INTO ventas_despachos_detalle (
-                                                id_despacho, id_item, id_presentacion, cantidad_despachada, created_at
-                                             ) VALUES (
-                                                :id_despacho, :id_item, :id_presentacion, :cantidad, NOW()
-                                             )');
-            }
-
-            $stmtUpdateDocDetalle = $db->prepare('UPDATE ventas_documentos_detalle 
-                                                  SET cantidad_despachada = cantidad_despachada + :cantidad,
-                                                      updated_at = NOW()
-                                                  WHERE id = :id_detalle');
-
-            $stmtStock = $db->prepare('INSERT INTO inventario_stock (id_item, id_almacen, stock_actual, created_by)
-                           VALUES (:id_item, :id_almacen, 0, :created_by)
-                           ON DUPLICATE KEY UPDATE stock_actual = stock_actual');
-                                       
-            $stmtDescuento = $db->prepare('UPDATE inventario_stock
-                                           SET stock_actual = stock_actual - :cantidad,
-                                               updated_at = NOW()
-                                           WHERE id_item = :id_item
-                                             AND id_almacen = :id_almacen');
-
-            $stmtMov = $db->prepare('INSERT INTO inventario_movimientos
-                                        (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by, created_at, fecha_documento)
-                                     VALUES
-                                        (:id_item, :id_almacen_origen, NULL, :tipo, :cantidad, :referencia, :created_by, :fecha_despacho_hora, :fecha_documento)');
-
-            $fechaDespachoHora = $fechaDespacho . ' ' . date('H:i:s');
-            
-            // Para la referencia de los envases (usaremos el primer código de guía que se genere si hay fraccionados)
-            $primerCodigoDespacho = '';
-
-            foreach ($despachosAgrupados as $idAlmacenFisico => $lineasAlmacen) {
-                $codigoDespacho = $this->generarCodigo($db);
-                if ($primerCodigoDespacho === '') $primerCodigoDespacho = $codigoDespacho;
-                
-                $stmtInsertDespacho->execute([
-                    'codigo' => $codigoDespacho,
-                    'id_documento' => $idDocumento,
-                    'id_almacen' => $idAlmacenFisico,
-                    'fecha_despacho' => $fechaDespacho,
-                    'observaciones' => $observaciones !== '' ? $observaciones : null,
-                    'created_by' => $userId,
-                ]);
-
-                $idDespacho = (int) $db->lastInsertId();
-                $lineasParaEnvases = [];
-
-                foreach ($lineasAlmacen as $lineaValida) {
-                    $esCombo = !empty($lineaValida['id_presentacion']);
-
-                    $paramsDetalle = [
-                        'id_despacho' => $idDespacho,
-                        'id_item' => $esCombo ? null : $lineaValida['id_item'],
-                        'id_presentacion' => $esCombo ? $lineaValida['id_presentacion'] : null,
-                        'cantidad' => $lineaValida['cantidad'],
-                    ];
-                    if ($detalleTieneCreatedBy) {
-                        $paramsDetalle['created_by'] = $userId;
-                    }
-                    $stmtDetalle->execute($paramsDetalle);
-
-                    $stmtUpdateDocDetalle->execute([
-                        'cantidad' => $lineaValida['cantidad'],
-                        'id_detalle' => $lineaValida['id_documento_detalle']
-                    ]);
-
-                    if ($esCombo) {
-                        $componentes = $this->obtenerComponentesCombo($db, (int) $lineaValida['id_presentacion']);
-                        foreach ($componentes as $comp) {
-                            $cantFisica = $comp['cantidad'] * $lineaValida['cantidad'];
-
-                            $distribucion = $this->distribuirSalidaItemEnAlmacenes(
-                                $db,
-                                (int) $comp['id_item'],
-                                (float) $cantFisica,
-                                (int) $idAlmacenFisico
-                            );
-
-                            foreach ($distribucion as $salida) {
-                                $stmtStock->execute([
-                                    'id_item' => $comp['id_item'], 
-                                    'id_almacen' => $salida['id_almacen'], 
-                                    'created_by' => $userId
-                                ]);
-                                $stmtDescuento->execute([
-                                    'cantidad' => $salida['cantidad'],
-                                    'id_item' => $comp['id_item'],
-                                    'id_almacen' => $salida['id_almacen']
-                                ]);
-                                
-                                $stmtMov->execute([
-                                    'id_item' => $comp['id_item'],
-                                    'id_almacen_origen' => $salida['id_almacen'],
-                                    'tipo' => 'VEN',
-                                    'cantidad' => $salida['cantidad'],
-                                    'referencia' => $this->construirReferenciaDespacho($codigoDespacho, $documento, true),
-                                    'created_by' => $userId,
-                                    'fecha_documento' => $fechaDespachoHora,
-                                    'fecha_despacho_hora' => $fechaDespachoHora
-                                ]);
-                            }
-
-                            $lineasParaEnvases[] = ['id_item' => $comp['id_item'], 'cantidad' => $cantFisica, 'id_presentacion' => $lineaValida['id_presentacion']];
-                        }
-                    } else {
-                        $stmtStock->execute([
-                            'id_item' => $lineaValida['id_item'], 
-                            'id_almacen' => $idAlmacenFisico, 
-                            'created_by' => $userId
-                        ]);
-                        $stmtDescuento->execute(['cantidad' => $lineaValida['cantidad'], 'id_item' => $lineaValida['id_item'], 'id_almacen' => $idAlmacenFisico]);
-                        
-                        $stmtMov->execute([
-                            'id_item' => $lineaValida['id_item'],
-                            'id_almacen_origen' => $idAlmacenFisico,
-                            'tipo' => 'VEN', 
-                            'cantidad' => $lineaValida['cantidad'],
-                            'referencia' => $this->construirReferenciaDespacho($codigoDespacho, $documento, false),
-                            'created_by' => $userId,
-                            'fecha_documento' => $fechaDespachoHora,
-                            'fecha_despacho_hora' => $fechaDespachoHora
-                        ]);
-                        
-                        $lineasParaEnvases[] = $lineaValida;
-                    }
+                if ($detalleTieneCreatedBy) {
+                    $stmtDetalle = $db->prepare('INSERT INTO ventas_despachos_detalle (
+                                                    id_despacho, id_item, id_presentacion, cantidad_despachada, created_by, created_at
+                                                 ) VALUES (
+                                                    :id_despacho, :id_item, :id_presentacion, :cantidad, :created_by, NOW()
+                                                 )');
+                } else {
+                    $stmtDetalle = $db->prepare('INSERT INTO ventas_despachos_detalle (
+                                                    id_despacho, id_item, id_presentacion, cantidad_despachada, created_at
+                                                 ) VALUES (
+                                                    :id_despacho, :id_item, :id_presentacion, :cantidad, NOW()
+                                                 )');
                 }
 
-                $this->registrarAjusteEnvasesPorDespacho(
-                    $db,
-                    $idDocumento,
-                    (int) ($documento['id_cliente'] ?? 0),
-                    $lineasParaEnvases,
-                    $codigoDespacho,
-                    $fechaDespachoHora 
-                );
+                $stmtUpdateDocDetalle = $db->prepare('UPDATE ventas_documentos_detalle 
+                                                      SET cantidad_despachada = cantidad_despachada + :cantidad,
+                                                          updated_at = NOW()
+                                                      WHERE id = :id_detalle');
+
+                $stmtStock = $db->prepare('INSERT INTO inventario_stock (id_item, id_almacen, stock_actual, created_by)
+                                           VALUES (:id_item, :id_almacen, 0, :created_by)
+                                           ON DUPLICATE KEY UPDATE stock_actual = stock_actual');
+                                           
+                $stmtDescuento = $db->prepare('UPDATE inventario_stock
+                                               SET stock_actual = stock_actual - :cantidad,
+                                                   updated_at = NOW()
+                                               WHERE id_item = :id_item
+                                                 AND id_almacen = :id_almacen');
+
+                $stmtMov = $db->prepare('INSERT INTO inventario_movimientos
+                                            (id_item, id_almacen_origen, id_almacen_destino, tipo_movimiento, cantidad, referencia, created_by, created_at, fecha_documento)
+                                         VALUES
+                                            (:id_item, :id_almacen_origen, NULL, :tipo, :cantidad, :referencia, :created_by, :fecha_despacho_hora, :fecha_documento)');
+
+                $fechaDespachoHora = $fechaDespacho . ' ' . date('H:i:s');
+                
+                $primerCodigoDespacho = '';
+
+                foreach ($despachosAgrupados as $idAlmacenFisico => $lineasAlmacen) {
+                    $codigoDespacho = $this->generarCodigo($db);
+                    if ($primerCodigoDespacho === '') $primerCodigoDespacho = $codigoDespacho;
+                    
+                    $stmtInsertDespacho->execute([
+                        'codigo' => $codigoDespacho,
+                        'id_documento' => $idDocumento,
+                        'id_almacen' => $idAlmacenFisico,
+                        'fecha_despacho' => $fechaDespacho,
+                        'observaciones' => $observaciones !== '' ? $observaciones : null,
+                        'created_by' => $userId,
+                    ]);
+
+                    $idDespacho = (int) $db->lastInsertId();
+                    $lineasParaEnvases = [];
+
+                    foreach ($lineasAlmacen as $lineaValida) {
+                        $esCombo = !empty($lineaValida['id_presentacion']);
+
+                        $paramsDetalle = [
+                            'id_despacho' => $idDespacho,
+                            'id_item' => $esCombo ? null : $lineaValida['id_item'],
+                            'id_presentacion' => $esCombo ? $lineaValida['id_presentacion'] : null,
+                            'cantidad' => $lineaValida['cantidad'],
+                        ];
+                        if ($detalleTieneCreatedBy) {
+                            $paramsDetalle['created_by'] = $userId;
+                        }
+                        $stmtDetalle->execute($paramsDetalle);
+
+                        $stmtUpdateDocDetalle->execute([
+                            'cantidad' => $lineaValida['cantidad'],
+                            'id_detalle' => $lineaValida['id_documento_detalle']
+                        ]);
+
+                        if ($esCombo) {
+                            $componentes = $this->obtenerComponentesCombo($db, (int) $lineaValida['id_presentacion']);
+                            foreach ($componentes as $comp) {
+                                $cantFisica = $comp['cantidad'] * $lineaValida['cantidad'];
+
+                                $distribucion = $this->distribuirSalidaItemEnAlmacenes(
+                                    $db,
+                                    (int) $comp['id_item'],
+                                    (float) $cantFisica,
+                                    (int) $idAlmacenFisico
+                                );
+
+                                foreach ($distribucion as $salida) {
+                                    $stmtStock->execute([
+                                        'id_item' => $comp['id_item'], 
+                                        'id_almacen' => $salida['id_almacen'], 
+                                        'created_by' => $userId
+                                    ]);
+                                    $stmtDescuento->execute([
+                                        'cantidad' => $salida['cantidad'],
+                                        'id_item' => $comp['id_item'],
+                                        'id_almacen' => $salida['id_almacen']
+                                    ]);
+                                    
+                                    $stmtMov->execute([
+                                        'id_item' => $comp['id_item'],
+                                        'id_almacen_origen' => $salida['id_almacen'],
+                                        'tipo' => 'VEN',
+                                        'cantidad' => $salida['cantidad'],
+                                        'referencia' => $this->construirReferenciaDespacho($codigoDespacho, $documento, true),
+                                        'created_by' => $userId,
+                                        'fecha_documento' => $fechaDespachoHora,
+                                        'fecha_despacho_hora' => $fechaDespachoHora
+                                    ]);
+                                }
+
+                                $lineasParaEnvases[] = ['id_item' => $comp['id_item'], 'cantidad' => $cantFisica, 'id_presentacion' => $lineaValida['id_presentacion']];
+                            }
+                        } else {
+                            $stmtStock->execute([
+                                'id_item' => $lineaValida['id_item'], 
+                                'id_almacen' => $idAlmacenFisico, 
+                                'created_by' => $userId
+                            ]);
+                            $stmtDescuento->execute(['cantidad' => $lineaValida['cantidad'], 'id_item' => $lineaValida['id_item'], 'id_almacen' => $idAlmacenFisico]);
+                            
+                            $stmtMov->execute([
+                                'id_item' => $lineaValida['id_item'],
+                                'id_almacen_origen' => $idAlmacenFisico,
+                                'tipo' => 'VEN', 
+                                'cantidad' => $lineaValida['cantidad'],
+                                'referencia' => $this->construirReferenciaDespacho($codigoDespacho, $documento, false),
+                                'created_by' => $userId,
+                                'fecha_documento' => $fechaDespachoHora,
+                                'fecha_despacho_hora' => $fechaDespachoHora
+                            ]);
+                            
+                            $lineasParaEnvases[] = $lineaValida;
+                        }
+                    }
+
+                    $this->registrarAjusteEnvasesPorDespacho(
+                        $db,
+                        $idDocumento,
+                        (int) ($documento['id_cliente'] ?? 0),
+                        $lineasParaEnvases,
+                        $codigoDespacho,
+                        $fechaDespachoHora 
+                    );
+                }
             }
+            // 👆 FIN DEL BLOQUE IF 👆
+
+            // ====================================================================
+            // --- LÓGICA: RECEPCIÓN INMEDIATA DE ENVASES VACÍOS ---
+            // ====================================================================
             
             // ====================================================================
             // --- LÓGICA: RECEPCIÓN INMEDIATA DE ENVASES VACÍOS ---
@@ -353,7 +360,8 @@ class VentasDespachoModel extends Modelo
             // ====================================================================
 
             $pendienteTotal = $this->obtenerPendienteTotal($db, $idDocumento);
-            $nuevoEstado = ($cerrarForzado || $pendienteTotal <= 0.001) ? 3 : 2;
+            // 3 = Cerrado/Entregado | 6 = Despacho Parcial
+        $nuevoEstado = ($cerrarForzado || $pendienteTotal <= 0.001) ? 3 : 6;
 
             $sqlUpdateDocumento = 'UPDATE ventas_documentos
                                    SET estado = :estado,
@@ -374,16 +382,6 @@ class VentasDespachoModel extends Modelo
                 $paramsUpdateDocumento['obs_despacho'] = trim($observaciones);
             }
             // 👆 FIN DEL CÓDIGO NUEVO 👆
-
-            if ($cerrarForzado && $pendienteTotal > 0.001) {
-                $notaCierre = sprintf(
-                    '[CIERRE FORZADO %s | SALDO CANCELADO: %.3f]',
-                    date('Y-m-d H:i:s'),
-                    $pendienteTotal
-                );
-                $sqlUpdateDocumento .= ', observaciones = TRIM(CONCAT(COALESCE(observaciones, \'\'), CASE WHEN COALESCE(observaciones, \'\') = \'\' THEN \'\' ELSE \' \' END, :nota_cierre))';
-                $paramsUpdateDocumento['nota_cierre'] = $notaCierre;
-            }
 
             $sqlUpdateDocumento .= ' WHERE id = :id AND deleted_at IS NULL';
             $db->prepare($sqlUpdateDocumento)->execute($paramsUpdateDocumento);
@@ -1219,8 +1217,8 @@ class VentasDespachoModel extends Modelo
             }
 
             // 2. Solo estado 2
-            if ((int) $estadoActual !== 2) {
-                throw new RuntimeException('Solo se pueden revertir a borrador los pedidos que están en estado Aprobado.');
+            if (!in_array((int) $estadoActual, [2, 6], true)) {
+                throw new RuntimeException('Solo se pueden revertir a borrador los pedidos Aprobados o con Despacho Parcial.');
             }
 
             // 2.1 Validación anti-descuadre físico (Inventario)

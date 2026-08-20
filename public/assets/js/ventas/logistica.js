@@ -398,7 +398,12 @@ function validarGrupoItem(idDetalle) {
     const filas = [...tbodyDespacho.querySelectorAll(`tr[data-id-detalle="${idDetalle}"]`)];
     if (filas.length === 0) return;
 
+    // Aquí leemos cuánto era el pendiente cuando se abrió el modal (Lo que FALTA entregar)
     const pendienteGlobal = parseInt(filas[0].dataset.pendienteTotal);
+    
+    // Leemos cuánto fue lo original pedido (Solo visual)
+    const original = parseInt(filas[0].dataset.pedidoOriginal || 0);
+
     let sumaTotalCargada = 0;
 
     filas.forEach(f => {
@@ -418,17 +423,30 @@ function validarGrupoItem(idDetalle) {
         }
     });
 
-    const badge = filas[0].querySelector('.badge-pendiente');
+    // Actualizamos visualmente el "Entregado" y "Falta"
+    const spanEntregado = filas[0].querySelector('.info-entregado');
+    const badgeFalta = filas[0].querySelector('.badge-pendiente');
+    
+    // Lo que ya se entregó ANTES de abrir este modal es = (Original - Pendiente)
+    const despachadoPreviamente = original - pendienteGlobal;
+    
+    // Actualizamos el número de cuánto falta realmente si hacemos este despacho
+    const faltanteReal = pendienteGlobal - sumaTotalCargada;
+
+    if (spanEntregado) {
+        spanEntregado.innerHTML = `Ya Entregado: <strong class="text-success">${despachadoPreviamente}</strong>`;
+    }
+
     if (sumaTotalCargada > pendienteGlobal) {
         filas.forEach(f => f.querySelector('.despacho-cantidad').classList.add('is-invalid'));
-        badge.className = "badge bg-danger text-white badge-pendiente";
-        badge.textContent = `${pendienteGlobal} (Excedido en ${sumaTotalCargada - pendienteGlobal})`;
+        badgeFalta.className = "badge bg-danger text-white badge-pendiente rounded-pill px-2 py-1 shadow-sm";
+        badgeFalta.textContent = `¡EXCEDIDO! Faltaban ${pendienteGlobal}, pusiste ${sumaTotalCargada}`;
     } else if (sumaTotalCargada === pendienteGlobal) {
-        badge.className = "badge bg-success text-white badge-pendiente";
-        badge.textContent = `COMPLETO`;
+        badgeFalta.className = "badge bg-success text-white badge-pendiente rounded-pill px-2 py-1 shadow-sm";
+        badgeFalta.textContent = `Quedará en 0`;
     } else {
-        badge.className = "badge bg-warning text-dark badge-pendiente";
-        badge.textContent = `${pendienteGlobal} (Faltan ${pendienteGlobal - sumaTotalCargada})`;
+        badgeFalta.className = "badge bg-warning text-dark badge-pendiente rounded-pill px-2 py-1 shadow-sm";
+        badgeFalta.textContent = `Faltarán: ${faltanteReal}`;
     }
 }
 
@@ -459,20 +477,25 @@ function agregarFilaDespacho(linea, filaReferencia = null) {
     tr.dataset.idDetalle = linea.id;
     tr.dataset.idItem = linea.id_item;
     tr.dataset.pendienteTotal = linea.cantidad_pendiente;
+    tr.dataset.pedidoOriginal = linea.cantidad; // Guardamos el original para los cálculos
 
     if (almacenesDisp.length === 0) {
         tr.classList.add('table-danger', 'opacity-75');
     }
 
+    // Calculamos cuánto se entregó en el pasado
+    const entregadoAnterior = Number(linea.cantidad) - Number(linea.cantidad_pendiente);
+
     tr.innerHTML = `
         <td class="align-middle py-3">
             <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${linea.item_nombre || ''}</div>
             
-            <div class="small text-muted d-flex align-items-center gap-2 mt-1">
+            <div class="small text-muted d-flex align-items-center flex-wrap gap-2 mt-1">
                 <span>Pedido Original: <strong class="text-dark">${Number(linea.cantidad)}</strong></span>
                 <span class="text-secondary opacity-50">|</span>
-                <span>Pendiente:</span> 
-                <span class="badge bg-warning text-dark badge-pendiente rounded-pill px-2 py-1 shadow-sm">${Number(linea.cantidad_pendiente)}</span>
+                <span class="info-entregado">Ya Entregado: <strong class="text-success">${entregadoAnterior}</strong></span>
+                <span class="text-secondary opacity-50">|</span>
+                <span class="badge bg-warning text-dark badge-pendiente rounded-pill px-2 py-1 shadow-sm">Faltarán: ${Number(linea.cantidad_pendiente)}</span>
             </div>
 
             <button type="button" class="btn btn-link btn-sm px-0 mt-2 text-decoration-none fw-semibold btn-split" title="Fraccionar en otro almacén" ${disabledState}>
@@ -782,8 +805,13 @@ document.getElementById('btnGuardarDespacho')?.addEventListener('click', async (
             };
         }).filter(d => d.cantidad > 0); 
 
-        if (detalle.length === 0) throw new Error('Ingrese cantidades a despachar.');
-        if (detalle.some(d => !d.id_almacen)) throw new Error('Seleccione almacén para todas las filas con cantidad.');
+        const cerrarForzadoChecked = cerrarForzado ? cerrarForzado.checked : false;
+        if (detalle.length === 0 && !cerrarForzadoChecked) {
+            throw new Error('Ingrese cantidades a despachar o marque la opción de finalizar pedido.');
+        }
+        if (detalle.length > 0 && detalle.some(d => !d.id_almacen)) {
+            throw new Error('Seleccione almacén para todas las filas con cantidad.');
+        }
         if (tbodyDespacho.querySelector('.is-invalid')) throw new Error('Corrija las cantidades marcadas en rojo (exceden stock o pendiente).');
 
         const fechaDespachoVal = despachoFecha ? despachoFecha.value : '';

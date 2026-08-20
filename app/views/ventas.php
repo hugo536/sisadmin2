@@ -10,6 +10,7 @@ $estadoLabels = [
     3 => ['texto' => 'Cerrado/Entregado', 'clase' => 'bg-success-subtle text-success border border-success-subtle'],
     4 => ['texto' => 'Devuelto Total', 'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
     5 => ['texto' => 'Dev. Parcial', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'], 
+    6 => ['texto' => 'Despacho Parcial', 'clase' => 'bg-info-subtle text-info-emphasis border border-info-subtle'], // <-- NUEVO ESTADO
     9 => ['texto' => 'Anulado', 'clase' => 'bg-dark-subtle text-dark border border-dark-subtle'],
 ];
 
@@ -78,9 +79,10 @@ $formatearFechaDMY = static function ($fecha): string {
                 </div>
 
                 <div class="col-12 col-lg-2">
-                    <select name="orden_fecha" class="form-select bg-light border-secondary-subtle shadow-sm text-secondary" id="filtroOrdenFecha" title="Ordenar por fecha">
-                        <option value="pedido" <?php echo (($filtros['orden_fecha'] ?? 'pedido') === 'pedido') ? 'selected' : ''; ?>>Orden: Pedido</option>
-                        <option value="emision" <?php echo (($filtros['orden_fecha'] ?? '') === 'emision') ? 'selected' : ''; ?>>Orden: Emisión</option>
+                    <select class="form-select text-secondary fw-semibold border-secondary-subtle" id="filtroOrdenFecha" style="min-width: 140px;">
+                        <option value="emision" <?php echo ($filtros['orden_fecha'] ?? 'emision') === 'emision' ? 'selected' : ''; ?>>Fecha: Emisión</option>
+                        <option value="registro" <?php echo ($filtros['orden_fecha'] ?? '') === 'registro' ? 'selected' : ''; ?>>Fecha: Registro</option>
+                        <option value="despacho" <?php echo ($filtros['orden_fecha'] ?? '') === 'despacho' ? 'selected' : ''; ?>>Fecha: Despacho</option>
                     </select>
                 </div>
                 
@@ -133,7 +135,16 @@ $formatearFechaDMY = static function ($fecha): string {
                                     $badge = $estadoLabels[$estado] ?? $estadoLabels[0]; 
                                 ?>
                                 <tr data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-estado="<?php echo $estado; ?>" class="border-bottom" data-search="<?php echo e(mb_strtolower((string) ($venta['codigo'] ?? '') . ' ' . (string) ($venta['cliente'] ?? ''))); ?>">
-                                    <td class="ps-4 fw-bold text-primary"><?php echo e((string) ($venta['codigo'] ?? '')); ?></td>
+                                    
+                                    <!-- 👇 COLUMNA 1: CÓDIGO Y HUELLA DE REGISTRO 👇 -->
+                                    <td class="ps-4">
+                                        <div class="fw-bold text-primary"><?php echo e((string) ($venta['codigo'] ?? '')); ?></div>
+                                        <div class="text-muted mt-1" style="font-size: 0.7rem;" title="Huella de registro en el sistema">
+                                            <i class="bi bi-clock"></i> Reg: <?php echo isset($venta['created_at']) ? date('d/m/Y H:i', strtotime($venta['created_at'])) : '-'; ?>
+                                        </div>
+                                    </td>
+                                    
+                                    <!-- 👇 COLUMNA 2: CLIENTE Y OBSERVACIONES 👇 -->
                                     <td>
                                         <div class="fw-semibold text-dark"><?php echo e((string) ($venta['cliente'] ?? '')); ?></div>
                                         
@@ -162,26 +173,30 @@ $formatearFechaDMY = static function ($fecha): string {
                                             </div>
                                         <?php endif; ?>
                                     </td>
+                                    
+                                    <!-- 👇 COLUMNA 3: FECHAS COMERCIALES 👇 -->
                                     <td>
-                                        <!-- Fecha de Emisión y Hora (Todo en una sola línea) -->
-                                        <div class="fw-bold text-dark mb-1" title="Registro en sistema: <?php echo date('d/m/Y H:i', strtotime($venta['created_at'])); ?>">
-                                            <i class="bi bi-calendar3 me-1 text-primary"></i> 
-                                            <?php echo e($formatearFechaDMY($venta['fecha_emision'] ?? $venta['fecha_documento'] ?? '')); ?> - <?php echo date('H:i', strtotime($venta['created_at'])); ?>
+                                        <!-- Fecha de Emisión (Realidad Comercial) -->
+                                        <div class="fw-bold text-dark mb-1">
+                                            <i class="bi bi-calendar3 me-1 text-primary"></i> <?= e($formatearFechaDMY($venta['fecha_emision'])) ?>
                                         </div>
                                         
-                                        <!-- Fecha de salida de almacén (Solo aparece si ya se despachó) -->
+                                        <!-- Fecha de Despacho -->
                                         <?php if (!empty($venta['fecha_despacho'])): ?>
-                                            <div class="text-success small fw-semibold" title="Fecha de salida de almacén">
-                                                <i class="bi bi-truck me-1"></i> Despachado: <?php echo e($formatearFechaDMY($venta['fecha_despacho'])); ?>
+                                            <div class="text-success small fw-semibold">
+                                                <i class="bi bi-truck me-1"></i> Despachado: <?= e($formatearFechaDMY($venta['fecha_despacho'])) ?>
                                             </div>
                                         <?php endif; ?>
                                     </td>
+                                    
                                     <td class="text-end fw-bold">S/ <?php echo number_format((float) ($venta['total'] ?? 0), 2); ?></td>
+                                    
                                     <td class="text-center">
                                         <span class="badge px-3 py-2 rounded-pill <?php echo e($badge['clase']); ?>">
                                             <?php echo e($badge['texto']); ?>
                                         </span>
                                     </td>
+                                    
                                     <td class="text-end pe-4">
                                         <div class="d-inline-flex align-items-center gap-1">
                                             <?php if ($estado === 0): ?> 
@@ -189,7 +204,7 @@ $formatearFechaDMY = static function ($fecha): string {
                                                 <button class="btn btn-sm btn-light text-success border-0 btn-aprobar rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Aprobar Pedido"><i class="bi bi-check2-circle fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Anular Pedido"><i class="bi bi-trash fs-5"></i></button>
                                                 
-                                            <?php elseif ($estado === 2): ?> 
+                                            <?php elseif ($estado === 2 || $estado === 6): ?>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-revertir rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Volver a Borrador">
                                                     <i class="bi bi-arrow-counterclockwise fs-5"></i>
                                                 </button>
@@ -562,10 +577,10 @@ $formatearFechaDMY = static function ($fecha): string {
             
             <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-4 ps-2">
-                    <div class="form-check form-switch m-0">
-                        <input class="form-check-input" type="checkbox" id="cerrarForzado" style="cursor: pointer;">
-                        <label class="form-check-label fw-semibold text-danger small" for="cerrarForzado">
-                            Forzar cierre
+                    <div class="form-check m-0 d-flex align-items-center">
+                        <input class="form-check-input border-danger me-2" type="checkbox" id="cerrarForzado" style="transform: scale(1.2); cursor: pointer;">
+                        <label class="form-check-label text-danger fw-bold small mt-1" for="cerrarForzado" style="cursor: pointer;" title="El pedido pasará a Cerrado y los productos faltantes quedarán cancelados.">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i> Finalizar pedido y anular saldo
                         </label>
                     </div>
                     
@@ -849,6 +864,36 @@ $formatearFechaDMY = static function ($fecha): string {
                         </div>
                     </div>
                 </div>
+
+                <!-- ========================================================= -->
+                <!-- TARJETA: HISTORIAL DE ENTREGAS / DESPACHOS -->
+                <!-- ========================================================= -->
+                <div class="card border-info-subtle shadow-sm mb-4 d-none fade-in" id="resumenVentaDespachosContenedor">
+                    <div class="card-body p-0">
+                        <div class="p-3 border-bottom bg-info-subtle rounded-top d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-truck text-info-emphasis me-2 fs-5"></i>
+                                <h6 class="mb-0 fw-bold text-info-emphasis">Historial de Entregas Realizadas</h6>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0 table-hover" id="tablaResumenDespachos">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3 text-secondary small fw-bold" style="min-width: 150px;">Fecha / Hora</th>
+                                        <th class="text-secondary small fw-bold">Guía / Observación</th>
+                                        <th class="text-secondary small fw-bold">Almacén Origen</th>
+                                        <th class="text-secondary small fw-bold" style="min-width: 250px;">Productos Entregados</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white">
+                                    <!-- Contenido inyectado por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <!-- ========================================================= -->
 
                 <!-- Tarjeta de Productos -->
                 <div class="card border-0 shadow-sm">

@@ -511,7 +511,7 @@ class VentasController extends Controlador
             $metodosPago = is_array($data['metodos_pago'] ?? null) ? $data['metodos_pago'] : [];
 
             if ($idDocumento <= 0) throw new RuntimeException('Documento inválido');
-            if (empty($detalle) || !is_array($detalle)) throw new RuntimeException('No hay ítems para despachar');
+            if ((empty($detalle) || !is_array($detalle)) && !$cerrarForzado) throw new RuntimeException('No hay ítems para despachar o debe marcar la opción de finalizar pedido.');
 
             foreach ($detalle as $linea) {
                 if (empty($linea['id_almacen']) || $linea['id_almacen'] <= 0) {

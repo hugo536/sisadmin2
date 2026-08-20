@@ -21,8 +21,23 @@
         /* ESTILOS FLUIDOS PARA CUALQUIER TAMAÑO DE HOJA */
         @page { margin: 1cm; }
 
-        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 12px; color: #000; margin: 0; padding: 0; }
+        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 12px; color: #000; margin: 0; padding: 0; position: relative; }
         
+        /* 🚨 MARCA DE AGUA PARA ESTADOS CRÍTICOS 🚨 */
+        .watermark {
+            position: fixed;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 70px;
+            color: rgba(220, 53, 69, 0.15); /* Rojo semi-transparente */
+            font-weight: bold;
+            z-index: -1;
+            white-space: nowrap;
+            text-align: center;
+            width: 100%;
+        }
+
         .cabecera { width: 100%; border-bottom: 2px solid #0d6efd; padding-bottom: 15px; margin-bottom: 20px; box-sizing: border-box; }
         .logo-container { width: 45%; float: left; }
         .logo-img { max-height: 80px; max-width: 100%; object-fit: contain; } 
@@ -40,6 +55,8 @@
         .detalle-tabla th, .detalle-tabla td { border: 1px solid #dee2e6; padding: 8px; text-align: left; }
         .detalle-tabla th { background-color: #0d6efd; color: white; font-weight: bold; text-align: center; text-transform: uppercase; font-size: 11px; }
         
+        .tabla-devoluciones th { background-color: #dc3545; color: white; text-align: left; padding-left: 15px; }
+
         .text-center { text-align: center !important; }
         .text-right { text-align: right !important; }
         
@@ -52,6 +69,7 @@
         .totales-tabla { width: 100%; border-collapse: collapse; }
         .totales-tabla td { padding: 6px; border-bottom: 1px solid #eee; }
         .total-final { font-size: 16px; font-weight: bold; color: #0d6efd; border-top: 2px solid #0d6efd !important; }
+        .total-neto { font-size: 18px; font-weight: bold; color: #198754; border-top: 2px solid #198754 !important; }
 
         .observaciones { width: 100%; margin-top: 15px; border: 1px solid #dee2e6; background-color: #fcfcfc; padding: 10px; min-height: 40px; box-sizing: border-box; clear: both; }
         
@@ -70,8 +88,18 @@
         $estadoPedido = (int) ($venta['estado'] ?? 0);
         $usarCantidadDespachada = ($estadoPedido >= 3);
 
+        // LÓGICA DE MARCA DE AGUA
+        $marcaAgua = '';
+        if ($estadoPedido === 9) $marcaAgua = 'ANULADO';
+        elseif ($estadoPedido === 4) $marcaAgua = 'DEVUELTO TOTAL';
+        elseif ($estadoPedido === 5) $marcaAgua = 'DEVUELTO PARCIAL';
+
         for ($i = 1; $i <= $totalPaginas; $i++): 
     ?>
+
+        <?php if ($marcaAgua !== ''): ?>
+            <div class="watermark"><?php echo $marcaAgua; ?></div>
+        <?php endif; ?>
 
         <?php
             $tipoDocumentoCliente = strtoupper(trim((string) ($venta['cliente_doc_tipo'] ?? '')));
@@ -114,7 +142,14 @@
                 <td class="label">MONEDA:</td>
                 <td>Soles (S/)</td>
                 <td class="label"><?php echo $esNotaVenta ? 'ESTADO:' : 'VALIDEZ:'; ?></td>
-                <td><?php echo $esNotaVenta ? 'Entregado / Finalizado' : '15 Días'; ?></td>
+                <td>
+                    <?php 
+                        if ($estadoPedido === 9) echo 'Anulado';
+                        elseif ($estadoPedido === 4) echo 'Devuelto Total';
+                        elseif ($estadoPedido === 5) echo 'Devuelto Parcial';
+                        else echo $esNotaVenta ? 'Entregado / Finalizado' : '15 Días'; 
+                    ?>
+                </td>
             </tr>
             <tr>
                 <td class="label">DIRECCIÓN:</td>
@@ -127,9 +162,7 @@
             $totalLineas = 0.0;
             foreach (($venta['detalle'] ?? []) as $itemTotal) {
                 $cantidadItem = $usarCantidadDespachada ? (float) ($itemTotal['cantidad_despachada'] ?? 0) : (float) ($itemTotal['cantidad'] ?? 0);
-                
                 if ($cantidadItem <= 0) continue;
-
                 $esBonificacion = (int) ($itemTotal['es_bonificacion'] ?? 0);
 
                 // Solo sumamos el subtotal si NO es una bonificación
@@ -157,6 +190,16 @@
                 $igvCalculado = 0.0;
                 $totalFinalCalculado = $subtotalBase;
             }
+
+            // CALCULAR TOTAL DE DEVOLUCIONES APLICADAS
+            $totalDevoluciones = 0.0;
+            if (!empty($venta['devoluciones'])) {
+                foreach ($venta['devoluciones'] as $dev) {
+                    $totalDevoluciones += (float) ($dev['total_devuelto'] ?? 0);
+                }
+            }
+
+            $netoFinal = $totalFinalCalculado - $totalDevoluciones;
         ?>
 
         <table class="detalle-tabla">
@@ -187,7 +230,7 @@
                         <td>
                             <?php echo $nombreItem; ?>
                             <?php if ($esBonificacion === 1): ?>
-                                <strong>(BONIFICACIÓN)</strong>
+                                <strong style="color: #198754; font-size: 10px;">(BONIFICACIÓN)</strong>
                             <?php endif; ?>
                         </td>
                         <td class="text-center"><strong><?php echo number_format($cantidad, 2); ?></strong></td>
@@ -209,11 +252,34 @@
                     </tr>
                 <?php endforeach; ?>
                 <tr>
-                    <td colspan="4" class="text-right" style="font-weight: bold; background-color: #f8f9fa;">TOTAL PROD.</td>
+                    <td colspan="4" class="text-right" style="font-weight: bold; background-color: #f8f9fa;">TOTAL PRODUCTOS:</td>
                     <td class="text-right" style="font-weight: bold; background-color: #f8f9fa;">S/ <?php echo number_format($totalLineas, 2); ?></td>
                 </tr>
             </tbody>
         </table>
+
+        <!-- 👇 TABLA DE DEVOLUCIONES (Solo aparece si hubo devoluciones) 👇 -->
+        <?php if (!empty($venta['devoluciones']) && $totalDevoluciones > 0): ?>
+            <table class="detalle-tabla tabla-devoluciones" style="margin-top: 15px;">
+                <thead>
+                    <tr>
+                        <th>HISTORIAL DE DEVOLUCIONES Y REEMBOLSOS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($venta['devoluciones'] as $dev): ?>
+                        <tr>
+                            <td>
+                                <strong>Motivo:</strong> <?php echo htmlspecialchars($dev['motivo']); ?> <br>
+                                <span style="color: #dc3545; font-size: 11px;">
+                                    <strong>Monto Descontado/Reembolsado: - S/ <?php echo number_format($dev['total_devuelto'], 2); ?></strong>
+                                </span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
 
         <div class="footer-container">
             <div class="terminos">
@@ -244,9 +310,22 @@
                         <td class="text-right">S/ <?php echo number_format($igvCalculado, 2); ?></td>
                     </tr>
                     <tr>
-                        <td class="text-right total-final">TOTAL FINAL:</td>
+                        <td class="text-right total-final">TOTAL VENTA:</td>
                         <td class="text-right total-final">S/ <?php echo number_format($totalFinalCalculado, 2); ?></td>
                     </tr>
+                    
+                    <!-- 👇 CÁLCULO DEL NETO FINAL SI HUBO DEVOLUCIONES 👇 -->
+                    <?php if ($totalDevoluciones > 0): ?>
+                    <tr>
+                        <td class="text-right" style="color: #dc3545; font-weight: bold;">DEVOLUCIONES:</td>
+                        <td class="text-right" style="color: #dc3545; font-weight: bold;">- S/ <?php echo number_format($totalDevoluciones, 2); ?></td>
+                    </tr>
+                    <tr>
+                        <td class="text-right total-neto">NETO A PAGAR:</td>
+                        <td class="text-right total-neto">S/ <?php echo number_format($netoFinal, 2); ?></td>
+                    </tr>
+                    <?php endif; ?>
+
                 </table>
             </div>
         </div>

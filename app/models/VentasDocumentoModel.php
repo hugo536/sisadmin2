@@ -37,9 +37,14 @@ class VentasDocumentoModel extends Modelo
         }
 
         // --- LÓGICA DE FILTRADO Y ORDENAMIENTO POR FECHA DINÁMICA ---
-        $campoFecha = 'DATE(v.created_at)'; // Por defecto (Fecha Pedido)
-        if (isset($filtros['orden_fecha']) && $filtros['orden_fecha'] === 'emision') {
-            $campoFecha = 'v.fecha_emision';
+        // --- LÓGICA DE FILTRADO Y ORDENAMIENTO POR FECHA DINÁMICA ---
+        $campoFecha = 'DATE(v.created_at)'; // Por defecto (registro)
+        if (isset($filtros['orden_fecha'])) {
+            if ($filtros['orden_fecha'] === 'emision') {
+                $campoFecha = 'v.fecha_emision';
+            } elseif ($filtros['orden_fecha'] === 'despacho') {
+                $campoFecha = 'v.fecha_despacho';
+            }
         }
 
         if (!empty($filtros['fecha_desde'])) {
@@ -52,8 +57,15 @@ class VentasDocumentoModel extends Modelo
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
-        if (isset($filtros['orden_fecha']) && $filtros['orden_fecha'] === 'emision') {
-            $sql .= ' ORDER BY v.fecha_emision DESC, v.id DESC';
+        // Ordenamiento final
+        if (isset($filtros['orden_fecha'])) {
+            if ($filtros['orden_fecha'] === 'emision') {
+                $sql .= ' ORDER BY v.fecha_emision DESC, v.id DESC';
+            } elseif ($filtros['orden_fecha'] === 'despacho') {
+                $sql .= ' ORDER BY v.fecha_despacho DESC, v.id DESC';
+            } else {
+                $sql .= ' ORDER BY v.created_at DESC, v.id DESC';
+            }
         } else {
             $sql .= ' ORDER BY COALESCE(v.updated_at, v.created_at) DESC, v.id DESC';
         }
@@ -200,7 +212,38 @@ class VentasDocumentoModel extends Modelo
         }
 
         $venta['devoluciones'] = $devoluciones;
-        // -----------------------------------------------
+        
+        // --- NUEVO: BUSCAR HISTORIAL DE DESPACHOS / ENTREGAS ---
+        // --- NUEVO: BUSCAR HISTORIAL DE DESPACHOS / ENTREGAS ---
+        $despachos = [];
+        try {
+            // Usamos "documento_referencia" como observaciones y quitamos deleted_at
+            $sqlDesp = "SELECT d.id, d.documento_referencia AS observaciones, d.created_at,
+                               (SELECT a.nombre FROM almacenes a WHERE a.id = d.id_almacen LIMIT 1) AS almacen_nombre
+                        FROM ventas_despachos d
+                        WHERE d.id_documento_venta = :id_documento
+                        ORDER BY d.id ASC";
+            $stmtDesp = $this->db()->prepare($sqlDesp);
+            $stmtDesp->execute(['id_documento' => $idDocumento]);
+            $despachos = $stmtDesp->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            foreach ($despachos as &$desp) {
+                // Usamos "cantidad_despachada" en lugar de "cantidad"
+                $sqlDespDet = "SELECT dd.cantidad_despachada AS cantidad, COALESCE(i.nombre, pp.nombre) AS item_nombre
+                               FROM ventas_despachos_detalle dd
+                               LEFT JOIN items i ON i.id = dd.id_item
+                               LEFT JOIN precios_presentaciones pp ON pp.id = dd.id_presentacion
+                               WHERE dd.id_despacho = :id_desp";
+                $stmtDespDet = $this->db()->prepare($sqlDespDet);
+                $stmtDespDet->execute(['id_desp' => $desp['id']]);
+                $desp['detalle'] = $stmtDespDet->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            }
+            unset($desp);
+        } catch (\Throwable $e) {
+            $despachos = [];
+        }
+        $venta['despachos'] = $despachos;
+        // -------------------------------------------------------
 
         return $venta;
     }

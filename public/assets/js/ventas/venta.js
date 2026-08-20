@@ -760,25 +760,30 @@ export async function abrirModalVenta(id, tr = null) {
         renderAlertaSaldoFavor(venta.saldo_favor_cliente || 0);
 
         const estadoDoc = Number(venta.estado || 0);
+        
+        const tieneEntregas = (venta.despachos && venta.despachos.length > 0) || 
+                              (venta.detalle && venta.detalle.some(item => Number(item.cantidad_despachada) > 0));
 
-        // Si el estado es >= 3, abrimos modal de resumen (Solo vista)
-            if (estadoDoc >= 3) {
-                const modalResumenEl = document.getElementById('modalResumenVenta');
-                if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
+        if (estadoDoc >= 3 || tieneEntregas) {
+            const modalResumenEl = document.getElementById('modalResumenVenta');
+            if (!modalResumenEl) throw new Error('El modal de resumen no está disponible.');
 
-                const modalHeader = modalResumenEl.querySelector('.modal-header');
-                const modalTitle = modalResumenEl.querySelector('.modal-title');
-                if (estadoDoc === 9) {
-                    modalHeader.className = 'modal-header bg-secondary text-white border-bottom-0 pb-4';
-                    modalTitle.innerHTML = '<i class="bi bi-x-circle-fill me-2"></i>Resumen de Pedido Anulado';
-                } else {
-                    modalHeader.className = 'modal-header bg-success text-white border-bottom-0 pb-4';
-                    modalTitle.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Resumen de Venta Finalizada';
-                }
+            const modalHeader = modalResumenEl.querySelector('.modal-header');
+            const modalTitle = modalResumenEl.querySelector('.modal-title');
+            
+            if (estadoDoc === 9) {
+                modalHeader.className = 'modal-header bg-secondary text-white border-bottom-0 pb-4';
+                modalTitle.innerHTML = '<i class="bi bi-x-circle-fill me-2"></i>Resumen de Pedido Anulado';
+            } else if (estadoDoc === 6 || (estadoDoc === 2 && tieneEntregas)) {
+                modalHeader.className = 'modal-header bg-info text-white border-bottom-0 pb-4';
+                modalTitle.innerHTML = '<i class="bi bi-truck me-2"></i>Resumen de Despacho Parcial';
+            } else {
+                modalHeader.className = 'modal-header bg-success text-white border-bottom-0 pb-4';
+                modalTitle.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Resumen de Venta Finalizada';
+            }
 
-                const nombreClienteTabla = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente No Especificado';
-                
-            // 👇 BLOQUE SEGURO (No choca si falta un ID en el HTML) 👇
+            const nombreClienteTabla = tr?.querySelector('td:nth-child(2) .fw-semibold')?.textContent?.trim() || 'Cliente No Especificado';
+            
             const elCodigo = document.getElementById('resumenVentaCodigo');
             if (elCodigo) elCodigo.textContent = venta.codigo || '-';
 
@@ -801,7 +806,6 @@ export async function abrirModalVenta(id, tr = null) {
             
             const elFechaDespacho = document.getElementById('resumenVentaFechaDespacho');
             if (elFechaDespacho) elFechaDespacho.textContent = venta.fecha_despacho ? formatearFechaVista(venta.fecha_despacho) : 'Pendiente';
-            // 👆 FIN DEL BLOQUE SEGURO 👆
             
             const obsPedido = venta.observaciones ? venta.observaciones.trim() : '';
             const obsDespacho = venta.observaciones_despacho ? venta.observaciones_despacho.trim() : '';
@@ -810,11 +814,8 @@ export async function abrirModalVenta(id, tr = null) {
             if (elObsPedido) elObsPedido.innerHTML = `<i class="bi bi-file-earmark-text text-primary opacity-75 me-1"></i><strong>Pedido:</strong> <span class="${obsPedido ? 'text-dark' : 'fst-italic opacity-50'}">${obsPedido || 'Sin nota'}</span>`;
             
             const elObsDespacho = document.getElementById('resumenVentaObsDespacho');
-            if (elObsDespacho) elObsDespacho.innerHTML = `<i class="bi bi-truck text-info opacity-75 me-1"></i><strong>Despacho:</strong> <span class="${obsDespacho ? 'text-dark' : 'fst-italic opacity-50'}">${obsDespacho || 'Sin guía/nota'}</span>`;
+            if (elObsDespacho) elObsDespacho.innerHTML = `<i class="bi bi-truck text-info opacity-75 me-1"></i><strong>Despacho final:</strong> <span class="${obsDespacho ? 'text-dark' : 'fst-italic opacity-50'}">${obsDespacho || 'Sin guía general'}</span>`;
 
-            // =========================================================
-            // 👇 INYECCIÓN DE RESPONSABLES DE VENTAS 👇
-            // =========================================================
             const userRegistroVenta = venta.usuario_registro || venta.usuario_creacion || 'Administrador';
             const userDespachoVenta = venta.usuario_despacho || 'Pendiente';
 
@@ -823,7 +824,6 @@ export async function abrirModalVenta(id, tr = null) {
 
             const elUserDespVenta = document.getElementById('resumenVentaUsuarioDespacho');
             if (elUserDespVenta) elUserDespVenta.textContent = userDespachoVenta;
-            // =========================================================
 
             const totalPedido = Number(venta.total || 0);
             const montoPagado = Number(venta.monto_pagado || 0);
@@ -837,48 +837,82 @@ export async function abrirModalVenta(id, tr = null) {
             const valDeuda = document.getElementById('val_deuda_pendiente');
 
             if (badgePagoContenedor && textoDeudaContenedor) {
-                    if (listaPagos) {
-                        listaPagos.innerHTML = '';
-                        if (venta.pagos_detallados && venta.pagos_detallados.length > 0) {
-                            let htmlPagos = '';
-                            venta.pagos_detallados.forEach(pago => { htmlPagos += `<li><strong>${pago.metodo}</strong>: S/ ${Number(pago.monto).toFixed(2)}</li>`; });
-                            listaPagos.innerHTML = htmlPagos;
-                        } else {
-                            listaPagos.innerHTML = '<li>Sin pagos registrados</li>';
-                        }
-                    }
-
-                    if (estadoDoc === 9) {
-                        badgePagoContenedor.innerHTML = '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1"><i class="bi bi-slash-circle-fill me-1"></i>Pedido Anulado</span>';
-                        textoDeudaContenedor.innerHTML = `<span class="text-muted fw-semibold">Sin deuda activa.</span>`;
-                        if (divModalidad) divModalidad.style.display = 'none';
-                        if (divDeuda) divDeuda.style.display = 'none';
-                    } 
-                    else if (deudaPendiente <= 0.001) {
-                        badgePagoContenedor.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i>Pagado Total</span>';
-                        textoDeudaContenedor.innerHTML = `Total abonado: <span class="fw-bold text-dark">S/ ${totalPedido.toFixed(2)}</span>`;
-                        if (divDeuda) divDeuda.style.display = 'none';
-                        if (divModalidad) divModalidad.style.display = 'block';
-                    } 
-                    else if (montoPagado > 0) {
-                        badgePagoContenedor.innerHTML = '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="bi bi-pie-chart-fill me-1"></i>Pago Parcial</span>';
-                        textoDeudaContenedor.innerHTML = `Abonado parcial: <span class="text-dark">S/ ${montoPagado.toFixed(2)}</span>`;
-                        if (divModalidad) divModalidad.style.display = 'block';
-                        if (divDeuda) {
-                            divDeuda.style.display = 'block';
-                            if (valDeuda) valDeuda.textContent = `S/ ${deudaPendiente.toFixed(2)}`;
-                        }
-                    } 
-                    else {
-                        badgePagoContenedor.innerHTML = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-x-circle-fill me-1"></i>Por Cobrar</span>';
-                        textoDeudaContenedor.innerHTML = `Abonado: <span class="text-dark">S/ 0.00</span>`;
-                        if (divModalidad) divModalidad.style.display = 'none';
-                        if (divDeuda) {
-                            divDeuda.style.display = 'block';
-                            if (valDeuda) valDeuda.textContent = `S/ ${deudaPendiente.toFixed(2)}`;
-                        }
+                if (listaPagos) {
+                    listaPagos.innerHTML = '';
+                    if (venta.pagos_detallados && venta.pagos_detallados.length > 0) {
+                        let htmlPagos = '';
+                        venta.pagos_detallados.forEach(pago => { htmlPagos += `<li><strong>${pago.metodo}</strong>: S/ ${Number(pago.monto).toFixed(2)}</li>`; });
+                        listaPagos.innerHTML = htmlPagos;
+                    } else {
+                        listaPagos.innerHTML = '<li>Sin pagos registrados</li>';
                     }
                 }
+
+                if (estadoDoc === 9) {
+                    badgePagoContenedor.innerHTML = '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1"><i class="bi bi-slash-circle-fill me-1"></i>Pedido Anulado</span>';
+                    textoDeudaContenedor.innerHTML = `<span class="text-muted fw-semibold">Sin deuda activa.</span>`;
+                    if (divModalidad) divModalidad.style.display = 'none';
+                    if (divDeuda) divDeuda.style.display = 'none';
+                } 
+                else if (deudaPendiente <= 0.001) {
+                    badgePagoContenedor.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i>Pagado Total</span>';
+                    textoDeudaContenedor.innerHTML = `Total abonado: <span class="fw-bold text-dark">S/ ${totalPedido.toFixed(2)}</span>`;
+                    if (divDeuda) divDeuda.style.display = 'none';
+                    if (divModalidad) divModalidad.style.display = 'block';
+                } 
+                else if (montoPagado > 0) {
+                    badgePagoContenedor.innerHTML = '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="bi bi-pie-chart-fill me-1"></i>Pago Parcial</span>';
+                    textoDeudaContenedor.innerHTML = `Abonado parcial: <span class="text-dark">S/ ${montoPagado.toFixed(2)}</span>`;
+                    if (divModalidad) divModalidad.style.display = 'block';
+                    if (divDeuda) {
+                        divDeuda.style.display = 'block';
+                        if (valDeuda) valDeuda.textContent = `S/ ${deudaPendiente.toFixed(2)}`;
+                    }
+                } 
+                else {
+                    badgePagoContenedor.innerHTML = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-x-circle-fill me-1"></i>Por Cobrar</span>';
+                    textoDeudaContenedor.innerHTML = `Abonado: <span class="text-dark">S/ 0.00</span>`;
+                    if (divModalidad) divModalidad.style.display = 'none';
+                    if (divDeuda) {
+                        divDeuda.style.display = 'block';
+                        if (valDeuda) valDeuda.textContent = `S/ ${deudaPendiente.toFixed(2)}`;
+                    }
+                }
+            }
+
+            const contDespachos = document.getElementById('resumenVentaDespachosContenedor');
+            const tbodyDespachos = document.querySelector('#tablaResumenDespachos tbody');
+
+            if (contDespachos && tbodyDespachos) {
+                if (venta.despachos && venta.despachos.length > 1) { 
+                    contDespachos.classList.remove('d-none');
+                    tbodyDespachos.innerHTML = '';
+
+                    venta.despachos.forEach(desp => {
+                        const fechaDesp = new Date(desp.created_at);
+                        const fechaFormat = isNaN(fechaDesp) ? desp.created_at.substring(0, 16) : (fechaDesp.toLocaleDateString('es-PE') + ' - ' + fechaDesp.toLocaleTimeString('es-PE', {hour: '2-digit', minute:'2-digit'}));
+
+                        const productosList = (desp.detalle || []).map(d => 
+                            `<div class="small text-dark mb-1">
+                                <span class="badge bg-info-subtle text-info me-1 border border-info-subtle">${Number(d.cantidad).toFixed(2)}x</span> 
+                                ${d.item_nombre || 'Producto'}
+                            </div>`
+                        ).join('');
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="ps-3 text-muted small fw-semibold">${fechaFormat}</td>
+                            <td><div class="text-dark small fst-italic">${desp.observaciones || 'Sin guía/nota'}</div></td>
+                            <td><span class="badge bg-light text-secondary border border-secondary-subtle">${desp.almacen_nombre || 'Almacén Origen'}</span></td>
+                            <td>${productosList}</td>
+                        `;
+                        tbodyDespachos.appendChild(tr);
+                    });
+                } else {
+                    contDespachos.classList.add('d-none');
+                    tbodyDespachos.innerHTML = '';
+                }
+            }
 
             const tbodyResumen = document.querySelector('#tablaResumenProductos tbody');
             const pesoTotalResumenEl = document.getElementById('resumenVentaPesoTotal');
@@ -935,12 +969,8 @@ export async function abrirModalVenta(id, tr = null) {
             const totalFinalReal = Number.isFinite(sumaTotalDespachada) ? sumaTotalDespachada : 0;
             const resVentaTotalFinal = document.getElementById('resumenVentaTotalFinal');
 
-            // =========================================================
-            // 👇 HISTORIAL DE DEVOLUCIONES Y TOTAL NETO 👇
-            // =========================================================
             const contDevoluciones = document.getElementById('resumenVentaDevolucionesContenedor');
             const tbodyDevoluciones = document.querySelector('#tablaResumenDevoluciones tbody');
-            
             let sumaTotalDevoluciones = 0;
 
             if (contDevoluciones && tbodyDevoluciones) {
@@ -951,11 +981,9 @@ export async function abrirModalVenta(id, tr = null) {
                     venta.devoluciones.forEach(dev => {
                         sumaTotalDevoluciones += Number(dev.total_devuelto || 0);
 
-                        // Formatear la fecha
                         const fechaDev = new Date(dev.created_at);
-                        const fechaFormat = fechaDev.toLocaleDateString('es-PE') + ' - ' + fechaDev.toLocaleTimeString('es-PE', {hour: '2-digit', minute:'2-digit'});
+                        const fechaFormat = isNaN(fechaDev) ? dev.created_at.substring(0, 16) : (fechaDev.toLocaleDateString('es-PE') + ' - ' + fechaDev.toLocaleTimeString('es-PE', {hour: '2-digit', minute:'2-digit'}));
             
-                        // Armar lista de productos devueltos
                         const productosList = (dev.detalle || []).map(d => 
                             `<div class="small text-dark mb-1"><span class="badge bg-secondary-subtle text-secondary me-1 border border-secondary-subtle">${Number(d.cantidad)}x</span> ${d.item_nombre}</div>`
                         ).join('');
@@ -975,7 +1003,6 @@ export async function abrirModalVenta(id, tr = null) {
                 }
             }
 
-            // Actualizamos el Total Final considerando las devoluciones
             if (resVentaTotalFinal) {
                 if (sumaTotalDevoluciones > 0) {
                     const netoReal = totalFinalReal - sumaTotalDevoluciones;
@@ -988,15 +1015,12 @@ export async function abrirModalVenta(id, tr = null) {
                     resVentaTotalFinal.innerHTML = `S/ ${totalFinalReal.toFixed(2)}`;
                 }
             }
-            // =========================================================
-            // 👆 FIN DEL HISTORIAL DE DEVOLUCIONES Y TOTAL NETO 👆
-            // =========================================================
             
             bootstrap.Modal.getOrCreateInstance(modalResumenEl).show();
             return; 
         }
 
-        // Si es < 3 (Borrador o Edición), abrimos el Modal principal de Venta
+        // Si es < 3 y SIN despachos parciales (Borrador o Edición limpia)
         limpiarModalVenta();
         const ventaId = document.getElementById('ventaId');
         if (ventaId) ventaId.value = venta.id;
@@ -1124,6 +1148,7 @@ export async function abrirModalVenta(id, tr = null) {
         
         const modalVentaEl = document.getElementById('modalVenta');
         if(modalVentaEl) bootstrap.Modal.getOrCreateInstance(modalVentaEl).show();
+        
     } catch (err) {
         console.error('Error al abrir pedido:', err);
         Swal.fire('Error', err.message || 'No se pudo cargar', 'error');
