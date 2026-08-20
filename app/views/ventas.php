@@ -2,6 +2,7 @@
 $ventas = $ventas ?? [];
 $filtros = $filtros ?? [];
 $almacenes = $almacenes ?? [];
+$puedeDespachar = tiene_algun_permiso(['ventas.despachar', 'ventas.aprobar']);
 
 // Configuración de Estados Optimizada
 $estadoLabels = [
@@ -209,7 +210,9 @@ $formatearFechaDMY = static function ($fecha): string {
                                                     <i class="bi bi-arrow-counterclockwise fs-5"></i>
                                                 </button>
 
-                                                <button class="btn btn-sm btn-light text-info border-0 btn-despachar rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Despachar Mercadería"><i class="bi bi-truck fs-5"></i></button>
+                                                <?php if ($puedeDespachar): ?>
+                                                    <button class="btn btn-sm btn-light text-info border-0 btn-despachar rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Despachar Mercadería"><i class="bi bi-truck fs-5"></i></button>
+                                                <?php endif; ?>
                                                 <button class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
                                                 <button class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-id="<?php echo (int) ($venta['id'] ?? 0); ?>" data-bs-toggle="tooltip" title="Anular Pedido"><i class="bi bi-trash fs-5"></i></button>
                                                 

@@ -242,7 +242,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'crear_categoria') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $data = $this->validarCategoria($_POST);
                     $this->categoriaModel->crearCategoria($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Categoría creada correctamente.'];
@@ -250,7 +250,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'crear_rubro') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $data = $this->validarRubro($_POST);
                     $this->rubroModel->crearRubro($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Rubro creado correctamente.'];
@@ -258,7 +258,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'editar_rubro') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de rubro inválido.');
 
@@ -269,7 +269,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'eliminar_rubro') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de rubro inválido.');
 
@@ -279,7 +279,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'editar_categoria') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de categoría inválido.');
 
@@ -290,7 +290,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'eliminar_categoria') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de categoría inválido.');
 
@@ -300,7 +300,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'crear_marca') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $data = $this->validarAtributoItem($_POST);
                     $id = $this->atributoModel->crearMarca($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Marca creada correctamente.', 'id' => $id];
@@ -308,7 +308,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'editar_marca') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de marca inválido.');
                     
@@ -319,7 +319,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'eliminar_marca') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de marca inválido.');
                     
@@ -329,7 +329,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'crear_sabor') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $data = $this->validarAtributoItem($_POST);
                     $id = $this->atributoModel->crearSabor($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Sabor creado correctamente.', 'id' => $id];
@@ -337,7 +337,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'editar_sabor') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de sabor inválido.');
 
@@ -355,7 +355,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'eliminar_sabor') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de sabor inválido.');
 
@@ -372,7 +372,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'crear_presentacion') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $data = $this->validarAtributoItem($_POST);
                     $id = $this->atributoModel->crearPresentacion($data, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Presentación creada correctamente.', 'id' => $id];
@@ -380,7 +380,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'editar_presentacion') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de presentación inválido.');
                     
@@ -391,7 +391,7 @@ class ItemController extends Controlador
                 }
 
                 if ($accion === 'eliminar_presentacion') {
-                    require_permiso('configuracion.editar');
+                    require_permiso('config.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     if ($id <= 0) throw new RuntimeException('ID de presentación inválido.');
                     
