@@ -57,9 +57,8 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
         })();
 
         formReporte.addEventListener('submit', (event) => {
-            // Interceptar el submit general, PERO permitir que los botones de "Exportar a PDF" 
-            // (que usan formtarget="_blank") funcionen de forma nativa sin que SPA los bloquee.
-            if(event.submitter && (event.submitter.name === 'exportar_pdf' || event.submitter.formTarget === '_blank')) {
+            // Interceptar el submit general, PERO permitir que los botones de "Exportar" (PDF/Excel) funcionen de forma nativa
+            if(event.submitter && (event.submitter.name === 'exportar_pdf' || event.submitter.name === 'exportar_excel' || event.submitter.formTarget === '_blank')) {
                 return; 
             }
             event.preventDefault();
@@ -72,23 +71,77 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
             field.addEventListener('change', () => autoSubmitReporte(150));
         });
 
-        // --- 3. LÓGICA DE PESTAÑAS (TABS) ---
-        const botonesTabs = document.querySelectorAll('.btn-tab-seccion');
-        const inputSeccion = document.getElementById('input_seccion_activa');
+        // --- 3. LÓGICA DE BOTONES AUXILIARES (LIMPIAR Y FECHAS RÁPIDAS) ---
+        
+        // 3.1 Limpiar Filtros
+        const btnLimpiar = document.getElementById('btnLimpiarFiltros');
+        if (btnLimpiar) {
+            btnLimpiar.addEventListener('click', () => {
+                formReporte.querySelectorAll('select:not([name="seccion_activa"]), input[type="date"]').forEach(el => el.value = '');
+                submitReporteFiltros();
+            });
+        }
 
-        botonesTabs.forEach(boton => {
-            boton.addEventListener('click', function() {
-                const seccionSeleccionada = this.getAttribute('data-seccion');
-                if (inputSeccion && inputSeccion.value !== seccionSeleccionada) {
-                    inputSeccion.value = seccionSeleccionada;
-                    // Deshabilitar 'required' temporalmente para navegar entre pestañas libremente
-                    formReporte.querySelectorAll('input[required]').forEach(f => f.required = false);
+        // 3.2 Filtros Rápidos de Fecha (Hoy, Semana, Mes)
+        const btnsQuickDate = document.querySelectorAll('.btn-quick-date');
+        btnsQuickDate.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const periodo = this.getAttribute('data-period');
+                const dateDesde = document.getElementById('fecha_desde');
+                const dateHasta = document.getElementById('fecha_hasta');
+                
+                const hoy = new Date();
+                let desde = new Date();
+                let hasta = new Date();
+
+                if (periodo === 'semana') {
+                    const diff = hoy.getDate() - hoy.getDay() + (hoy.getDay() === 0 ? -6 : 1);
+                    desde.setDate(diff);
+                } else if (periodo === 'mes') {
+                    desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+                    hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+                }
+
+                // Formato ISO YYYY-MM-DD pero ajustado a la zona horaria local
+                const formatear = (fecha) => {
+                    const y = fecha.getFullYear();
+                    const m = String(fecha.getMonth() + 1).padStart(2, '0');
+                    const d = String(fecha.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                };
+                
+                if (dateDesde && dateHasta) {
+                    dateDesde.value = formatear(desde);
+                    dateHasta.value = formatear(hasta);
                     submitReporteFiltros();
                 }
             });
         });
 
-        // --- 4. INTEGRACIÓN DE TOMSELECT (BÚSQUEDA AJAX) ---
+        // --- 4. LÓGICA DE PESTAÑAS (TABS) EN SPA ---
+        const linksTabs = document.querySelectorAll('.nav-tabs .nav-link');
+        const inputSeccion = document.getElementById('input_seccion_activa');
+
+        linksTabs.forEach(link => {
+            link.addEventListener('click', function(e) {
+                const href = this.getAttribute('href');
+                // Si la URL contiene seccion_activa, interceptamos para que funcione como SPA
+                if (href && href.includes('seccion_activa=')) {
+                    e.preventDefault(); // Evitamos recarga completa
+                    const urlObj = new URL(href, window.location.origin);
+                    const seccionSeleccionada = urlObj.searchParams.get('seccion_activa');
+                    
+                    if (inputSeccion && inputSeccion.value !== seccionSeleccionada) {
+                        inputSeccion.value = seccionSeleccionada;
+                        // Deshabilitar 'required' temporalmente para navegar libremente
+                        formReporte.querySelectorAll('input[required]').forEach(f => f.required = false);
+                        submitReporteFiltros();
+                    }
+                }
+            });
+        });
+
+        // --- 5. INTEGRACIÓN DE TOMSELECT (BÚSQUEDA AJAX) ---
         const inicializarTomSelect = async () => {
             for (let i = 0; i < 20; i++) {
                 if (typeof window.TomSelect !== 'undefined') break;
@@ -153,55 +206,61 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
         };
         inicializarTomSelect();
 
-        // --- 5. INICIALIZACIÓN DEL GRÁFICO (CHART.JS) ---
+        // --- 6. INICIALIZACIÓN DEL GRÁFICO (CHART.JS) CON ATRIBUTOS HTML ---
         const canvasGrafico = document.getElementById('ventasPeriodoChart');
-        if (canvasGrafico && window.datosReporteVentas) {
-            const chartData = window.datosReporteVentas.graficoPeriodo;
-            
-            if(chartData.length > 0) {
-                const labels = chartData.map(r => String(r.etiqueta ?? ''));
-                const data = chartData.map(r => Number(r.total_vendido ?? 0));
-                const tipoGrafico = window.datosReporteVentas.tipoGrafico;
+        if (canvasGrafico && typeof Chart !== 'undefined') {
+            try {
+                // Recuperar los datos impresos en el atributo HTML
+                const chartDataStr = canvasGrafico.getAttribute('data-chart-data');
+                const chartData = chartDataStr ? JSON.parse(chartDataStr) : [];
+                const tipoGrafico = canvasGrafico.getAttribute('data-chart-type') || 'bar';
+                
+                if(chartData.length > 0) {
+                    const labels = chartData.map(r => String(r.etiqueta ?? ''));
+                    const data = chartData.map(r => Number(r.total_vendido ?? 0));
 
-                new Chart(canvasGrafico, {
-                    type: tipoGrafico,
-                    data: {
-                        labels,
-                        datasets: [{
-                            label: 'Total vendido (S/)',
-                            data,
-                            borderColor: '#198754',
-                            backgroundColor: tipoGrafico === 'line' ? 'rgba(25,135,84,.15)' : 'rgba(25,135,84,.35)',
-                            tension: .25,
-                            fill: tipoGrafico === 'line',
-                            pointRadius: tipoGrafico === 'line' ? 3 : 0,
-                            borderRadius: tipoGrafico === 'bar' ? 6 : 0,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: { 
-                                callbacks: { 
-                                    label(ctx) { return `S/ ${Number(ctx.parsed.y ?? 0).toFixed(2)}`; } 
-                                } 
-                            }
+                    new Chart(canvasGrafico, {
+                        type: tipoGrafico,
+                        data: {
+                            labels,
+                            datasets: [{
+                                label: 'Total vendido (S/)',
+                                data,
+                                borderColor: '#198754',
+                                backgroundColor: tipoGrafico === 'line' ? 'rgba(25,135,84,.15)' : 'rgba(25,135,84,.35)',
+                                tension: .25,
+                                fill: tipoGrafico === 'line',
+                                pointRadius: tipoGrafico === 'line' ? 3 : 0,
+                                borderRadius: tipoGrafico === 'bar' ? 6 : 0,
+                            }]
                         },
-                        scales: {
-                            y: { 
-                                ticks: { 
-                                    callback(value) { return `S/ ${Number(value).toFixed(0)}`; } 
-                                } 
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: { 
+                                    callbacks: { 
+                                        label(ctx) { return `S/ ${Number(ctx.parsed.y ?? 0).toFixed(2)}`; } 
+                                    } 
+                                }
+                            },
+                            scales: {
+                                y: { 
+                                    ticks: { 
+                                        callback(value) { return `S/ ${Number(value).toFixed(0)}`; } 
+                                    } 
+                                }
                             }
                         }
-                    }
-                });
+                    });
+                }
+            } catch (err) {
+                console.error("Error inicializando Chart.js:", err);
             }
         }
 
-        // --- 6. LÓGICA DE ACCIONES MASIVAS (PENDIENTES DE DESPACHO) ---
+        // --- 7. LÓGICA DE ACCIONES MASIVAS (PENDIENTES DE DESPACHO) ---
         const chkAll = document.getElementById('chkAllPendientes');
         const chks = document.querySelectorAll('.chk-pendiente');
         const btnPicking = document.getElementById('btnGenerarPickingList');
@@ -219,7 +278,6 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
                 btnPicking.classList.remove('d-none');
                 btnRuta.classList.remove('d-none');
                 
-                // Actualizamos contadores en botones e interiores del modal
                 if(countPicking) countPicking.textContent = seleccionados;
                 if(countRutas) countRutas.textContent = seleccionados;
                 if(lblCantRutas) lblCantRutas.textContent = seleccionados;
@@ -229,12 +287,10 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
             }
         }
 
-        // Checkbox "Seleccionar Todos"
         if(chkAll) {
             chkAll.addEventListener('change', function() {
                 chks.forEach(chk => {
                     const tr = chk.closest('tr');
-                    // Ignora los ocultos si el usuario usó la barra de búsqueda rápida
                     if(tr && tr.style.display !== 'none') {
                         chk.checked = chkAll.checked;
                     }
@@ -243,7 +299,6 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
             });
         }
 
-        // Checkbox individual
         chks.forEach(chk => {
             chk.addEventListener('change', function() {
                 if(!this.checked && chkAll) chkAll.checked = false;
@@ -255,7 +310,6 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
         if(btnPicking) {
             btnPicking.addEventListener('click', function() {
                 const ids = Array.from(document.querySelectorAll('.chk-pendiente:checked')).map(cb => cb.value);
-                console.log("Generando Picking List para los IDs:", ids);
                 alert(`Generando Picking List consolidado para ${ids.length} pedidos...`);
             });
         }
@@ -273,7 +327,6 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
                 }
 
                 const ids = Array.from(document.querySelectorAll('.chk-pendiente:checked')).map(cb => cb.value);
-                console.log(`Asignando la ruta "${rutaSeleccionada}" a los IDs:`, ids);
                 alert(`Ruta "${rutaSeleccionada}" asignada correctamente a ${ids.length} pedidos.`);
                 
                 const modalEl = document.getElementById('modalAsignarRuta');

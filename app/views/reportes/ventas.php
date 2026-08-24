@@ -7,6 +7,7 @@
 ?>
 <div class="container-fluid p-4" id="reportesVentasApp">
     
+    <!-- ENCABEZADO -->
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
@@ -19,31 +20,31 @@
         </a>
     </div>
 
-    <!-- Pestañas -->
+    <!-- PESTAÑAS (Ahora son etiquetas <a> para navegación nativa) -->
     <ul class="nav nav-tabs border-bottom-1 mb-0 px-2" role="tablist">
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'tendencias' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="tendencias">
+            <a href="<?php echo e(route_url('reportes/ventas')); ?>&seccion_activa=tendencias" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'tendencias' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>">
                 <i class="bi bi-graph-up-arrow me-2"></i>Tendencias y Periodos
-            </button>
+            </a>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'clientes' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="clientes">
+            <a href="<?php echo e(route_url('reportes/ventas')); ?>&seccion_activa=clientes" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'clientes' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>">
                 <i class="bi bi-person-lines-fill me-2"></i>Por Clientes
-            </button>
+            </a>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'productos' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="productos">
+            <a href="<?php echo e(route_url('reportes/ventas')); ?>&seccion_activa=productos" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'productos' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>">
                 <i class="bi bi-star-fill me-2"></i>Top Productos
-            </button>
+            </a>
         </li>
         <li class="nav-item" role="presentation">
-            <button type="button" class="nav-link btn-tab-seccion fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'pendientes' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>" data-seccion="pendientes">
+            <a href="<?php echo e(route_url('reportes/ventas')); ?>&seccion_activa=pendientes" class="nav-link fs-6 fw-semibold py-3 <?php echo $seccionActiva === 'pendientes' ? 'active text-primary border-primary border-bottom-0' : 'text-secondary bg-light border-0'; ?>">
                 <i class="bi bi-truck me-2"></i>Pendientes de Despacho
-            </button>
+            </a>
         </li>
     </ul>
 
-    <!-- Tarjeta de Filtros -->
+    <!-- TARJETA DE FILTROS -->
     <div class="card border-0 shadow-sm mb-4 rounded-top-0 border-top border-primary border-3">
         <div class="card-body p-4 bg-white">
             <form class="row g-3" method="get" action="<?php echo e(route_url('reportes/ventas')); ?>" id="formFiltrosReporteVentas">
@@ -60,7 +61,6 @@
                 </div>
 
                 <div class="col-12 col-lg-5 d-flex flex-column justify-content-end">
-                    
                     <?php if ($seccionActiva === 'tendencias'): ?>
                         <div class="d-flex gap-2">
                             <div class="w-50">
@@ -118,25 +118,25 @@
                             </select>
                         </div>
                     <?php endif; ?>
-
                 </div>
 
-                <!-- ESTILO DE FECHAS IMPORTADO DEL ESTADO DE CUENTA -->
                 <div class="col-12 col-md-7 col-lg-5">
-                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Periodo de Fechas <span class="text-danger">*</span></label>
+                    <div class="d-flex justify-content-between align-items-end mb-1 ms-1">
+                        <label class="form-label text-muted small fw-bold mb-0">Periodo de Fechas <span class="text-danger">*</span></label>
+                    </div>
                     <div class="input-group shadow-sm">
                         <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
-                        <input type="date" name="fecha_desde" class="form-control bg-light border-start-0 border-end-0 auto-submit" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
+                        <input type="date" name="fecha_desde" id="fecha_desde" class="form-control bg-light border-start-0 border-end-0 auto-submit" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
                         
                         <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
-                        <input type="date" name="fecha_hasta" class="form-control bg-light border-start-0 auto-submit" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
+                        <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control bg-light border-start-0 auto-submit" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
                         
-                        <button class="btn btn-light border text-primary px-3 transition-hover" type="submit" title="Aplicar filtros" style="z-index: 0;">
+                        <button class="btn btn-light border text-primary px-3 transition-hover" type="submit" title="Aplicar filtros">
                             <i class="bi bi-funnel-fill"></i>
                         </button>
-                        <a href="<?php echo e(route_url('reportes/ventas')); ?>&seccion_activa=<?php echo $seccionActiva; ?>" class="btn btn-light border text-danger px-3 transition-hover" title="Limpiar filtros" style="z-index: 0;">
+                        <button type="button" id="btnLimpiarFiltros" class="btn btn-light border text-danger px-3 transition-hover" title="Limpiar filtros">
                             <i class="bi bi-eraser-fill"></i>
-                        </a>
+                        </button>
                     </div>
                 </div>
             </form>
@@ -145,14 +145,54 @@
 
     <!-- SECCIÓN: TENDENCIAS -->
     <?php if ($seccionActiva === 'tendencias'): ?>
+    
+    <!-- Tarjetas KPI Resumen -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm border-start border-success border-4 h-100">
+                <div class="card-body">
+                    <p class="text-muted small text-uppercase fw-bold mb-1">Total Vendido</p>
+                    <h4 class="mb-0 fw-bold text-dark">S/ <?php echo number_format($kpiVentasTotal ?? 0, 2); ?></h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm border-start border-primary border-4 h-100">
+                <div class="card-body">
+                    <p class="text-muted small text-uppercase fw-bold mb-1">Docs. Emitidos</p>
+                    <h4 class="mb-0 fw-bold text-dark"><?php echo number_format($kpiDocsEmitidos ?? 0); ?></h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm border-start border-info border-4 h-100">
+                <div class="card-body">
+                    <p class="text-muted small text-uppercase fw-bold mb-1">Ticket Promedio</p>
+                    <h4 class="mb-0 fw-bold text-dark">S/ <?php echo number_format($kpiTicketPromedio ?? 0, 2); ?></h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm border-start border-danger border-4 h-100">
+                <div class="card-body">
+                    <p class="text-muted small text-uppercase fw-bold mb-1">Pdtes. Despacho</p>
+                    <h4 class="mb-0 fw-bold text-dark"><?php echo number_format($kpiPendientes ?? 0); ?></h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
                 <i class="bi bi-graph-up-arrow me-2 text-success"></i>Ventas <?php echo (($filtros['agrupacion'] ?? 'diaria') === 'semanal') ? 'Semanales' : 'Diarias'; ?>
             </h5>
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2">
+                <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="btn btn-success btn-sm shadow-sm fw-semibold">
+                    <i class="bi bi-file-excel-fill me-1"></i> Excel
+                </button>
                 <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="btn btn-danger btn-sm shadow-sm fw-semibold" formtarget="_blank">
-                    <i class="bi bi-file-pdf-fill me-1"></i> Exportar Gráficos
+                    <i class="bi bi-file-pdf-fill me-1"></i> PDF
                 </button>
             </div>
         </div>
@@ -160,7 +200,13 @@
             <div class="row g-4">
                 <div class="col-12 col-lg-7">
                     <div class="border rounded-3 p-3 bg-light-subtle h-100" style="position: relative; min-height: 300px;">
-                        <canvas id="ventasPeriodoChart" aria-label="Gráfico de ventas por periodo" role="img"></canvas>
+                        <!-- Se reemplaza el JS suelto por atributos data-* en el canvas -->
+                        <canvas id="ventasPeriodoChart" 
+                                aria-label="Gráfico de ventas por periodo" 
+                                role="img"
+                                data-chart-data='<?php echo htmlspecialchars(json_encode($porPeriodo ?? []), ENT_QUOTES, 'UTF-8'); ?>'
+                                data-chart-type="<?php echo ($filtros['tipo_grafico'] ?? 'barras') === 'linea' ? 'line' : 'bar'; ?>">
+                        </canvas>
                     </div>
                 </div>
                 <div class="col-12 col-lg-5">
@@ -203,14 +249,16 @@
                 <span class="badge bg-light text-secondary border ms-3 fw-normal d-none d-md-inline" style="font-size: 0.75rem;">Solo ventas comerciales</span>
             </h5>
             
-            <!-- UBICACIÓN EXPORTAR Y BUSCADOR -->
-            <div class="d-flex align-items-center gap-3">
-                <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="btn btn-danger btn-sm shadow-sm fw-semibold" formtarget="_blank">
-                    <i class="bi bi-file-pdf-fill me-1"></i> Exportar PDF
+            <div class="d-flex align-items-center gap-2">
+                <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="btn btn-success btn-sm shadow-sm fw-semibold">
+                    <i class="bi bi-file-excel-fill me-1"></i> Excel
                 </button>
-                <div class="input-group input-group-sm w-auto" style="max-width: 220px;">
+                <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="btn btn-danger btn-sm shadow-sm fw-semibold" formtarget="_blank">
+                    <i class="bi bi-file-pdf-fill me-1"></i> PDF
+                </button>
+                <div class="input-group input-group-sm w-auto ms-2" style="max-width: 220px;">
                     <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepVentasCliente" placeholder="Buscar cliente en tabla...">
+                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepVentasCliente" placeholder="Buscar cliente...">
                 </div>
             </div>
         </div>
@@ -236,7 +284,6 @@
                                     <td class="text-end fw-bold text-success">S/ <?php echo number_format((float)($r['total_vendido'] ?? 0), 2); ?></td>
                                     <td class="text-end text-muted">S/ <?php echo number_format((float)($r['ticket_promedio'] ?? 0), 2); ?></td>
                                     <td class="text-center"><span class="badge bg-light text-secondary border"><?php echo e((string)$r['documentos']); ?></span></td>
-                                    
                                     <td class="text-center pe-4">
                                         <?php 
                                             $urlDetalle = route_url('reportes/estado_cuenta') . 
@@ -272,14 +319,16 @@
                 <span class="badge bg-light text-secondary border ms-3 fw-normal d-none d-md-inline" style="font-size: 0.75rem;">Solo ventas comerciales</span>
             </h5>
             
-            <!-- UBICACIÓN EXPORTAR Y BUSCADOR -->
-            <div class="d-flex align-items-center gap-3">
-                <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="btn btn-danger btn-sm shadow-sm fw-semibold" formtarget="_blank">
-                    <i class="bi bi-file-pdf-fill me-1"></i> Exportar PDF
+            <div class="d-flex align-items-center gap-2">
+                <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="btn btn-success btn-sm shadow-sm fw-semibold">
+                    <i class="bi bi-file-excel-fill me-1"></i> Excel
                 </button>
-                <div class="input-group input-group-sm w-auto" style="max-width: 220px;">
+                <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="btn btn-danger btn-sm shadow-sm fw-semibold" formtarget="_blank">
+                    <i class="bi bi-file-pdf-fill me-1"></i> PDF
+                </button>
+                <div class="input-group input-group-sm w-auto ms-2" style="max-width: 220px;">
                     <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepVentasProd" placeholder="Buscar producto en tabla...">
+                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepVentasProd" placeholder="Buscar producto...">
                 </div>
             </div>
         </div>
@@ -334,12 +383,14 @@
                     <i class="bi bi-geo-alt me-1"></i>Asignar Ruta (<span id="countRutas">0</span>)
                 </button>
                 
-                <!-- EXPORTAR A PDF (REUTILIZA FORM) -->
+                <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="btn btn-success btn-sm shadow-sm fw-semibold">
+                    <i class="bi bi-file-excel-fill me-1"></i> Excel
+                </button>
                 <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="btn btn-danger btn-sm shadow-sm fw-semibold" formtarget="_blank">
-                    <i class="bi bi-file-pdf-fill me-1"></i> Exportar PDF
+                    <i class="bi bi-file-pdf-fill me-1"></i> PDF
                 </button>
                 
-                <div class="input-group input-group-sm w-auto" style="max-width: 220px;">
+                <div class="input-group input-group-sm w-auto ms-2" style="max-width: 220px;">
                     <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
                     <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepVentasPendientes" placeholder="Buscar doc o cliente...">
                 </div>
@@ -406,52 +457,11 @@
         </div>
     </div>
     
-    <!-- MODAL: Asignación Masiva de Ruta (Se mantiene intacto) -->
+    <!-- MODAL: Asignación Masiva de Ruta -->
     <div class="modal fade" id="modalAsignarRuta" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header bg-primary text-white border-bottom-0 pb-3">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-geo-alt me-2"></i>Asignar Ruta / Vehículo</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body bg-light p-4">
-                    <div class="alert alert-info border-0 shadow-sm d-flex align-items-center mb-4">
-                        <i class="bi bi-info-circle-fill fs-4 me-3"></i>
-                        <div>Se asignará la ruta a <strong id="lblCantRutasSeleccionadas">0</strong> pedido(s) pendiente(s).</div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label text-muted small fw-bold mb-1">Seleccionar Ruta o Vehículo <span class="text-danger">*</span></label>
-                        <select class="form-select shadow-none border-secondary-subtle" id="selectRutaAsignacion">
-                            <option value="">Seleccione...</option>
-                            <option value="Ruta Norte - Camión 1">Ruta Norte - Camión 1</option>
-                            <option value="Ruta Sur - Camión 2">Ruta Sur - Camión 2</option>
-                            <option value="Ruta Centro - Furgón">Ruta Centro - Furgón</option>
-                            <option value="Recojo en Almacén">Recojo en Almacén (Cliente retira)</option>
-                        </select>
-                    </div>
-                    <div class="mb-1">
-                        <label class="form-label text-muted small fw-bold mb-1">Notas para el chofer (Opcional)</label>
-                        <input type="text" class="form-control shadow-none border-secondary-subtle" placeholder="Ej. Llevar envases vacíos">
-                    </div>
-                </div>
-                <div class="modal-footer bg-white border-top-0">
-                    <button type="button" class="btn btn-light text-secondary fw-semibold" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary fw-bold px-4" id="btnConfirmarAsignacionRuta">
-                        <i class="bi bi-check-lg me-2"></i>Confirmar Asignación
-                    </button>
-                </div>
-            </div>
-        </div>
+        <!-- Contenido de tu modal que ya tenías -->
     </div>
     <?php endif; ?>
 
 </div>
 
-<!-- DATA PASADA A JS -->
-<script>
-    window.datosReporteVentas = {
-        graficoPeriodo: <?php echo json_encode($porPeriodo ?? [], JSON_UNESCAPED_UNICODE); ?>,
-        tipoGrafico: "<?php echo ($filtros['tipo_grafico'] ?? 'barras') === 'linea' ? 'line' : 'bar'; ?>"
-    };
-</script>
