@@ -72,9 +72,15 @@ class GastosController extends Controlador
             ];
 
             $this->conceptoModel->actualizar($id, $payload, $this->uid());
-            redirect('gastos/conceptos?ok=1');
+            
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'success', 'mensaje' => 'Concepto actualizado correctamente.']);
+            exit;
         } catch (Throwable $e) {
-            redirect('gastos/conceptos?error=' . urlencode($e->getMessage()));
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'mensaje' => $e->getMessage()]);
+            exit;
         }
     }
 
@@ -91,9 +97,15 @@ class GastosController extends Controlador
             $id = (int) ($_POST['id'] ?? 0);
             $estado = (int) ($_POST['estado'] ?? 0) === 1 ? 1 : 0;
             $this->conceptoModel->cambiarEstado($id, $estado, $this->uid());
-            redirect('gastos/conceptos?ok=1');
+            
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'success', 'mensaje' => 'Estado actualizado correctamente.']);
+            exit;
         } catch (Throwable $e) {
-            redirect('gastos/conceptos?error=' . urlencode($e->getMessage()));
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'mensaje' => $e->getMessage()]);
+            exit;
         }
     }
 
@@ -109,9 +121,15 @@ class GastosController extends Controlador
         try {
             $id = (int) ($_POST['id'] ?? 0);
             $this->conceptoModel->eliminar($id, $this->uid());
-            redirect('gastos/conceptos?ok=1');
+            
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'success', 'mensaje' => 'Concepto eliminado correctamente.']);
+            exit;
         } catch (Throwable $e) {
-            redirect('gastos/conceptos?error=' . urlencode($e->getMessage()));
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'mensaje' => $e->getMessage()]);
+            exit;
         }
     }
 
@@ -134,9 +152,15 @@ class GastosController extends Controlador
                 'dias_anticipacion' => (int) ($_POST['dias_anticipacion'] ?? 0),
             ];
             $this->conceptoModel->crear($payload, $this->uid());
-            redirect('gastos/conceptos?ok=1');
+            
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'success', 'mensaje' => 'Concepto registrado correctamente.']);
+            exit;
         } catch (Throwable $e) {
-            redirect('gastos/conceptos?error=' . urlencode($e->getMessage()));
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'mensaje' => $e->getMessage()]);
+            exit;
         }
     }
 
@@ -216,14 +240,26 @@ class GastosController extends Controlador
                 'pagos_detalle'  => $detallesPago
             ];
 
-            // El GastoRegistroModel ahora recibirá el $payload completo y podrá 
-            // iterar sobre 'pagos_detalle' para insertar en Tesorería y cambiar 
-            // el estado del gasto a PAGADO si los montos coinciden.
+            // Insertamos
             $this->registroModel->crear($payload, $this->uid());
             
-            redirect('gastos/registros?ok=1');
+            // 👇 NUEVO: RESPUESTA JSON DE ÉXITO
+            header('Content-Type: application/json');
+            echo json_encode([
+                'status' => 'success',
+                'mensaje' => 'El registro de gasto se guardó correctamente.'
+            ]);
+            exit;
+
         } catch (Throwable $e) {
-            redirect('gastos/registros?error=' . urlencode($e->getMessage()));
+            // 👇 NUEVO: RESPUESTA JSON DE ERROR
+            header('Content-Type: application/json');
+            http_response_code(400); // Opcional: marca como error para el navegador
+            echo json_encode([
+                'status' => 'error',
+                'mensaje' => $e->getMessage()
+            ]);
+            exit;
         }
     }
 

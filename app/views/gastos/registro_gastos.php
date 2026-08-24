@@ -26,7 +26,9 @@ $estadoLabels = [
 ];
 ?>
 
-<div class="container-fluid p-4" id="gastosRegistroApp">
+<div class="container-fluid p-4" id="gastosRegistroApp" 
+     data-cuentas='<?php echo htmlspecialchars(json_encode($cuentas ?? []), ENT_QUOTES, 'UTF-8'); ?>' 
+     data-metodos='<?php echo htmlspecialchars(json_encode($metodos ?? []), ENT_QUOTES, 'UTF-8'); ?>'>
 
     <?php if ($swalMessage !== null): ?>
         <script>
@@ -324,8 +326,8 @@ $estadoLabels = [
                             <div class="col-md-4 mt-4">
                                 <label class="form-label small text-muted fw-bold mb-1">Impuestos</label>
                                 <select class="form-select shadow-none border-secondary-subtle" name="impuesto_tipo">
-                                    <option value="NINGUNO">Exonerado (0%)</option>
-                                    <option value="IGV" selected>Incluye IGV</option>
+                                    <option value="NINGUNO" selected>Exonerado (0%)</option>
+                                    <option value="IGV">Incluye IGV</option>
                                 </select>
                             </div>
 
@@ -469,7 +471,8 @@ $estadoLabels = [
                                     
                                     <div class="col-12 mt-3">
                                         <small class="text-muted fw-bold d-block mb-2">Observaciones</small>
-                                        <div class="bg-light p-2 rounded border border-secondary-subtle">
+                                        <!-- Contenedor con fondo gris claro en lugar de input -->
+                                        <div class="bg-light p-2 rounded border border-secondary-subtle" style="min-height: 42px;">
                                             <p id="detGastoObservacion" class="mb-0 text-secondary fst-italic small text-break">-</p>
                                         </div>
                                     </div>
@@ -523,9 +526,3 @@ $estadoLabels = [
         </div>
     </div>
 </div>
-
-<script>
-    // Puente de datos PHP -> JavaScript para Pagos Inmediatos de Gastos
-    window.TESORERIA_CUENTAS = <?php echo json_encode($cuentas ?? []); ?>;
-    window.TESORERIA_METODOS = <?php echo json_encode($metodos ?? []); ?>;
-</script>

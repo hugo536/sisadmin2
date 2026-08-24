@@ -13,10 +13,15 @@
   }
 
   function initGastosRegistro(){
-    const app = document.querySelector(APP_SELECTOR);
+    const app = document.querySelector(APP_SELECTOR); // APP_SELECTOR es '#gastosRegistroApp'
+    
     if (!app || app.dataset.gastosRegistroInit === '1') {
       return;
     }
+
+    // --- NUEVO: Extraemos los datos del HTML estilo "Ventas" ---
+    window.TESORERIA_CUENTAS = JSON.parse(app.dataset.cuentas || '[]');
+    window.TESORERIA_METODOS = JSON.parse(app.dataset.metodos || '[]');
 
     app.dataset.gastosRegistroInit = '1';
     
@@ -80,17 +85,43 @@
       const monedaDoc = btn.dataset.moneda || 'PEN';
       const simbolo = (monedaDoc === 'USD') ? '$ ' : 'S/ ';
 
-      setText('detGastoId', btn.dataset.id || '-');
+      // 1. FORMATO DEL ID (GST-00069)
+      const rawId = btn.dataset.id || '';
+      const formattedId = rawId ? 'GST-' + String(rawId).padStart(5, '0') : '-';
+      setText('detGastoId', formattedId);
+
       setText('detGastoFecha', btn.dataset.fecha || '-');
       setText('detGastoProveedor', btn.dataset.proveedor || '-');
       setText('detGastoConcepto', btn.dataset.concepto || '-');
       setText('detGastoImpuesto', btn.dataset.impuesto || '-');
       setText('detGastoMonto', btn.dataset.monto ? simbolo + btn.dataset.monto : '-');
       setText('detGastoTotal', btn.dataset.total ? simbolo + btn.dataset.total : '-');
-      setText('detGastoEstado', btn.dataset.estado || '-');
       setText('detGastoCxp', btn.dataset.cxp && btn.dataset.cxp !== '0' ? btn.dataset.cxp : 'No generado');
       setText('detGastoAsiento', btn.dataset.asiento && btn.dataset.asiento !== '0' ? btn.dataset.asiento : 'No generado');
       setText('detGastoObservacion', btn.dataset.observacion || '-');
+
+      // 2. BADGE DINÁMICO DE ESTADO CON COLORES
+      const estado = (btn.dataset.estado || '').toUpperCase();
+      const elEstado = document.getElementById('detGastoEstado');
+      
+      if (elEstado) {
+          // Asigna el texto
+          elEstado.textContent = estado || '-';
+          
+          // Resetea las clases base
+          elEstado.className = 'badge fs-6 px-3 py-2 rounded-pill shadow-sm'; 
+          
+          // Aplica los colores según el estado
+          if (estado === 'PAGADO') {
+              elEstado.classList.add('bg-success-subtle', 'text-success', 'border', 'border-success-subtle');
+          } else if (estado === 'PENDIENTE') {
+              elEstado.classList.add('bg-warning-subtle', 'text-warning-emphasis', 'border', 'border-warning-subtle');
+          } else if (estado === 'ANULADO') {
+              elEstado.classList.add('bg-danger-subtle', 'text-danger', 'border', 'border-danger-subtle');
+          } else {
+              elEstado.classList.add('bg-primary-subtle', 'text-primary', 'border', 'border-primary-subtle');
+          }
+      }
 
       modalDetalle.show();
     });
@@ -483,23 +514,27 @@
     }
 
     // ==========================================
-    // 6. Validación al Guardar el Gasto
+    // 6. Validación y Guardado del Gasto (AJAX)
     // ==========================================
     const formNuevoGasto = document.getElementById('formNuevoGasto');
     
     if (formNuevoGasto) {
-      formNuevoGasto.addEventListener('submit', function(e) {
-        const switchPagoCheck = document.getElementById('switchPagoInmediato');
+      formNuevoGasto.addEventListener('submit', async function(e) {
+        // 1. Evitamos siempre el envío tradicional que recarga la página
+        e.preventDefault(); 
         
+        const switchPagoCheck = document.getElementById('switchPagoInmediato');
+        let totalPagado = 0;
+        let totalGasto = 0;
+        
+        // --- VALIDACIONES DE PAGO INMEDIATO ---
         if (switchPagoCheck && switchPagoCheck.checked) {
           const contenedorMetodos = document.getElementById('contenedorMetodosPagoGasto');
           const inputMontoGasto = document.getElementById('gastoMontoTotal');
           const tcGlobal = parseFloat(document.getElementById('gastoTipoCambio')?.value) || 1;
           const monedaGasto = (document.getElementById('gastoMoneda')?.value || 'PEN').toUpperCase();
             
-          let totalPagado = 0;
           let faltanDatos = false;
-
           let montosPorCuenta = {};
           let saldosPorCuenta = {};
           let nombresCuentas = {};
@@ -511,9 +546,7 @@
                 const metodo = fila.querySelector('.select-metodo-pago').value;
                 const monto = parseFloat(fila.querySelector('.input-monto-pago').value) || 0;
                 
-                if (!cuenta || !metodo || monto <= 0) {
-                    faltanDatos = true;
-                }
+                if (!cuenta || !metodo || monto <= 0) faltanDatos = true;
 
                 if (cuenta && monto > 0) {
                     const opt = selCuenta.options[selCuenta.selectedIndex];
@@ -522,13 +555,9 @@
                     const nombreStr = opt.text.split('(')[0].trim();
                     
                     let montoAExtraerConvertido = monto;
-
                     if (monedaCuenta && monedaGasto && monedaCuenta !== monedaGasto) {
-                        if (monedaGasto === 'USD' && monedaCuenta === 'PEN') {
-                            montoAExtraerConvertido = monto * tcGlobal;
-                        } else if (monedaGasto === 'PEN' && monedaCuenta === 'USD') {
-                            montoAExtraerConvertido = monto / tcGlobal;
-                        }
+                        if (monedaGasto === 'USD' && monedaCuenta === 'PEN') montoAExtraerConvertido = monto * tcGlobal;
+                        else if (monedaGasto === 'PEN' && monedaCuenta === 'USD') montoAExtraerConvertido = monto / tcGlobal;
                     }
 
                     if (!montosPorCuenta[cuenta]) {
@@ -538,15 +567,12 @@
                     }
                     montosPorCuenta[cuenta] += montoAExtraerConvertido;
                 }
-
                 totalPagado += monto;
               });
           }
           
           if (faltanDatos) {
-            e.preventDefault();
-            Swal.fire('Faltan Datos', 'Debe seleccionar la Cuenta y el Método en todas las filas de pago.', 'warning');
-            return;
+            return Swal.fire('Faltan Datos', 'Debe seleccionar la Cuenta y el Método en todas las filas de pago.', 'warning');
           }
 
           let erroresSaldo = [];
@@ -557,33 +583,75 @@
           }
 
           if (erroresSaldo.length > 0) {
-              e.preventDefault();
-              Swal.fire({
-                  icon: 'error',
-                  title: 'Fondos insuficientes',
-                  html: erroresSaldo.join('<br><br>')
-              });
-              return;
+              return Swal.fire({ icon: 'error', title: 'Fondos insuficientes', html: erroresSaldo.join('<br><br>') });
           }
 
-          const totalGasto = parseFloat(inputMontoGasto ? inputMontoGasto.value : 0) || 0;
+          totalGasto = parseFloat(inputMontoGasto ? inputMontoGasto.value : 0) || 0;
           
           if (totalPagado === 0) {
-            e.preventDefault(); 
-            Swal.fire('Atención', 'Has activado el pago inmediato pero no has ingresado un monto válido.', 'warning');
-            return;
+            return Swal.fire('Atención', 'Has activado el pago inmediato pero no has ingresado un monto válido.', 'warning');
           }
 
           if (totalPagado > totalGasto + 0.01) {
-            e.preventDefault();
             const smbl = monedaGasto === 'USD' ? '$' : 'S/';
-            Swal.fire('Error', `El monto ingresado (${smbl} ${totalPagado.toFixed(2)}) supera el total del gasto (${smbl} ${totalGasto.toFixed(2)}).`, 'error');
-            return;
+            return Swal.fire('Error', `El monto ingresado (${smbl} ${totalPagado.toFixed(2)}) supera el total del gasto (${smbl} ${totalGasto.toFixed(2)}).`, 'error');
           }
+        }
 
-          if (totalPagado < totalGasto - 0.01) {
-            e.preventDefault();
-            const smbl = monedaGasto === 'USD' ? '$' : 'S/';
+        // --- FUNCIÓN QUE HACE EL GUARDADO SILENCIOSO ---
+        const ejecutarGuardado = async () => {
+            try {
+                // Bloqueamos el botón para evitar doble clic
+                const btnSubmit = formNuevoGasto.querySelector('button[type="submit"]');
+                if (btnSubmit) {
+                    btnSubmit.disabled = true;
+                    btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+                }
+
+                // Extraemos todos los datos del formulario automáticamente
+                const formData = new FormData(formNuevoGasto);
+                const urlAccion = formNuevoGasto.getAttribute('action') || window.location.href;
+
+                // Enviamos los datos vía fetch
+                const response = await fetch(urlAccion, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Ocurrió un error de red al intentar guardar.');
+
+                const data = await response.json(); // Asumimos que tu backend de gastos retorna JSON (igual que ventas)
+
+                if (data.status === 'success' || data.success || data.mensaje) {
+                    // 1. Mostrar mensaje de éxito
+                    await Swal.fire('Guardado', data.mensaje || 'Registro guardado correctamente', 'success');
+                    
+                    // 2. Ocultar el modal
+                    const modalInstancia = bootstrap.Modal.getInstance(document.getElementById('modalNuevoGasto'));
+                    if (modalInstancia) modalInstancia.hide();
+                    
+                    // 3. Recargar la tabla usando tu función silenciosa
+                    if (typeof recargarTablaGastos === 'function') {
+                        recargarTablaGastos();
+                    }
+                } else {
+                    throw new Error(data.mensaje || 'Error en el servidor al guardar el registro.');
+                }
+            } catch (error) {
+                Swal.fire('Error', error.message, 'error');
+            } finally {
+                // Restauramos el botón
+                const btnSubmit = formNuevoGasto.querySelector('button[type="submit"]');
+                if (btnSubmit) {
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = 'Guardar'; // Cambia esto si tu botón dice otra cosa
+                }
+            }
+        };
+
+        // --- VERIFICACIÓN FINAL Y ENVÍO ---
+        if (switchPagoCheck && switchPagoCheck.checked && totalPagado < totalGasto - 0.01) {
+            const smbl = document.getElementById('gastoMoneda')?.value === 'USD' ? '$' : 'S/';
             Swal.fire({
               icon: 'warning',
               title: 'Pago Incompleto',
@@ -595,16 +663,63 @@
               cancelButtonColor: '#6c757d'
             }).then((result) => {
               if (result.isConfirmed) {
-                formNuevoGasto.submit(); 
+                  ejecutarGuardado(); 
               }
             });
-            return;
-          }
+        } else {
+            ejecutarGuardado();
         }
       });
     }
-    
-  }
+
+  // ==============================================================
+    // RECARGA SILENCIOSA PARA GASTOS (Evita el parpadeo de la pantalla)
+    // ==============================================================
+    async function recargarTablaGastos() {
+        const nextUrl = new URL(window.location.href);
+        const urlParams = nextUrl.searchParams;
+
+        urlParams.delete('accion');
+
+        // 2. IDs corregidos exactamente según tu vista HTML
+        const filtroBusqueda = document.getElementById('buscarRegistro');
+        const filtroEstado = document.getElementById('filtroEstado');
+        const filtroFechaDesde = document.querySelector('input[name="fecha_desde"]');
+        const filtroFechaHasta = document.querySelector('input[name="fecha_hasta"]');
+
+        if (filtroBusqueda && filtroBusqueda.value.trim()) urlParams.set('q', filtroBusqueda.value.trim()); else urlParams.delete('q');
+        if (filtroEstado && filtroEstado.value !== '') urlParams.set('estado', filtroEstado.value); else urlParams.delete('estado');
+        if (filtroFechaDesde && filtroFechaDesde.value) urlParams.set('fecha_desde', filtroFechaDesde.value); else urlParams.delete('fecha_desde');
+        if (filtroFechaHasta && filtroFechaHasta.value) urlParams.set('fecha_hasta', filtroFechaHasta.value); else urlParams.delete('fecha_hasta');
+
+        // 3. ID corregido para apuntar a tu tbody real
+        const tbodyActual = document.querySelector('#registrosTableBody');
+        if (tbodyActual) tbodyActual.style.opacity = '0.4'; 
+
+        try {
+            const response = await fetch(nextUrl.toString());
+            if (!response.ok) throw new Error('Error en red');
+            const html = await response.text();
+            
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // 4. Extraemos el nuevo tbody y lo inyectamos
+            const nuevoTbody = doc.querySelector('#registrosTableBody');
+            if (tbodyActual && nuevoTbody) {
+                tbodyActual.innerHTML = nuevoTbody.innerHTML;
+                tbodyActual.style.opacity = '1';
+            }
+
+            window.history.pushState({}, '', nextUrl.toString());
+            
+        } catch (error) {
+            console.error('Fallo en recarga silenciosa:', error);
+            window.location.href = nextUrl.toString();
+        }
+    }
+
+  } 
 
   onReady(initGastosRegistro);
   document.addEventListener('sisadmin:route-loaded', initGastosRegistro);
