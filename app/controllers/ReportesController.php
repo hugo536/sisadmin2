@@ -321,41 +321,36 @@ class ReportesController extends Controlador
         $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
         $f['tipo_tercero'] = $tipoTercero; 
         $f['id_item'] = (int) ($_GET['id_item'] ?? 0);
-        $f['estado'] = $_GET['estado'] ?? '';
+        $f['estado'] = $_GET['estado'] ?? 'validas';
         $agrupacionFiltro = $_GET['agrupacion'] ?? 'diaria';
         $f['agrupacion'] = in_array($agrupacionFiltro, ['diaria', 'semanal', 'mensual']) ? $agrupacionFiltro : 'diaria';
-        $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'barras') === 'linea' ? 'linea' : 'barras';
+        // Si no hay valor por GET, por defecto será 'linea'
+        $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'linea') === 'barras' ? 'barras' : 'linea';
         $f['seccion_activa'] = $seccionActiva;
 
+        // 1. PRIMERO DEFINIMOS EL LÍMITE (Lo movimos hacia arriba)
+        $limiteTendencia = 12; // Por defecto
+        if ($f['agrupacion'] === 'diaria') $limiteTendencia = 365;
+        elseif ($f['agrupacion'] === 'semanal') $limiteTendencia = 52;
+        elseif ($f['agrupacion'] === 'mensual') $limiteTendencia = 24;
+
+        // 2. LUEGO EXPORTAMOS EL PDF (Usando la variable $limiteTendencia)
         if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
             require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
             require_once BASE_PATH . '/vendor/autoload.php';
 
-            $porPeriodo = ($seccionActiva === 'tendencias') ? $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], 365) : []; 
+            // REEMPLAZAMOS EL 365 POR $limiteTendencia
+            $porPeriodo = ($seccionActiva === 'tendencias') ? $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : []; 
             $porCliente = ($seccionActiva === 'clientes') ? $this->ventas->ventasPorCliente($f, 1, 999999) : [];
             $topProductos = ($seccionActiva === 'productos') ? $this->ventas->topProductos($f, 100) : []; 
             $pendientes = ($seccionActiva === 'pendientes') ? $this->ventas->pendientesDespacho($f, 1, 999999) : [];
             
-            $filtros = $f;
-
-            ob_start();
-            require BASE_PATH . '/app/views/reportes/pdf_ventas.php';
-            $html = ob_get_clean();
-
-            $dompdf = new \Dompdf\Dompdf();
-            $options = $dompdf->getOptions();
-            $options->set(['isRemoteEnabled' => true]);
-            $dompdf->setOptions($options);
-
-            $dompdf->loadHtml($html);
-            $dompdf->setPaper('A4', 'portrait'); 
-            $dompdf->render();
-            
-            $nombreArchivo = 'Reporte_Ventas_' . ucfirst($seccionActiva) . '.pdf';
+            // ... (resto del código del PDF)
             $dompdf->stream($nombreArchivo, ['Attachment' => false]);
             return;
         }
 
+        // 3. Y FINALMENTE RENDERIZAMOS LA VISTA WEB
         $this->render('reportes/ventas', [
             'ruta_actual' => 'reportes/ventas',
             'filtros' => $f,
@@ -364,7 +359,7 @@ class ReportesController extends Controlador
             'porCliente' => ($seccionActiva === 'clientes') ? $this->ventas->ventasPorCliente($f, $pagina, $tamano) : [],
             'pendientes' => ($seccionActiva === 'pendientes') ? $this->ventas->pendientesDespacho($f, $pagina, $tamano) : [],
             'topProductos' => ($seccionActiva === 'productos') ? $this->ventas->topProductos($f, 999999) : [],
-            'porPeriodo' => ($seccionActiva === 'tendencias') ? $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], 12) : [],
+            'porPeriodo' => ($seccionActiva === 'tendencias') ? $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : [],
             'pagina' => $pagina,
             'tamano' => $tamano,
         ]);
@@ -585,8 +580,9 @@ class ReportesController extends Controlador
         $fechaHasta = trim((string) ($_GET['fecha_hasta'] ?? ''));
 
         if ($fechaDesde === '' || $fechaHasta === '') {
-            $fechaDesde = date('Y-m-01');
-            $fechaHasta = date('Y-m-t');
+            // Rango por defecto: Últimos 30 días
+            $fechaDesde = date('Y-m-d', strtotime('-30 days'));
+            $fechaHasta = date('Y-m-d');
         }
 
         if ($fechaDesde > $fechaHasta) {

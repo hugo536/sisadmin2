@@ -58,7 +58,7 @@ class ReporteVentasModel extends Modelo
         // Aquí NO filtramos donaciones, porque el almacén SÍ debe despacharlas.
         $sql = "SELECT COUNT(*)
                 FROM ventas_documentos v
-                WHERE v.deleted_at IS NULL AND v.estado IN (1,2)
+                WHERE v.deleted_at IS NULL AND v.estado IN (2,6)
                   AND EXISTS (
                     SELECT 1 FROM ventas_documentos_detalle d
                     WHERE d.id_documento_venta=v.id AND d.deleted_at IS NULL
@@ -80,7 +80,12 @@ class ReporteVentasModel extends Modelo
             $where[] = 'EXISTS (SELECT 1 FROM ventas_documentos_detalle d WHERE d.id_documento_venta = v.id AND d.id_item = :id_item AND d.deleted_at IS NULL)';
             $params['id_item'] = (int) $f['id_item'];
         }
-        if ($f['estado'] !== '' && $f['estado'] !== null) { $where[] = 'v.estado = :estado'; $params['estado'] = (int) $f['estado']; }
+        if (($f['estado'] ?? 'validas') === 'validas') {
+            $where[] = 'v.estado NOT IN (0, 9)'; // Ni borradores ni anuladas
+        } elseif ($f['estado'] !== 'todas' && $f['estado'] !== '') {
+            $where[] = 'v.estado = :estado';
+            $params['estado'] = (int) $f['estado'];
+        }
         $this->aplicarFiltroTipoTercero($where, $params, $f, 'v');
         $w = implode(' AND ', $where);
 
@@ -115,7 +120,12 @@ class ReporteVentasModel extends Modelo
         
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
         if (!empty($f['id_item'])) { $where[] = 'd.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
-        if ($f['estado'] !== '' && $f['estado'] !== null) { $where[] = 'v.estado = :estado'; $params['estado'] = (int) $f['estado']; }
+        if (($f['estado'] ?? 'validas') === 'validas') {
+            $where[] = 'v.estado NOT IN (0, 9)'; // Ni borradores ni anuladas
+        } elseif ($f['estado'] !== 'todas' && $f['estado'] !== '') {
+            $where[] = 'v.estado = :estado';
+            $params['estado'] = (int) $f['estado'];
+        }
         $this->aplicarFiltroTipoTercero($where, $params, $f, 'v');
         $w = implode(' AND ', $where);
 
@@ -147,7 +157,7 @@ class ReporteVentasModel extends Modelo
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
         
         // Aquí NO filtramos donaciones, porque el almacén SÍ debe despacharlas.
-        $where = ['v.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh', 'v.estado IN (1,2)'];
+        $where = ['v.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh', 'v.estado IN (2,6)'];
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
         if (!empty($f['id_item'])) {
             $where[] = 'EXISTS (SELECT 1 FROM ventas_documentos_detalle d2 WHERE d2.id_documento_venta = v.id AND d2.id_item = :id_item AND d2.deleted_at IS NULL)';
@@ -199,7 +209,9 @@ class ReporteVentasModel extends Modelo
             $where[] = 'EXISTS (SELECT 1 FROM ventas_documentos_detalle d WHERE d.id_documento_venta = v.id AND d.id_item = :id_item AND d.deleted_at IS NULL)';
             $params['id_item'] = (int) $f['id_item'];
         }
-        if ($f['estado'] !== '' && $f['estado'] !== null) {
+        if (($f['estado'] ?? 'validas') === 'validas') {
+            $where[] = 'v.estado NOT IN (0, 9)'; // Ni borradores ni anuladas
+        } elseif ($f['estado'] !== 'todas' && $f['estado'] !== '') {
             $where[] = 'v.estado = :estado';
             $params['estado'] = (int) $f['estado'];
         }
@@ -208,9 +220,18 @@ class ReporteVentasModel extends Modelo
         $w = implode(' AND ', $where);
 
         if ($agrupacion === 'semanal') {
+            // Usamos MIN(fecha) y WEEKDAY para calcular el Lunes y el Domingo de esa semana, 
+            // asegurando compatibilidad con el modo estricto ONLY_FULL_GROUP_BY de MySQL.
             $sql = "SELECT YEAR(v.fecha_emision) AS periodo_anio,
                            WEEK(v.fecha_emision, 1) AS periodo_semana,
-                           CONCAT(YEAR(v.fecha_emision), '-S', LPAD(WEEK(v.fecha_emision, 1), 2, '0')) AS etiqueta,
+                           CONCAT(
+                               'S', LPAD(WEEK(MIN(v.fecha_emision), 1), 2, '0'), '-', YEAR(MIN(v.fecha_emision)),
+                               ' (',
+                               DATE_FORMAT(DATE_ADD(MIN(v.fecha_emision), INTERVAL -WEEKDAY(MIN(v.fecha_emision)) DAY), '%d/%m'),
+                               ' al ',
+                               DATE_FORMAT(DATE_ADD(MIN(v.fecha_emision), INTERVAL 6 - WEEKDAY(MIN(v.fecha_emision)) DAY), '%d/%m'),
+                               ')'
+                           ) AS etiqueta,
                            ROUND(SUM(v.total), 2) AS total_vendido,
                            COUNT(*) AS documentos
                     FROM ventas_documentos v
@@ -219,9 +240,8 @@ class ReporteVentasModel extends Modelo
                     ORDER BY periodo_anio DESC, periodo_semana DESC
                     LIMIT :limite";
         } elseif ($agrupacion === 'mensual') {
-            // NUEVO BLOQUE: Agrupamiento por mes
             $sql = "SELECT DATE_FORMAT(v.fecha_emision, '%Y-%m') AS periodo_mes,
-                           DATE_FORMAT(v.fecha_emision, '%Y-%m') AS etiqueta,
+                           DATE_FORMAT(v.fecha_emision, '%m-%Y') AS etiqueta,
                            ROUND(SUM(v.total), 2) AS total_vendido,
                            COUNT(*) AS documentos
                     FROM ventas_documentos v

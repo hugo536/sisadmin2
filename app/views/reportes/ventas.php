@@ -57,16 +57,24 @@
                 <input type="hidden" name="ruta" value="reportes/ventas">
                 <input type="hidden" name="seccion_activa" id="input_seccion_activa" value="<?php echo e($seccionActiva); ?>">
                 
-                <div class="col-12 col-md-4 col-xl-2">
+                <!-- 1. ESTADO DOC (Más ancho: pasamos a col-xl-3 y col-md-5) -->
+                <div class="col-12 col-md-5 col-xl-3">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Estado Doc.</label>
                     <select name="estado" class="form-select bg-light border-secondary-subtle shadow-none text-secondary auto-submit">
-                        <option value="">Todos los estados</option>
-                        <option value="1" <?php echo ($filtros['estado'] ?? '') === '1' ? 'selected' : ''; ?>>Activas</option>
-                        <option value="0" <?php echo ($filtros['estado'] ?? '') === '0' ? 'selected' : ''; ?>>Anuladas</option>
+                        <option value="validas" <?php echo ($filtros['estado'] ?? 'validas') === 'validas' ? 'selected' : ''; ?>>Ventas Válidas (Recomendado)</option>
+                        <option value="2" <?php echo ($filtros['estado'] ?? '') === '2' ? 'selected' : ''; ?>>Aprobado (Por Despachar)</option>
+                        <option value="6" <?php echo ($filtros['estado'] ?? '') === '6' ? 'selected' : ''; ?>>Despacho Parcial</option>
+                        <option value="3" <?php echo ($filtros['estado'] ?? '') === '3' ? 'selected' : ''; ?>>Cerrado / Entregado</option>
+                        <option value="5" <?php echo ($filtros['estado'] ?? '') === '5' ? 'selected' : ''; ?>>Devolución Parcial</option>
+                        <option value="4" <?php echo ($filtros['estado'] ?? '') === '4' ? 'selected' : ''; ?>>Devuelto Total</option>
+                        <option value="9" <?php echo ($filtros['estado'] ?? '') === '9' ? 'selected' : ''; ?>>Anuladas</option>
+                        <option value="0" <?php echo ($filtros['estado'] ?? '') === '0' ? 'selected' : ''; ?>>Borradores</option>
+                        <option value="todas" <?php echo ($filtros['estado'] ?? '') === 'todas' ? 'selected' : ''; ?>>Todos (Sin filtro)</option>
                     </select>
                 </div>
 
-                <div class="col-12 col-md-8 col-xl-5">
+                <!-- 2. SECCIÓN DEL MEDIO (Más angosto: pasamos a col-xl-4 y col-md-7) -->
+                <div class="col-12 col-md-7 col-xl-4">
                     <?php if ($seccionActiva === 'tendencias'): ?>
                         <div class="row g-2">
                             <div class="col-6">
@@ -80,8 +88,9 @@
                             <div class="col-6">
                                 <label class="form-label text-muted small fw-bold mb-1 ms-1">Tipo Gráfico</label>
                                 <select name="tipo_grafico" class="form-select bg-light border-secondary-subtle shadow-none text-secondary auto-submit">
-                                    <option value="barras" <?php echo ($filtros['tipo_grafico'] ?? 'barras') === 'barras' ? 'selected' : ''; ?>>Barras</option>
-                                    <option value="linea" <?php echo ($filtros['tipo_grafico'] ?? '') === 'linea' ? 'selected' : ''; ?>>Líneas</option>
+                                    <!-- AQUÍ ESTÁ EL CAMBIO: Línea ahora es el valor por defecto -->
+                                    <option value="linea" <?php echo ($filtros['tipo_grafico'] ?? 'linea') === 'linea' ? 'selected' : ''; ?>>Líneas</option>
+                                    <option value="barras" <?php echo ($filtros['tipo_grafico'] ?? '') === 'barras' ? 'selected' : ''; ?>>Barras</option>
                                 </select>
                             </div>
                         </div>
@@ -131,11 +140,13 @@
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Periodo de Fechas <span class="text-danger">*</span></label>
                     <div class="input-group shadow-sm">
                         <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
-                        <input type="date" name="fecha_desde" id="fecha_desde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary auto-submit" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
-                        
+                        <!-- Le quitamos la clase auto-submit -->
+                        <input type="date" name="fecha_desde" id="fecha_desde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
+
                         <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
-                        <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary auto-submit" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
-                        
+                        <!-- Le quitamos la clase auto-submit -->
+                        <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
+                                                
                         <button class="btn btn-light border text-primary px-3 transition-hover" type="submit" title="Aplicar filtros">
                             <i class="bi bi-funnel-fill"></i>
                         </button>
@@ -162,19 +173,31 @@
                     else echo 'Diarias';
                 ?>
             </h5>
-            <div class="d-flex align-items-center gap-2">
-                <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="btn btn-light border text-success btn-sm shadow-sm fw-semibold transition-hover">
-                    <i class="bi bi-file-excel-fill me-1"></i> Excel
+            <div class="dropdown">
+                <button class="btn btn-sm btn-secondary fw-semibold shadow-sm dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #4b5563; border-color: #4b5563;">
+                    <i class="bi bi-cloud-download me-2"></i> Exportar
                 </button>
-                <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="btn btn-light border text-danger btn-sm shadow-sm fw-semibold transition-hover" formtarget="_blank">
-                    <i class="bi bi-file-pdf-fill me-1"></i> PDF
-                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                    <li>
+                        <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center">
+                            <i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Formato Excel (.xlsx)
+                        </button>
+                    </li>
+                    <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
+                    <li>
+                        <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank">
+                            <i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> Formato PDF (.pdf)
+                        </button>
+                    </li>
+                </ul>
             </div>
         </div>
         <div class="card-body p-4">
             <div class="row g-4">
+                <!-- COLUMNA DEL GRÁFICO -->
                 <div class="col-12 col-lg-7">
-                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light h-100" style="position: relative; min-height: 300px;">
+                    <!-- Quitamos el h-100 y fijamos una altura para que el gráfico se mantenga proporcionado -->
+                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light" style="position: relative; height: 450px;">
                         <canvas id="ventasPeriodoChart" 
                                 aria-label="Gráfico de ventas por periodo" 
                                 role="img"
@@ -183,9 +206,14 @@
                         </canvas>
                     </div>
                 </div>
-                <div class="col-12 col-lg-5">
-                    <div class="table-responsive border border-secondary-subtle rounded-3 h-100">
-                        <table class="table table-sm align-middle mb-0 table-hover">
+                
+                <!-- COLUMNA DE LA TABLA -->
+                <div class="col-12 col-lg-5 d-flex flex-column">
+                    <!-- Agregamos bg-white y flex-grow-1 para estructurar bien la tarjeta con su footer -->
+                    <div class="table-responsive border border-secondary-subtle rounded-3 bg-white d-flex flex-column h-100">
+                        
+                        <!-- Agregamos id, data-erp-table y data-rows-per-page="12" (puedes cambiarlo a 25 si prefieres) -->
+                        <table class="table table-sm align-middle mb-0 table-hover" id="tablaRepVentasTendencias" data-erp-table="true" data-rows-per-page="12">
                             <thead class="table-light border-bottom border-secondary-subtle">
                                 <tr>
                                     <th class="py-3 ps-3 text-secondary fw-semibold">Periodo</th>
@@ -195,7 +223,9 @@
                             </thead>
                             <tbody>
                                 <?php if (empty($porPeriodo)): ?>
-                                    <tr><td colspan="3" class="text-center text-muted py-5 fst-italic">Sin datos para el rango seleccionado.</td></tr>
+                                    <tr class="empty-msg-row">
+                                        <td colspan="3" class="text-center text-muted py-5 fst-italic">Sin datos para el rango seleccionado.</td>
+                                    </tr>
                                 <?php else: ?>
                                     <?php foreach ($porPeriodo as $r): ?>
                                         <tr class="border-bottom">
@@ -203,12 +233,9 @@
                                                 <?php 
                                                     $etiqueta = (string)($r['etiqueta'] ?? '');
                                                     $agrupacion = $filtros['agrupacion'] ?? 'diaria';
-                                                    
-                                                    // Si es agrupación diaria y la fecha es válida, la formateamos a d/m/Y
                                                     if ($agrupacion === 'diaria' && strtotime($etiqueta)) {
                                                         echo date('d/m/Y', strtotime($etiqueta));
                                                     } else {
-                                                        // Si es semanal o mensual (ej. '2026-S24' o '2026-08'), imprimimos el texto tal cual
                                                         echo htmlspecialchars($etiqueta);
                                                     }
                                                 ?>
@@ -220,6 +247,15 @@
                                 <?php endif; ?>
                             </tbody>
                         </table>
+
+                        <!-- NUEVO: PIE DE PÁGINA PARA LA PAGINACIÓN -->
+                        <div class="mt-auto border-top border-secondary-subtle py-2 px-3 d-flex justify-content-between align-items-center bg-light rounded-bottom-3">
+                            <small class="text-muted fw-semibold" id="tablaRepVentasTendenciasPaginationInfo"></small>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0 justify-content-end shadow-none" id="tablaRepVentasTendenciasPaginationControls"></ul>
+                            </nav>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -229,7 +265,7 @@
 
     <!-- SECCIÓN: CLIENTES -->
     <?php if ($seccionActiva === 'clientes'): ?>
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card border-0 shadow-sm mb-4 bg-white">
         <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
                 <i class="bi bi-person-lines-fill me-2 text-info"></i>Ventas por Cliente
@@ -237,28 +273,43 @@
             </h5>
             
             <div class="d-flex align-items-center gap-2">
-                <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="btn btn-light border text-success btn-sm shadow-sm fw-semibold transition-hover">
-                    <i class="bi bi-file-excel-fill me-1"></i> Excel
-                </button>
-                <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="btn btn-light border text-danger btn-sm shadow-sm fw-semibold transition-hover" formtarget="_blank">
-                    <i class="bi bi-file-pdf-fill me-1"></i> PDF
-                </button>
+                <!-- DROPDOWN DE EXPORTAR -->
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-secondary fw-semibold shadow-sm dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #4b5563; border-color: #4b5563;">
+                        <i class="bi bi-cloud-download me-2"></i> Exportar
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                        <li>
+                            <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center">
+                                <i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Formato Excel (.xlsx)
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
+                        <li>
+                            <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank">
+                                <i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> Formato PDF (.pdf)
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                
                 <div class="input-group input-group-sm w-auto ms-2 shadow-sm" style="max-width: 250px;">
                     <span class="input-group-text bg-white border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
                     <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0 shadow-none" id="filtroRepVentasCliente" placeholder="Buscar cliente...">
                 </div>
             </div>
         </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro table-hover" id="tablaRepVentasCliente" data-erp-table="true" data-search-input="#filtroRepVentasCliente" data-rows-per-page="10">
-                    <thead class="bg-light border-bottom">
+        <div class="card-body p-0 d-flex flex-column">
+            <div class="table-responsive bg-white">
+                <!-- SE QUITÓ table-pro PARA RECUPERAR EL DISEÑO LIMPIO -->
+                <table class="table align-middle mb-0 table-hover" id="tablaRepVentasCliente" data-erp-table="true" data-search-input="#filtroRepVentasCliente" data-rows-per-page="12">
+                    <thead class="table-light border-bottom border-secondary-subtle">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold">Cliente</th>
-                            <th class="text-end text-secondary fw-semibold">Total Vendido</th>
-                            <th class="text-end text-secondary fw-semibold">Ticket Promedio</th>
-                            <th class="text-center text-secondary fw-semibold">Docs. Emitidos</th>
-                            <th class="text-center pe-4 text-secondary fw-semibold">Acciones</th> 
+                            <th class="py-3 ps-4 text-secondary fw-semibold">Cliente</th>
+                            <th class="py-3 text-end text-secondary fw-semibold">Total Vendido</th>
+                            <th class="py-3 text-end text-secondary fw-semibold">Ticket Promedio</th>
+                            <th class="py-3 text-center text-secondary fw-semibold">Docs. Emitidos</th>
+                            <th class="py-3 text-center pe-4 text-secondary fw-semibold">Acciones</th> 
                         </tr>
                     </thead>
                     <tbody>
@@ -289,9 +340,9 @@
                     </tbody>
                 </table>
             </div>
-            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
+            <div class="mt-auto border-top border-secondary-subtle py-2 px-3 d-flex justify-content-between align-items-center bg-light rounded-bottom">
                 <small class="text-muted fw-semibold" id="tablaRepVentasClientePaginationInfo"></small>
-                <nav><ul class="pagination mb-0 justify-content-end shadow-sm" id="tablaRepVentasClientePaginationControls"></ul></nav>
+                <nav><ul class="pagination pagination-sm mb-0 justify-content-end shadow-none" id="tablaRepVentasClientePaginationControls"></ul></nav>
             </div>
         </div>
     </div>
@@ -299,7 +350,7 @@
 
     <!-- SECCIÓN: PRODUCTOS -->
     <?php if ($seccionActiva === 'productos'): ?>
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card border-0 shadow-sm mb-4 bg-white">
         <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
                 <i class="bi bi-star-fill me-2 text-warning"></i>Top Productos Vendidos
@@ -307,26 +358,41 @@
             </h5>
             
             <div class="d-flex align-items-center gap-2">
-                <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="btn btn-light border text-success btn-sm shadow-sm fw-semibold transition-hover">
-                    <i class="bi bi-file-excel-fill me-1"></i> Excel
-                </button>
-                <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="btn btn-light border text-danger btn-sm shadow-sm fw-semibold transition-hover" formtarget="_blank">
-                    <i class="bi bi-file-pdf-fill me-1"></i> PDF
-                </button>
+                <!-- DROPDOWN DE EXPORTAR -->
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-secondary fw-semibold shadow-sm dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #4b5563; border-color: #4b5563;">
+                        <i class="bi bi-cloud-download me-2"></i> Exportar
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                        <li>
+                            <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center">
+                                <i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Formato Excel (.xlsx)
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
+                        <li>
+                            <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank">
+                                <i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> Formato PDF (.pdf)
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                
                 <div class="input-group input-group-sm w-auto ms-2 shadow-sm" style="max-width: 250px;">
                     <span class="input-group-text bg-white border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
                     <input type="search" class="form-control bg-light border-secondary-subtle border-start-0 ps-0 shadow-none" id="filtroRepVentasProd" placeholder="Buscar producto...">
                 </div>
             </div>
         </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro table-hover" id="tablaRepVentasProd" data-erp-table="true" data-search-input="#filtroRepVentasProd" data-rows-per-page="10">
-                    <thead class="bg-light border-bottom">
+        <div class="card-body p-0 d-flex flex-column">
+            <div class="table-responsive bg-white">
+                <!-- SE QUITÓ table-pro -->
+                <table class="table align-middle mb-0 table-hover" id="tablaRepVentasProd" data-erp-table="true" data-search-input="#filtroRepVentasProd" data-rows-per-page="12">
+                    <thead class="table-light border-bottom border-secondary-subtle">
                         <tr>
-                            <th class="ps-4 text-secondary fw-semibold">Producto</th>
-                            <th class="text-end text-secondary fw-semibold">Cantidad Vendida</th>
-                            <th class="text-end pe-4 text-secondary fw-semibold">Monto Generado</th>
+                            <th class="py-3 ps-4 text-secondary fw-semibold">Producto</th>
+                            <th class="py-3 text-end text-secondary fw-semibold">Cantidad Vendida</th>
+                            <th class="py-3 text-end pe-4 text-secondary fw-semibold">Monto Generado</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -346,9 +412,9 @@
                     </tbody>
                 </table>
             </div>
-            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
+            <div class="mt-auto border-top border-secondary-subtle py-2 px-3 d-flex justify-content-between align-items-center bg-light rounded-bottom">
                 <small class="text-muted fw-semibold" id="tablaRepVentasProdPaginationInfo"></small>
-                <nav><ul class="pagination mb-0 justify-content-end shadow-sm" id="tablaRepVentasProdPaginationControls"></ul></nav>
+                <nav><ul class="pagination pagination-sm mb-0 justify-content-end shadow-none" id="tablaRepVentasProdPaginationControls"></ul></nav>
             </div>
         </div>
     </div>
@@ -356,7 +422,7 @@
 
     <!-- SECCIÓN: PENDIENTES -->
     <?php if ($seccionActiva === 'pendientes'): ?>
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm mb-4 bg-white">
         <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
                 <i class="bi bi-truck me-2 text-danger"></i>Pendientes de Despacho
@@ -364,20 +430,25 @@
             </h5>
             
             <div class="d-flex flex-wrap align-items-center gap-2">
-                <!-- ACCIONES MASIVAS -->
-                <button type="button" class="btn btn-sm btn-outline-danger fw-semibold d-none slide-in shadow-sm transition-hover" id="btnGenerarPickingList">
-                    <i class="bi bi-file-earmark-pdf me-1"></i>Picking List (<span id="countPicking">0</span>)
-                </button>
-                <button type="button" class="btn btn-sm btn-primary fw-semibold d-none slide-in shadow-sm transition-hover" id="btnAsignarRutaMasiva" data-bs-toggle="modal" data-bs-target="#modalAsignarRuta">
-                    <i class="bi bi-geo-alt me-1"></i>Asignar Ruta (<span id="countRutas">0</span>)
-                </button>
-                
-                <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="btn btn-light border text-success btn-sm shadow-sm fw-semibold transition-hover ms-md-2">
-                    <i class="bi bi-file-excel-fill me-1"></i> Excel
-                </button>
-                <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="btn btn-light border text-danger btn-sm shadow-sm fw-semibold transition-hover" formtarget="_blank">
-                    <i class="bi bi-file-pdf-fill me-1"></i> PDF
-                </button>
+                <!-- DROPDOWN DE EXPORTAR -->
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-secondary fw-semibold shadow-sm dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #4b5563; border-color: #4b5563;">
+                        <i class="bi bi-cloud-download me-2"></i> Exportar
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                        <li>
+                            <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center">
+                                <i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Formato Excel (.xlsx)
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
+                        <li>
+                            <button type="submit" form="formFiltrosReporteVentas" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank">
+                                <i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> Formato PDF (.pdf)
+                            </button>
+                        </li>
+                    </ul>
+                </div>
                 
                 <div class="input-group input-group-sm w-auto ms-2 shadow-sm" style="max-width: 250px;">
                     <span class="input-group-text bg-white border-secondary-subtle border-end-0"><i class="bi bi-search text-muted"></i></span>
@@ -385,24 +456,21 @@
                 </div>
             </div>
         </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0 table-pro table-hover" id="tablaRepVentasPendientes" data-erp-table="true" data-search-input="#filtroRepVentasPendientes" data-rows-per-page="10">
-                    <thead class="bg-light border-bottom">
+        <div class="card-body p-0 d-flex flex-column">
+            <div class="table-responsive bg-white">
+                <table class="table align-middle mb-0 table-hover" id="tablaRepVentasPendientes" data-erp-table="true" data-search-input="#filtroRepVentasPendientes" data-rows-per-page="12">
+                    <thead class="table-light border-bottom border-secondary-subtle">
                         <tr>
-                            <th class="ps-4 text-center" style="width: 40px;">
-                                <input class="form-check-input shadow-sm border-secondary-subtle" type="checkbox" id="chkAllPendientes" title="Seleccionar todo">
-                            </th>
-                            <th class="ps-2 text-secondary fw-semibold">Documento</th>
-                            <th class="text-secondary fw-semibold">Cliente</th>
-                            <th class="text-secondary fw-semibold">Ruta / Vehículo asignado</th>
-                            <th class="text-end text-secondary fw-semibold">Saldo Pendiente</th>
-                            <th class="text-center pe-4 text-secondary fw-semibold">SLA Espera</th>
+                            <!-- Eliminamos la columna del Checkbox y la de Ruta -->
+                            <th class="py-3 ps-4 text-secondary fw-semibold">Documento</th>
+                            <th class="py-3 text-secondary fw-semibold">Cliente</th>
+                            <th class="py-3 text-end text-secondary fw-semibold">Saldo Pendiente</th>
+                            <th class="py-3 text-center pe-4 text-secondary fw-semibold">SLA Espera</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if(empty($pendientes['rows'])): ?>
-                            <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-check2-circle fs-1 d-block mb-2 text-success opacity-50"></i>Todo al día. No hay despachos pendientes.</td></tr>
+                            <tr class="empty-msg-row"><td colspan="4" class="text-center text-muted py-5"><i class="bi bi-check2-circle fs-1 d-block mb-2 text-success opacity-50"></i>Todo al día. No hay despachos pendientes.</td></tr>
                         <?php else: ?>
                             <?php foreach (($pendientes['rows'] ?? []) as $r): ?>
                                 <?php 
@@ -414,21 +482,13 @@
                                     else $badgeDias = 'bg-success-subtle text-success border-success-subtle';
                                 ?>
                                 <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['documento'] . ' ' . (string)$r['cliente'] . ($esDonacion ? ' donacion' : ''))); ?>">
-                                    <td class="ps-4 text-center">
-                                        <input class="form-check-input chk-pendiente shadow-none border-secondary-subtle" type="checkbox" value="<?php echo (int)($r['id_venta'] ?? 0); ?>">
-                                    </td>
-                                    <td class="ps-2 fw-bold text-primary">
+                                    <!-- Eliminamos el TD del checkbox -->
+                                    <td class="ps-4 fw-bold text-primary">
                                         <?php echo e((string)$r['documento']); ?>
                                         <?php if($esDonacion): ?><br><span class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-0 mt-1 shadow-sm" style="font-size: 0.65rem;">DONACIÓN</span><?php endif; ?>
                                     </td>
                                     <td class="fw-semibold text-dark"><?php echo e((string)$r['cliente']); ?></td>
-                                    <td>
-                                        <?php if(!empty($r['ruta_asignada'])): ?>
-                                            <span class="badge bg-light text-dark border shadow-sm"><i class="bi bi-truck me-1 text-primary"></i><?php echo e((string)$r['ruta_asignada']); ?></span>
-                                        <?php else: ?>
-                                            <span class="text-muted small fst-italic">Sin asignar</span>
-                                        <?php endif; ?>
-                                    </td>
+                                    <!-- Eliminamos el TD de la ruta -->
                                     <td class="text-end fw-bold text-danger">
                                         <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 shadow-sm"><?php echo number_format((float)($r['saldo_despachar'] ?? 0), 2); ?></span>
                                     </td>
@@ -441,16 +501,11 @@
                     </tbody>
                 </table>
             </div>
-            <div class="card-footer bg-white border-top-0 py-3 d-flex justify-content-between align-items-center">
+            <div class="mt-auto border-top border-secondary-subtle py-2 px-3 d-flex justify-content-between align-items-center bg-light rounded-bottom">
                 <small class="text-muted fw-semibold" id="tablaRepVentasPendientesPaginationInfo"></small>
-                <nav><ul class="pagination mb-0 justify-content-end shadow-sm" id="tablaRepVentasPendientesPaginationControls"></ul></nav>
+                <nav><ul class="pagination pagination-sm mb-0 justify-content-end shadow-none" id="tablaRepVentasPendientesPaginationControls"></ul></nav>
             </div>
         </div>
-    </div>
-    
-    <!-- MODAL: Asignación Masiva de Ruta -->
-    <div class="modal fade" id="modalAsignarRuta" tabindex="-1" aria-hidden="true">
-        <!-- Contenido de tu modal que ya tenías -->
     </div>
     <?php endif; ?>
 
