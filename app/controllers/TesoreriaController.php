@@ -749,20 +749,21 @@ class TesoreriaController extends Controlador
         AuthMiddleware::handle();
         require_permiso('tesoreria.ver');
 
-        // CAMBIO APLICADO: Ahora capturamos las fechas y la cuenta desde el $_GET
         $filtros = [
-            'origen'      => strtoupper(trim((string) ($_GET['origen'] ?? ''))),
-            'id_origen'   => (int) ($_GET['id_origen'] ?? 0),
-            'id_tercero'  => (int) ($_GET['id_tercero'] ?? 0),
-            'id_cuenta'   => (int) ($_GET['id_cuenta'] ?? 0),
-            'fecha_desde' => trim((string) ($_GET['fecha_desde'] ?? date('Y-m-01'))),
-            'fecha_hasta' => trim((string) ($_GET['fecha_hasta'] ?? date('Y-m-t'))),
+            'origen'         => strtoupper(trim((string) ($_GET['origen'] ?? ''))),
+            'id_origen'      => (int) ($_GET['id_origen'] ?? 0),
+            'id_tercero'     => (int) ($_GET['id_tercero'] ?? 0),
+            'id_cuenta'      => (int) ($_GET['id_cuenta'] ?? 0),
+            'id_metodo_pago' => (int) ($_GET['id_metodo_pago'] ?? 0), // <-- ¡CORRECCIÓN: Faltaba capturar esto!
+            'fecha_desde'    => trim((string) ($_GET['fecha_desde'] ?? date('Y-m-01'))),
+            'fecha_hasta'    => trim((string) ($_GET['fecha_hasta'] ?? date('Y-m-t'))),
         ];
 
         $this->render('tesoreria/tesoreria_movimientos', [
             'ruta_actual'    => 'tesoreria/movimientos',
             'movimientos'    => $this->movModel->listarRecientes($filtros, 100),
             'resumenCuentas' => $this->movModel->resumenPorCuenta(),
+            'metodos'        => $this->listarMetodosPago(), // <-- ¡CORRECCIÓN: Faltaba pasar los métodos a la vista!
             'filtros'        => $filtros,
         ]);
     }
@@ -782,7 +783,6 @@ class TesoreriaController extends Controlador
             $origen       = strtoupper(trim((string) ($_POST['origen'] ?? '')));
             $userId       = $this->obtenerUsuarioId();
 
-            // CORRECCIÓN: Agregamos 'TRANSFERENCIA' a los orígenes permitidos
             if ($idMovimiento <= 0 || !in_array($origen, ['CXC', 'CXP', 'TRANSFERENCIA'], true)) {
                 throw new RuntimeException('Datos inválidos para anular el movimiento.');
             }
@@ -796,16 +796,28 @@ class TesoreriaController extends Controlador
             } elseif ($origen === 'CXP') {
                 $this->cxpModel->recalcularEstado($idOrigen, $userId);
             } elseif ($origen === 'TRANSFERENCIA') {
-                // NOTA: Si en tu 'transferenciaModel' tienes un método para cambiar el estado 
-                // de la transferencia a 'ANULADO', deberías llamarlo aquí.
                 if (method_exists($this->transferenciaModel, 'anular')) {
                     $this->transferenciaModel->anular($idOrigen, $userId);
                 }
             }
 
-            redirect('tesoreria/movimientos?ok=1');
+            // 👇 NUEVO: RESPUESTA JSON DE ÉXITO (Para recarga silenciosa sin parpadeos)
+            header('Content-Type: application/json');
+            echo json_encode([
+                'status' => 'success',
+                'mensaje' => 'Movimiento anulado correctamente.'
+            ]);
+            exit;
+
         } catch (Throwable $e) {
-            redirect('tesoreria/movimientos?error=' . urlencode($e->getMessage()));
+            // 👇 NUEVO: RESPUESTA JSON DE ERROR
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode([
+                'status' => 'error',
+                'mensaje' => $e->getMessage()
+            ]);
+            exit;
         }
     }
 

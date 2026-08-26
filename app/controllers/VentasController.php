@@ -411,7 +411,7 @@ class VentasController extends Controlador
                         $idMetodo,
                         $montoPago,
                         $fechaEmision ?? date('Y-m-d'),
-                        'Cobro Inmediato (Caja)',
+                        $observaciones, // <-- Ahora guarda solo lo que escribió el usuario
                         $userId
                     );
                 }
@@ -567,7 +567,7 @@ class VentasController extends Controlador
                         $idMetodo,
                         $montoPago,
                         $fechaDespacho, 
-                        'Cobro al Despachar - Caja',
+                        $observaciones, // <-- Ahora guarda solo lo que escribió el usuario
                         $userId
                     );
                 }

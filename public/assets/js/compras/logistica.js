@@ -113,23 +113,34 @@ async function agregarFilaDevolucion(linea, cantRecibidaBase) {
 
     const tr = document.createElement('tr');
     
+    // 👇 ADAPTACIÓN PARA BONIFICACIONES EN DEVOLUCIONES 👇
+    const esBonificacion = Number(linea.es_bonificacion || 0) === 1;
     const factorCompra = parseFloat(linea.factor_conversion_aplicado || 1);
     const cantidadBaseTotal = parseFloat(linea.cantidad_base || 1);
     const subtotalLinea = parseFloat(linea.subtotal || 0);
     
-    const costoBaseReal = cantidadBaseTotal > 0 ? (subtotalLinea / cantidadBaseTotal) : 0;
+    // Si fue bonificación, el costo real para devolver financieramente es S/ 0
+    const costoBaseReal = esBonificacion ? 0 : (cantidadBaseTotal > 0 ? (subtotalLinea / cantidadBaseTotal) : 0);
     const costoCompraDisplay = costoBaseReal * factorCompra; 
 
     const cantidadRecibidaEnUnidadCompra = factorCompra > 0 ? (cantRecibidaBase / factorCompra) : cantRecibidaBase;
     const unidadCompraLabel = (linea.unidad_nombre || '').trim();
     const mostrarResumenUnidadCompra = unidadCompraLabel !== '' && Math.abs(factorCompra - 1) > 0.0001;
 
+    let nombreItemHtml = linea.item_nombre || '';
+    let claseFila = '';
+
+    if (esBonificacion) {
+        claseFila = 'bg-info bg-opacity-10';
+        nombreItemHtml += ` <span class="badge bg-info-subtle text-info border border-info-subtle ms-2">🎁 BONIFICACIÓN</span>`;
+    }
+
     tr.dataset.idDetalle = linea.id;
     tr.dataset.idItem = linea.id_item;
     tr.dataset.costoBase = costoBaseReal; 
     tr.dataset.maxBase = cantRecibidaBase; 
+    if (claseFila) tr.className = claseFila;
 
-    // Aquí inyectamos el historial de devoluciones previas
     const devueltoPrevio = parseFloat(linea.cantidad_devuelta || 0);
     const htmlDevolucionPrevia = devueltoPrevio > 0 
         ? `<div class="text-danger small mt-2 fw-bold"><i class="bi bi-arrow-return-left"></i> Ya devolviste: ${devueltoPrevio.toFixed(2)} ${linea.unidad_base}</div>` 
@@ -137,7 +148,7 @@ async function agregarFilaDevolucion(linea, cantRecibidaBase) {
 
     tr.innerHTML = `
         <td class="align-middle py-3 ps-3">
-            <div class="fw-bold text-dark" style="font-size: 0.95rem;">${linea.item_nombre || ''}</div>
+            <div class="fw-bold text-dark" style="font-size: 0.95rem;">${nombreItemHtml}</div>
             <small class="text-muted dev-info-conversion">Unidad base: ${linea.unidad_base}</small>
         </td>
         <td class="text-center align-middle">
@@ -146,7 +157,7 @@ async function agregarFilaDevolucion(linea, cantRecibidaBase) {
             ${htmlDevolucionPrevia}
         </td>
         <td class="text-center align-middle">
-            <div class="fw-semibold text-secondary">S/ ${costoCompraDisplay.toFixed(2)}</div>
+            <div class="fw-semibold ${esBonificacion ? 'text-success' : 'text-secondary'}">S/ ${costoCompraDisplay.toFixed(2)}</div>
             <small style="font-size: 0.75em;" class="text-muted">x ${linea.unidad_nombre}</small>
         </td>
         <td class="align-middle px-2">
@@ -288,9 +299,20 @@ export async function abrirModalDevolucion(idOrden) {
 function agregarFilaRecepcion(linea, filaReferencia = null) {
     if (!tbodyRecepcion || !selectTemplateAlmacen) return;
     
+    // 👇 ADAPTACIÓN PARA BONIFICACIONES EN RECEPCIÓN 👇
+    const esBonificacion = Number(linea.es_bonificacion || 0) === 1;
+    let nombreItemHtml = linea.item_nombre || '';
+    let claseFila = '';
+
+    if (esBonificacion) {
+        claseFila = 'bg-info bg-opacity-10';
+        nombreItemHtml += ` <span class="badge bg-info-subtle text-info border border-info-subtle ms-2">🎁 BONIFICACIÓN</span>`;
+    }
+
     const tr = document.createElement('tr');
     tr.dataset.idDetalle = linea.id;
     tr.dataset.pendienteTotal = linea.cantidad_pendiente;
+    if (claseFila) tr.className = claseFila;
 
     const factorHtml = Number(linea.factor_conversion_aplicado) > 1 
         ? `<span class="badge bg-info-subtle text-info border border-info-subtle ms-1">x ${linea.factor_conversion_aplicado}</span>` 
@@ -298,7 +320,7 @@ function agregarFilaRecepcion(linea, filaReferencia = null) {
 
     tr.innerHTML = `
         <td class="align-middle py-3 ps-3">
-            <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${linea.item_nombre || ''}</div>
+            <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${nombreItemHtml}</div>
             <div class="small text-muted d-flex align-items-center gap-2 mt-1">
                 <span>Pedido: <strong class="text-dark">${Number(linea.cantidad_unidad).toFixed(2)} ${linea.unidad_nombre}</strong> ${factorHtml}</span>
             </div>

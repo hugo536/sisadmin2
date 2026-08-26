@@ -1,5 +1,5 @@
 /**
- * Lógica específica para Tesorería - Movimientos
+ * Lógica específica para Tesorería - Movimientos (Versión Silenciosa)
  * Archivo: assets/js/tesoreria/movimientos.js
  */
 (function arrancarMovimientos() {
@@ -8,17 +8,16 @@
     console.log("🚀 INICIANDO JS DE MOVIMIENTOS...");
 
     const app = document.getElementById('tesoreriaMovimientosApp');
-    if (!app) {
-        console.warn("⚠️ Abortando: No se encontró la caja principal 'tesoreriaMovimientosApp'");
-        return;
-    }
+    // Previene que el script se inicialice dos veces
+    if (!app || app.dataset.movimientosInit === '1') return;
+    app.dataset.movimientosInit = '1';
 
     const formFiltros = document.getElementById('formFiltrosMovimientos');
-    const contenedorDinamico = document.getElementById('contenedorDinamicoMovimientos');
+    const contenedorTabla = document.getElementById('contenedorTablaMovimientos');
     let timerFiltro = null;
 
     // ========================================================================
-    // NUEVO: DETECTAR REDIRECCIONES DIRECTAS (EJ: DESDE CxC o CxP)
+    // 1. DETECTAR REDIRECCIONES DIRECTAS (EJ: DESDE CxC o CxP)
     // ========================================================================
     if (formFiltros) {
         const urlParams = new URLSearchParams(window.location.search);
@@ -27,7 +26,6 @@
         // Si venimos de un enlace de "Ver Historial", las fechas por defecto del mes actual
         // pueden ocultar pagos antiguos. Si es el caso, limpiamos las fechas para ver TODO.
         if (tieneOrigen) {
-            console.log("📍 Redirección detectada. Limpiando filtros de fecha predeterminados para asegurar visibilidad...");
             const inputDesde = formFiltros.querySelector('input[name="fecha_desde"]');
             const inputHasta = formFiltros.querySelector('input[name="fecha_hasta"]');
             const selectOrigen = formFiltros.querySelector('select[name="origen"]');
@@ -42,86 +40,82 @@
         }
     }
 
-    // 1. INICIALIZAR TOOLTIPS (Primera carga)
+    // Inicializar Tooltips (Primera carga)
     if (typeof bootstrap !== 'undefined') {
-        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-        [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+        [...app.querySelectorAll('[data-bs-toggle="tooltip"]')].forEach(el => new bootstrap.Tooltip(el));
     }
 
-    // --- DIAGNÓSTICO EN CONSOLA ---
-    if (!formFiltros) console.error("❌ ERROR FATAL: No se encuentra el ID 'formFiltrosMovimientos' en la vista PHP.");
-    if (!contenedorDinamico) console.error("❌ ERROR FATAL: No se encuentra el ID 'contenedorDinamicoMovimientos' en la vista PHP. (¿Olvidaste envolver la tabla y la tarjeta en el nuevo div?)");
+    // ========================================================================
+    // 2. FUNCIÓN DE RECARGA SILENCIOSA (AJAX)
+    // ========================================================================
+    const cargarDatosAjax = async (urlStr) => {
+        if (!contenedorTabla) return;
+        contenedorTabla.style.opacity = '0.4';
+        contenedorTabla.style.pointerEvents = 'none';
 
-    if (formFiltros && contenedorDinamico) {
-        console.log("✅ Elementos DOM detectados correctamente. Filtros listos para actuar.");
-        
-        const cargarDatosAjax = async (urlStr) => {
-            contenedorDinamico.style.opacity = '0.4';
-            contenedorDinamico.style.pointerEvents = 'none';
-
-            try {
-                const urlObj = new URL(urlStr);
-                urlObj.searchParams.set('ajax', '1'); // Forzamos un parámetro para evitar caché
-
-                window.history.replaceState({}, '', urlStr);
-                const response = await fetch(urlObj.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                
-                if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
-
-                const html = await response.text();
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const nuevoContenedor = doc.getElementById('contenedorDinamicoMovimientos');
-                
-                if (nuevoContenedor) {
-                    contenedorDinamico.innerHTML = nuevoContenedor.innerHTML;
-                    console.log("🔄 Tabla actualizada con éxito.");
-                } else {
-                    console.error("❌ No se encontró la tabla en la respuesta del servidor.");
-                }
-
-                // Recargar tooltips de los nuevos elementos traídos por AJAX
-                if (typeof bootstrap !== 'undefined') {
-                    [].slice.call(contenedorDinamico.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(el => bootstrap.Tooltip.getOrCreateInstance(el));
-                }
-                if (window.ERPTable && typeof window.ERPTable.autoInitFromDataset === 'function') {
-                    window.ERPTable.autoInitFromDataset(app);
-                }
-            } catch (error) {
-                console.error('❌ Error AJAX en Movimientos:', error);
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'error', title: 'Error', text: error.message, confirmButtonText: 'Entendido' });
-                }
-            } finally {
-                contenedorDinamico.style.opacity = '1';
-                contenedorDinamico.style.pointerEvents = 'auto';
-            }
-        };
-
-        const procesarFiltros = () => {
-            const formData = new FormData(formFiltros);
-            const urlObj = new URL(formFiltros.action);
+        try {
+            const urlObj = new URL(urlStr);
+            window.history.replaceState({}, '', urlStr);
             
-            formData.forEach((value, key) => {
-                if (value.trim() !== '') urlObj.searchParams.set(key, value.trim());
-                else urlObj.searchParams.delete(key);
+            const response = await fetch(urlObj.toString(), { 
+                headers: { 'X-Requested-With': 'XMLHttpRequest' } 
             });
             
-            // Si el usuario cambia los filtros manualmente, nos aseguramos de borrar el id_origen
-            // de la URL para que no se quede pegado buscando eternamente esa factura.
-            const currentUrlParams = new URLSearchParams(window.location.search);
-            if (currentUrlParams.has('id_origen')) {
-                 urlObj.searchParams.delete('id_origen');
-                 urlObj.searchParams.delete('id_tercero');
+            if (!response.ok) throw new Error(`Error ${response.status}`);
+
+            const html = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // Reemplazamos SOLO la tarjeta de la tabla, sin tocar los filtros
+            const nuevoContenedor = doc.getElementById('contenedorTablaMovimientos');
+            if (nuevoContenedor) {
+                contenedorTabla.innerHTML = nuevoContenedor.innerHTML;
             }
 
-            console.log("📍 AJAX Enviado a:", urlObj.toString());
-            cargarDatosAjax(urlObj.toString());
-        };
+            // Reinicializar Tooltips y Buscador Cliente (ERPTable)
+            if (typeof bootstrap !== 'undefined') {
+                [...contenedorTabla.querySelectorAll('[data-bs-toggle="tooltip"]')].forEach(el => new bootstrap.Tooltip(el));
+            }
+            if (window.ERPTable && typeof window.ERPTable.autoInitFromDataset === 'function') {
+                window.ERPTable.autoInitFromDataset(app);
+            }
+        } catch (error) {
+            console.error('❌ Error AJAX en Movimientos:', error);
+            // Salvavidas: Si algo falla por red, forzamos recarga normal
+            window.location.href = urlStr; 
+        } finally {
+            contenedorTabla.style.opacity = '1';
+            contenedorTabla.style.pointerEvents = 'auto';
+        }
+    };
 
-        // Escuchamos el cambio en los filtros
+    const procesarFiltros = () => {
+        if (!formFiltros) return;
+        const formData = new FormData(formFiltros);
+        const urlObj = new URL(formFiltros.action || window.location.href);
+        
+        // Limpiamos los parámetros actuales y reconstruimos con los del form
+        urlObj.search = '';
+        formData.forEach((value, key) => {
+            if (value.trim() !== '') urlObj.searchParams.set(key, value.trim());
+        });
+        
+        // Si el usuario cambia filtros manualmente, borramos anclajes específicos
+        const currentUrlParams = new URLSearchParams(window.location.search);
+        if (currentUrlParams.has('id_origen')) {
+             urlObj.searchParams.delete('id_origen');
+             urlObj.searchParams.delete('id_tercero');
+        }
+
+        cargarDatosAjax(urlObj.toString());
+    };
+
+    // ========================================================================
+    // 3. LISTENERS DE FILTROS Y PAGINACIÓN
+    // ========================================================================
+    if (formFiltros) {
         formFiltros.addEventListener('change', (e) => {
-            console.log("Filtro modificado:", e.target.name);
             if (e.target.tagName === 'SELECT' || e.target.type === 'date') procesarFiltros();
         });
 
@@ -136,75 +130,92 @@
             e.preventDefault();
             procesarFiltros();
         });
+    }
 
-        contenedorDinamico.addEventListener('click', (e) => {
+    if (contenedorTabla) {
+        contenedorTabla.addEventListener('click', (e) => {
             const linkPaginacion = e.target.closest('.pagination a.page-link');
             if (linkPaginacion) {
                 e.preventDefault();
                 cargarDatosAjax(linkPaginacion.href);
             }
         });
-
-        // 2. INTERCEPTAR BOTONES DE ANULAR (Delegación de eventos para que funcione con AJAX)
-        contenedorDinamico.addEventListener('submit', (e) => {
-            const formConfirm = e.target.closest('.js-form-confirm');
-            
-            if (formConfirm) {
-                e.preventDefault(); // Pausamos el envío al servidor
-
-                Swal.fire({
-                    title: '¿Estás completamente seguro?',
-                    text: "Se anulará este movimiento de tesorería y el saldo de la cuenta se recalculará. Esta acción no se puede deshacer.",
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: '<i class="bi bi-slash-circle me-1"></i> Sí, anular',
-                    cancelButtonText: 'Cancelar',
-                    customClass: { popup: 'rounded-4 shadow-lg' }
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        Swal.fire({
-                            title: 'Anulando...',
-                            text: 'Por favor espera un momento.',
-                            allowOutsideClick: false,
-                            showConfirmButton: false,
-                            didOpen: () => {
-                                Swal.showLoading();
-                            }
-                        });
-                        // Enviamos el formulario específico que activó el evento
-                        formConfirm.submit(); 
-                    }
-                });
-            }
-        });
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
+    // ========================================================================
+    // 4. ANULACIÓN SILENCIOSA DE MOVIMIENTOS
+    // ========================================================================
+    app.addEventListener('submit', async (e) => {
+        const formConfirm = e.target.closest('.js-form-confirm');
+        if (formConfirm) {
+            e.preventDefault(); // Detiene el envío que causaba el parpadeo
+
+            const result = await Swal.fire({
+                title: '¿Estás seguro?',
+                text: "Se anulará este movimiento de tesorería y el saldo de la cuenta se recalculará. Esta acción no se puede deshacer.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="bi bi-slash-circle me-1"></i> Sí, anular',
+                cancelButtonText: 'Cancelar',
+                customClass: { popup: 'rounded-4 shadow-lg' }
+            });
+
+            if (result.isConfirmed) {
+                try {
+                    // Mostrar loading mientras procesa el PHP
+                    Swal.fire({
+                        title: 'Procesando...',
+                        text: 'Anulando movimiento',
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+
+                    const formData = new FormData(formConfirm);
+                    const response = await fetch(formConfirm.action, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        await Swal.fire('Anulado', data.mensaje, 'success');
+                        procesarFiltros(); // Recarga la tabla sin parpadear
+                    } else {
+                        throw new Error(data.mensaje || 'Ocurrió un error en el servidor.');
+                    }
+                } catch (error) {
+                    Swal.fire('Error', error.message, 'error');
+                }
+            }
+        }
+    });
+
+    // ========================================================================
+    // 5. LÓGICA DE TRANSFERENCIAS (Mantenida intacta para otras vistas)
+    // ========================================================================
     const selectOrigen = document.getElementById('selectCuentaOrigenTransferencia');
     const inputMonto = document.getElementById('inputMontoTransferencia');
 
     if (selectOrigen && inputMonto) {
         const formTransferencia = selectOrigen.closest('form');
 
-        // 1. Lógica dinámica: Ajustar el monto máximo cuando el usuario cambia de cuenta
         selectOrigen.addEventListener('change', function() {
             const opcionSeleccionada = this.options[this.selectedIndex];
             const saldoDisponible = parseFloat(opcionSeleccionada.getAttribute('data-saldo')) || 0;
             
-            // Le ponemos el límite al input en tiempo real
             inputMonto.setAttribute('max', saldoDisponible);
             
-            // Si el usuario ya había escrito un monto y cambia a una cuenta con menos plata, 
-            // le borramos el monto para que no haya errores
             if (parseFloat(inputMonto.value) > saldoDisponible) {
                 inputMonto.value = ''; 
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
                         icon: 'info',
                         title: 'Monto reajustado',
-                        text: 'El monto ingresado superaba el saldo de la nueva cuenta seleccionada.',
+                        text: 'El monto ingresado superaba el saldo de la nueva cuenta.',
                         timer: 2500,
                         showConfirmButton: false
                     });
@@ -212,31 +223,27 @@
             }
         });
 
-        // 2. Lógica de envío: Validar por última vez antes de mandar al servidor
         if (formTransferencia) {
             formTransferencia.addEventListener('submit', function(e) {
                 const opcionSeleccionada = selectOrigen.options[selectOrigen.selectedIndex];
                 const saldoDisponible = parseFloat(opcionSeleccionada.getAttribute('data-saldo')) || 0;
                 const montoIngresado = parseFloat(inputMonto.value) || 0;
 
-                // Bloqueo: Monto cero o negativo
                 if (montoIngresado <= 0) {
                     e.preventDefault();
                     Swal.fire({ icon: 'warning', title: 'Atención', text: 'El monto debe ser mayor a 0.' });
                     return;
                 }
 
-                // Bloqueo: Monto superior al saldo (Evita cuenta en negativo)
                 if (montoIngresado > saldoDisponible) {
                     e.preventDefault();
                     Swal.fire({ 
                         icon: 'error', 
                         title: 'Saldo insuficiente', 
-                        text: `La cuenta de origen solo dispone de ${saldoDisponible.toFixed(2)}. No puedes transferir ${montoIngresado.toFixed(2)}.` 
+                        text: `La cuenta de origen solo dispone de ${saldoDisponible.toFixed(2)}.` 
                     });
                 }
             });
         }
     }
-});
 })();

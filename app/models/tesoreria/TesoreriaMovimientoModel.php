@@ -25,6 +25,8 @@ class TesoreriaMovimientoModel extends Modelo
         $idTerceroFilter = (int) ($filtros['id_tercero'] ?? 0);
         
         $idCuentaFilter = (int) ($filtros['id_cuenta'] ?? 0);
+        // 👇 NUEVO: Ahora sí capturamos el filtro del método de pago
+        $idMetodoPagoFilter = (int) ($filtros['id_metodo_pago'] ?? 0); 
         $fechaDesdeFilter = (string) ($filtros['fecha_desde'] ?? '');
         $fechaHastaFilter = (string) ($filtros['fecha_hasta'] ?? '');
 
@@ -48,6 +50,11 @@ class TesoreriaMovimientoModel extends Modelo
         if ($idCuentaFilter > 0) {
             $whereMov[] = 'm.id_cuenta = :id_cuenta_mov';
             $paramsFinal['id_cuenta_mov'] = $idCuentaFilter;
+        }
+        // 👇 NUEVO: Inyectamos el filtro de Método de Pago al SQL principal
+        if ($idMetodoPagoFilter > 0) {
+            $whereMov[] = 'm.id_metodo_pago = :id_metodo_pago_mov';
+            $paramsFinal['id_metodo_pago_mov'] = $idMetodoPagoFilter;
         }
         
         if ($fechaDesdeFilter !== '') {
@@ -91,6 +98,10 @@ class TesoreriaMovimientoModel extends Modelo
         }
         if ($idTerceroFilter > 0) {
             $addTransfers = false; 
+        }
+        // 👇 NUEVO: Si filtras por un "Método de Pago" (ej. Efectivo o Yape), ocultamos las transferencias internas
+        if ($idMetodoPagoFilter > 0) {
+            $addTransfers = false;
         }
         
         if ($addTransfers) {

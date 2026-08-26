@@ -48,7 +48,6 @@ function setOrdenEnEdicion(id = 0) {
     if (ordenIdEl) ordenIdEl.value = String(ordenEnEdicionId);
 }
 
-// Utilidad SPA: Evita duplicación de eventos al navegar por el menú lateral
 const rebindClick = (id, callback) => {
     const btn = document.getElementById(id);
     if (btn) {
@@ -59,7 +58,7 @@ const rebindClick = (id, callback) => {
 };
 
 // ==========================================
-// 2. LÓGICA DE FILAS Y PRECIOS
+// 2. LÓGICA DE FILAS, PRECIOS Y BONIFICACIONES
 // ==========================================
 
 async function obtenerUnidadesItem(idItem) {
@@ -157,11 +156,18 @@ function recalcularFila(fila) {
     const { cantidad, costo_unitario } = filaToPayload(fila);
     const subtotal = cantidad * costo_unitario;
     const sim = ordenMoneda?.value === 'USD' ? '$' : 'S/';
-    fila.querySelector('.detalle-subtotal').innerHTML = `<span class="simbolo-moneda">${sim}</span> ${subtotal.toFixed(2)}`;
+    const celdaSubtotal = fila.querySelector('.detalle-subtotal');
+    
+    if (fila.classList.contains('fila-bonificacion')) {
+        celdaSubtotal.innerHTML = `<span class="simbolo-moneda">${sim}</span> 0.00 <br><span class="badge bg-success-subtle text-success border border-success-subtle mt-1" style="font-size: 0.65rem;">BONIFICACIÓN</span>`;
+    } else {
+        celdaSubtotal.innerHTML = `<span class="simbolo-moneda">${sim}</span> ${subtotal.toFixed(2)}`;
+    }
     recalcularTotalGeneral();
 }
 
 function actualizarNumeracionFilas() {
+    // Tabla Principal
     const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
     if (tbodyDetalle) {
         tbodyDetalle.querySelectorAll('tr').forEach((fila, index) => {
@@ -169,9 +175,18 @@ function actualizarNumeracionFilas() {
             if (celdaNumero) celdaNumero.textContent = index + 1;
         });
     }
+    // Tabla Bonificaciones
+    const tbodyBonif = document.querySelector('#tablaDetalleBonificaciones tbody');
+    if (tbodyBonif) {
+        tbodyBonif.querySelectorAll('tr').forEach((fila, index) => {
+            const celdaNumero = fila.querySelector('.fila-numero');
+            if (celdaNumero) celdaNumero.textContent = index + 1;
+        });
+    }
 }
 
 function recalcularTotalGeneral() {
+    // NOTA: Solo calculamos el total basándonos en la tabla principal (las bonificaciones no cuestan)
     const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
     if (!tbodyDetalle) return;
 
@@ -210,7 +225,6 @@ function recalcularTotalGeneral() {
     if (ordenIgv) ordenIgv.innerHTML = `<span class="simbolo-moneda">${sim}</span> ${igv.toFixed(2)}`;
     if (ordenTotal) ordenTotal.innerHTML = `<span class="simbolo-moneda">${sim}</span> ${total.toFixed(2)}`;
 
-    // Validación del Pago Inmediato
     const switchCobroInmediatoCompra = document.getElementById('switchCobroInmediatoCompra');
     if (switchCobroInmediatoCompra) {
         if (total <= 0) {
@@ -253,7 +267,7 @@ async function actualizarUnidadPorItem(fila, itemGuardado = null) {
     const requestToken = String(Date.now() + Math.random());
     fila.dataset.unidadRequestToken = requestToken;
 
-    inputUnidad.innerHTML = '<option value="">Unidad de compra...</option>';
+    inputUnidad.innerHTML = '<option value="">Unidad...</option>';
     inputUnidad.classList.add('d-none');
     inputUnidad.disabled = true;
 
@@ -297,7 +311,7 @@ async function actualizarUnidadPorItem(fila, itemGuardado = null) {
             inputUnidad.selectedIndex = 1;
         }
 
-        if (!itemGuardado) {
+        if (!itemGuardado && !fila.classList.contains('fila-bonificacion')) {
             await aplicarPrecioSugeridoProveedor(fila);
         }
     } catch (error) {
@@ -361,12 +375,12 @@ function agregarFila(item = null) {
             return;
         }
         let contadorDuplicados = 0;
-        tbodyDetalle.querySelectorAll('.detalle-item').forEach((select) => {
+        document.querySelectorAll('#tablaDetalleCompra .detalle-item, #tablaDetalleBonificaciones .detalle-item').forEach((select) => {
             if (select.value === value) contadorDuplicados++;
         });
 
         if (contadorDuplicados > 1) {
-            Swal.fire({ icon: 'warning', title: 'Ítem duplicado', text: 'Este producto ya está en la orden.', confirmButtonColor: '#0d6efd' });
+            Swal.fire({ icon: 'warning', title: 'Ítem duplicado', text: 'Este producto ya está en la orden (como compra o bonificación).', confirmButtonColor: '#0d6efd' });
             if (tomSelectItem) tomSelectItem.clear();
             else inputItem.value = '';
             return;
@@ -409,6 +423,110 @@ function agregarFila(item = null) {
     }
 }
 
+// NUEVO: Función para agregar fila de Bonificación
+function agregarFilaBonificacion(item = null) {
+    const templateFila = document.getElementById('templateFilaBonificacion');
+    const tbodyDetalle = document.querySelector('#tablaDetalleBonificaciones tbody');
+    if(!templateFila || !tbodyDetalle) return;
+
+    const clone = templateFila.content.cloneNode(true);
+    const fila = clone.querySelector('tr');
+
+    const inputItem = fila.querySelector('.detalle-item');
+    const inputCantidad = fila.querySelector('.detalle-cantidad');
+    const inputCosto = fila.querySelector('.detalle-costo');
+    const inputUnidad = fila.querySelector('.detalle-unidad-compra');
+    const inputCentroCosto = fila.querySelector('.detalle-centro-costo');
+    const btnQuitar = fila.querySelector('.btn-quitar-fila');
+
+    tbodyDetalle.appendChild(fila);
+
+    let tomSelectItem = null;
+    if (tomSelectListo) {
+        tomSelectItem = initSelectLocal(inputItem, {
+            placeholder: 'Buscar ítem bonificado...',
+            dropdownParent: 'body',
+        });
+    }
+
+    [inputCantidad, inputUnidad].forEach((input) => {
+        if(input) {
+            input.addEventListener('input', () => recalcularFila(fila));
+            input.addEventListener('change', () => recalcularFila(fila));
+        }
+    });
+
+    if (inputCentroCosto) {
+        inputCentroCosto.addEventListener('change', () => {
+            if (inputCentroCosto.value) inputCentroCosto.classList.remove('is-invalid', 'border-danger');
+        });
+    }
+
+    const onCambioItem = async (value) => {
+        if (!value) {
+            await actualizarUnidadPorItem(fila, null);
+            return;
+        }
+        let contadorDuplicados = 0;
+        document.querySelectorAll('#tablaDetalleCompra .detalle-item, #tablaDetalleBonificaciones .detalle-item').forEach((select) => {
+            if (select.value === value) contadorDuplicados++;
+        });
+
+        if (contadorDuplicados > 1) {
+            Swal.fire({ icon: 'warning', title: 'Ítem duplicado', text: 'Este producto ya está en la orden (como compra o bonificación).', confirmButtonColor: '#0d6efd' });
+            if (tomSelectItem) tomSelectItem.clear();
+            else inputItem.value = '';
+            return;
+        }
+        await actualizarUnidadPorItem(fila, null);
+    };
+
+    if (tomSelectItem) tomSelectItem.on('change', onCambioItem);
+    else inputItem.addEventListener('change', (e) => onCambioItem(e.target.value));
+
+    btnQuitar?.addEventListener('click', () => {
+        if (tomSelectItem) tomSelectItem.destroy();
+        fila.remove();
+        actualizarNumeracionFilas();
+    });
+
+    if (item) {
+        if (tomSelectItem) tomSelectItem.setValue(item.id_item);
+        else inputItem.value = String(item.id_item || '');
+        inputCantidad.value = item.cantidad;
+        inputCosto.value = item.costo_unitario;
+        if (inputCentroCosto) {
+            inputCentroCosto.value = item.id_centro_costo ? String(item.id_centro_costo) : '';
+        }
+        actualizarUnidadPorItem(fila, item);
+    } else {
+        actualizarUnidadPorItem(fila, null);
+    }
+
+    sincronizarBloqueoFilaDetalle(fila);
+    actualizarNumeracionFilas();
+    recalcularFila(fila);
+
+    if (!item) {
+        setTimeout(() => {
+            fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (tomSelectItem && !modalSoloLecturaActiva) tomSelectItem.focus();
+        }, 100);
+    }
+}
+
+function mostrarTablaBonificaciones() {
+    const seccionBonificaciones = document.getElementById('seccionBonificaciones');
+    const tbodyBonificaciones = document.querySelector('#tablaDetalleBonificaciones tbody');
+    if (!seccionBonificaciones || !tbodyBonificaciones) return;
+
+    seccionBonificaciones.classList.remove('d-none');
+    if (tbodyBonificaciones.children.length === 0) {
+        agregarFilaBonificacion();
+    }
+    seccionBonificaciones.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 // ==========================================
 // 3. CONTROL DE MODALES (LECTURA Y EDICIÓN)
 // ==========================================
@@ -435,7 +553,7 @@ function setModoSoloLectura(esSoloLectura = false, estado = 0) {
     if (modalOrdenElement) modalOrdenElement.classList.toggle('modal-orden-solo-lectura', deshabilitar);
 
     if (tituloModalOrden) {
-        if (deshabilitar && Number(estado) === 3) {
+        if (deshabilitar && Number(estado) >= 3) {
             tituloModalOrden.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Compra finalizada (solo lectura)';
         } else if (deshabilitar) {
             tituloModalOrden.innerHTML = '<i class="bi bi-eye me-2"></i>Orden de Compra (solo lectura)';
@@ -468,7 +586,7 @@ function setModoSoloLectura(esSoloLectura = false, estado = 0) {
         }
     }
 
-    document.querySelector('#tablaDetalleCompra tbody')?.querySelectorAll('tr').forEach((fila) => {
+    document.querySelectorAll('#tablaDetalleCompra tbody tr, #tablaDetalleBonificaciones tbody tr').forEach((fila) => {
         fila.querySelectorAll('input, select, button').forEach((control) => {
             if (control.classList.contains('btn-quitar-fila')) {
                 control.style.display = deshabilitar ? 'none' : '';
@@ -486,6 +604,18 @@ function setModoSoloLectura(esSoloLectura = false, estado = 0) {
     if (btnAgregarFila) {
         btnAgregarFila.style.display = deshabilitar ? 'none' : 'inline-block';
         btnAgregarFila.disabled = deshabilitar;
+    }
+
+    const btnMostrarBonif = document.getElementById('btnMostrarTablaBonificaciones');
+    if (btnMostrarBonif) {
+        btnMostrarBonif.style.display = deshabilitar ? 'none' : 'inline-block';
+        btnMostrarBonif.disabled = deshabilitar;
+    }
+
+    const btnAgregarBonif = document.getElementById('btnAgregarFilaBonificacion');
+    if (btnAgregarBonif) {
+        btnAgregarBonif.style.display = deshabilitar ? 'none' : 'inline-block';
+        btnAgregarBonif.disabled = deshabilitar;
     }
 
     const switchCobroContainerCompra = document.getElementById('switchCobroContainerCompra');
@@ -522,6 +652,17 @@ function limpiarModalOrden() {
         });
         tbodyDetalle.innerHTML = '';
     }
+
+    const tbodyBonif = document.querySelector('#tablaDetalleBonificaciones tbody');
+    if(tbodyBonif) {
+        tbodyBonif.querySelectorAll('.detalle-item').forEach((select) => {
+            if (select.tomselect) select.tomselect.destroy();
+        });
+        tbodyBonif.innerHTML = '';
+    }
+
+    const seccionBonificaciones = document.getElementById('seccionBonificaciones');
+    if (seccionBonificaciones) seccionBonificaciones.classList.add('d-none');
     
     const ordenMoneda = document.getElementById('ordenMoneda');
     if (ordenMoneda) ordenMoneda.value = 'PEN';
@@ -636,8 +777,9 @@ export async function abrirModalResumenCompra(id, target = null) {
                     const unidadBase = item.unidad_base || 'UND';
                     const requiereSubtitulo = factor > 1; 
 
+                    const esBonificacion = Number(item.es_bonificacion || 0) === 1;
                     const precio = Number(item.costo_unitario || 0);
-                    const subtotal = cantRecibidaCompra * precio; 
+                    const subtotal = esBonificacion ? 0 : (cantRecibidaCompra * precio); 
 
                     let htmlPedida = `<span class="d-block fw-bold text-dark">${cantPedidaCompra.toFixed(2)} ${unidadCompra}</span>`;
                     if (requiereSubtitulo) {
@@ -654,14 +796,25 @@ export async function abrirModalResumenCompra(id, target = null) {
                         htmlDevuelta = `<span class="fw-bold text-danger">${cantDevueltaCompra.toFixed(2)} ${unidadCompra}</span>`;
                     }
 
+                    let nombreItemHtml = item.item_nombre || '-';
+                    let subtotalHtml = `${sim} ${subtotal.toFixed(2)}`;
+                    let claseFila = '';
+
+                    if (esBonificacion) {
+                        claseFila = 'bg-info bg-opacity-10';
+                        nombreItemHtml += ` <span class="badge bg-info-subtle text-info border border-info-subtle ms-2">🎁 BONIFICACIÓN</span>`;
+                        subtotalHtml = `<span class="text-success fw-bold">${sim} 0.00</span>`;
+                    }
+
                     const trItem = document.createElement('tr');
+                    if (claseFila) trItem.className = claseFila;
                     trItem.innerHTML = `
-                        <td class="ps-3 py-2 fw-semibold text-dark">${item.item_nombre || '-'}</td>
+                        <td class="ps-3 py-2 fw-semibold text-dark">${nombreItemHtml}</td>
                         <td class="text-center py-2 align-middle">${htmlPedida}</td>
                         <td class="text-center py-2 align-middle">${htmlRecibida}</td>
                         <td class="text-center py-2 align-middle">${htmlDevuelta}</td>
                         <td class="text-end py-2 text-muted align-middle">${sim} ${precio.toFixed(2)}</td>
-                        <td class="text-end pe-3 py-2 fw-bold text-dark align-middle">${sim} ${subtotal.toFixed(2)}</td>
+                        <td class="text-end pe-3 py-2 fw-bold text-dark align-middle">${subtotalHtml}</td>
                     `;
                     tbodyResumen.appendChild(trItem);
                 });
@@ -695,7 +848,6 @@ export async function abrirModalCompra(id, target) {
             
             const idProveedor = document.getElementById('idProveedor');
             if (tomSelectProveedor) {
-                // Inyectamos la opción para asegurar que exista al cargar
                 tomSelectProveedor.addOption({ value: d.id_proveedor, text: d.proveedor || 'Proveedor' });
                 tomSelectProveedor.setValue(d.id_proveedor);
             }
@@ -715,8 +867,24 @@ export async function abrirModalCompra(id, target) {
                 ordenMoneda.dispatchEvent(new Event('change')); 
             }
 
-            if (d.detalle && d.detalle.length > 0) d.detalle.forEach((item) => agregarFila(item));
-            else agregarFila();
+            if (d.detalle && d.detalle.length > 0) {
+                let tieneBonificaciones = false;
+                d.detalle.forEach((item) => {
+                    if (Number(item.es_bonificacion || 0) === 1) {
+                        agregarFilaBonificacion(item);
+                        tieneBonificaciones = true;
+                    } else {
+                        agregarFila(item);
+                    }
+                });
+
+                if (tieneBonificaciones) {
+                    const seccionBonificaciones = document.getElementById('seccionBonificaciones');
+                    if (seccionBonificaciones) seccionBonificaciones.classList.remove('d-none');
+                }
+            } else {
+                agregarFila();
+            }
 
             if (d.cobro_inmediato == 1 || d.cobro_inmediato === true) {
                 const switchCobroInmediatoCompra = document.getElementById('switchCobroInmediatoCompra');
@@ -780,6 +948,13 @@ export async function initCompras() {
     });
 
     rebindClick('btnAgregarFila', () => agregarFila());
+    
+    rebindClick('btnMostrarTablaBonificaciones', () => mostrarTablaBonificaciones());
+    rebindClick('btnCerrarTablaBonificaciones', () => {
+        const seccionBonificaciones = document.getElementById('seccionBonificaciones');
+        if (seccionBonificaciones) seccionBonificaciones.classList.add('d-none');
+    });
+    rebindClick('btnAgregarFilaBonificacion', () => agregarFilaBonificacion());
 
     const refrescarPreciosSugeridos = async () => {
         const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
@@ -828,29 +1003,59 @@ export async function initCompras() {
         let errorCentroCosto = false;
 
         const tbodyDetalle = document.querySelector('#tablaDetalleCompra tbody');
-        if(!tbodyDetalle) return;
+        const tbodyBonificaciones = document.querySelector('#tablaDetalleBonificaciones tbody');
+        const seccionBonificaciones = document.getElementById('seccionBonificaciones');
+        const seccionBonifVisible = seccionBonificaciones && !seccionBonificaciones.classList.contains('d-none');
 
-        tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
-            const datos = filaToPayload(fila);
-            const selectCentroCosto = fila.querySelector('.detalle-centro-costo');
+        // Procesar Tabla Principal
+        if (tbodyDetalle) {
+            tbodyDetalle.querySelectorAll('tr').forEach((fila) => {
+                const datos = filaToPayload(fila);
+                datos.es_bonificacion = 0; // Flag para backend
+                const selectCentroCosto = fila.querySelector('.detalle-centro-costo');
 
-            if (datos.id_item > 0) {
-                if (selectCentroCosto) selectCentroCosto.classList.remove('is-invalid', 'border-danger');
+                if (datos.id_item > 0) {
+                    if (selectCentroCosto) selectCentroCosto.classList.remove('is-invalid', 'border-danger');
 
-                if (datos.cantidad <= 0 || datos.cantidad_base <= 0 || datos.factor_conversion_aplicado <= 0) {
-                    errorDetalle = true;
+                    if (datos.cantidad <= 0 || datos.cantidad_base <= 0 || datos.factor_conversion_aplicado <= 0) {
+                        errorDetalle = true;
+                    }
+
+                    if (!datos.id_centro_costo || datos.id_centro_costo <= 0) {
+                        errorCentroCosto = true;
+                        if (selectCentroCosto) selectCentroCosto.classList.add('is-invalid', 'border-danger'); 
+                    }
+
+                    detalle.push(datos);
                 }
+            });
+        }
 
-                if (!datos.id_centro_costo || datos.id_centro_costo <= 0) {
-                    errorCentroCosto = true;
-                    if (selectCentroCosto) selectCentroCosto.classList.add('is-invalid', 'border-danger'); 
+        // Procesar Tabla Bonificaciones
+        if (seccionBonifVisible && tbodyBonificaciones) {
+            tbodyBonificaciones.querySelectorAll('tr').forEach((fila) => {
+                const datos = filaToPayload(fila);
+                datos.es_bonificacion = 1; // Flag para backend
+                const selectCentroCosto = fila.querySelector('.detalle-centro-costo');
+
+                if (datos.id_item > 0) {
+                    if (selectCentroCosto) selectCentroCosto.classList.remove('is-invalid', 'border-danger');
+
+                    if (datos.cantidad <= 0 || datos.cantidad_base <= 0 || datos.factor_conversion_aplicado <= 0) {
+                        errorDetalle = true;
+                    }
+
+                    if (!datos.id_centro_costo || datos.id_centro_costo <= 0) {
+                        errorCentroCosto = true;
+                        if (selectCentroCosto) selectCentroCosto.classList.add('is-invalid', 'border-danger'); 
+                    }
+
+                    detalle.push(datos);
                 }
+            });
+        }
 
-                detalle.push(datos);
-            }
-        });
-
-        if (detalle.length === 0) return Swal.fire({ icon: 'error', title: 'Orden vacía', text: 'Debe agregar al menos un producto a la compra.' });
+        if (detalle.length === 0) return Swal.fire({ icon: 'error', title: 'Orden vacía', text: 'Debe agregar al menos un producto a la compra o bonificación.' });
         if (errorCentroCosto) return Swal.fire('Falta Centro de Costo', 'Debe seleccionar un Centro de Costo para cada línea.', 'warning');
         if (errorDetalle) return Swal.fire('Verifique cantidades', 'Hay líneas con conversión o cantidad inválida.', 'warning');
 

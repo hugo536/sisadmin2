@@ -422,4 +422,51 @@ class TesoreriaCxpModel extends Modelo
         
         return $row ?: null;
     }
+
+    public function obtenerPorOrden(int $idOrden): array
+    {
+        if ($idOrden <= 0) {
+            return [];
+        }
+
+        $sql = 'SELECT * 
+                FROM tesoreria_cxp 
+                WHERE id_orden_compra = :id_orden 
+                  AND deleted_at IS NULL 
+                  AND estado <> "ANULADA"
+                ORDER BY id DESC 
+                LIMIT 1';
+                
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_orden' => $idOrden]);
+        
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return $row ?: [];
+    }
+
+    public function obtenerDetallePagosOrden(int $idOrden): array
+    {
+        if ($idOrden <= 0) {
+            return [];
+        }
+
+        $sql = 'SELECT m.id, 
+                       m.fecha, 
+                       m.moneda, 
+                       cp.monto_aplicado AS monto, 
+                       m.observaciones,
+                       m.estado
+                FROM tesoreria_cxp c
+                INNER JOIN tesoreria_cxp_pagos cp ON cp.id_cxp = c.id
+                INNER JOIN tesoreria_movimientos m ON m.id = cp.id_movimiento
+                WHERE c.id_orden_compra = :id_orden
+                  AND c.deleted_at IS NULL
+                ORDER BY m.fecha DESC, m.id DESC';
+
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute(['id_orden' => $idOrden]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 }

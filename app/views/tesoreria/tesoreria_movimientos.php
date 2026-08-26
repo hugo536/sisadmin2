@@ -67,8 +67,9 @@
             <form method="get" action="<?= e(route_url('tesoreria/movimientos')) ?>" class="row g-2 align-items-center" id="formFiltrosMovimientos">
                 <input type="hidden" name="ruta" value="tesoreria/movimientos">
 
-                <div class="col-12 col-md-3">
-                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="id_cuenta">
+                <!-- Select de Cuentas -->
+                <div class="col-12 col-xl-3">
+                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="id_cuenta" id="filtroCuenta">
                         <option value="">Todas las cuentas</option>
                         <?php foreach ($resumenCuentas as $c): ?>
                             <option value="<?= (int)($c['id'] ?? 0) ?>" <?= ((string)$idCuentaFiltro === (string)($c['id'] ?? 0)) ? 'selected' : '' ?>>
@@ -78,8 +79,9 @@
                     </select>
                 </div>
 
-                <div class="col-12 col-md-2">
-                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="id_metodo_pago">
+                <!-- Select de Métodos -->
+                <div class="col-12 col-md-4 col-xl-2">
+                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="id_metodo_pago" id="filtroMetodo">
                         <option value="">Todos los métodos</option>
                         <?php if (!empty($metodos)): ?>
                             <?php foreach ($metodos as $m): ?>
@@ -91,14 +93,13 @@
                             <option value="Efectivo" <?= (($filtros['id_metodo_pago'] ?? '') === 'Efectivo') ? 'selected' : '' ?>>Efectivo</option>
                             <option value="Transferencia" <?= (($filtros['id_metodo_pago'] ?? '') === 'Transferencia') ? 'selected' : '' ?>>Transferencia</option>
                             <option value="Yape/Plin" <?= (($filtros['id_metodo_pago'] ?? '') === 'Yape/Plin') ? 'selected' : '' ?>>Yape/Plin</option>
-                            <option value="Tarjeta" <?= (($filtros['id_metodo_pago'] ?? '') === 'Tarjeta') ? 'selected' : '' ?>>Tarjeta</option>
-                            <option value="Cheque" <?= (($filtros['id_metodo_pago'] ?? '') === 'Cheque') ? 'selected' : '' ?>>Cheque</option>
                         <?php endif; ?>
                     </select>
                 </div>
 
-                <div class="col-12 col-md-2">
-                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="origen">
+                <!-- Select de Origen -->
+                <div class="col-12 col-md-4 col-xl-2">
+                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="origen" id="filtroOrigen">
                         <option value="">Todos (Origen)</option>
                         <option value="CXC" <?= (($filtros['origen'] ?? '') === 'CXC') ? 'selected' : '' ?>>Cobros (CXC)</option>
                         <option value="CXP" <?= (($filtros['origen'] ?? '') === 'CXP') ? 'selected' : '' ?>>Pagos (CXP)</option>
@@ -106,13 +107,22 @@
                     </select>
                 </div>
                 
-                <div class="col-12 col-md-5">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-secondary-subtle text-muted fw-semibold" style="font-size: 0.85rem;">Desde</span>
-                        <input type="date" name="fecha_desde" class="form-control shadow-none border-secondary-subtle text-secondary" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-01')) ?>">
-                        <span class="input-group-text bg-light border-secondary-subtle border-start-0 border-end-0 text-muted fw-semibold" style="font-size: 0.85rem;">Hasta</span>
-                        <input type="date" name="fecha_hasta" class="form-control shadow-none border-secondary-subtle text-secondary" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>">
-                        <button type="submit" class="btn btn-secondary shadow-sm"><i class="bi bi-filter"></i></button>
+                <!-- Fechas y Botones de Acción (Estilo Ventas) -->
+                <div class="col-12 col-md-12 col-xl-5">
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
+                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-01')) ?>">
+                        
+                        <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
+                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>">
+                        
+                        <button type="submit" class="btn btn-light border text-primary px-3 transition-hover" title="Aplicar filtros" style="z-index: 0;">
+                            <i class="bi bi-funnel-fill"></i>
+                        </button>
+                        
+                        <a href="<?= e(route_url('tesoreria/movimientos')) ?>" class="btn btn-light border text-danger px-3 transition-hover d-flex align-items-center" title="Limpiar filtros" style="z-index: 0;">
+                            <i class="bi bi-eraser-fill"></i>
+                        </a>
                     </div>
                 </div>
             </form>
@@ -189,10 +199,48 @@
                                         $cuenta = $nombreCuenta;
                                     }
 
-                                    // 4. NUEVO: Agrupar todas las notas (del movimiento local y de su origen en CxC/CxP)
+                                    // 4. NUEVO: Agrupar y limpiar todas las notas (Filtrando JSONs y textos automáticos)
                                     $notasConsolidadas = [];
-                                    if (!empty($m['observacion_origen'])) $notasConsolidadas[] = trim((string) $m['observacion_origen']);
-                                    if (!empty($m['observaciones']))      $notasConsolidadas[] = trim((string) $m['observaciones']);
+
+                                    $limpiarObservacion = function($texto) {
+                                        $texto = trim((string) $texto);
+                                        if ($texto === '') return '';
+                                        
+                                        // 👇 NUEVO: Filtramos las frases automáticas confusas
+                                        $frasesConfusas = [
+                                            ' - Cobro Inmediato (Múltiple) - Caja',
+                                            'Cobro Inmediato (Múltiple) - Caja',
+                                            ' - Cobro Inmediato (Caja)',
+                                            'Cobro Inmediato (Caja)'
+                                        ];
+                                        $texto = str_replace($frasesConfusas, '', $texto);
+                                        $texto = trim($texto, " -"); // Limpiamos guiones sueltos que hayan quedado a los lados
+
+                                        if ($texto === '') return '';
+                                        
+                                        // Si el texto parece un JSON, intentamos decodificarlo
+                                        if (str_starts_with($texto, '{')) {
+                                            $data = json_decode($texto, true);
+                                            if (json_last_error() === JSON_ERROR_NONE && is_array($data)) {
+                                                // Si es un JSON válido, extraemos SOLO la nota que dejó el usuario
+                                                if (!empty($data['nota_manual'])) {
+                                                    return trim($data['nota_manual']);
+                                                }
+                                                return ''; 
+                                            }
+                                        }
+                                        return $texto; // No es JSON, devolver el texto normal
+                                    };
+
+                                    $obsOrigen = $limpiarObservacion($m['observacion_origen'] ?? '');
+                                    $obsLocal = $limpiarObservacion($m['observaciones'] ?? '');
+
+                                    if ($obsOrigen !== '') {
+                                        $notasConsolidadas[] = $obsOrigen;
+                                    }
+                                    if ($obsLocal !== '' && $obsLocal !== $obsOrigen) {
+                                        $notasConsolidadas[] = $obsLocal;
+                                    }
                                     
                                     // El buscador oculto incluye todas las notas
                                     $searchStr = strtolower($tipo . ' ' . $tercero . ' ' . $origen . ' ' . $cuenta . ' ' . $estado . ' ' . implode(' ', $notasConsolidadas));

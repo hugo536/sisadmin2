@@ -325,9 +325,14 @@ $formatearFechaDMY = static function ($fecha): string {
                                     <tfoot class="bg-light border-top">
                                         <tr>
                                             <td colspan="4" class="ps-3 py-3 align-middle border-bottom-0">
-                                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFila">
-                                                    <i class="bi bi-plus-lg me-1"></i>Agregar Ítem
-                                                </button>
+                                                <div class="d-flex align-items-center gap-3">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" id="btnAgregarFila">
+                                                        <i class="bi bi-plus-lg me-1"></i>Agregar Ítem
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-info fw-semibold" id="btnMostrarTablaBonificaciones">
+                                                        <i class="bi bi-gift me-1"></i>Añadir Bonificación
+                                                    </button>
+                                                </div>
                                             </td>
                                             <td colspan="3" class="pe-4 py-3 align-middle border-bottom-0">
                                                 <div class="d-flex flex-wrap justify-content-end align-items-center gap-3 gap-md-4">
@@ -349,6 +354,50 @@ $formatearFechaDMY = static function ($fecha): string {
                                                         <span class="text-secondary small fw-bold mb-1">TOTAL ORDEN</span>
                                                         <span class="text-primary fw-bold fs-5 lh-1" id="ordenTotal">S/ 0.00</span>
                                                     </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NUEVA SECCIÓN DE BONIFICACIONES -->
+                    <div class="card border-info-subtle shadow-sm mt-3 d-none fade-in" id="seccionBonificaciones">
+                        <div class="card-body p-0">
+                            <div class="p-3 border-bottom bg-info-subtle rounded-top d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-gift text-info-emphasis me-2 fs-5"></i>
+                                    <h6 class="mb-0 fw-bold text-info-emphasis">Productos de Bonificación (Costo Cero)</h6>
+                                </div>
+                                <button type="button" class="btn-close btn-sm" id="btnCerrarTablaBonificaciones" aria-label="Cerrar"></button>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0 table-pro" id="tablaDetalleBonificaciones">
+                                    <thead class="table-light border-bottom">
+                                        <tr>
+                                            <th class="text-center text-secondary col-w-40 py-2">#</th>
+                                            <th class="ps-3 text-secondary col-min-w-320 py-2">Producto Bonificado</th>
+                                            <th class="text-center text-secondary col-w-140 py-2">Cantidad</th>
+                                            <th class="text-center text-secondary col-w-160 py-2">Valor Ref.</th>
+                                            <th class="text-center text-secondary col-w-200 py-2">Centro de Costo</th>
+                                            <th class="text-end text-secondary col-w-150 py-2">Subtotal</th>
+                                            <th class="text-center col-w-60 py-2"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white"></tbody>
+                                    <tfoot class="bg-light border-top">
+                                        <tr>
+                                            <td colspan="7" class="ps-3 py-3 align-middle border-bottom-0">
+                                                <div class="d-flex align-items-center">
+                                                    <button type="button" class="btn btn-sm btn-info text-white fw-semibold shadow-sm" id="btnAgregarFilaBonificacion">
+                                                        <i class="bi bi-plus-lg me-1"></i>Agregar Bonificación
+                                                    </button>
+                                                    <small class="text-info-emphasis ms-3 fw-semibold">
+                                                        <i class="bi bi-info-circle-fill me-1"></i>Estos productos ingresarán al almacén pero no sumarán a la deuda.
+                                                    </small>
                                                 </div>
                                             </td>
                                         </tr>
@@ -752,6 +801,67 @@ $formatearFechaDMY = static function ($fecha): string {
 
         <td class="text-center align-top py-3" data-label="Acción">
             <button class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-fila p-1" type="button" data-bs-toggle="tooltip" title="Quitar fila" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-trash-fill"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+
+<!-- TEMPLATE PARA FILAS DE BONIFICACIÓN -->
+<template id="templateFilaBonificacion">
+    <tr class="border-bottom bg-info bg-opacity-10 fila-bonificacion">
+        <td class="text-center fw-bold text-muted align-top py-3 fila-numero bg-light-subtle" style="font-size: 0.85rem;">1</td>
+        <td class="ps-3 py-3 align-top" data-label="Producto">
+            <div class="mb-2">
+                <select class="form-select form-select-sm detalle-item shadow-none border-info-subtle" required>
+                    <option value="">Buscar ítem bonificado...</option>
+                    <?php foreach ($items as $item): ?>
+                        <option value="<?= (int) ($item['id'] ?? 0) ?>"
+                                data-unidad-base="<?= e((string) ($item['unidad_base'] ?? 'UND')) ?>"
+                                data-requiere-factor-conversion="<?= (int) ($item['requiere_factor_conversion'] ?? 0) ?>"
+                                data-costo-referencial="<?= (float) ($item['costo_referencial'] ?? 0) ?>">
+                            <?= htmlspecialchars((string) ($item['nombre'] ?? '')) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="d-flex flex-column gap-1">
+                <select class="form-select form-select-sm detalle-unidad-compra d-none shadow-none border-info-subtle" disabled>
+                    <option value="">Unidad...</option>
+                </select>
+                <div class="detalle-conversion-info text-end small text-muted"></div> 
+            </div>
+        </td>
+        
+        <td class="align-top py-3 px-2" data-label="Cantidad">
+            <input type="number" class="form-control form-control-sm text-center detalle-cantidad fw-bold text-info shadow-none border-info-subtle" min="0.01" step="0.01" value="1" required>
+        </td>
+        
+        <td class="align-top py-3 px-2" data-label="Valor Ref.">
+            <div class="input-group input-group-sm opacity-75" title="Valor referencial - No suma al total a pagar">
+                <span class="input-group-text border-end-0 text-muted bg-light border-info-subtle simbolo-moneda">S/</span>
+                <input type="number" class="form-control border-start-0 text-end detalle-costo shadow-none border-info-subtle text-muted bg-light" min="0" step="0.01" value="0.00" readonly tabindex="-1">
+            </div>
+        </td>
+
+        <td class="align-top py-3 px-2" data-label="Centro Costo">
+            <select class="form-select form-select-sm detalle-centro-costo shadow-none border-info-subtle">
+                <option value="">Sin centro de costo</option>
+                <?php foreach ($centros_costo as $centro): ?>
+                    <option value="<?= (int) ($centro['id'] ?? 0) ?>">
+                        <?= e((string) ($centro['codigo'] ?? '')) ?> - <?= e((string) ($centro['nombre'] ?? '')) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </td>
+
+        <td class="text-end align-top py-3 fw-bold text-success detalle-subtotal fs-6" data-label="Subtotal">
+            <span class="simbolo-moneda">S/</span> 0.00 <br>
+            <span class="badge bg-success-subtle text-success border border-success-subtle mt-1" style="font-size: 0.65rem;">BONIFICACIÓN</span>
+        </td>
+
+        <td class="text-center align-top py-3" data-label="Acción">
+            <button class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-fila p-1" type="button" data-bs-toggle="tooltip" title="Quitar bonificación" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
                 <i class="bi bi-trash-fill"></i>
             </button>
         </td>

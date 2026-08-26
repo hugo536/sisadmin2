@@ -102,7 +102,7 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
                     hasta = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
                 }
 
-                // Formato ISO YYYY-MM-DD pero ajustado a la zona horaria local
+                // Formato ISO YYYY-MM-DD pero ajustado a la zona horaria local (Se deja así porque el input type="date" lo requiere internamente)
                 const formatear = (fecha) => {
                     const y = fecha.getFullYear();
                     const m = String(fecha.getMonth() + 1).padStart(2, '0');
@@ -216,7 +216,15 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
                 const tipoGrafico = canvasGrafico.getAttribute('data-chart-type') || 'bar';
                 
                 if(chartData.length > 0) {
-                    const labels = chartData.map(r => String(r.etiqueta ?? ''));
+                    // MODIFICACIÓN: Convertir fecha de YYYY-MM-DD a DD/MM/YYYY para las etiquetas del gráfico
+                    const labels = chartData.map(r => {
+                        let etiqueta = String(r.etiqueta ?? '');
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(etiqueta)) {
+                            const partes = etiqueta.split('-');
+                            return `${partes[2]}/${partes[1]}/${partes[0]}`;
+                        }
+                        return etiqueta;
+                    });
                     const data = chartData.map(r => Number(r.total_vendido ?? 0));
 
                     new Chart(canvasGrafico, {
