@@ -120,6 +120,7 @@ class ReporteVentasModel extends Modelo
         
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
         if (!empty($f['id_item'])) { $where[] = 'd.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
+        if (!empty($f['id_presentacion'])) { $where[] = 'd.id_presentacion = :id_presentacion'; $params['id_presentacion'] = (int) $f['id_presentacion']; }
         if (($f['estado'] ?? 'validas') === 'validas') {
             $where[] = 'v.estado NOT IN (0, 9)'; // Ni borradores ni anuladas
         } elseif ($f['estado'] !== 'todas' && $f['estado'] !== '') {
@@ -132,14 +133,15 @@ class ReporteVentasModel extends Modelo
         /* * MODIFICACIÓN APLICADA Y CONFIRMADA:
          * Usamos (d.cantidad * d.precio_unitario) basándonos en la estructura real de la tabla.
          */
-        $sql = "SELECT i.nombre AS producto,
+        $sql = "SELECT COALESCE(i.nombre, pp.nombre) AS producto,
                        ROUND(SUM(d.cantidad),2) AS total_cantidad,
                        ROUND(SUM(d.cantidad * d.precio_unitario),2) AS total_monto 
                 FROM ventas_documentos v
                 INNER JOIN ventas_documentos_detalle d ON d.id_documento_venta = v.id
-                INNER JOIN items i ON i.id = d.id_item
+                LEFT JOIN items i ON i.id = d.id_item
+                LEFT JOIN precios_presentaciones pp ON pp.id = d.id_presentacion
                 WHERE {$w}
-                GROUP BY d.id_item, i.nombre
+                GROUP BY d.id_item, d.id_presentacion, i.nombre, pp.nombre
                 ORDER BY total_monto DESC
                 LIMIT :limite";
                 
