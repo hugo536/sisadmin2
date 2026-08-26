@@ -320,7 +320,22 @@ class ReportesController extends Controlador
         $f = $this->filtrosPeriodo();
         $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
         $f['tipo_tercero'] = $tipoTercero; 
-        $f['id_item'] = (int) ($_GET['id_item'] ?? 0);
+        // El buscador comparte items individuales y presentaciones (packs). No se
+        // debe convertir directamente "PACK-8" a entero porque PHP lo vuelve 0
+        // y el reporte termina mostrando todos los productos.
+        $productoFiltro = trim((string) ($_GET['id_item'] ?? ''));
+        $f['producto_filtro'] = $productoFiltro;
+        $f['id_item'] = 0;
+        $f['id_presentacion'] = 0;
+        if (preg_match('/^PACK-(\d+)$/', $productoFiltro, $coincidencia)) {
+            $f['id_presentacion'] = (int) $coincidencia[1];
+        } elseif (preg_match('/^ITEM-(\d+)$/', $productoFiltro, $coincidencia)) {
+            $f['id_item'] = (int) $coincidencia[1];
+        } elseif (ctype_digit($productoFiltro)) {
+            // Compatibilidad con enlaces antiguos que enviaban solamente el ID.
+            $f['id_item'] = (int) $productoFiltro;
+            $f['producto_filtro'] = 'ITEM-' . $f['id_item'];
+        }
         $f['estado'] = $_GET['estado'] ?? 'validas';
         $agrupacionFiltro = $_GET['agrupacion'] ?? 'diaria';
         $f['agrupacion'] = in_array($agrupacionFiltro, ['diaria', 'semanal', 'mensual']) ? $agrupacionFiltro : 'diaria';

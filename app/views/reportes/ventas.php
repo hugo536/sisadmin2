@@ -125,9 +125,9 @@
                         <div>
                             <label class="form-label text-muted small fw-bold mb-1 ms-1">Producto Específico</label>
                             <select name="id_item" id="filtroVentasProducto" class="form-select bg-light shadow-none border-secondary-subtle auto-submit" placeholder="Buscar producto...">
-                                <option value="" <?php echo empty($filtros['id_item']) ? 'selected' : ''; ?>>Todos...</option>
+                                <option value="" <?php echo empty($filtros['producto_filtro']) ? 'selected' : ''; ?>>Todos...</option>
                                 <?php foreach (($productosFiltro ?? []) as $item): ?>
-                                    <option value="<?php echo (int) ($item['id'] ?? 0); ?>" <?php echo ((int)($filtros['id_item'] ?? 0) === (int)($item['id'] ?? 0)) ? 'selected' : ''; ?>>
+                                    <option value="<?php echo e((string) ($item['id'] ?? '')); ?>" <?php echo (($filtros['producto_filtro'] ?? '') === (string)($item['id'] ?? '')) ? 'selected' : ''; ?>>
                                         <?php echo e((string) ($item['nombre'] ?? '')); ?>
                                     </option>
                                 <?php endforeach; ?>
