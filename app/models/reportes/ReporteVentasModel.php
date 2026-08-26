@@ -218,7 +218,19 @@ class ReporteVentasModel extends Modelo
                     GROUP BY YEAR(v.fecha_emision), WEEK(v.fecha_emision, 1)
                     ORDER BY periodo_anio DESC, periodo_semana DESC
                     LIMIT :limite";
+        } elseif ($agrupacion === 'mensual') {
+            // NUEVO BLOQUE: Agrupamiento por mes
+            $sql = "SELECT DATE_FORMAT(v.fecha_emision, '%Y-%m') AS periodo_mes,
+                           DATE_FORMAT(v.fecha_emision, '%Y-%m') AS etiqueta,
+                           ROUND(SUM(v.total), 2) AS total_vendido,
+                           COUNT(*) AS documentos
+                    FROM ventas_documentos v
+                    WHERE {$w}
+                    GROUP BY DATE_FORMAT(v.fecha_emision, '%Y-%m')
+                    ORDER BY periodo_mes DESC
+                    LIMIT :limite";
         } else {
+            // Agrupamiento diario por defecto
             $sql = "SELECT DATE(v.fecha_emision) AS periodo_fecha,
                            DATE_FORMAT(DATE(v.fecha_emision), '%Y-%m-%d') AS etiqueta,
                            ROUND(SUM(v.total), 2) AS total_vendido,

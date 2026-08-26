@@ -74,6 +74,7 @@
                                 <select name="agrupacion" class="form-select bg-light border-secondary-subtle shadow-none text-secondary auto-submit">
                                     <option value="diaria" <?php echo ($filtros['agrupacion'] ?? 'diaria') === 'diaria' ? 'selected' : ''; ?>>Diario</option>
                                     <option value="semanal" <?php echo ($filtros['agrupacion'] ?? '') === 'semanal' ? 'selected' : ''; ?>>Semanal</option>
+                                    <option value="mensual" <?php echo ($filtros['agrupacion'] ?? '') === 'mensual' ? 'selected' : ''; ?>>Mensual</option>
                                 </select>
                             </div>
                             <div class="col-6">
@@ -153,7 +154,13 @@
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
-                <i class="bi bi-graph-up-arrow me-2 text-success"></i>Ventas <?php echo (($filtros['agrupacion'] ?? 'diaria') === 'semanal') ? 'Semanales' : 'Diarias'; ?>
+                <i class="bi bi-graph-up-arrow me-2 text-success"></i>Ventas 
+                <?php 
+                    $tipoAgr = $filtros['agrupacion'] ?? 'diaria';
+                    if ($tipoAgr === 'semanal') echo 'Semanales';
+                    elseif ($tipoAgr === 'mensual') echo 'Mensuales';
+                    else echo 'Diarias';
+                ?>
             </h5>
             <div class="d-flex align-items-center gap-2">
                 <button type="submit" form="formFiltrosReporteVentas" name="exportar_excel" value="1" class="btn btn-light border text-success btn-sm shadow-sm fw-semibold transition-hover">
@@ -192,7 +199,20 @@
                                 <?php else: ?>
                                     <?php foreach ($porPeriodo as $r): ?>
                                         <tr class="border-bottom">
-                                            <td class="fw-medium text-dark ps-3"><?php echo date('d/m/Y', strtotime((string)($r['etiqueta'] ?? ''))); ?></td>
+                                            <td class="fw-medium text-dark ps-3">
+                                                <?php 
+                                                    $etiqueta = (string)($r['etiqueta'] ?? '');
+                                                    $agrupacion = $filtros['agrupacion'] ?? 'diaria';
+                                                    
+                                                    // Si es agrupación diaria y la fecha es válida, la formateamos a d/m/Y
+                                                    if ($agrupacion === 'diaria' && strtotime($etiqueta)) {
+                                                        echo date('d/m/Y', strtotime($etiqueta));
+                                                    } else {
+                                                        // Si es semanal o mensual (ej. '2026-S24' o '2026-08'), imprimimos el texto tal cual
+                                                        echo htmlspecialchars($etiqueta);
+                                                    }
+                                                ?>
+                                            </td>
                                             <td class="text-end text-muted"><?php echo e((string)($r['documentos'] ?? '0')); ?></td>
                                             <td class="text-end fw-bold text-success pe-3">S/ <?php echo number_format((float)($r['total_vendido'] ?? 0), 2); ?></td>
                                         </tr>

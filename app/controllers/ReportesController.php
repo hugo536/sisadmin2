@@ -322,7 +322,8 @@ class ReportesController extends Controlador
         $f['tipo_tercero'] = $tipoTercero; 
         $f['id_item'] = (int) ($_GET['id_item'] ?? 0);
         $f['estado'] = $_GET['estado'] ?? '';
-        $f['agrupacion'] = ($_GET['agrupacion'] ?? 'diaria') === 'semanal' ? 'semanal' : 'diaria';
+        $agrupacionFiltro = $_GET['agrupacion'] ?? 'diaria';
+        $f['agrupacion'] = in_array($agrupacionFiltro, ['diaria', 'semanal', 'mensual']) ? $agrupacionFiltro : 'diaria';
         $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'barras') === 'linea' ? 'linea' : 'barras';
         $f['seccion_activa'] = $seccionActiva;
 
