@@ -25,17 +25,31 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
 <div class="container-fluid p-4" id="reportesEstadoCuentaApp" data-url-index="<?php echo e(base_url() . '/'); ?>">
     
     <!-- Cabecera de la página -->
-    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-journal-text me-2 text-primary"></i> Estado de Cuenta Clientes
             </h1>
             <p class="text-muted small mb-0 ms-1"><?php echo e($periodoResumen); ?></p>
         </div>
-        <a href="index.php?ruta=reportes/dashboard" 
-        class="btn btn-light border shadow-sm fw-semibold text-secondary transition-hover sb-link"
-        style="width: fit-content; flex: 0 0 auto;">
-            <i class="bi bi-arrow-left-short fs-5 align-middle me-1"></i>Regresar
+        
+        <?php 
+            // Lógica inteligente para historial
+            $referer = $_SERVER['HTTP_REFERER'] ?? '';
+            $rutaDashboard = route_url('reportes/dashboard');
+            
+            // Verificamos si venimos de esta misma vista para evitar el bucle al recargar o filtrar
+            if ($referer === '' || strpos($referer, 'reportes/estado_cuenta') !== false || strpos($referer, 'reportes%2Festado_cuenta') !== false) {
+                $urlRegreso = $rutaDashboard;
+            } else {
+                $urlRegreso = $referer;
+            }
+        ?>
+        <a href="<?php echo $urlRegreso; ?>" 
+           onclick="if(typeof window.navigateWithoutReload === 'function') { event.preventDefault(); window.navigateWithoutReload(new window.URL(this.href, window.location.origin), true); }"
+           class="btn btn-light bg-white border border-secondary-subtle shadow-sm text-secondary fw-medium px-3 transition-hover d-flex align-items-center"
+           style="width: fit-content; flex: 0 0 auto;">
+            <i class="bi bi-arrow-left me-2"></i>Regresar
         </a>
     </div>
 

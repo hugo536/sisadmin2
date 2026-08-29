@@ -2,25 +2,22 @@
 /**
  * @var array|null $totales
  * @var array|null $eventos
- * @var array|null $cumpleanosSemana
+ * @var array|null $cumpleanosMes
  * @var array|null $reportes_widgets
- * @var array|null $inventario_valorizado
  * @var array|null $productosCriticos
  */
 
 $totales = is_array($totales ?? null) ? $totales : [];
 $eventos = is_array($eventos ?? null) ? $eventos : [];
-$cumpleanosSemana = is_array($cumpleanosSemana ?? null) ? $cumpleanosSemana : [];
+$cumpleanosMes = is_array($cumpleanosMes ?? null) ? $cumpleanosMes : [];
 $reportesWidgets = is_array($reportes_widgets ?? null) ? $reportes_widgets : [];
-$inventarioValorizado = is_array($inventario_valorizado ?? null) ? $inventario_valorizado : [];
 $productosCriticos = is_array($productosCriticos ?? null) ? $productosCriticos : [];
-$totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] ?? 0);
 ?>
 
 <div class="container-fluid p-4 dashboard-page" id="dashboardApp">
     
     <!-- ENCABEZADO MINIMALISTA -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 fade-in gap-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 fade-in gap-3">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-speedometer2 me-2 text-primary"></i> Dashboard Principal
@@ -35,223 +32,243 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
         </div>
     </div>
 
-    <!-- ACCESOS OPERATIVOS (Estilo Soft Bento Moderno) -->
-    <div class="mb-5">
-        <h2 class="h5 fw-bold text-dark mb-3"><i class="bi bi-grid-1x2-fill me-2 text-primary"></i>Accesos Operativos</h2>
+    <!-- SECCIÓN 1: REPORTES PRINCIPALES -->
+    <div class="mb-4 fade-in" style="animation-delay: 0.05s;">
+        <h2 class="h6 fw-bold text-secondary text-uppercase tracking-wider mb-3" style="letter-spacing: 1px;"><i class="bi bi-grid-1x2-fill me-2 text-primary"></i>Reportes Principales</h2>
         <div class="row g-3">
             
-            <!-- Botón de Gráfico de Ventas integrado como Widget -->
-            <div class="col-12 col-sm-6 col-lg-3">
-                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-primary text-white" 
+            <!-- Widget: Reportes de Ventas -->
+            <div class="col-12 col-md-6 col-xl-3">
+                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-primary text-white shadow-sm" 
                    href="<?php echo e(route_url('reportes/ventas')); ?>" 
                    onclick="navegarDesdeDashboard(event, this.href)"
                    style="border-radius: 1.25rem;">
                     <div class="card-body p-3 d-flex justify-content-between align-items-center">
                         <div>
-                            <div class="text-white-50 mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Análisis</div>
-                            <div class="h5 mb-0 fw-bold text-white lh-1 mt-1">Gráfico de Ventas</div>
+                            <div class="text-white-50 mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Análisis Comercial</div>
+                            <div class="h5 mb-0 fw-bold text-white lh-1 mt-1">Reportes de Ventas</div>
                         </div>
-                        <div class="bg-white bg-opacity-25 text-white p-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 48px; height: 48px;">
-                            <i class="bi bi-bar-chart-line-fill fs-4"></i>
+                        <div class="bg-white bg-opacity-25 text-white p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                            <i class="bi bi-graph-up-arrow fs-4"></i>
                         </div>
                     </div>
                 </a>
             </div>
 
+            <!-- Widget: Reportes de Compras -->
+            <div class="col-12 col-md-6 col-xl-3">
+                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover text-white shadow-sm" 
+                   href="<?php echo e(route_url('reportes/compras')); ?>" 
+                   onclick="navegarDesdeDashboard(event, this.href)"
+                   style="border-radius: 1.25rem; background-color: #0dcaf0;">
+                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-white-50 mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Abastecimiento</div>
+                            <div class="h5 mb-0 fw-bold text-white lh-1 mt-1">Reportes de Compras</div>
+                        </div>
+                        <div class="bg-white bg-opacity-25 text-white p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                            <i class="bi bi-cart-check-fill fs-4"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <?php if (tiene_permiso('reportes.tesoreria.ver')): ?>
+            <!-- Widget: Estado de Cuenta Clientes -->
+            <div class="col-12 col-md-6 col-xl-3">
+                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-success-subtle shadow-sm" 
+                   href="<?php echo e(route_url('reportes/estado_cuenta')); ?>" 
+                   onclick="navegarDesdeDashboard(event, this.href)"
+                   style="border-radius: 1.25rem;">
+                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-success-emphasis mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Tesorería Clientes</div>
+                            <div class="h6 mb-0 fw-bold text-success-emphasis lh-1 mt-1">Estado de Cuenta</div>
+                        </div>
+                        <div class="bg-white bg-opacity-75 text-success-emphasis p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                            <i class="bi bi-person-lines-fill fs-4"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            
+            <!-- Widget: Estado de Cuenta Proveedores -->
+            <div class="col-12 col-md-6 col-xl-3">
+                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-secondary-subtle shadow-sm" 
+                   href="<?php echo e(route_url('reportes/estado_cuenta_proveedores')); ?>" 
+                   onclick="navegarDesdeDashboard(event, this.href)"
+                   style="border-radius: 1.25rem;">
+                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-secondary-emphasis mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Tesorería Prov.</div>
+                            <div class="h6 mb-0 fw-bold text-secondary-emphasis lh-1 mt-1">Estado de Cuenta</div>
+                        </div>
+                        <div class="bg-white bg-opacity-75 text-secondary-emphasis p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                            <i class="bi bi-buildings-fill fs-4"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <?php endif; ?>
+
+        </div>
+    </div>
+
+    <!-- SECCIÓN 2: INDICADORES OPERATIVOS (KPIs) -->
+    <div class="mb-5 fade-in" style="animation-delay: 0.1s;">
+        <div class="row g-3">
             <?php 
             $widgetConfig = [
-                'compras_pendientes'   => ['color' => 'warning', 'icon' => 'bi-cart-check', 'url' => 'reportes/compras'],
-                'ventas_por_despachar' => ['color' => 'info',    'icon' => 'bi-truck',       'url' => 'reportes/ventas'],
-                'produccion_proceso'   => ['color' => 'primary', 'icon' => 'bi-gear',        'url' => 'reportes/produccion'],
-                'cxc_vencida'          => ['color' => 'danger',  'icon' => 'bi-cash-stack',  'url' => 'reportes/cxc'], 
-                'cxp_vencida'          => ['color' => 'danger',  'icon' => 'bi-wallet2',     'url' => 'reportes/cxp']  
+                'compras_pendientes'   => ['color' => 'warning', 'icon' => 'bi-cart-dash',    'url' => 'reportes/compras'],
+                'ventas_por_despachar' => ['color' => 'info',    'icon' => 'bi-truck',        'url' => 'reportes/ventas'],
+                'produccion_proceso'   => ['color' => 'primary', 'icon' => 'bi-gear-wide',    'url' => 'reportes/produccion'],
+                'cxc_vencida'          => ['color' => 'danger',  'icon' => 'bi-cash-stack',   'url' => 'reportes/cxc'], 
+                'cxp_vencida'          => ['color' => 'danger',  'icon' => 'bi-wallet2',      'url' => 'reportes/cxp']  
             ]; 
             ?>
             
             <?php foreach ($reportesWidgets as $k => $v): ?>
                 <?php if ($k === 'stock_critico') continue; ?>
                 <?php $cfg = $widgetConfig[$k] ?? ['color' => 'secondary', 'icon' => 'bi-arrow-right', 'url' => 'reportes/dashboard']; ?>
-                <div class="col-12 col-sm-6 col-lg-3">
+                <div class="col-12 col-sm-6 col-lg-4 col-xl">
                     <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-<?php echo $cfg['color']; ?>-subtle" 
                        href="<?php echo e(route_url((string) $cfg['url'])); ?>" 
                        onclick="navegarDesdeDashboard(event, this.href)"
-                       style="border-radius: 1.25rem;">
+                       style="border-radius: 1rem;">
                         <div class="card-body p-3 d-flex justify-content-between align-items-center">
                             <div>
-                                <div class="text-<?php echo $cfg['color']; ?>-emphasis mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <div class="text-<?php echo $cfg['color']; ?>-emphasis mb-1" style="font-size: 0.70rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
                                     <?php echo e(str_replace('_', ' ', (string) $k)); ?>
                                 </div>
-                                <div class="h3 mb-0 fw-bold text-<?php echo $cfg['color']; ?>-emphasis lh-1"><?php echo (int) $v; ?></div>
+                                <div class="h4 mb-0 fw-bold text-<?php echo $cfg['color']; ?>-emphasis lh-1"><?php echo (int) $v; ?></div>
                             </div>
-                            <div class="bg-white bg-opacity-75 text-<?php echo $cfg['color']; ?>-emphasis p-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 48px; height: 48px;">
-                                <i class="bi <?php echo $cfg['icon']; ?> fs-4"></i>
+                            <div class="text-<?php echo $cfg['color']; ?>-emphasis opacity-75">
+                                <i class="bi <?php echo $cfg['icon']; ?> fs-2"></i>
                             </div>
                         </div>
                     </a>
                 </div>
             <?php endforeach; ?>
-
-            <?php if (tiene_permiso('reportes.tesoreria.ver')): ?>
-            <div class="col-12 col-sm-6 col-lg-3">
-                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-success-subtle" 
-                   href="<?php echo e(route_url('reportes/estado_cuenta')); ?>" 
-                   onclick="navegarDesdeDashboard(event, this.href)"
-                   style="border-radius: 1.25rem;">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="text-success-emphasis mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">E. Cuenta Clientes</div>
-                            <div class="fw-bold text-success-emphasis" style="font-size: 0.95rem;">Ver Reporte</div>
-                        </div>
-                        <div class="bg-white bg-opacity-75 text-success-emphasis p-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 48px; height: 48px;">
-                            <i class="bi bi-file-earmark-text fs-4"></i>
-                        </div>
-                    </div>
-                </a>
-            </div>
-            <div class="col-12 col-sm-6 col-lg-3">
-                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-secondary-subtle" 
-                   href="<?php echo e(route_url('reportes/estado_cuenta_proveedores')); ?>" 
-                   onclick="navegarDesdeDashboard(event, this.href)"
-                   style="border-radius: 1.25rem;">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="text-secondary-emphasis mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">E. Cuenta Prov.</div>
-                            <div class="fw-bold text-secondary-emphasis" style="font-size: 0.95rem;">Ver Reporte</div>
-                        </div>
-                        <div class="bg-white bg-opacity-75 text-secondary-emphasis p-2 rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 48px; height: 48px;">
-                            <i class="bi bi-file-earmark-text fs-4"></i>
-                        </div>
-                    </div>
-                </a>
-            </div>
-            <?php endif; ?>
         </div>
     </div>
 
-    <!-- ALERTAS DE INVENTARIO (Stock Crítico) -->
-    <div class="mb-5 fade-in" style="animation-delay: 0.1s;">
-        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-2">
-            <h2 class="h5 fw-bold text-dark mb-0">
-                <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i>Alertas de Stock Crítico
-            </h2>
-            <div class="fw-bold text-success bg-success-subtle px-3 py-2 rounded-pill border border-success-subtle shadow-sm fs-6">
-                Valor Total: S/ <?php echo number_format($totalInventarioValorizado, 2); ?>
-            </div>
-        </div>
+    <!-- SECCIÓN 3: TRES COLUMNAS EQUILIBRADAS -->
+    <div class="row g-4 mb-4 fade-in" style="animation-delay: 0.15s;">
         
-        <div class="card border-0 shadow-sm" style="border-radius: 1rem; overflow: hidden;">
-            <div class="card-body p-0">
-                <?php if (empty($productosCriticos)): ?>
-                    <!-- Estado cuando el inventario está saludable -->
-                    <div class="p-5 text-center text-muted">
-                        <div class="bg-success-subtle rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
-                            <i class="bi bi-check2-circle fs-1 text-success"></i>
-                        </div>
-                        <h5 class="fw-bold text-dark">¡Inventario Saludable!</h5>
-                        <p class="mb-0 fw-semibold">No hay artículos por debajo de su stock mínimo.</p>
-                    </div>
-                <?php else: ?>
-                    <div class="table-responsive">
-                        <table class="table align-middle mb-0 table-hover table-borderless">
-                            <thead class="table-light text-muted" style="font-size: 0.75rem; text-transform: uppercase;">
-                                <tr>
-                                    <th class="ps-4 fw-bold py-3">Código / Producto</th>
-                                    <th class="fw-bold py-3 text-center">Stock Mínimo</th>
-                                    <th class="fw-bold py-3 text-center">Stock Actual</th>
-                                    <th class="fw-bold py-3 text-center">Estado</th>
-                                    <th class="pe-4 fw-bold py-3 text-end">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach (array_slice($productosCriticos, 0, 5) as $prod): ?>
-                                    <tr style="border-bottom: 1px solid #f1f5f9;">
-                                        <td class="ps-4 py-3">
-                                            <div class="fw-bold text-dark"><?php echo e((string) ($prod['nombre'] ?? 'Sin Nombre')); ?></div>
-                                            <div class="text-muted" style="font-size: 0.8rem;"><?php echo e((string) ($prod['codigo'] ?? 'S/C')); ?></div>
-                                        </td>
-                                        <td class="text-center py-3 fw-medium text-secondary">
-                                            <?php echo (float)($prod['stock_minimo'] ?? 0); ?>
-                                        </td>
-                                        <td class="text-center py-3">
-                                            <span class="fw-bold text-danger fs-5"><?php echo (float)($prod['stock_actual'] ?? 0); ?></span>
-                                        </td>
-                                        <td class="text-center py-3">
-                                            <?php if ((float)($prod['stock_actual'] ?? 0) <= 0): ?>
-                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2">Agotado</span>
-                                            <?php else: ?>
-                                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2">Crítico</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td class="pe-4 text-end py-3">
-                                            <a href="<?php echo e(route_url('inventario/kardex')); ?>&id_item=<?php echo $prod['id']; ?>" class="btn btn-sm btn-light border text-primary rounded-pill px-3 transition-hover sb-link">
-                                                <i class="bi bi-box-seam me-1"></i> Pedir
-                                            </a>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <?php if(count($productosCriticos) > 5): ?>
-                        <div class="card-footer bg-light border-top text-center py-3">
-                            <a href="<?php echo e(route_url('reportes/inventario')); ?>" class="text-decoration-none fw-bold text-primary sb-link">
-                                Ver todos los <?php echo count($productosCriticos); ?> productos críticos <i class="bi bi-arrow-right ms-1"></i>
-                            </a>
-                        </div>
-                    <?php endif; ?>
-                <?php endif; ?>
+        <!-- 1. ALERTAS DE INVENTARIO (Columna de 4/12) -->
+        <div class="col-12 col-xl-4 d-flex flex-column">
+            
+            <!-- Título simplificado sin el badge del monto -->
+            <div class="d-flex mb-3 align-items-center">
+                <h2 class="h5 fw-bold text-dark mb-0 text-truncate">
+                    <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i>Stock Crítico
+                </h2>
             </div>
-        </div>
-    </div>
-
-    <!-- LISTAS INFORMATIVAS (Cumpleaños y Bitácora) -->
-    <div class="row g-4 mb-4">
-        <div class="col-12 col-xl-6">
-            <div class="card border-0 shadow-sm h-100" style="border-radius: 1rem; overflow: hidden;">
-                <div class="card-header bg-white border-bottom-0 px-4 py-3 d-flex justify-content-between align-items-center pt-4">
-                    <h5 class="mb-0 fw-bold text-dark fs-6 text-uppercase" style="letter-spacing: 0.5px;">
-                        <i class="bi bi-cake2-fill me-2 text-danger"></i>Cumpleaños de la semana
-                    </h5>
-                    <span class="badge rounded-pill bg-danger text-white px-3 py-1 shadow-sm">
-                        <?php echo count($cumpleanosSemana); ?> programados
-                    </span>
-                </div>
-                <div class="card-body p-0">
-                    <?php if ($cumpleanosSemana === []): ?>
-                        <div class="p-5 text-center text-muted">
-                            <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
-                                <i class="bi bi-calendar2-heart fs-1 text-secondary opacity-50"></i>
+            
+            <div class="card border-0 shadow-sm flex-grow-1" style="border-radius: 1rem; overflow: hidden;">
+                <!-- ... (el resto del código de la tabla se mantiene igual) ... -->
+                <div class="card-body p-0 d-flex flex-column">
+                    <?php if (empty($productosCriticos)): ?>
+                        <div class="p-4 text-center text-muted my-auto">
+                            <div class="bg-success-subtle rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                                <i class="bi bi-check2-circle fs-2 text-success"></i>
                             </div>
-                            <p class="mb-0 fw-semibold">No hay cumpleaños en los próximos 7 días.</p>
+                            <h6 class="fw-bold text-dark">¡Inventario Saludable!</h6>
+                            <p class="mb-0 small fw-semibold">No hay artículos bajo stock mínimo.</p>
                         </div>
                     <?php else: ?>
                         <div class="table-responsive">
-                            <table class="table align-middle mb-0 table-hover table-borderless">
+                            <table class="table align-middle mb-0 table-hover table-borderless" style="table-layout: fixed;">
                                 <thead class="table-light text-muted" style="font-size: 0.75rem; text-transform: uppercase;">
                                     <tr>
-                                        <th class="ps-4 fw-bold">Fecha</th>
-                                        <th class="fw-bold">Empleado</th>
-                                        <th class="text-center pe-4 fw-bold">Faltan</th>
+                                        <th class="ps-4 fw-bold py-2" style="width: 75%;">Producto</th>
+                                        <th class="pe-4 fw-bold py-2 text-end" style="width: 25%;">Estado</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                <?php foreach ($cumpleanosSemana as $cumple): ?>
+                                    <?php foreach (array_slice($productosCriticos, 0, 5) as $prod): ?>
+                                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                                            <td class="ps-4 py-2 text-truncate">
+                                                <div class="fw-bold text-dark text-truncate lh-sm mb-1" title="<?php echo e((string) ($prod['nombre'] ?? 'Sin Nombre')); ?>">
+                                                    <?php echo e((string) ($prod['nombre'] ?? 'Sin Nombre')); ?>
+                                                </div>
+                                                <div class="text-muted lh-1" style="font-size: 0.75rem;">
+                                                    <?php echo e((string) ($prod['codigo'] ?? 'S/C')); ?>
+                                                </div>
+                                            </td>
+                                            <td class="pe-4 text-end py-2">
+                                                <?php if ((float)($prod['stock_actual'] ?? 0) <= 0): ?>
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1" style="font-size: 0.7rem; font-weight: 600;">Agotado</span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1" style="font-size: 0.7rem; font-weight: 600;">Crítico</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php if(count($productosCriticos) > 5): ?>
+                            <div class="card-footer bg-light border-top text-center py-2 mt-auto">
+                                <a href="<?php echo e(route_url('reportes/inventario')); ?>" class="text-decoration-none fw-bold text-primary small sb-link">
+                                    Ver los <?php echo count($productosCriticos); ?> críticos <i class="bi bi-arrow-right ms-1"></i>
+                                </a>
+                            </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. CUMPLEAÑOS (Columna de 4/12) -->
+        <div class="col-12 col-xl-4 d-flex flex-column">
+            <!-- Título invisible para alinear con las demás tarjetas -->
+            <div class="d-flex mb-3 d-none d-xl-flex" style="visibility: hidden;">
+                <h2 class="h5 mb-0">Espacio</h2>
+            </div>
+
+            <div class="card border-0 shadow-sm flex-grow-1" style="border-radius: 1rem; overflow: hidden;">
+                <div class="card-header bg-white border-bottom-0 px-4 py-3 d-flex justify-content-between align-items-center pt-4">
+                    <h5 class="mb-0 fw-bold text-dark fs-6 text-uppercase text-truncate" style="letter-spacing: 0.5px;">
+                        <i class="bi bi-cake2-fill me-2 text-danger"></i>Cumpleaños del Mes
+                    </h5>
+                    <span class="badge rounded-pill bg-danger text-white px-2 py-1 shadow-sm">
+                        <?php echo count($cumpleanosMes); ?>
+                    </span>
+                </div>
+                <div class="card-body p-0 d-flex flex-column">
+                    <?php if ($cumpleanosMes === []): ?>
+                        <div class="p-4 text-center text-muted my-auto">
+                            <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                                <i class="bi bi-calendar2-heart fs-2 text-secondary opacity-50"></i>
+                            </div>
+                            <p class="mb-0 small fw-semibold">No hay cumpleaños este mes.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0 table-hover table-borderless" style="table-layout: fixed;">
+                                <thead class="table-light text-muted" style="font-size: 0.75rem; text-transform: uppercase;">
+                                    <tr>
+                                        <th class="ps-4 fw-bold py-2" style="width: 70%;">Empleado</th>
+                                        <th class="pe-4 fw-bold py-2 text-end" style="width: 30%;">Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                <?php foreach ($cumpleanosMes as $cumple): ?>
                                     <tr style="border-bottom: 1px solid #f1f5f9;">
-                                        <td class="ps-4 py-3" data-label="Fecha">
-                                            <span class="d-inline-flex align-items-center gap-2 fw-bold text-dark bg-light px-2 py-1 rounded">
-                                                <i class="bi bi-calendar-event text-primary"></i>
+                                        <td class="ps-4 py-2 text-truncate" data-label="Empleado">
+                                            <div class="fw-bold text-dark text-truncate lh-sm mb-1" title="<?php echo e((string) ($cumple['nombre_completo'] ?? '')); ?>">
+                                                <?php echo e((string) ($cumple['nombre_completo'] ?? '')); ?>
+                                            </div>
+                                            <div class="text-muted lh-1" style="font-size: 0.75rem;">
                                                 <?php echo e((string) ($cumple['fecha_cumple'] ?? '')); ?>
-                                            </span>
+                                            </div>
                                         </td>
-                                        <td class="py-3" data-label="Empleado">
-                                            <div class="fw-bold text-dark"><?php echo e((string) ($cumple['nombre_completo'] ?? '')); ?></div>
-                                            <div class="text-muted" style="font-size: 0.8rem;"><?php echo e(trim((string) (($cumple['cargo'] ?? '') . ' / ' . ($cumple['area'] ?? '')), ' /')); ?></div>
-                                        </td>
-                                        <td class="pe-4 text-center py-3" data-label="Faltan">
+                                        <td class="pe-4 text-end py-2" data-label="Fecha">
                                             <?php if ((int) ($cumple['dias_restantes'] ?? 0) === 0): ?>
-                                                <span class="badge px-3 py-2 rounded-pill bg-success-subtle text-success border border-success-subtle shadow-sm">🎉 Hoy (<?php echo (int) ($cumple['edad_cumple'] ?? 0); ?>)</span>
+                                                <span class="badge px-2 py-1 rounded-pill bg-success-subtle text-success border border-success-subtle shadow-sm" style="font-size: 0.7rem; font-weight: 600;">🎉 Hoy</span>
                                             <?php else: ?>
-                                                <span class="badge px-3 py-2 rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle"><?php echo (int) ($cumple['dias_restantes'] ?? 0); ?> día(s)</span>
+                                                <span class="badge px-2 py-1 rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.7rem; font-weight: 600;"><?php echo (int) ($cumple['dias_restantes'] ?? 0); ?> día(s)</span>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
@@ -264,8 +281,48 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
             </div>
         </div>
 
-        <div class="col-12 col-xl-6">
-            <div class="card border-0 shadow-sm h-100" style="border-radius: 1rem; overflow: hidden;">
+        <!-- 3. ACCESOS RÁPIDOS (Columna de 4/12) -->
+        <div class="col-12 col-xl-4 d-flex flex-column">
+            <!-- Título invisible para alineación perfecta -->
+            <div class="d-flex mb-3 d-none d-xl-flex" style="visibility: hidden;">
+                <h2 class="h5 mb-0">Espacio</h2>
+            </div>
+
+            <div class="card border-0 shadow-sm flex-grow-1" style="border-radius: 1rem; overflow: hidden;">
+                <div class="card-header bg-white border-bottom-0 px-4 py-3 pt-4">
+                    <h5 class="mb-0 fw-bold text-dark fs-6 text-uppercase text-truncate" style="letter-spacing: 0.5px;">
+                        <i class="bi bi-star-fill me-2 text-warning"></i>Accesos Rápidos
+                    </h5>
+                </div>
+                <div class="card-body p-3 d-flex flex-column justify-content-center gap-2">
+                    <a href="<?php echo e(route_url('ventas')); ?>" class="btn btn-light border text-start d-flex align-items-center justify-content-between p-2.5 rounded-3 transition-hover sb-link">
+                        <span class="d-flex align-items-center fw-semibold text-secondary">
+                            <i class="bi bi-bag-plus text-primary fs-5 me-2"></i> Nueva Venta / Factura
+                        </span>
+                        <i class="bi bi-chevron-right text-muted small"></i>
+                    </a>
+                    <a href="<?php echo e(route_url('compras')); ?>" class="btn btn-light border text-start d-flex align-items-center justify-content-between p-2.5 rounded-3 transition-hover sb-link">
+                        <span class="d-flex align-items-center fw-semibold text-secondary">
+                            <i class="bi bi-cart-plus text-info fs-5 me-2"></i> Registrar Compra
+                        </span>
+                        <i class="bi bi-chevron-right text-muted small"></i>
+                    </a>
+                    <a href="<?php echo e(route_url('inventario')); ?>" class="btn btn-light border text-start d-flex align-items-center justify-content-between p-2.5 rounded-3 transition-hover sb-link">
+                        <span class="d-flex align-items-center fw-semibold text-secondary">
+                            <i class="bi bi-box-seam text-success fs-5 me-2"></i> Consultar Inventario
+                        </span>
+                        <i class="bi bi-chevron-right text-muted small"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SECCIÓN 4: BITÁCORA -->
+    <div class="row fade-in" style="animation-delay: 0.2s;">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm" style="border-radius: 1rem; overflow: hidden;">
                 <div class="card-header bg-white border-bottom-0 px-4 py-3 pt-4">
                     <h5 class="mb-0 fw-bold text-dark fs-6 text-uppercase" style="letter-spacing: 0.5px;">
                         <i class="bi bi-journal-text me-2 text-primary"></i>Últimos registros en Bitácora
@@ -312,8 +369,8 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
                 </div>
             </div>
         </div>
-        
     </div>
+
 </div>
 
 <style>
@@ -332,6 +389,7 @@ $totalInventarioValorizado = (float) ($inventarioValorizado['total_inventario'] 
 
 .fade-in {
     animation: fadeIn 0.6s ease-in-out;
+    animation-fill-mode: both;
 }
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
@@ -355,28 +413,6 @@ function navegarDesdeDashboard(event, urlString) {
         try {
             const urlObjeto = new URL(urlString, window.location.origin);
             window.navigateWithoutReload(urlObjeto, true);
-            
-            let intentos = 0;
-            const candadoMenu = setInterval(() => {
-                const dashboardLink = document.querySelector('.sidebar a[href*="reportes/dashboard"], aside a[href*="reportes/dashboard"]');
-                
-                if(dashboardLink) {
-                    document.querySelectorAll('.sidebar a.active, aside a.active').forEach(item => {
-                        item.classList.remove('active');
-                    });
-                    
-                    dashboardLink.classList.add('active'); 
-                    
-                    const parentCollapse = dashboardLink.closest('.collapse');
-                    if(parentCollapse) parentCollapse.classList.add('show');
-                }
-                
-                intentos++;
-                if(intentos >= 10) {
-                    clearInterval(candadoMenu);
-                }
-            }, 50); 
-            
         } catch (error) {
             console.error("Error al navegar con SPA:", error);
             window.location.href = urlString; 

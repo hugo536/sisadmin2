@@ -53,6 +53,33 @@ class ReporteVentasModel extends Modelo
         }
     }
 
+    private function aplicarFiltroItem(array &$where, array &$params, array $f, string $aliasDocumento = 'v'): void
+    {
+        $condiciones = ["d.id_documento_venta = {$aliasDocumento}.id", "d.deleted_at IS NULL"];
+        
+        // FORZAMOS: Solo contabilizar "Productos Terminados"
+        $condiciones[] = "i.tipo_item = 'producto_terminado'";
+
+        if (!empty($f['id_categoria'])) {
+            $condiciones[] = 'i.id_categoria = :id_categoria';
+            $params['id_categoria'] = (int) $f['id_categoria'];
+        }
+
+        if (!empty($f['id_item'])) {
+            $condiciones[] = 'd.id_item = :id_item';
+            $params['id_item'] = (int) $f['id_item'];
+        }
+
+        // Unificamos todo en una sola subconsulta EXISTS para mayor velocidad
+        $wDetalle = implode(' AND ', $condiciones);
+        $where[] = "EXISTS (
+            SELECT 1 
+            FROM ventas_documentos_detalle d 
+            INNER JOIN items i ON i.id = d.id_item 
+            WHERE {$wDetalle}
+        )";
+    }
+
     public function contarPorDespachar(): int
     {
         // Aquí NO filtramos donaciones, porque el almacén SÍ debe despacharlas.
@@ -76,10 +103,10 @@ class ReporteVentasModel extends Modelo
         $where = ["v.tipo_operacion = 'VENTA'", 'v.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh'];
         
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
-        if (!empty($f['id_item'])) {
-            $where[] = 'EXISTS (SELECT 1 FROM ventas_documentos_detalle d WHERE d.id_documento_venta = v.id AND d.id_item = :id_item AND d.deleted_at IS NULL)';
-            $params['id_item'] = (int) $f['id_item'];
-        }
+        
+        // Usamos nuestro filtro de items
+        $this->aplicarFiltroItem($where, $params, $f, 'v');
+
         if (($f['estado'] ?? 'validas') === 'validas') {
             $where[] = 'v.estado NOT IN (0, 9)'; // Ni borradores ni anuladas
         } elseif ($f['estado'] !== 'todas' && $f['estado'] !== '') {
@@ -115,8 +142,10 @@ class ReporteVentasModel extends Modelo
     {
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
         
-        // MODIFICACIÓN: Agregamos v.tipo_operacion = 'VENTA' para que la donación no infle el ranking de productos
         $where = ["v.tipo_operacion = 'VENTA'", 'v.deleted_at IS NULL', 'd.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh'];
+        
+        $where[] = "i.tipo_item = 'producto_terminado'";
+        if (!empty($f['id_categoria'])) { $where[] = 'i.id_categoria = :id_categoria'; $params['id_categoria'] = (int) $f['id_categoria']; }
         
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
         if (!empty($f['id_item'])) { $where[] = 'd.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
@@ -130,9 +159,6 @@ class ReporteVentasModel extends Modelo
         $this->aplicarFiltroTipoTercero($where, $params, $f, 'v');
         $w = implode(' AND ', $where);
 
-        /* * MODIFICACIÓN APLICADA Y CONFIRMADA:
-         * Usamos (d.cantidad * d.precio_unitario) basándonos en la estructura real de la tabla.
-         */
         $sql = "SELECT COALESCE(i.nombre, pp.nombre) AS producto,
                        ROUND(SUM(d.cantidad),2) AS total_cantidad,
                        ROUND(SUM(d.cantidad * d.precio_unitario),2) AS total_monto 
@@ -151,31 +177,24 @@ class ReporteVentasModel extends Modelo
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
-    
 
     public function pendientesDespacho(array $f, int $pagina, int $tamano): array
     {
         $offset = ($pagina - 1) * $tamano;
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
         
-        // Aquí NO filtramos donaciones, porque el almacén SÍ debe despacharlas.
         $where = ['v.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh', 'v.estado IN (2,6)'];
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
-        if (!empty($f['id_item'])) {
-            $where[] = 'EXISTS (SELECT 1 FROM ventas_documentos_detalle d2 WHERE d2.id_documento_venta = v.id AND d2.id_item = :id_item AND d2.deleted_at IS NULL)';
-            $params['id_item'] = (int) $f['id_item'];
-        }
+        
+        // Usamos nuestro filtro de items
+        $this->aplicarFiltroItem($where, $params, $f, 'v');
+
         $this->aplicarFiltroTipoTercero($where, $params, $f, 'v');
         $w = implode(' AND ', $where);
 
         $count = $this->db()->prepare("SELECT COUNT(*) FROM ventas_documentos v WHERE {$w}");
         $count->execute($params);
 
-        /* * MODIFICACIÓN APLICADA:
-         * 1. Retiramos el LEFT JOIN a la tabla almacenes ya que el almacén se define al despachar.
-         * 2. Enviamos el texto 'Por asignar' como valor de la columna `almacen`.
-         * 3. Retiramos a.nombre del GROUP BY.
-         */
         $sql = "SELECT v.codigo AS documento, t.nombre_completo AS cliente,
                        ROUND(COALESCE(SUM(d.cantidad - d.cantidad_despachada),0),2) AS saldo_despachar,
                        'Por asignar' AS almacen,
@@ -207,10 +226,10 @@ class ReporteVentasModel extends Modelo
             $where[] = 'v.id_cliente = :id_cliente';
             $params['id_cliente'] = (int) $f['id_cliente'];
         }
-        if (!empty($f['id_item'])) {
-            $where[] = 'EXISTS (SELECT 1 FROM ventas_documentos_detalle d WHERE d.id_documento_venta = v.id AND d.id_item = :id_item AND d.deleted_at IS NULL)';
-            $params['id_item'] = (int) $f['id_item'];
-        }
+        
+        // Usamos nuestro filtro de items
+        $this->aplicarFiltroItem($where, $params, $f, 'v');
+
         if (($f['estado'] ?? 'validas') === 'validas') {
             $where[] = 'v.estado NOT IN (0, 9)'; // Ni borradores ni anuladas
         } elseif ($f['estado'] !== 'todas' && $f['estado'] !== '') {
@@ -222,8 +241,6 @@ class ReporteVentasModel extends Modelo
         $w = implode(' AND ', $where);
 
         if ($agrupacion === 'semanal') {
-            // Usamos MIN(fecha) y WEEKDAY para calcular el Lunes y el Domingo de esa semana, 
-            // asegurando compatibilidad con el modo estricto ONLY_FULL_GROUP_BY de MySQL.
             $sql = "SELECT YEAR(v.fecha_emision) AS periodo_anio,
                            WEEK(v.fecha_emision, 1) AS periodo_semana,
                            CONCAT(
@@ -252,7 +269,6 @@ class ReporteVentasModel extends Modelo
                     ORDER BY periodo_mes DESC
                     LIMIT :limite";
         } else {
-            // Agrupamiento diario por defecto
             $sql = "SELECT DATE(v.fecha_emision) AS periodo_fecha,
                            DATE_FORMAT(DATE(v.fecha_emision), '%Y-%m-%d') AS etiqueta,
                            ROUND(SUM(v.total), 2) AS total_vendido,
@@ -272,5 +288,17 @@ class ReporteVentasModel extends Modelo
         $stmt->execute();
 
         return array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+    }
+
+    // --- NUEVA FUNCIÓN AGREGADA AQUÍ ---
+    public function categoriasProductosTerminados(): array
+    {
+        $sql = "SELECT DISTINCT c.id, c.nombre 
+                FROM categorias c
+                INNER JOIN items i ON i.id_categoria = c.id
+                WHERE c.estado = 1 AND i.tipo_item = 'producto_terminado'
+                ORDER BY c.nombre ASC";
+                
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 }

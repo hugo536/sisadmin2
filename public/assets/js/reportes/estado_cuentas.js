@@ -46,7 +46,9 @@ if (typeof window.inicializarModuloEstadoCuentas === 'undefined') {
 
             const params = new URLSearchParams(new FormData(formEstadoCuenta));
             const baseUrl = formEstadoCuenta.action.split('?')[0];
-            const destino = new URL(baseUrl, window.location.origin);
+            
+            // APLICAMOS BLINDAJE CON window.URL
+            const destino = new window.URL(baseUrl, window.location.origin);
             destino.search = params.toString();
 
             if (typeof window.navigateWithoutReload === 'function') {
@@ -72,7 +74,9 @@ if (typeof window.inicializarModuloEstadoCuentas === 'undefined') {
                 if (inputHasta) inputHasta.value = '';
 
                 const baseUrl = formEstadoCuenta.action.split('?')[0];
-                const destino = new URL(baseUrl, window.location.origin);
+                
+                // APLICAMOS BLINDAJE CON window.URL
+                const destino = new window.URL(baseUrl, window.location.origin);
                 const inputRuta = formEstadoCuenta.querySelector('input[name="ruta"]');
                 if (inputRuta) destino.searchParams.set('ruta', inputRuta.value);
 

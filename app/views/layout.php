@@ -222,9 +222,9 @@ if (!str_starts_with($temaElegido, 'theme-')) {
     <script src="<?php echo e(asset_url('js/reportes/inventario.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/inventario.js'); ?>"></script>
 <?php endif; ?>
 
-<?php if ($currentRoute === 'reportes/ventas'): ?>
+<?php if ($currentRoute === 'reportes/compras'): ?>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <script src="<?php echo e(asset_url('js/reportes/ventas.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/ventas.js'); ?>"></script>
+    <script src="<?php echo e(asset_url('js/reportes/compras.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/compras.js'); ?>"></script>
 <?php endif; ?>
 
 <?php if ($currentRoute === 'reportes/tesoreria_movimientos'): ?>
@@ -335,6 +335,47 @@ Swal.fire({
 <?php endif; ?>
 
 <script src="<?php echo e(asset_url('js/inactividad.js')); ?>?v=<?php echo $getAssetVersion('js/inactividad.js'); ?>"></script>
+
+<!-- Pega esto justo ANTES de la etiqueta </body> en tu layout.php -->
+<script>
+    // --- GESTOR DE ESTADO DEL SIDEBAR (CERO BUGS, CERO PARPADEOS) ---
+    (function() {
+        let linksDashboard = null;
+
+        // Este ciclo se ejecuta 20 veces por segundo. Es imperceptible para la PC, 
+        // pero garantiza que la UI sea 100% estricta y no haya "condiciones de carrera" con la SPA.
+        setInterval(() => {
+            // Guardamos los botones en memoria la primera vez para máximo rendimiento
+            if (!linksDashboard || linksDashboard.length === 0) {
+                linksDashboard = document.querySelectorAll('.sb-link[href*="reportes/dashboard"], aside a[href*="reportes/dashboard"]');
+            }
+            
+            const ruta = new URLSearchParams(window.location.search).get('ruta') || '';
+            const estamosEnReportes = ruta.startsWith('reportes/');
+
+            linksDashboard.forEach(link => {
+                // Apagamos la animación para evitar el flash
+                link.style.transition = 'none'; 
+
+                if (estamosEnReportes) {
+                    // Si estamos en CUALQUIER reporte, forzamos que esté activo
+                    if (!link.classList.contains('active')) {
+                        link.classList.add('active');
+                    }
+                } else {
+                    // Si NO estamos en un reporte (ej. Inventario), le QUITAMOS el activo
+                    // (Ojo: Si la ruta es exactamente el dashboard, tu main.js ya se encarga de dejarlo activo)
+                    if (ruta !== 'reportes/dashboard' && link.classList.contains('active')) {
+                        link.classList.remove('active');
+                    }
+                }
+            });
+        }, 50);
+    })();
+</script>
+
+</body>
+</html>
 
 </body>
 </html>

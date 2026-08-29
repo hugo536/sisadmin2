@@ -31,4 +31,33 @@ class ReporteDashboardModel extends Modelo
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
+
+    /**
+     * Obtiene los empleados que cumplen años en el mes actual.
+     * Solo retorna aquellos cuya fecha de cumpleaños aún no ha pasado en el mes.
+     */
+    public function obtenerCumpleanosMes(): array
+    {
+        // Asumiendo que tu tabla se llama "empleados" o "usuarios" 
+        // y tiene campos: nombre_completo, fecha_nacimiento
+        $sql = "SELECT 
+                    nombre_completo, 
+                    DATE_FORMAT(fecha_nacimiento, '%d/%m') as fecha_cumple,
+                    -- Calculamos cuántos días faltan desde hoy hasta su cumpleaños este año
+                    DATEDIFF(
+                        DATE(CONCAT(YEAR(CURDATE()), '-', MONTH(fecha_nacimiento), '-', DAY(fecha_nacimiento))), 
+                        CURDATE()
+                    ) as dias_restantes
+                FROM usuarios 
+                WHERE deleted_at IS NULL 
+                  AND estado = 1 
+                  AND MONTH(fecha_nacimiento) = MONTH(CURDATE())
+                HAVING dias_restantes >= 0
+                ORDER BY dias_restantes ASC";
+                
+        $stmt = $this->db()->prepare($sql);
+        $stmt->execute();
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 }

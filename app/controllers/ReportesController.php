@@ -52,11 +52,26 @@ class ReportesController extends Controlador
         require_permiso('reportes.dashboard.ver');
         $this->registrarAuditoria('dashboard');
 
+        // 1. Obtener Productos Críticos (Asumiendo que reutilizamos stockActual filtrado)
+        $filtrosCriticos = ['solo_bajo_minimo' => 1];
+        $stockCriticoData = $this->inventario->stockActual($filtrosCriticos, 1, 5);
+        $productosCriticos = $stockCriticoData['rows'] ?? [];
+
+        // 2. Obtener Cumpleaños del Mes
+        // Nota: Asegúrate de tener un método en UsuariosModel que traiga los del mes actual
+        $cumpleanosMes = $this->usuariosModel->obtenerCumpleanosMes() ?? [];
+
+        // 3. Obtener Últimos Eventos (Bitácora)
+        // Nota: Asegúrate de tener un método que traiga los últimos registros
+        $eventos = $this->usuariosModel->obtenerUltimosEventos(5) ?? [];
+
         $this->render('reportes/dashboard', [
             'ruta_actual' => 'reportes/dashboard',
-            'inventario_valorizado' => $this->inventario->resumenValorizacionDashboard(),
+            // ELIMINADA LA LÍNEA DE inventario_valorizado
+            'productosCriticos' => $productosCriticos,
+            'cumpleanosMes' => $cumpleanosMes,
+            'eventos' => $eventos,
             'reportes_widgets' => [
-                'stock_critico' => $this->inventario->contarStockCritico(),
                 'compras_pendientes' => $this->compras->contarPendientes(),
                 'ventas_por_despachar' => $this->ventas->contarPorDespachar(),
                 'produccion_proceso' => $this->produccion->contarEnProceso(),
@@ -92,7 +107,7 @@ class ReportesController extends Controlador
             'dias' => (int) ($_GET['dias'] ?? 30),
             'situacion_alerta' => trim((string) ($_GET['situacion_alerta'] ?? '')),
             'seccion_activa' => $seccionActiva,
-            'ocultar_valores' => (int) ($_GET['ocultar_valores'] ?? 0) // <-- AQUÍ ESTÁ LA MAGIA
+            'ocultar_valores' => (int) ($_GET['ocultar_valores'] ?? 0)
         ];
 
         if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
@@ -273,16 +288,83 @@ class ReportesController extends Controlador
         AuthMiddleware::handle();
         require_permiso('reportes.compras.ver');
         $this->registrarAuditoria('compras');
+
+        // 1. MANEJO DE BÚSQUEDA AJAX PARA INSUMOS (TomSelect)
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_productos') {
+            $q = trim((string) ($_GET['q'] ?? ''));
+            // Reutilizamos el modelo de ventasDocumentoModel para buscar ítems
+            json_response(['ok' => true, 'data' => $this->ventasDocumentoModel->buscarItems($q, 0, 0, 1, 40)]);
+            return;
+        }
+
         [$pagina, $tamano] = $this->paginacion();
+        
+        // 2. CONTROL DE SECCIÓN ACTIVA
+        $seccionActiva = trim((string)($_GET['seccion_activa'] ?? 'tendencias'));
+        if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimiento', 'variacion'])) {
+            $seccionActiva = 'tendencias';
+        }
+
+        // 3. CAPTURA Y NORMALIZACIÓN DE FILTROS
         $f = $this->filtrosPeriodo();
         $f['id_proveedor'] = (int) ($_GET['id_proveedor'] ?? 0);
         $f['id_almacen'] = (int) ($_GET['id_almacen'] ?? 0);
+        $f['id_categoria'] = (int) ($_GET['id_categoria'] ?? 0);
+        $f['id_item'] = (int) ($_GET['id_item'] ?? 0);
+        
+        $agrupacionFiltro = $_GET['agrupacion'] ?? 'diaria';
+        $f['agrupacion'] = in_array($agrupacionFiltro, ['diaria', 'semanal', 'mensual']) ? $agrupacionFiltro : 'diaria';
+        $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'linea') === 'barras' ? 'barras' : 'linea';
+        $f['seccion_activa'] = $seccionActiva;
 
+        // Configuración de límites para gráficos de tendencias
+        $limiteTendencia = 12; 
+        if ($f['agrupacion'] === 'diaria') $limiteTendencia = 365;
+        elseif ($f['agrupacion'] === 'semanal') $limiteTendencia = 52;
+        elseif ($f['agrupacion'] === 'mensual') $limiteTendencia = 24;
+
+        // 4. EXPORTACIÓN A PDF (Condicional)
+        if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
+            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
+            require_once BASE_PATH . '/vendor/autoload.php';
+
+            // Consultas sin paginación para el PDF
+            $porPeriodo = ($seccionActiva === 'tendencias') ? $this->compras->comprasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : [];
+            $topInsumos = ($seccionActiva === 'insumos') ? $this->compras->topInsumos($f, 100) : [];
+            $porProveedor = ($seccionActiva === 'proveedores') ? $this->compras->comprasPorProveedor($f, 1, 999999) : [];
+            $ocCumplimiento = ($seccionActiva === 'cumplimiento') ? $this->compras->ocCumplimiento($f, 1, 999999) : [];
+            $variacionCostos = ($seccionActiva === 'variacion') ? $this->compras->variacionCostos($f, 1, 999999) : [];
+            
+            $filtros = $f;
+
+            ob_start();
+            require BASE_PATH . '/app/views/reportes/pdf_compras.php'; // Asegúrate de tener este archivo si vas a exportar
+            $html = ob_get_clean();
+
+            $dompdf = new \Dompdf\Dompdf();
+            $options = $dompdf->getOptions();
+            $options->set(['isRemoteEnabled' => true]);
+            $dompdf->setOptions($options);
+
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'landscape'); 
+            $dompdf->render();
+            
+            $nombreArchivo = 'Reporte_Compras_' . ucfirst($seccionActiva) . '.pdf';
+            $dompdf->stream($nombreArchivo, ['Attachment' => false]);
+            return;
+        }
+
+        // 5. RENDERIZADO DE LA VISTA WEB
         $this->render('reportes/compras', [
             'ruta_actual' => 'reportes/compras',
             'filtros' => $f,
-            'porProveedor' => $this->compras->comprasPorProveedor($f, $pagina, $tamano),
-            'ocCumplimiento' => $this->compras->ocCumplimiento($f, $pagina, $tamano),
+            'categoriasFiltro' => $this->inventario->listarCategoriasActivas(), // Aprovechamos el método de inventario
+            'porPeriodo' => ($seccionActiva === 'tendencias') ? $this->compras->comprasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : [],
+            'topInsumos' => ($seccionActiva === 'insumos') ? $this->compras->topInsumos($f, 999999) : [],
+            'porProveedor' => ($seccionActiva === 'proveedores') ? $this->compras->comprasPorProveedor($f, $pagina, $tamano) : [],
+            'ocCumplimiento' => ($seccionActiva === 'cumplimiento') ? $this->compras->ocCumplimiento($f, $pagina, $tamano) : [],
+            'variacionCostos' => ($seccionActiva === 'variacion') ? $this->compras->variacionCostos($f, $pagina, $tamano) : [],
             'pagina' => $pagina,
             'tamano' => $tamano,
         ]);
@@ -319,10 +401,9 @@ class ReportesController extends Controlador
 
         $f = $this->filtrosPeriodo();
         $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
+        $f['id_categoria'] = (int) ($_GET['id_categoria'] ?? 0);
         $f['tipo_tercero'] = $tipoTercero; 
-        // El buscador comparte items individuales y presentaciones (packs). No se
-        // debe convertir directamente "PACK-8" a entero porque PHP lo vuelve 0
-        // y el reporte termina mostrando todos los productos.
+        
         $productoFiltro = trim((string) ($_GET['id_item'] ?? ''));
         $f['producto_filtro'] = $productoFiltro;
         $f['id_item'] = 0;
@@ -332,35 +413,48 @@ class ReportesController extends Controlador
         } elseif (preg_match('/^ITEM-(\d+)$/', $productoFiltro, $coincidencia)) {
             $f['id_item'] = (int) $coincidencia[1];
         } elseif (ctype_digit($productoFiltro)) {
-            // Compatibilidad con enlaces antiguos que enviaban solamente el ID.
             $f['id_item'] = (int) $productoFiltro;
             $f['producto_filtro'] = 'ITEM-' . $f['id_item'];
         }
         $f['estado'] = $_GET['estado'] ?? 'validas';
         $agrupacionFiltro = $_GET['agrupacion'] ?? 'diaria';
         $f['agrupacion'] = in_array($agrupacionFiltro, ['diaria', 'semanal', 'mensual']) ? $agrupacionFiltro : 'diaria';
-        // Si no hay valor por GET, por defecto será 'linea'
         $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'linea') === 'barras' ? 'barras' : 'linea';
         $f['seccion_activa'] = $seccionActiva;
 
-        // 1. PRIMERO DEFINIMOS EL LÍMITE (Lo movimos hacia arriba)
+        // 1. PRIMERO DEFINIMOS EL LÍMITE
         $limiteTendencia = 12; // Por defecto
         if ($f['agrupacion'] === 'diaria') $limiteTendencia = 365;
         elseif ($f['agrupacion'] === 'semanal') $limiteTendencia = 52;
         elseif ($f['agrupacion'] === 'mensual') $limiteTendencia = 24;
 
-        // 2. LUEGO EXPORTAMOS EL PDF (Usando la variable $limiteTendencia)
+        // 2. LUEGO EXPORTAMOS EL PDF
         if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
             require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
             require_once BASE_PATH . '/vendor/autoload.php';
 
-            // REEMPLAZAMOS EL 365 POR $limiteTendencia
             $porPeriodo = ($seccionActiva === 'tendencias') ? $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : []; 
             $porCliente = ($seccionActiva === 'clientes') ? $this->ventas->ventasPorCliente($f, 1, 999999) : [];
             $topProductos = ($seccionActiva === 'productos') ? $this->ventas->topProductos($f, 100) : []; 
             $pendientes = ($seccionActiva === 'pendientes') ? $this->ventas->pendientesDespacho($f, 1, 999999) : [];
             
-            // ... (resto del código del PDF)
+            $filtros = $f;
+
+            ob_start();
+            require BASE_PATH . '/app/views/reportes/pdf_ventas.php';
+            $html = ob_get_clean();
+
+            $dompdf = new \Dompdf\Dompdf();
+            $options = $dompdf->getOptions();
+            $options->set(['isRemoteEnabled' => true]);
+            $dompdf->setOptions($options);
+
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'landscape'); 
+            $dompdf->render();
+            
+            $nombreArchivo = 'Reporte_Ventas_' . ucfirst($seccionActiva) . '.pdf';
+
             $dompdf->stream($nombreArchivo, ['Attachment' => false]);
             return;
         }
@@ -369,6 +463,8 @@ class ReportesController extends Controlador
         $this->render('reportes/ventas', [
             'ruta_actual' => 'reportes/ventas',
             'filtros' => $f,
+            // ¡AQUÍ ESTÁ LA CORRECCIÓN! Usamos el modelo de ventas en lugar del de inventario
+            'categoriasFiltro' => $this->ventas->categoriasProductosTerminados(), 
             'clientesFiltro' => $this->ventasDocumentoModel->buscarClientes('', 200, $tipoTercero),
             'productosFiltro' => $this->ventasDocumentoModel->buscarItems('', 0, 0, 1, 200),
             'porCliente' => ($seccionActiva === 'clientes') ? $this->ventas->ventasPorCliente($f, $pagina, $tamano) : [],
@@ -537,7 +633,6 @@ class ReportesController extends Controlador
         [$pagina, $tamano] = $this->paginacion();
         $f = $this->filtrosPeriodo();
 
-        // --- CORRECCIÓN AQUÍ: Usamos los métodos normalizadores que ya existen en tu controlador ---
         $f['id_cuenta'] = $this->normalizarIdsFiltro($_GET['id_cuenta'] ?? []);
         $f['id_metodo_pago'] = $this->normalizarTextoFiltro($_GET['id_metodo_pago'] ?? []);
         $f['origen'] = array_map('strtoupper', $this->normalizarTextoFiltro($_GET['origen'] ?? []));
@@ -545,7 +640,6 @@ class ReportesController extends Controlador
         $f['busqueda'] = mb_strtolower(trim((string) ($_GET['busqueda'] ?? '')));
         $f['id_origen'] = (int) ($_GET['id_origen'] ?? 0);
         $f['id_tercero'] = (int) ($_GET['id_tercero'] ?? 0);
-        // ------------------------------------------------------------------------------------------
 
         $resumenCuentas = $this->reporteTesoreriaMov->listarCuentas(); 
         $metodos = $this->reporteTesoreriaMov->listarMetodosPago();
@@ -595,7 +689,6 @@ class ReportesController extends Controlador
         $fechaHasta = trim((string) ($_GET['fecha_hasta'] ?? ''));
 
         if ($fechaDesde === '' || $fechaHasta === '') {
-            // Rango por defecto: Últimos 30 días
             $fechaDesde = date('Y-m-d', strtotime('-30 days'));
             $fechaHasta = date('Y-m-d');
         }
@@ -621,7 +714,7 @@ class ReportesController extends Controlador
                 (string) ($_SERVER['HTTP_USER_AGENT'] ?? '')
             );
         } catch (Throwable $e) {
-            // no-op para no interrumpir la visualización de reportes
+            
         }
     }
 

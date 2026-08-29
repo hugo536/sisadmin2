@@ -127,7 +127,12 @@
             <div class="sb-section-label">Operación diaria</div>
 
             <?php if (tiene_permiso('reportes.dashboard.ver')): ?>
-            <a class="sb-link<?= $activo('reportes/dashboard') ?>" href="<?= e(route_url('reportes/dashboard')) ?>" data-tooltip="Reportes y Control">
+            <?php 
+                // Usamos la súper-global $_GET para que nunca falle dentro de la función
+                $rutaMenu = $_GET['ruta'] ?? 'reportes/dashboard';
+                $esReporte = (strpos($rutaMenu, 'reportes/') === 0);
+            ?>
+            <a class="sb-link <?php echo $esReporte ? 'active' : ''; ?>" href="<?php echo e(route_url('reportes/dashboard')); ?>" data-tooltip="Reportes y Control">
                 <span class="sb-link-icon"><i class="bi bi-graph-up-arrow"></i></span>
                 <span class="sb-link-text">Dashboard</span>
             </a>

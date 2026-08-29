@@ -1,22 +1,22 @@
 /**
- * LÓGICA CENTRALIZADA PARA REPORTES DE VENTAS
- * Archivo: public/assets/js/reportes/ventas.js
+ * LÓGICA CENTRALIZADA PARA REPORTES DE COMPRAS
+ * Archivo: public/assets/js/reportes/compras.js
  */
 
-if (typeof window.inicializarModuloReporteVentas === 'undefined') {
+if (typeof window.inicializarModuloReporteCompras === 'undefined') {
 
-    // 1. FUNCIÓN INDEPENDIENTE PARA BUSCADORES AJAX
-    window.inicializarBuscadoresAjax = function() {
+    // 1. FUNCIÓN INDEPENDIENTE PARA BUSCADORES AJAX EN COMPRAS
+    window.inicializarBuscadoresAjaxCompras = function() {
         if (typeof window.TomSelect === 'undefined') return;
 
-        const clienteSelect = document.getElementById('filtroVentasCliente');
-        const tipoTerceroSelect = document.getElementById('filtroVentasTipoTercero');
-        const productoSelect = document.getElementById('filtroVentasProducto');
-        
-        // Capturamos el select de categoría
-        const categoriaSelect = document.getElementById('filtroVentasCategoria');
+        // Capturamos los selects por su atributo name (ya que se usan en las vistas de insumos/variación)
+        const formReporte = document.getElementById('formFiltrosReporteCompras');
+        if (!formReporte) return;
 
-        const initTS = (el, actionStr, depEl = null, depParam = '') => {
+        const productoSelect = formReporte.querySelector('select[name="id_item"]');
+        const categoriaSelect = formReporte.querySelector('select[name="id_categoria"]');
+
+        const initTS = (el, actionStr) => {
             if (el && !el.tomselect) {
                 new TomSelect(el, {
                     valueField: 'id', 
@@ -39,16 +39,12 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
 
                     load(query, callback) {
                         const u = new URL(window.location.origin + window.location.pathname);
-                        u.searchParams.set('ruta', 'reportes/ventas');
+                        u.searchParams.set('ruta', 'reportes/compras'); // Ajustado para compras
                         u.searchParams.set('accion', actionStr);
                         u.searchParams.set('q', query || '');
                         
-                        if(depEl && depParam) {
-                            u.searchParams.set(depParam, depEl.value || '');
-                        }
-                        
                         // Si estamos buscando productos, enviamos la categoría seleccionada al backend
-                        if (actionStr === 'buscar_productos' && typeof categoriaSelect !== 'undefined' && categoriaSelect && categoriaSelect.value) {
+                        if (actionStr === 'buscar_productos' && categoriaSelect && categoriaSelect.value) {
                             u.searchParams.set('id_categoria', categoriaSelect.value);
                         }
                         
@@ -58,7 +54,7 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
                                 const data = Array.isArray(json?.data) ? json.data : [];
                                 const mappedData = data.map(item => ({
                                     id: item.id,
-                                    text: actionStr === 'buscar_productos' ? item.nombre : item.nombre_completo,
+                                    text: item.nombre || item.nombre_completo,
                                     ...item
                                 }));
                                 callback(mappedData);
@@ -75,17 +71,19 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
             }
         };
 
-        initTS(clienteSelect, 'buscar_clientes', tipoTerceroSelect, 'tipo_tercero');
-        initTS(productoSelect, 'buscar_productos');
+        if (productoSelect) {
+            // Nota: backend debe responder a 'buscar_productos' en el controlador de compras igual que en ventas
+            initTS(productoSelect, 'buscar_productos');
+        }
     };
 
-    // 2. FUNCIÓN PRINCIPAL DEL MÓDULO
-    window.inicializarModuloReporteVentas = function() {
+    // 2. FUNCIÓN PRINCIPAL DEL MÓDULO DE COMPRAS
+    window.inicializarModuloReporteCompras = function() {
         
         // Inicializamos los buscadores
-        setTimeout(window.inicializarBuscadoresAjax, 100);
+        setTimeout(window.inicializarBuscadoresAjaxCompras, 100);
 
-        const formId = 'formFiltrosReporteVentas';
+        const formId = 'formFiltrosReporteCompras';
         const formReporte = document.getElementById(formId);
 
         if (!formReporte || formReporte.getAttribute('data-js-init') === 'true') {
@@ -104,7 +102,7 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
                         icon: 'error',
                         title: 'Rango inválido',
                         text: 'La fecha "Desde" no puede ser mayor que la fecha "Hasta".',
-                        confirmButtonColor: '#0B5ED7'
+                        confirmButtonColor: '#0d6efd' // Color primary azul
                     });
                 } else {
                     alert('La fecha "Desde" no puede ser mayor que la fecha "Hasta".');
@@ -153,7 +151,7 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
                 const baseUrl = formReporte.action.split('?')[0];
                 const destino = new URL(baseUrl, window.location.origin);
                 
-                destino.searchParams.set('ruta', 'reportes/ventas');
+                destino.searchParams.set('ruta', 'reportes/compras');
                 destino.searchParams.set('seccion_activa', seccion);
                 
                 if (typeof window.navigateWithoutReload === 'function') {
@@ -189,24 +187,20 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
         // =======================================================
         if (typeof Chart !== 'undefined') {
 
-            // --- ESTA ES LA FUNCIÓN QUE EVITA EL ERROR DE MEMORIA ---
             const crearGraficoSeguroSPA = (canvasElement, config) => {
                 const chartInstance = new Chart(canvasElement, config);
-                
-                // El observador "vigila" si la SPA elimina el canvas de la pantalla
                 const observer = new MutationObserver(() => {
                     if (!document.body.contains(canvasElement)) {
-                        chartInstance.destroy(); // Destruye la animación y libera la memoria
-                        observer.disconnect();   // Apaga el espía
+                        chartInstance.destroy(); 
+                        observer.disconnect();   
                     }
                 });
-                
                 observer.observe(document.body, { childList: true, subtree: true });
                 return chartInstance;
             };
 
-            // 1. GRÁFICO DE TENDENCIAS
-            const canvasTendencias = document.getElementById('ventasPeriodoChart');
+            // 1. GRÁFICO DE TENDENCIAS DE COMPRAS
+            const canvasTendencias = document.getElementById('comprasPeriodoChart');
             if (canvasTendencias) {
                 try {
                     const chartData = JSON.parse(canvasTendencias.getAttribute('data-chart-data') || '[]');
@@ -221,17 +215,17 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
                             }
                             return etiqueta;
                         });
-                        const data = chartData.map(r => Number(r.total_vendido ?? 0));
+                        const data = chartData.map(r => Number(r.total_comprado ?? 0)); // Usando total_comprado
 
                         crearGraficoSeguroSPA(canvasTendencias, {
                             type: tipoGrafico,
                             data: {
                                 labels,
                                 datasets: [{
-                                    label: 'Total vendido (S/)',
+                                    label: 'Total comprado (S/)',
                                     data,
-                                    borderColor: '#198754',
-                                    backgroundColor: tipoGrafico === 'line' ? 'rgba(25,135,84,.15)' : 'rgba(25,135,84,.35)',
+                                    borderColor: '#0d6efd', // Azul primario
+                                    backgroundColor: tipoGrafico === 'line' ? 'rgba(13,110,253,.15)' : 'rgba(13,110,253,.8)',
                                     tension: .25,
                                     fill: tipoGrafico === 'line',
                                     pointRadius: tipoGrafico === 'line' ? 3 : 0,
@@ -259,27 +253,30 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
                             }
                         });
                     }
-                } catch (err) { console.error("Error Chart Tendencias:", err); }
+                } catch (err) { console.error("Error Chart Tendencias Compras:", err); }
             }
 
-            // 2. GRÁFICO POR CLIENTES
-            const canvasClientes = document.getElementById('ventasClientesChart');
-            if (canvasClientes) {
+            // 2. GRÁFICO TOP INSUMOS (DOUGHNUT)
+            const canvasInsumos = document.getElementById('comprasInsumosChart');
+            if (canvasInsumos) {
                 try {
-                    const chartData = JSON.parse(canvasClientes.getAttribute('data-chart-data') || '[]');
+                    const chartData = JSON.parse(canvasInsumos.getAttribute('data-chart-data') || '[]');
                     if (chartData.length > 0) {
                         const topN = chartData.slice(0, 5);
-                        const otros = chartData.slice(5).reduce((acc, curr) => acc + Number(curr.total_vendido || 0), 0);
+                        const otros = chartData.slice(5).reduce((acc, curr) => acc + Number(curr.total_monto || 0), 0);
                         
-                        const labels = topN.map(r => r.cliente);
-                        const data = topN.map(r => Number(r.total_vendido || 0));
+                        const labels = topN.map(r => {
+                            let nombre = r.producto || '';
+                            return nombre.length > 25 ? nombre.substring(0, 25) + '...' : nombre; 
+                        });
+                        const data = topN.map(r => Number(r.total_monto || 0));
                         
                         if (otros > 0) {
-                            labels.push('OTROS CLIENTES');
+                            labels.push('OTROS INSUMOS');
                             data.push(otros);
                         }
 
-                        crearGraficoSeguroSPA(canvasClientes, {
+                        crearGraficoSeguroSPA(canvasInsumos, {
                             type: 'doughnut',
                             data: {
                                 labels: labels,
@@ -305,61 +302,12 @@ if (typeof window.inicializarModuloReporteVentas === 'undefined') {
                             }
                         });
                     }
-                } catch (err) { console.error("Error Chart Clientes:", err); }
-            }
-
-            // 3. GRÁFICO TOP PRODUCTOS
-            const canvasProductos = document.getElementById('ventasProductosChart');
-            if (canvasProductos) {
-                try {
-                    const chartData = JSON.parse(canvasProductos.getAttribute('data-chart-data') || '[]');
-                    if (chartData.length > 0) {
-                        const topN = chartData.slice(0, 7);
-                        const labels = topN.map(r => {
-                            let nombre = r.producto || '';
-                            return nombre.length > 25 ? nombre.substring(0, 25) + '...' : nombre; 
-                        });
-                        const data = topN.map(r => Number(r.total_monto || 0));
-
-                        crearGraficoSeguroSPA(canvasProductos, {
-                            type: 'bar',
-                            data: {
-                                labels: labels,
-                                datasets: [{
-                                    label: 'Monto Generado',
-                                    data: data,
-                                    backgroundColor: 'rgba(13, 110, 253, 0.8)',
-                                    borderRadius: 4,
-                                }]
-                            },
-                            options: {
-                                indexAxis: 'y',
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    legend: { display: false },
-                                    tooltip: {
-                                        callbacks: {
-                                            label(ctx) { return ` S/ ${Number(ctx.parsed.x).toFixed(2)}`; }
-                                        }
-                                    }
-                                },
-                                scales: {
-                                    x: {
-                                        ticks: { 
-                                            callback(value) { return `S/ ${value}`; } 
-                                        }
-                                    }
-                                }
-                            }
-                        });
-                    }
-                } catch (err) { console.error("Error Chart Productos:", err); }
+                } catch (err) { console.error("Error Chart Insumos:", err); }
             }
         }
     };
 
     // --- AUTO-INICIALIZACIÓN INTELIGENTE ---
-    document.addEventListener('DOMContentLoaded', window.inicializarModuloReporteVentas);
-    document.addEventListener('sisadmin:route-loaded', window.inicializarModuloReporteVentas);
+    document.addEventListener('DOMContentLoaded', window.inicializarModuloReporteCompras);
+    document.addEventListener('sisadmin:route-loaded', window.inicializarModuloReporteCompras);
 }

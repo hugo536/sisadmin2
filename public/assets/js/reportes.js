@@ -7,6 +7,11 @@
   const forms = document.querySelectorAll('form[action*="reportes/"]');
   forms.forEach((form) => {
     form.addEventListener('submit', (e) => {
+      // Ignorar si el submitter es para exportar pdf o excel
+      if(e.submitter && (e.submitter.name === 'exportar_pdf' || e.submitter.name === 'exportar_excel' || e.submitter.formTarget === '_blank')) {
+          return; 
+      }
+
       const desde = form.querySelector('input[name="fecha_desde"]');
       const hasta = form.querySelector('input[name="fecha_hasta"]');
       
@@ -29,7 +34,6 @@
   });
 
   // 2. LÓGICA PARA FILTROS DE REPORTE DE INVENTARIO
-  // (Nota: La lógica de Estado de Cuentas fue movida a su propio archivo: estado_cuentas.js)
   const initReporteInventarioFiltros = () => {
     const appInventario = document.getElementById('reportesInventarioApp');
     if (!appInventario) return;
