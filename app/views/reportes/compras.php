@@ -371,21 +371,15 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
             <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
                 <i class="bi bi-building me-2 text-primary"></i>Compras por proveedor
             </h5>
-            <div class="d-flex align-items-center gap-3">
-                <div class="input-group input-group-sm shadow-sm" style="max-width: 250px;">
-                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepProveedores" placeholder="Buscar proveedor...">
-                </div>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-secondary fw-semibold shadow-sm dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #4b5563; border-color: #4b5563;">
-                        <i class="bi bi-cloud-download me-2"></i> Exportar
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
-                        <li><button type="submit" form="formFiltrosReporteCompras" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center"><i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Excel (.xlsx)</button></li>
-                        <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
-                        <li><button type="submit" form="formFiltrosReporteCompras" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank"><i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> PDF (.pdf)</button></li>
-                    </ul>
-                </div>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-secondary fw-semibold shadow-sm dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #4b5563; border-color: #4b5563;">
+                    <i class="bi bi-cloud-download me-2"></i> Exportar
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                    <li><button type="submit" form="formFiltrosReporteCompras" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center"><i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Excel (.xlsx)</button></li>
+                    <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
+                    <li><button type="submit" form="formFiltrosReporteCompras" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank"><i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> PDF (.pdf)</button></li>
+                </ul>
             </div>
         </div>
         
@@ -411,7 +405,6 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                     <div class="table-responsive border border-secondary-subtle rounded-3 bg-white d-flex flex-column h-100">
                         <table class="table align-middle mb-0 table-hover" id="tablaRepProveedores"
                                data-erp-table="true"
-                               data-search-input="#filtroRepProveedores"
                                data-rows-per-page="10">
                             <thead class="table-light border-bottom border-secondary-subtle">
                                 <tr>
@@ -426,7 +419,7 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                                     <tr class="empty-msg-row"><td colspan="4" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay datos para este periodo.</td></tr>
                                 <?php else: ?>
                                     <?php foreach (($porProveedor['rows'] ?? []) as $r): ?>
-                                        <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['proveedor'])); ?>">
+                                        <tr class="border-bottom">
                                             <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['proveedor']); ?></td>
                                             <td class="text-end fw-semibold text-primary">S/ <?php echo number_format((float)($r['total_recibido'] ?? 0), 2); ?></td>
                                             <td class="text-center">
@@ -459,21 +452,15 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
             <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
                 <i class="bi bi-check2-circle me-2 text-primary"></i>Estado y Cumplimiento OC
             </h5>
-            <div class="d-flex align-items-center gap-3">
-                <div class="input-group input-group-sm shadow-sm" style="max-width: 250px;">
-                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepCumplimiento" placeholder="Buscar OC o proveedor...">
-                </div>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-secondary fw-semibold shadow-sm dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #4b5563; border-color: #4b5563;">
-                        <i class="bi bi-cloud-download me-2"></i> Exportar
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
-                        <li><button type="submit" form="formFiltrosReporteCompras" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center"><i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Excel (.xlsx)</button></li>
-                        <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
-                        <li><button type="submit" form="formFiltrosReporteCompras" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank"><i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> PDF (.pdf)</button></li>
-                    </ul>
-                </div>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-secondary fw-semibold shadow-sm dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #4b5563; border-color: #4b5563;">
+                    <i class="bi bi-cloud-download me-2"></i> Exportar
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                    <li><button type="submit" form="formFiltrosReporteCompras" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center"><i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Excel (.xlsx)</button></li>
+                    <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
+                    <li><button type="submit" form="formFiltrosReporteCompras" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank"><i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> PDF (.pdf)</button></li>
+                </ul>
             </div>
         </div>
         
@@ -535,7 +522,6 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
             <div class="table-responsive bg-white mt-2">
                 <table class="table align-middle mb-0 table-hover" id="tablaRepCumplimiento"
                        data-erp-table="true"
-                       data-search-input="#filtroRepCumplimiento"
                        data-rows-per-page="12">
                     <thead class="table-light border-bottom border-secondary-subtle">
                         <tr>
@@ -553,7 +539,7 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                         <?php else: ?>
                             <?php foreach (($ocCumplimiento['rows'] ?? []) as $r): ?>
                                 <?php $retraso = (int)($r['retrasada'] ?? 0); ?>
-                                <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['codigo'] . ' ' . (string)$r['proveedor'])); ?>">
+                                <tr class="border-bottom">
                                     <td class="ps-4 fw-bold text-primary"><?php echo e((string)$r['codigo']); ?></td>
                                     <td class="fw-semibold text-dark"><?php echo e((string)$r['proveedor']); ?></td>
                                     <td class="text-center"><?php echo e((string)$r['solicitado']); ?></td>
@@ -597,29 +583,23 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
             <h5 class="mb-0 fw-bold text-dark d-flex align-items-center">
                 <i class="bi bi-tags-fill me-2 text-primary"></i>Análisis de Variación de Costos
             </h5>
-            <div class="d-flex align-items-center gap-3">
-                <div class="input-group input-group-sm shadow-sm" style="max-width: 250px;">
-                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
-                    <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepVariacion" placeholder="Buscar insumo...">
-                </div>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-secondary fw-semibold shadow-sm dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #4b5563; border-color: #4b5563;">
-                        <i class="bi bi-cloud-download me-2"></i> Exportar
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
-                        <li>
-                            <button type="submit" form="formFiltrosReporteCompras" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center">
-                                <i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Formato Excel (.xlsx)
-                            </button>
-                        </li>
-                        <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
-                        <li>
-                            <button type="submit" form="formFiltrosReporteCompras" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank">
-                                <i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> Formato PDF (.pdf)
-                            </button>
-                        </li>
-                    </ul>
-                </div>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-secondary fw-semibold shadow-sm dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #4b5563; border-color: #4b5563;">
+                    <i class="bi bi-cloud-download me-2"></i> Exportar
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                    <li>
+                        <button type="submit" form="formFiltrosReporteCompras" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center">
+                            <i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Formato Excel (.xlsx)
+                        </button>
+                    </li>
+                    <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
+                    <li>
+                        <button type="submit" form="formFiltrosReporteCompras" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank">
+                            <i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> Formato PDF (.pdf)
+                        </button>
+                    </li>
+                </ul>
             </div>
         </div>
         
@@ -627,7 +607,6 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
             <div class="table-responsive bg-white">
                 <table class="table align-middle mb-0 table-hover" id="tablaRepVariacion"
                        data-erp-table="true"
-                       data-search-input="#filtroRepVariacion"
                        data-rows-per-page="12">
                     <thead class="table-light border-bottom border-secondary-subtle">
                         <tr>
@@ -648,7 +627,7 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                                     $costoActual = (float)($r['costo_actual'] ?? 0);
                                     $variacion = $costoAnterior > 0 ? (($costoActual - $costoAnterior) / $costoAnterior) * 100 : 0;
                                 ?>
-                                <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['producto'])); ?>">
+                                <tr class="border-bottom">
                                     <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['producto']); ?></td>
                                     <td class="text-end text-muted fw-semibold">S/ <?php echo number_format($costoAnterior, 2); ?></td>
                                     <td class="text-end fw-bold text-dark">S/ <?php echo number_format($costoActual, 2); ?></td>
