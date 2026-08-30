@@ -287,12 +287,18 @@ class ReportesController extends Controlador
         $this->registrarAuditoria('compras');
 
         // 1. MANEJO DE BÚSQUEDA AJAX PARA INSUMOS (TomSelect / Select2)
-        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_insumos') {
+        $accionAjax = (string) ($_GET['accion'] ?? '');
+        if (es_ajax() && $accionAjax === 'buscar_insumos') {
             $q = trim((string) ($_GET['q'] ?? ''));
             $idCategoria = (int) ($_GET['id_categoria'] ?? 0);
             
             // Llamamos a un método específico de compras, no al de ventas
             json_response(['ok' => true, 'data' => $this->compras->buscarInsumosAjax($q, $idCategoria, 40)]);
+            return;
+        }
+        if (es_ajax() && $accionAjax === 'buscar_proveedores') {
+            $q = trim((string) ($_GET['q'] ?? ''));
+            json_response(['ok' => true, 'data' => $this->compras->buscarProveedoresAjax($q, 40)]);
             return;
         }
 
@@ -359,6 +365,8 @@ class ReportesController extends Controlador
             'filtros' => $f,
             'almacenesFiltro' => $this->inventario->listarAlmacenesActivos(), // <- INCLUIDO PARA EL SELECT DINÁMICO
             'categoriasFiltro' => $this->inventario->listarCategoriasActivas(),
+            'insumoSeleccionado' => $this->compras->obtenerInsumoPorId($f['id_item']),
+            'proveedorSeleccionado' => $this->compras->obtenerProveedorPorId($f['id_proveedor']),
             'porPeriodo' => ($seccionActiva === 'tendencias') ? $this->compras->comprasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : [],
             'topInsumos' => ($seccionActiva === 'insumos') ? $this->compras->topInsumos($f, 999999) : [],
             'porProveedor' => ($seccionActiva === 'proveedores') ? $this->compras->comprasPorProveedor($f, $pagina, $tamano) : [],
