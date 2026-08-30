@@ -123,7 +123,8 @@
                             <div class="col-12 col-sm-7">
                                 <label class="form-label text-muted small fw-bold mb-1 ms-1">Cliente Específico</label>
                                 <select name="id_cliente" id="filtroVentasCliente" class="form-select bg-light shadow-none border-secondary-subtle auto-submit" placeholder="Buscar cliente...">
-                                    <option value="" <?php echo empty($filtros['id_cliente']) ? 'selected' : ''; ?>>Todos...</option>
+                                    <!-- Reemplazamos "Todos..." por el texto exacto del placeholder -->
+                                    <option value="" <?php echo empty($filtros['id_cliente']) ? 'selected' : ''; ?>>Buscar cliente...</option>
                                     <?php foreach (($clientesFiltro ?? []) as $cli): ?>
                                         <option value="<?php echo (int) ($cli['id'] ?? 0); ?>" <?php echo ((int)($filtros['id_cliente'] ?? 0) === (int)($cli['id'] ?? 0)) ? 'selected' : ''; ?>>
                                             <?php echo e((string) ($cli['nombre_completo'] ?? '')); ?>
@@ -150,7 +151,8 @@
                             <div class="col-12 col-sm-7">
                                 <label class="form-label text-muted small fw-bold mb-1 ms-1">Producto Específico</label>
                                 <select name="id_item" id="filtroVentasProducto" class="form-select bg-light shadow-none border-secondary-subtle auto-submit" placeholder="Buscar producto...">
-                                    <option value="" <?php echo empty($filtros['producto_filtro']) ? 'selected' : ''; ?>>Todos...</option>
+                                    <!-- Reemplazamos "Todos..." por el texto exacto del placeholder -->
+                                    <option value="" <?php echo empty($filtros['producto_filtro']) ? 'selected' : ''; ?>>Buscar producto...</option>
                                     <?php foreach (($productosFiltro ?? []) as $item): ?>
                                         <option value="<?php echo e((string) ($item['id'] ?? '')); ?>" <?php echo (($filtros['producto_filtro'] ?? '') === (string)($item['id'] ?? '')) ? 'selected' : ''; ?>>
                                             <?php echo e((string) ($item['nombre'] ?? '')); ?>

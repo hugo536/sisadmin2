@@ -134,7 +134,7 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                             <div class="col-12 col-md-7">
                                 <label class="form-label text-muted small fw-bold mb-1 ms-1">Insumo Específico</label>
                                 <select name="id_item" class="form-select bg-light shadow-none border-secondary-subtle auto-submit">
-                                    <option value="">Buscar insumo o producto...</option>
+                                    <option value="">Escriba para buscar...</option>
                                     <?php if (!empty($insumoSeleccionado)): ?>
                                         <option value="<?php echo (int) $insumoSeleccionado['id']; ?>" selected><?php echo e((string) $insumoSeleccionado['nombre']); ?></option>
                                     <?php endif; ?>
@@ -148,7 +148,7 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                             <div class="col-12 col-md-6">
                                 <label class="form-label text-muted small fw-bold mb-1 ms-1">Proveedor</label>
                                 <select name="id_proveedor" class="form-select bg-light border-secondary-subtle shadow-none text-secondary auto-submit">
-                                    <option value="">Buscar proveedor por nombre...</option>
+                                    <option value="">Escriba para buscar...</option>
                                     <?php if (!empty($proveedorSeleccionado)): ?>
                                         <option value="<?php echo (int) $proveedorSeleccionado['id']; ?>" selected><?php echo e((string) $proveedorSeleccionado['nombre']); ?></option>
                                     <?php endif; ?>
@@ -179,7 +179,7 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
 
                         <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
                         <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
-                                                                                                                        
+                                                                                                                                                            
                         <button class="btn btn-light border text-primary px-3 transition-hover" type="submit" title="Aplicar filtros">
                             <i class="bi bi-funnel-fill"></i>
                         </button>
@@ -389,41 +389,62 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
             </div>
         </div>
         
-        <div class="card-body p-0 d-flex flex-column">
-            <div class="table-responsive bg-white">
-                <table class="table align-middle mb-0 table-hover" id="tablaRepProveedores"
-                       data-erp-table="true"
-                       data-search-input="#filtroRepProveedores"
-                       data-rows-per-page="12">
-                    <thead class="table-light border-bottom border-secondary-subtle">
-                        <tr>
-                            <th class="py-3 ps-4 text-secondary fw-semibold">Proveedor</th>
-                            <th class="py-3 text-end text-secondary fw-semibold">Total Comprado</th>
-                            <th class="py-3 text-center text-secondary fw-semibold"># Recepciones</th>
-                            <th class="py-3 text-end pe-4 text-secondary fw-semibold">Ticket Promedio</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if(empty($porProveedor['rows'])): ?>
-                            <tr class="empty-msg-row"><td colspan="4" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay datos para este periodo.</td></tr>
-                        <?php else: ?>
-                            <?php foreach (($porProveedor['rows'] ?? []) as $r): ?>
-                                <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['proveedor'])); ?>">
-                                    <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['proveedor']); ?></td>
-                                    <td class="text-end fw-semibold text-primary">S/ <?php echo number_format((float)($r['total_recibido'] ?? 0), 2); ?></td>
-                                    <td class="text-center">
-                                        <span class="badge bg-light text-secondary border shadow-sm px-2 py-1"><?php echo e((string)$r['recepciones']); ?></span>
-                                    </td>
-                                    <td class="text-end pe-4 fw-semibold text-muted">S/ <?php echo number_format((float)($r['costo_promedio_item'] ?? 0), 2); ?></td>
+        <div class="card-body p-4">
+            <div class="row g-4">
+                
+                <!-- COLUMNA DEL GRÁFICO (Dona/Pastel) -->
+                <div class="col-12 col-lg-5">
+                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light d-flex flex-column h-100">
+                        <h6 class="text-center fw-bold text-secondary mb-3">
+                            <i class="bi bi-pie-chart-fill me-2"></i>Concentración de Compras
+                        </h6>
+                        <div style="flex: 1; position: relative; min-height: 350px;">
+                            <canvas id="comprasProveedoresChart" 
+                                    data-chart-data='<?php echo htmlspecialchars(json_encode($porProveedor['rows'] ?? []), ENT_QUOTES, 'UTF-8'); ?>'>
+                            </canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DE LA TABLA -->
+                <div class="col-12 col-lg-7 d-flex flex-column">
+                    <div class="table-responsive border border-secondary-subtle rounded-3 bg-white d-flex flex-column h-100">
+                        <table class="table align-middle mb-0 table-hover" id="tablaRepProveedores"
+                               data-erp-table="true"
+                               data-search-input="#filtroRepProveedores"
+                               data-rows-per-page="10">
+                            <thead class="table-light border-bottom border-secondary-subtle">
+                                <tr>
+                                    <th class="py-3 ps-4 text-secondary fw-semibold">Proveedor</th>
+                                    <th class="py-3 text-end text-secondary fw-semibold">Total Comprado</th>
+                                    <th class="py-3 text-center text-secondary fw-semibold"># Recepciones</th>
+                                    <th class="py-3 text-end pe-4 text-secondary fw-semibold">Ticket Promedio</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-            <div class="mt-auto border-top border-secondary-subtle py-2 px-3 d-flex justify-content-between align-items-center bg-light rounded-bottom">
-                <small class="text-muted fw-semibold" id="tablaRepProveedoresPaginationInfo">Cargando...</small>
-                <nav><ul class="pagination pagination-sm mb-0 justify-content-end shadow-none" id="tablaRepProveedoresPaginationControls"></ul></nav>
+                            </thead>
+                            <tbody>
+                                <?php if(empty($porProveedor['rows'])): ?>
+                                    <tr class="empty-msg-row"><td colspan="4" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay datos para este periodo.</td></tr>
+                                <?php else: ?>
+                                    <?php foreach (($porProveedor['rows'] ?? []) as $r): ?>
+                                        <tr class="border-bottom" data-search="<?php echo e(mb_strtolower((string)$r['proveedor'])); ?>">
+                                            <td class="ps-4 fw-bold text-dark"><?php echo e((string)$r['proveedor']); ?></td>
+                                            <td class="text-end fw-semibold text-primary">S/ <?php echo number_format((float)($r['total_recibido'] ?? 0), 2); ?></td>
+                                            <td class="text-center">
+                                                <span class="badge bg-light text-secondary border shadow-sm px-2 py-1"><?php echo e((string)$r['recepciones']); ?></span>
+                                            </td>
+                                            <td class="text-end pe-4 fw-semibold text-muted">S/ <?php echo number_format((float)($r['costo_promedio_item'] ?? 0), 2); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                        <div class="mt-auto border-top border-secondary-subtle py-2 px-3 d-flex justify-content-between align-items-center bg-light rounded-bottom">
+                            <small class="text-muted fw-semibold" id="tablaRepProveedoresPaginationInfo">Cargando...</small>
+                            <nav><ul class="pagination pagination-sm mb-0 justify-content-end shadow-none" id="tablaRepProveedoresPaginationControls"></ul></nav>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
         </div>
     </div>
@@ -456,8 +477,62 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
             </div>
         </div>
         
+        <?php 
+            // Cálculo dinámico para los Widgets de Proveedores
+            $totalOC = count($ocCumplimiento['rows'] ?? []);
+            $ordenesRetrasadas = 0;
+            $sumaCumplimiento = 0;
+            
+            foreach ($ocCumplimiento['rows'] ?? [] as $r) {
+                if ((int)($r['retrasada'] ?? 0) === 1) {
+                    $ordenesRetrasadas++;
+                }
+                $sumaCumplimiento += (float)($r['pct_cumplimiento'] ?? 0);
+            }
+            $promedioCumplimiento = $totalOC > 0 ? ($sumaCumplimiento / $totalOC) : 0;
+        ?>
+
         <div class="card-body p-0 d-flex flex-column">
-            <div class="table-responsive bg-white">
+            
+            <!-- TARJETAS DE RESUMEN (WIDGETS) SIMILARES A VENTAS -->
+            <div class="row g-3 px-4 pt-4 pb-3 border-bottom border-secondary-subtle bg-light">
+                <div class="col-12 col-md-4">
+                    <div class="p-3 border rounded-3 bg-white shadow-sm d-flex align-items-center h-100 border-start border-primary border-4">
+                        <div class="bg-primary-subtle p-3 rounded-circle me-3">
+                            <i class="bi bi-receipt fs-4 text-primary"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted small fw-bold mb-0 text-uppercase" style="letter-spacing: 0.5px;">Órdenes Evaluadas</p>
+                            <h4 class="fw-bold mb-0 text-dark"><?php echo $totalOC; ?></h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="p-3 border rounded-3 bg-white shadow-sm d-flex align-items-center h-100 border-start border-success border-4">
+                        <div class="bg-success-subtle p-3 rounded-circle me-3">
+                            <i class="bi bi-graph-up-arrow fs-4 text-success"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted small fw-bold mb-0 text-uppercase" style="letter-spacing: 0.5px;">Cumplimiento Promedio</p>
+                            <h4 class="fw-bold mb-0 text-success"><?php echo number_format($promedioCumplimiento, 1); ?>%</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="p-3 border rounded-3 bg-white shadow-sm d-flex align-items-center h-100 border-start border-danger border-4">
+                        <div class="bg-danger-subtle p-3 rounded-circle me-3">
+                            <i class="bi bi-exclamation-triangle-fill fs-4 text-danger"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted small fw-bold mb-0 text-uppercase" style="letter-spacing: 0.5px;">Órdenes Retrasadas</p>
+                            <h4 class="fw-bold mb-0 <?php echo $ordenesRetrasadas > 0 ? 'text-danger' : 'text-secondary'; ?>"><?php echo $ordenesRetrasadas; ?></h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLA ORIGINAL MANTENIDA -->
+            <div class="table-responsive bg-white mt-2">
                 <table class="table align-middle mb-0 table-hover" id="tablaRepCumplimiento"
                        data-erp-table="true"
                        data-search-input="#filtroRepCumplimiento"

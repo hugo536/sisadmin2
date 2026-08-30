@@ -88,11 +88,16 @@ class ReporteComprasModel extends Modelo
         $count = $this->db()->prepare("SELECT COUNT(*) FROM compras_ordenes o WHERE {$w}");
         $count->execute($params);
 
+        // CORRECCIÓN: Usamos cantidad_base_solicitada para que coincida con la unidad de medida de cantidad_recibida
         $sql = "SELECT o.codigo,
                        t.nombre_completo AS proveedor,
-                       ROUND(COALESCE(SUM(od.cantidad_solicitada),0),2) AS solicitado,
+                       ROUND(COALESCE(SUM(COALESCE(od.cantidad_base_solicitada, od.cantidad_solicitada)),0),2) AS solicitado,
                        ROUND(COALESCE(SUM(od.cantidad_recibida),0),2) AS recibido,
-                       ROUND(CASE WHEN SUM(od.cantidad_solicitada) > 0 THEN (SUM(od.cantidad_recibida) / SUM(od.cantidad_solicitada)) * 100 ELSE 0 END,2) AS pct_cumplimiento,
+                       ROUND(CASE 
+                           WHEN SUM(COALESCE(od.cantidad_base_solicitada, od.cantidad_solicitada)) > 0 
+                           THEN (SUM(od.cantidad_recibida) / SUM(COALESCE(od.cantidad_base_solicitada, od.cantidad_solicitada))) * 100 
+                           ELSE 0 
+                       END, 2) AS pct_cumplimiento,
                        CASE WHEN o.fecha_entrega_estimada IS NOT NULL AND DATE(o.fecha_entrega_estimada) < CURDATE() AND o.estado IN (1,2) THEN 1 ELSE 0 END AS retrasada
                 FROM compras_ordenes o
                 INNER JOIN terceros t ON t.id = o.id_proveedor
@@ -357,5 +362,23 @@ class ReporteComprasModel extends Modelo
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
+    }
+
+    /**
+     * Lista solo las categorías que tienen ítems destinados a COMPRAS
+     * (Excluye productos terminados y semielaborados)
+     */
+    public function listarCategoriasParaCompras(): array
+    {
+        $sql = "SELECT DISTINCT c.id, c.nombre
+                FROM categorias c
+                INNER JOIN items i ON i.id_categoria = c.id
+                WHERE c.estado = 1 
+                  AND c.deleted_at IS NULL
+                  AND i.deleted_at IS NULL
+                  AND i.tipo_item NOT IN ('producto_terminado', 'semielaborado')
+                ORDER BY c.nombre ASC";
+
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 }

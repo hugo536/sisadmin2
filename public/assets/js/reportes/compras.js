@@ -308,6 +308,56 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
                     }
                 } catch (err) { console.error("Error Chart Insumos:", err); }
             }
+            // 3. GRÁFICO CONCENTRACIÓN DE PROVEEDORES (DOUGHNUT)
+            const canvasProveedores = document.getElementById('comprasProveedoresChart');
+            if (canvasProveedores) {
+                try {
+                    const chartData = JSON.parse(canvasProveedores.getAttribute('data-chart-data') || '[]');
+                    if (chartData.length > 0) {
+                        // Tomamos los 5 proveedores principales y agrupamos el resto en "Otros"
+                        const topN = chartData.slice(0, 5);
+                        const otros = chartData.slice(5).reduce((acc, curr) => acc + Number(curr.total_recibido || 0), 0);
+                        
+                        const labels = topN.map(r => {
+                            let nombre = r.proveedor || '';
+                            return nombre.length > 25 ? nombre.substring(0, 25) + '...' : nombre; 
+                        });
+                        const data = topN.map(r => Number(r.total_recibido || 0));
+                        
+                        if (otros > 0) {
+                            labels.push('OTROS PROVEEDORES');
+                            data.push(otros);
+                        }
+
+                        crearGraficoSeguroSPA(canvasProveedores, {
+                            type: 'doughnut',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    data: data,
+                                    // Usamos la misma paleta de colores de tu sistema
+                                    backgroundColor: ['#0d6efd', '#20c997', '#ffc107', '#fd7e14', '#6f42c1', '#adb5bd'],
+                                    borderWidth: 2,
+                                    borderColor: '#ffffff'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                cutout: '65%', // Esto hace que parezca una Dona y no un pastel entero
+                                plugins: {
+                                    legend: { position: 'bottom' },
+                                    tooltip: {
+                                        callbacks: {
+                                            label(ctx) { return ` S/ ${Number(ctx.parsed).toFixed(2)}`; }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                } catch (err) { console.error("Error Chart Proveedores:", err); }
+            }
         }
     };
 
