@@ -3,24 +3,18 @@ declare(strict_types=1);
 
 require_once BASE_PATH . '/app/middleware/AuthMiddleware.php';
 require_once BASE_PATH . '/app/models/reportes/ReporteInventarioModel.php';
-require_once BASE_PATH . '/app/models/reportes/ReporteComprasModel.php';
-require_once BASE_PATH . '/app/models/reportes/ReporteVentasModel.php';
 require_once BASE_PATH . '/app/models/reportes/ReporteProduccionModel.php';
 require_once BASE_PATH . '/app/models/reportes/ReporteTesoreriaModel.php';
 require_once BASE_PATH . '/app/models/reportes/ReporteTesoreriaMovimientoModel.php';
 require_once BASE_PATH . '/app/models/UsuariosModel.php';
-require_once BASE_PATH . '/app/models/VentasDocumentoModel.php';
 
 class ReportesController extends Controlador
 {
     private ReporteInventarioModel $inventario;
-    private ReporteComprasModel $compras;
-    private ReporteVentasModel $ventas;
     private ReporteProduccionModel $produccion;
     private ReporteTesoreriaModel $tesoreria;
     private ReporteTesoreriaMovimientoModel $reporteTesoreriaMov;
     private UsuariosModel $usuariosModel;
-    private VentasDocumentoModel $ventasDocumentoModel;
 
     private function normalizarIdsFiltro($valor): array
     {
@@ -37,45 +31,10 @@ class ReportesController extends Controlador
     public function __construct()
     {
         $this->inventario = new ReporteInventarioModel();
-        $this->compras = new ReporteComprasModel();
-        $this->ventas = new ReporteVentasModel();
         $this->produccion = new ReporteProduccionModel();
         $this->tesoreria = new ReporteTesoreriaModel();
         $this->reporteTesoreriaMov = new ReporteTesoreriaMovimientoModel();
         $this->usuariosModel = new UsuariosModel();
-        $this->ventasDocumentoModel = new VentasDocumentoModel();
-    }
-
-    public function dashboard(): void
-    {
-        AuthMiddleware::handle();
-        require_permiso('reportes.dashboard.ver');
-        $this->registrarAuditoria('dashboard');
-
-        // 1. Obtener Productos Críticos
-        $filtrosCriticos = ['solo_bajo_minimo' => 1];
-        $stockCriticoData = $this->inventario->stockActual($filtrosCriticos, 1, 5);
-        $productosCriticos = $stockCriticoData['rows'] ?? [];
-
-        // 2. Obtener Cumpleaños del Mes
-        $cumpleanosMes = $this->usuariosModel->obtenerCumpleanosMes() ?? [];
-
-        // 3. Obtener Últimos Eventos (Bitácora)
-        $eventos = $this->usuariosModel->obtenerUltimosEventos(5) ?? [];
-
-        $this->render('reportes/dashboard', [
-            'ruta_actual' => 'reportes/dashboard',
-            'productosCriticos' => $productosCriticos,
-            'cumpleanosMes' => $cumpleanosMes,
-            'eventos' => $eventos,
-            'reportes_widgets' => [
-                'compras_pendientes' => $this->compras->contarPendientes(),
-                'ventas_por_despachar' => $this->ventas->contarPorDespachar(),
-                'produccion_proceso' => $this->produccion->contarEnProceso(),
-                'cxc_vencida' => $this->tesoreria->contarCxcVencida(),
-                'cxp_vencida' => $this->tesoreria->contarCxpVencida(),
-            ],
-        ]);
     }
 
     public function inventario(): void
@@ -278,205 +237,6 @@ class ReportesController extends Controlador
         }
 
         $this->render('reportes/inventario', $datosVista);
-    }
-
-    public function compras(): void
-    {
-        AuthMiddleware::handle();
-        require_permiso('reportes.compras.ver');
-        $this->registrarAuditoria('compras');
-
-        // 1. MANEJO DE BÚSQUEDA AJAX PARA INSUMOS (TomSelect / Select2)
-        $accionAjax = (string) ($_GET['accion'] ?? '');
-        if (es_ajax() && $accionAjax === 'buscar_insumos') {
-            $q = trim((string) ($_GET['q'] ?? ''));
-            $idCategoria = (int) ($_GET['id_categoria'] ?? 0);
-            
-            // Llamamos a un método específico de compras, no al de ventas
-            json_response(['ok' => true, 'data' => $this->compras->buscarInsumosAjax($q, $idCategoria, 40)]);
-            return;
-        }
-        if (es_ajax() && $accionAjax === 'buscar_proveedores') {
-            $q = trim((string) ($_GET['q'] ?? ''));
-            json_response(['ok' => true, 'data' => $this->compras->buscarProveedoresAjax($q, 40)]);
-            return;
-        }
-
-        [$pagina, $tamano] = $this->paginacion();
-        
-        // 2. CONTROL DE SECCIÓN ACTIVA
-        $seccionActiva = trim((string)($_GET['seccion_activa'] ?? 'tendencias'));
-        if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimiento', 'variacion'])) {
-            $seccionActiva = 'tendencias';
-        }
-
-        // 3. CAPTURA Y NORMALIZACIÓN DE FILTROS
-        $f = $this->filtrosPeriodo();
-        $f['id_proveedor'] = (int) ($_GET['id_proveedor'] ?? 0);
-        $f['id_almacen'] = (int) ($_GET['id_almacen'] ?? 0);
-        $f['id_categoria'] = (int) ($_GET['id_categoria'] ?? 0);
-        $f['id_item'] = (int) ($_GET['id_item'] ?? 0);
-        
-        $agrupacionFiltro = $_GET['agrupacion'] ?? 'diaria';
-        $f['agrupacion'] = in_array($agrupacionFiltro, ['diaria', 'semanal', 'mensual']) ? $agrupacionFiltro : 'diaria';
-        $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'linea') === 'barras' ? 'barras' : 'linea';
-        $f['seccion_activa'] = $seccionActiva;
-
-        // Configuración de límites para gráficos de tendencias
-        $limiteTendencia = 12; 
-        if ($f['agrupacion'] === 'diaria') $limiteTendencia = 365;
-        elseif ($f['agrupacion'] === 'semanal') $limiteTendencia = 52;
-        elseif ($f['agrupacion'] === 'mensual') $limiteTendencia = 24;
-
-        // 4. EXPORTACIÓN A PDF
-        if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
-            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
-            require_once BASE_PATH . '/vendor/autoload.php';
-
-            $porPeriodo = ($seccionActiva === 'tendencias') ? $this->compras->comprasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : [];
-            $topInsumos = ($seccionActiva === 'insumos') ? $this->compras->topInsumos($f, 100) : [];
-            $porProveedor = ($seccionActiva === 'proveedores') ? $this->compras->comprasPorProveedor($f, 1, 999999) : [];
-            $ocCumplimiento = ($seccionActiva === 'cumplimiento') ? $this->compras->ocCumplimiento($f, 1, 999999) : [];
-            $variacionCostos = ($seccionActiva === 'variacion') ? $this->compras->variacionCostos($f, 1, 999999) : [];
-            
-            $filtros = $f;
-
-            ob_start();
-            require BASE_PATH . '/app/views/reportes/pdf_compras.php';
-            $html = ob_get_clean();
-
-            $dompdf = new \Dompdf\Dompdf();
-            $options = $dompdf->getOptions();
-            $options->set(['isRemoteEnabled' => true]);
-            $dompdf->setOptions($options);
-
-            $dompdf->loadHtml($html);
-            $dompdf->setPaper('A4', 'landscape'); 
-            $dompdf->render();
-            
-            $nombreArchivo = 'Reporte_Compras_' . ucfirst($seccionActiva) . '.pdf';
-            $dompdf->stream($nombreArchivo, ['Attachment' => false]);
-            return;
-        }
-
-        // 5. RENDERIZADO DE LA VISTA WEB
-        $this->render('reportes/compras', [
-            'ruta_actual' => 'reportes/compras',
-            'filtros' => $f,
-            'almacenesFiltro' => $this->inventario->listarAlmacenesActivos(), // <- INCLUIDO PARA EL SELECT DINÁMICO
-            'categoriasFiltro' => $this->inventario->listarCategoriasActivas(),
-            'insumoSeleccionado' => $this->compras->obtenerInsumoPorId($f['id_item']),
-            'proveedorSeleccionado' => $this->compras->obtenerProveedorPorId($f['id_proveedor']),
-            'porPeriodo' => ($seccionActiva === 'tendencias') ? $this->compras->comprasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : [],
-            'topInsumos' => ($seccionActiva === 'insumos') ? $this->compras->topInsumos($f, 999999) : [],
-            'porProveedor' => ($seccionActiva === 'proveedores') ? $this->compras->comprasPorProveedor($f, $pagina, $tamano) : [],
-            'ocCumplimiento' => ($seccionActiva === 'cumplimiento') ? $this->compras->ocCumplimiento($f, $pagina, $tamano) : [],
-            'variacionCostos' => ($seccionActiva === 'variacion') ? $this->compras->variacionCostos($f, $pagina, $tamano) : [],
-            'pagina' => $pagina,
-            'tamano' => $tamano,
-        ]);
-    }
-
-    public function ventas(): void
-    {
-        AuthMiddleware::handle();
-        require_permiso('reportes.ventas.ver');
-        $this->registrarAuditoria('ventas');
-        
-        $tipoTercero = trim((string) ($_GET['tipo_tercero'] ?? ''));
-        if (!in_array($tipoTercero, ['', 'cliente', 'cliente_distribuidor', 'distribuidor'], true)) {
-            $tipoTercero = '';
-        }
-
-        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_clientes') {
-            $q = trim((string) ($_GET['q'] ?? ''));
-            json_response(['ok' => true, 'data' => $this->ventasDocumentoModel->buscarClientes($q, 20, $tipoTercero)]);
-            return;
-        }
-        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_productos') {
-            $q = trim((string) ($_GET['q'] ?? ''));
-            json_response(['ok' => true, 'data' => $this->ventasDocumentoModel->buscarItems($q, 0, 0, 1, 40)]);
-            return;
-        }
-
-        [$pagina, $tamano] = $this->paginacion();
-        
-        $seccionActiva = trim((string)($_GET['seccion_activa'] ?? 'tendencias'));
-        if (!in_array($seccionActiva, ['tendencias', 'clientes', 'productos', 'pendientes'])) {
-            $seccionActiva = 'tendencias';
-        }
-
-        $f = $this->filtrosPeriodo();
-        $f['id_cliente'] = (int) ($_GET['id_cliente'] ?? 0);
-        $f['id_categoria'] = (int) ($_GET['id_categoria'] ?? 0);
-        $f['tipo_tercero'] = $tipoTercero; 
-        
-        $productoFiltro = trim((string) ($_GET['id_item'] ?? ''));
-        $f['producto_filtro'] = $productoFiltro;
-        $f['id_item'] = 0;
-        $f['id_presentacion'] = 0;
-        if (preg_match('/^PACK-(\d+)$/', $productoFiltro, $coincidencia)) {
-            $f['id_presentacion'] = (int) $coincidencia[1];
-        } elseif (preg_match('/^ITEM-(\d+)$/', $productoFiltro, $coincidencia)) {
-            $f['id_item'] = (int) $coincidencia[1];
-        } elseif (ctype_digit($productoFiltro)) {
-            $f['id_item'] = (int) $productoFiltro;
-            $f['producto_filtro'] = 'ITEM-' . $f['id_item'];
-        }
-        $f['estado'] = $_GET['estado'] ?? 'validas';
-        $agrupacionFiltro = $_GET['agrupacion'] ?? 'diaria';
-        $f['agrupacion'] = in_array($agrupacionFiltro, ['diaria', 'semanal', 'mensual']) ? $agrupacionFiltro : 'diaria';
-        $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'linea') === 'barras' ? 'barras' : 'linea';
-        $f['seccion_activa'] = $seccionActiva;
-
-        $limiteTendencia = 12;
-        if ($f['agrupacion'] === 'diaria') $limiteTendencia = 365;
-        elseif ($f['agrupacion'] === 'semanal') $limiteTendencia = 52;
-        elseif ($f['agrupacion'] === 'mensual') $limiteTendencia = 24;
-
-        if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
-            require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
-            require_once BASE_PATH . '/vendor/autoload.php';
-
-            $porPeriodo = ($seccionActiva === 'tendencias') ? $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : []; 
-            $porCliente = ($seccionActiva === 'clientes') ? $this->ventas->ventasPorCliente($f, 1, 999999) : [];
-            $topProductos = ($seccionActiva === 'productos') ? $this->ventas->topProductos($f, 100) : []; 
-            $pendientes = ($seccionActiva === 'pendientes') ? $this->ventas->pendientesDespacho($f, 1, 999999) : [];
-            
-            $filtros = $f;
-
-            ob_start();
-            require BASE_PATH . '/app/views/reportes/pdf_ventas.php';
-            $html = ob_get_clean();
-
-            $dompdf = new \Dompdf\Dompdf();
-            $options = $dompdf->getOptions();
-            $options->set(['isRemoteEnabled' => true]);
-            $dompdf->setOptions($options);
-
-            $dompdf->loadHtml($html);
-            $dompdf->setPaper('A4', 'landscape'); 
-            $dompdf->render();
-            
-            $nombreArchivo = 'Reporte_Ventas_' . ucfirst($seccionActiva) . '.pdf';
-
-            $dompdf->stream($nombreArchivo, ['Attachment' => false]);
-            return;
-        }
-
-        $this->render('reportes/ventas', [
-            'ruta_actual' => 'reportes/ventas',
-            'filtros' => $f,
-            'categoriasFiltro' => $this->ventas->categoriasProductosTerminados(), 
-            'clientesFiltro' => $this->ventasDocumentoModel->buscarClientes('', 200, $tipoTercero),
-            'productosFiltro' => $this->ventasDocumentoModel->buscarItems('', 0, 0, 1, 200),
-            'porCliente' => ($seccionActiva === 'clientes') ? $this->ventas->ventasPorCliente($f, $pagina, $tamano) : [],
-            'pendientes' => ($seccionActiva === 'pendientes') ? $this->ventas->pendientesDespacho($f, $pagina, $tamano) : [],
-            'topProductos' => ($seccionActiva === 'productos') ? $this->ventas->topProductos($f, 999999) : [],
-            'porPeriodo' => ($seccionActiva === 'tendencias') ? $this->ventas->ventasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : [],
-            'pagina' => $pagina,
-            'tamano' => $tamano,
-        ]);
     }
 
     public function produccion(): void
