@@ -38,7 +38,7 @@ $productosCriticos = is_array($productosCriticos ?? null) ? $productosCriticos :
         <div class="row g-3">
             
             <!-- Widget: Reportes de Ventas -->
-            <div class="col-12 col-md-6 col-xl-3">
+            <div class="col-12 col-md-6 col-xl">
                 <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-primary text-white shadow-sm" 
                    href="<?php echo e(route_url('reportes/ventas')); ?>" 
                    onclick="navegarDesdeDashboard(event, this.href)"
@@ -56,7 +56,7 @@ $productosCriticos = is_array($productosCriticos ?? null) ? $productosCriticos :
             </div>
 
             <!-- Widget: Reportes de Compras -->
-            <div class="col-12 col-md-6 col-xl-3">
+            <div class="col-12 col-md-6 col-xl">
                 <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover text-white shadow-sm" 
                    href="<?php echo e(route_url('reportes/compras')); ?>" 
                    onclick="navegarDesdeDashboard(event, this.href)"
@@ -73,9 +73,29 @@ $productosCriticos = is_array($productosCriticos ?? null) ? $productosCriticos :
                 </a>
             </div>
 
+            <?php if (tiene_permiso('reportes.inventario.ver')): ?>
+            <!-- Widget: Reportes de Inventario -->
+            <div class="col-12 col-md-6 col-xl">
+                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-warning-subtle shadow-sm"
+                   href="<?php echo e(route_url('reportes/inventario')); ?>"
+                   onclick="navegarDesdeDashboard(event, this.href)"
+                   style="border-radius: 1.25rem;">
+                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-warning-emphasis mb-1" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Control de Stock</div>
+                            <div class="h5 mb-0 fw-bold text-warning-emphasis lh-1 mt-1">Reportes de Inventario</div>
+                        </div>
+                        <div class="bg-white bg-opacity-75 text-warning-emphasis p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                            <i class="bi bi-box-seam-fill fs-4"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <?php endif; ?>
+
             <?php if (tiene_permiso('reportes.tesoreria.ver')): ?>
             <!-- Widget: Estado de Cuenta Clientes -->
-            <div class="col-12 col-md-6 col-xl-3">
+            <div class="col-12 col-md-6 col-xl">
                 <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-success-subtle shadow-sm" 
                    href="<?php echo e(route_url('reportes/estado_cuenta')); ?>" 
                    onclick="navegarDesdeDashboard(event, this.href)"
@@ -93,7 +113,7 @@ $productosCriticos = is_array($productosCriticos ?? null) ? $productosCriticos :
             </div>
             
             <!-- Widget: Estado de Cuenta Proveedores -->
-            <div class="col-12 col-md-6 col-xl-3">
+            <div class="col-12 col-md-6 col-xl">
                 <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-secondary-subtle shadow-sm" 
                    href="<?php echo e(route_url('reportes/estado_cuenta_proveedores')); ?>" 
                    onclick="navegarDesdeDashboard(event, this.href)"
@@ -119,8 +139,6 @@ $productosCriticos = is_array($productosCriticos ?? null) ? $productosCriticos :
         <div class="row g-3">
             <?php 
             $widgetConfig = [
-                'compras_pendientes'   => ['color' => 'warning', 'icon' => 'bi-cart-dash',    'url' => 'reportes/compras'],
-                'ventas_por_despachar' => ['color' => 'info',    'icon' => 'bi-truck',        'url' => 'reportes/ventas'],
                 'produccion_proceso'   => ['color' => 'primary', 'icon' => 'bi-gear-wide',    'url' => 'reportes/produccion'],
                 'cxc_vencida'          => ['color' => 'danger',  'icon' => 'bi-cash-stack',   'url' => 'reportes/cxc'], 
                 'cxp_vencida'          => ['color' => 'danger',  'icon' => 'bi-wallet2',      'url' => 'reportes/cxp']  

@@ -33,12 +33,6 @@ class ReporteComprasModel extends Modelo
         }
     }
 
-    public function contarPendientes(): int
-    {
-        $sql = "SELECT COUNT(*) FROM compras_ordenes WHERE deleted_at IS NULL AND estado IN (1,2)";
-        return (int) $this->db()->query($sql)->fetchColumn();
-    }
-
     public function comprasPorProveedor(array $f, int $pagina, int $tamano): array
     {
         $offset = ($pagina - 1) * $tamano;

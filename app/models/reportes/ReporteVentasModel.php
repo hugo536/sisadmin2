@@ -80,20 +80,6 @@ class ReporteVentasModel extends Modelo
         )";
     }
 
-    public function contarPorDespachar(): int
-    {
-        // Aquí NO filtramos donaciones, porque el almacén SÍ debe despacharlas.
-        $sql = "SELECT COUNT(*)
-                FROM ventas_documentos v
-                WHERE v.deleted_at IS NULL AND v.estado IN (2,6)
-                  AND EXISTS (
-                    SELECT 1 FROM ventas_documentos_detalle d
-                    WHERE d.id_documento_venta=v.id AND d.deleted_at IS NULL
-                      AND (d.cantidad - d.cantidad_despachada) > 0
-                  )";
-        return (int) $this->db()->query($sql)->fetchColumn();
-    }
-
     public function ventasPorCliente(array $f, int $pagina, int $tamano): array
     {
         $offset = ($pagina - 1) * $tamano;
