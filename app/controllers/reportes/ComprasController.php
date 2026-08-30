@@ -103,8 +103,8 @@ class ReporteComprasController extends Controlador
         $this->render('reportes/compras', [
             'ruta_actual' => 'reportes/compras',
             'filtros' => $f,
-            'almacenesFiltro' => $this->inventario->listarAlmacenesActivos(), // <- INCLUIDO PARA EL SELECT DINÁMICO
-            'categoriasFiltro' => $this->inventario->listarCategoriasActivas(),
+            'almacenesFiltro' => $this->inventario->listarAlmacenesActivos(), 
+            'categoriasFiltro' => $this->compras->listarCategoriasParaCompras(), // <---- CAMBIO APLICADO
             'insumoSeleccionado' => $this->compras->obtenerInsumoPorId($f['id_item']),
             'proveedorSeleccionado' => $this->compras->obtenerProveedorPorId($f['id_proveedor']),
             'porPeriodo' => ($seccionActiva === 'tendencias') ? $this->compras->comprasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : [],

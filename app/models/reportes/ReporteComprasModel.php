@@ -366,7 +366,7 @@ class ReporteComprasModel extends Modelo
 
     /**
      * Lista solo las categorías que tienen ítems destinados a COMPRAS
-     * (Excluye productos terminados y semielaborados)
+     * Excluye: producto_terminado y semielaborado
      */
     public function listarCategoriasParaCompras(): array
     {
