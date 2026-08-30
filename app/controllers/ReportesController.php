@@ -52,22 +52,19 @@ class ReportesController extends Controlador
         require_permiso('reportes.dashboard.ver');
         $this->registrarAuditoria('dashboard');
 
-        // 1. Obtener Productos Críticos (Asumiendo que reutilizamos stockActual filtrado)
+        // 1. Obtener Productos Críticos
         $filtrosCriticos = ['solo_bajo_minimo' => 1];
         $stockCriticoData = $this->inventario->stockActual($filtrosCriticos, 1, 5);
         $productosCriticos = $stockCriticoData['rows'] ?? [];
 
         // 2. Obtener Cumpleaños del Mes
-        // Nota: Asegúrate de tener un método en UsuariosModel que traiga los del mes actual
         $cumpleanosMes = $this->usuariosModel->obtenerCumpleanosMes() ?? [];
 
         // 3. Obtener Últimos Eventos (Bitácora)
-        // Nota: Asegúrate de tener un método que traiga los últimos registros
         $eventos = $this->usuariosModel->obtenerUltimosEventos(5) ?? [];
 
         $this->render('reportes/dashboard', [
             'ruta_actual' => 'reportes/dashboard',
-            // ELIMINADA LA LÍNEA DE inventario_valorizado
             'productosCriticos' => $productosCriticos,
             'cumpleanosMes' => $cumpleanosMes,
             'eventos' => $eventos,
@@ -289,11 +286,13 @@ class ReportesController extends Controlador
         require_permiso('reportes.compras.ver');
         $this->registrarAuditoria('compras');
 
-        // 1. MANEJO DE BÚSQUEDA AJAX PARA INSUMOS (TomSelect)
-        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_productos') {
+        // 1. MANEJO DE BÚSQUEDA AJAX PARA INSUMOS (TomSelect / Select2)
+        if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'buscar_insumos') {
             $q = trim((string) ($_GET['q'] ?? ''));
-            // Reutilizamos el modelo de ventasDocumentoModel para buscar ítems
-            json_response(['ok' => true, 'data' => $this->ventasDocumentoModel->buscarItems($q, 0, 0, 1, 40)]);
+            $idCategoria = (int) ($_GET['id_categoria'] ?? 0);
+            
+            // Llamamos a un método específico de compras, no al de ventas
+            json_response(['ok' => true, 'data' => $this->compras->buscarInsumosAjax($q, $idCategoria, 40)]);
             return;
         }
 
@@ -323,12 +322,11 @@ class ReportesController extends Controlador
         elseif ($f['agrupacion'] === 'semanal') $limiteTendencia = 52;
         elseif ($f['agrupacion'] === 'mensual') $limiteTendencia = 24;
 
-        // 4. EXPORTACIÓN A PDF (Condicional)
+        // 4. EXPORTACIÓN A PDF
         if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
             require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
             require_once BASE_PATH . '/vendor/autoload.php';
 
-            // Consultas sin paginación para el PDF
             $porPeriodo = ($seccionActiva === 'tendencias') ? $this->compras->comprasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : [];
             $topInsumos = ($seccionActiva === 'insumos') ? $this->compras->topInsumos($f, 100) : [];
             $porProveedor = ($seccionActiva === 'proveedores') ? $this->compras->comprasPorProveedor($f, 1, 999999) : [];
@@ -338,7 +336,7 @@ class ReportesController extends Controlador
             $filtros = $f;
 
             ob_start();
-            require BASE_PATH . '/app/views/reportes/pdf_compras.php'; // Asegúrate de tener este archivo si vas a exportar
+            require BASE_PATH . '/app/views/reportes/pdf_compras.php';
             $html = ob_get_clean();
 
             $dompdf = new \Dompdf\Dompdf();
@@ -359,7 +357,8 @@ class ReportesController extends Controlador
         $this->render('reportes/compras', [
             'ruta_actual' => 'reportes/compras',
             'filtros' => $f,
-            'categoriasFiltro' => $this->inventario->listarCategoriasActivas(), // Aprovechamos el método de inventario
+            'almacenesFiltro' => $this->inventario->listarAlmacenesActivos(), // <- INCLUIDO PARA EL SELECT DINÁMICO
+            'categoriasFiltro' => $this->inventario->listarCategoriasActivas(),
             'porPeriodo' => ($seccionActiva === 'tendencias') ? $this->compras->comprasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : [],
             'topInsumos' => ($seccionActiva === 'insumos') ? $this->compras->topInsumos($f, 999999) : [],
             'porProveedor' => ($seccionActiva === 'proveedores') ? $this->compras->comprasPorProveedor($f, $pagina, $tamano) : [],
@@ -422,13 +421,11 @@ class ReportesController extends Controlador
         $f['tipo_grafico'] = ($_GET['tipo_grafico'] ?? 'linea') === 'barras' ? 'barras' : 'linea';
         $f['seccion_activa'] = $seccionActiva;
 
-        // 1. PRIMERO DEFINIMOS EL LÍMITE
-        $limiteTendencia = 12; // Por defecto
+        $limiteTendencia = 12;
         if ($f['agrupacion'] === 'diaria') $limiteTendencia = 365;
         elseif ($f['agrupacion'] === 'semanal') $limiteTendencia = 52;
         elseif ($f['agrupacion'] === 'mensual') $limiteTendencia = 24;
 
-        // 2. LUEGO EXPORTAMOS EL PDF
         if ((string)($_GET['exportar_pdf'] ?? '') === '1') {
             require_once BASE_PATH . '/app/models/configuracion/EmpresaModel.php';
             require_once BASE_PATH . '/vendor/autoload.php';
@@ -459,11 +456,9 @@ class ReportesController extends Controlador
             return;
         }
 
-        // 3. Y FINALMENTE RENDERIZAMOS LA VISTA WEB
         $this->render('reportes/ventas', [
             'ruta_actual' => 'reportes/ventas',
             'filtros' => $f,
-            // ¡AQUÍ ESTÁ LA CORRECCIÓN! Usamos el modelo de ventas en lugar del de inventario
             'categoriasFiltro' => $this->ventas->categoriasProductosTerminados(), 
             'clientesFiltro' => $this->ventasDocumentoModel->buscarClientes('', 200, $tipoTercero),
             'productosFiltro' => $this->ventasDocumentoModel->buscarItems('', 0, 0, 1, 200),

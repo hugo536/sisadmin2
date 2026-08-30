@@ -105,8 +105,15 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                                 </select>
                             </div>
                             <div class="col-12 col-md-4">
-                                <label class="form-label text-muted small fw-bold mb-1 ms-1">ID Almacén</label>
-                                <input type="number" name="id_almacen" class="form-control bg-light border-secondary-subtle shadow-none text-secondary" placeholder="Todos..." value="<?php echo ($filtros['id_almacen'] ?? 0) > 0 ? (int)$filtros['id_almacen'] : ''; ?>">
+                                <label class="form-label text-muted small fw-bold mb-1 ms-1">Almacén</label>
+                                <select name="id_almacen" class="form-select bg-light border-secondary-subtle shadow-none text-secondary auto-submit">
+                                    <option value="">Todos los almacenes...</option>
+                                    <?php foreach (($almacenesFiltro ?? []) as $alm): ?>
+                                        <option value="<?php echo (int) ($alm['id'] ?? 0); ?>" <?php echo ((int)($filtros['id_almacen'] ?? 0) === (int)($alm['id'] ?? 0)) ? 'selected' : ''; ?>>
+                                            <?php echo e((string) ($alm['nombre'] ?? '')); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -141,8 +148,15 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                                 <input type="number" name="id_proveedor" class="form-control bg-light border-secondary-subtle shadow-none text-secondary" placeholder="Todos los proveedores..." value="<?php echo ($filtros['id_proveedor'] ?? 0) > 0 ? (int)$filtros['id_proveedor'] : ''; ?>">
                             </div>
                             <div class="col-12 col-md-6">
-                                <label class="form-label text-muted small fw-bold mb-1 ms-1">ID Almacén</label>
-                                <input type="number" name="id_almacen" class="form-control bg-light border-secondary-subtle shadow-none text-secondary" placeholder="Todos los almacenes..." value="<?php echo ($filtros['id_almacen'] ?? 0) > 0 ? (int)$filtros['id_almacen'] : ''; ?>">
+                                <label class="form-label text-muted small fw-bold mb-1 ms-1">Almacén</label>
+                                <select name="id_almacen" class="form-select bg-light border-secondary-subtle shadow-none text-secondary auto-submit">
+                                    <option value="">Todos los almacenes...</option>
+                                    <?php foreach (($almacenesFiltro ?? []) as $alm): ?>
+                                        <option value="<?php echo (int) ($alm['id'] ?? 0); ?>" <?php echo ((int)($filtros['id_almacen'] ?? 0) === (int)($alm['id'] ?? 0)) ? 'selected' : ''; ?>>
+                                            <?php echo e((string) ($alm['nombre'] ?? '')); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -158,7 +172,7 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
 
                         <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
                         <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
-                                                                                                        
+                                                                                                                        
                         <button class="btn btn-light border text-primary px-3 transition-hover" type="submit" title="Aplicar filtros">
                             <i class="bi bi-funnel-fill"></i>
                         </button>
@@ -191,7 +205,17 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                     <i class="bi bi-cloud-download me-2"></i> Exportar
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
-                    <li><button type="submit" form="formFiltrosReporteCompras" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank"><i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> PDF (.pdf)</button></li>
+                    <li>
+                        <button type="submit" form="formFiltrosReporteCompras" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center">
+                            <i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Formato Excel (.xlsx)
+                        </button>
+                    </li>
+                    <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
+                    <li>
+                        <button type="submit" form="formFiltrosReporteCompras" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank">
+                            <i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> Formato PDF (.pdf)
+                        </button>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -223,7 +247,17 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                                 <?php else: ?>
                                     <?php foreach ($porPeriodo as $r): ?>
                                         <tr class="border-bottom">
-                                            <td class="fw-medium text-dark ps-3"><?php echo htmlspecialchars((string)($r['etiqueta'] ?? '')); ?></td>
+                                            <td class="fw-medium text-dark ps-3">
+                                                <?php 
+                                                    $etiqueta = (string)($r['etiqueta'] ?? '');
+                                                    $agrupacion = $filtros['agrupacion'] ?? 'diaria';
+                                                    if ($agrupacion === 'diaria' && strtotime($etiqueta)) {
+                                                        echo date('d/m/Y', strtotime($etiqueta));
+                                                    } else {
+                                                        echo htmlspecialchars($etiqueta);
+                                                    }
+                                                ?>
+                                            </td>
                                             <td class="text-end text-muted"><?php echo e((string)($r['documentos'] ?? '0')); ?></td>
                                             <td class="text-end fw-bold text-primary pe-3">S/ <?php echo number_format((float)($r['total_comprado'] ?? 0), 2); ?></td>
                                         </tr>
@@ -256,7 +290,17 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                     <i class="bi bi-cloud-download me-2"></i> Exportar
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
-                    <li><button type="submit" form="formFiltrosReporteCompras" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank"><i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> PDF (.pdf)</button></li>
+                    <li>
+                        <button type="submit" form="formFiltrosReporteCompras" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center">
+                            <i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Formato Excel (.xlsx)
+                        </button>
+                    </li>
+                    <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
+                    <li>
+                        <button type="submit" form="formFiltrosReporteCompras" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank">
+                            <i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> Formato PDF (.pdf)
+                        </button>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -481,7 +525,17 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                         <i class="bi bi-cloud-download me-2"></i> Exportar
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
-                        <li><button type="submit" form="formFiltrosReporteCompras" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank"><i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> PDF (.pdf)</button></li>
+                        <li>
+                            <button type="submit" form="formFiltrosReporteCompras" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center">
+                                <i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Formato Excel (.xlsx)
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
+                        <li>
+                            <button type="submit" form="formFiltrosReporteCompras" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank">
+                                <i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> Formato PDF (.pdf)
+                            </button>
+                        </li>
                     </ul>
                 </div>
             </div>

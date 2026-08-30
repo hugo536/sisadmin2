@@ -227,6 +227,11 @@ if (!str_starts_with($temaElegido, 'theme-')) {
     <script src="<?php echo e(asset_url('js/reportes/compras.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/compras.js'); ?>"></script>
 <?php endif; ?>
 
+<?php if ($currentRoute === 'reportes/ventas'): ?>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="<?php echo e(asset_url('js/reportes/ventas.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/ventas.js'); ?>"></script>
+<?php endif; ?>
+
 <?php if ($currentRoute === 'reportes/tesoreria_movimientos'): ?>
     <script src="<?php echo e(asset_url('js/reportes/tesoreria_movimiento.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/tesoreria_movimiento.js'); ?>"></script>
 <?php endif; ?>

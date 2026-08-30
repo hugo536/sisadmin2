@@ -44,7 +44,7 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
                         u.searchParams.set('q', query || '');
                         
                         // Si estamos buscando productos, enviamos la categoría seleccionada al backend
-                        if (actionStr === 'buscar_productos' && categoriaSelect && categoriaSelect.value) {
+                        if (actionStr === 'buscar_insumos' && categoriaSelect && categoriaSelect.value) {
                             u.searchParams.set('id_categoria', categoriaSelect.value);
                         }
                         
@@ -72,8 +72,8 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
         };
 
         if (productoSelect) {
-            // Nota: backend debe responder a 'buscar_productos' en el controlador de compras igual que en ventas
-            initTS(productoSelect, 'buscar_productos');
+            // Cambiamos la acción a buscar_insumos
+            initTS(productoSelect, 'buscar_insumos');
         }
     };
 

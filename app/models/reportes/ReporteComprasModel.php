@@ -197,7 +197,7 @@ class ReporteComprasModel extends Modelo
 
         $sql = "SELECT i.nombre AS producto,
                        ROUND(SUM(od.cantidad_solicitada),2) AS total_cantidad,
-                       ROUND(SUM(od.cantidad_solicitada * od.precio_unitario),2) AS total_monto
+                       ROUND(SUM(od.cantidad_solicitada * od.costo_unitario_pactado),2) AS total_monto
                 FROM compras_ordenes o
                 INNER JOIN compras_ordenes_detalle od ON od.id_orden = o.id
                 INNER JOIN items i ON i.id = od.id_item
@@ -259,5 +259,45 @@ class ReporteComprasModel extends Modelo
         $stmt->execute();
 
         return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'total' => (int) $c->fetchColumn()];
+    }
+
+    /**
+     * Busca ítems filtrando los que son de producción propia (Terminados y Semielaborados)
+     */
+    public function buscarInsumosAjax(string $q, int $idCategoria = 0, int $limite = 40): array
+    {
+        $params = [];
+        
+        // Corregido: usamos los valores exactos del ENUM de tu base de datos
+        $where = ["deleted_at IS NULL", "tipo_item NOT IN ('producto_terminado', 'semielaborado')"];
+
+        if ($q !== '') {
+            // Corregido: la columna se llama 'sku', no 'codigo_sku'
+            $where[] = "(nombre LIKE :q OR sku LIKE :q)";
+            $params['q'] = "%{$q}%";
+        }
+
+        if ($idCategoria > 0) {
+            $where[] = "id_categoria = :id_categoria";
+            $params['id_categoria'] = $idCategoria;
+        }
+
+        $w = implode(' AND ', $where);
+        
+        // Corregido: Seleccionamos 'sku'
+        $sql = "SELECT id, nombre, sku, tipo_item 
+                FROM items 
+                WHERE {$w} 
+                ORDER BY nombre ASC 
+                LIMIT :limite";
+
+        $stmt = $this->db()->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue(':' . $k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 }
