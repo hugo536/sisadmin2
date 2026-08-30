@@ -14,6 +14,7 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
         if (!formReporte) return;
 
         const productoSelect = formReporte.querySelector('select[name="id_item"]');
+        const proveedorSelect = formReporte.querySelector('select[name="id_proveedor"]');
         const categoriaSelect = formReporte.querySelector('select[name="id_categoria"]');
 
         const initTS = (el, actionStr) => {
@@ -74,6 +75,9 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
         if (productoSelect) {
             // Cambiamos la acción a buscar_insumos
             initTS(productoSelect, 'buscar_insumos');
+        }
+        if (proveedorSelect) {
+            initTS(proveedorSelect, 'buscar_proveedores');
         }
     };
 

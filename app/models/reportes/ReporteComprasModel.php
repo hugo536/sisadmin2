@@ -272,9 +272,11 @@ class ReporteComprasModel extends Modelo
         $where = ["deleted_at IS NULL", "tipo_item NOT IN ('producto_terminado', 'semielaborado')"];
 
         if ($q !== '') {
-            // Corregido: la columna se llama 'sku', no 'codigo_sku'
-            $where[] = "(nombre LIKE :q OR sku LIKE :q)";
-            $params['q'] = "%{$q}%";
+            // MySQL no permite reutilizar un marcador nombrado cuando PDO usa
+            // sentencias preparadas nativas.
+            $where[] = "(nombre LIKE :q_nombre OR sku LIKE :q_sku)";
+            $params['q_nombre'] = "%{$q}%";
+            $params['q_sku'] = "%{$q}%";
         }
 
         if ($idCategoria > 0) {
@@ -299,5 +301,61 @@ class ReporteComprasModel extends Modelo
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function obtenerInsumoPorId(int $id): ?array
+    {
+        if ($id <= 0) return null;
+
+        $stmt = $this->db()->prepare("SELECT id, nombre, sku, tipo_item
+                                     FROM items
+                                     WHERE id = :id
+                                       AND deleted_at IS NULL
+                                       AND tipo_item NOT IN ('producto_terminado', 'semielaborado')
+                                     LIMIT 1");
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function buscarProveedoresAjax(string $q, int $limite = 40): array
+    {
+        $params = [];
+        $where = ['es_proveedor = 1', 'estado = 1', 'deleted_at IS NULL'];
+
+        if ($q !== '') {
+            $where[] = '(nombre_completo LIKE :q_nombre OR numero_documento LIKE :q_documento)';
+            $params['q_nombre'] = "%{$q}%";
+            $params['q_documento'] = "%{$q}%";
+        }
+
+        $sql = 'SELECT id, nombre_completo AS nombre, numero_documento
+                FROM terceros
+                WHERE ' . implode(' AND ', $where) . '
+                ORDER BY nombre_completo ASC
+                LIMIT :limite';
+        $stmt = $this->db()->prepare($sql);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue(':' . $key, $value, PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function obtenerProveedorPorId(int $id): ?array
+    {
+        if ($id <= 0) return null;
+
+        $stmt = $this->db()->prepare('SELECT id, nombre_completo AS nombre, numero_documento
+                                     FROM terceros
+                                     WHERE id = :id
+                                       AND es_proveedor = 1
+                                       AND estado = 1
+                                       AND deleted_at IS NULL
+                                     LIMIT 1');
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
     }
 }

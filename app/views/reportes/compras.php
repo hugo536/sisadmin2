@@ -135,7 +135,9 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                                 <label class="form-label text-muted small fw-bold mb-1 ms-1">Insumo Específico</label>
                                 <select name="id_item" class="form-select bg-light shadow-none border-secondary-subtle auto-submit">
                                     <option value="">Buscar insumo o producto...</option>
-                                    <!-- Aquí se cargan los items por JS si usas Select2 -->
+                                    <?php if (!empty($insumoSeleccionado)): ?>
+                                        <option value="<?php echo (int) $insumoSeleccionado['id']; ?>" selected><?php echo e((string) $insumoSeleccionado['nombre']); ?></option>
+                                    <?php endif; ?>
                                 </select>
                             </div>
                         </div>
@@ -144,8 +146,13 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                     <?php if ($seccionActiva === 'proveedores' || $seccionActiva === 'cumplimiento'): ?>
                         <div class="row g-2">
                             <div class="col-12 col-md-6">
-                                <label class="form-label text-muted small fw-bold mb-1 ms-1">ID Proveedor</label>
-                                <input type="number" name="id_proveedor" class="form-control bg-light border-secondary-subtle shadow-none text-secondary" placeholder="Todos los proveedores..." value="<?php echo ($filtros['id_proveedor'] ?? 0) > 0 ? (int)$filtros['id_proveedor'] : ''; ?>">
+                                <label class="form-label text-muted small fw-bold mb-1 ms-1">Proveedor</label>
+                                <select name="id_proveedor" class="form-select bg-light border-secondary-subtle shadow-none text-secondary auto-submit">
+                                    <option value="">Buscar proveedor por nombre...</option>
+                                    <?php if (!empty($proveedorSeleccionado)): ?>
+                                        <option value="<?php echo (int) $proveedorSeleccionado['id']; ?>" selected><?php echo e((string) $proveedorSeleccionado['nombre']); ?></option>
+                                    <?php endif; ?>
+                                </select>
                             </div>
                             <div class="col-12 col-md-6">
                                 <label class="form-label text-muted small fw-bold mb-1 ms-1">Almacén</label>
