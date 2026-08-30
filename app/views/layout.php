@@ -183,6 +183,7 @@ if (!str_starts_with($temaElegido, 'theme-')) {
 <?php endif; ?>
 
 <?php if ($currentRoute === 'items/perfil'): ?>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="<?php echo e(asset_url('js/items/perfil.js')); ?>?v=<?php echo $getAssetVersion('js/items/perfil.js'); ?>"></script>
 <?php endif; ?>
 

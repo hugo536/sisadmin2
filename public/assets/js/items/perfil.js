@@ -161,4 +161,80 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     });
+
+    // --- 7. GRÁFICO DE COSTOS Y FLUCTUACIÓN ---
+    const costosTab = document.getElementById('costos-tab');
+    const chartCanvas = document.getElementById('chartPerfilCosto');
+    let chartInstance = null;
+
+    if (costosTab && chartCanvas && typeof Chart !== 'undefined') {
+        // Renderizar solo cuando se abre la pestaña (para evitar que se dibuje apretado o con dimensiones en 0)
+        costosTab.addEventListener('shown.bs.tab', function () {
+            if (chartInstance) return; // Evitar renderizar múltiples veces
+
+            const rawData = chartCanvas.getAttribute('data-historial');
+            if (!rawData || rawData === '[]') return;
+
+            try {
+                const historial = JSON.parse(rawData);
+                // Invertir el arreglo para que el tiempo vaya de izquierda a derecha (más viejo a más nuevo)
+                historial.reverse();
+
+                const labels = historial.map(item => {
+                    const dateObj = new Date(item.fecha_movimiento);
+                    return dateObj.toLocaleDateString();
+                });
+                
+                const dataCostos = historial.map(item => parseFloat(item.costo_promedio_resultante));
+
+                chartInstance = new Chart(chartCanvas.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Costo Promedio (S/)',
+                            data: dataCostos,
+                            borderColor: '#0d6efd', // Color azul Bootstrap (primary)
+                            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3,
+                            pointBackgroundColor: '#0d6efd',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: '#0d6efd'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false // Ocultamos la leyenda superior para ahorrar espacio
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'S/ ' + context.parsed.y.toFixed(4);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                ticks: {
+                                    callback: function(value) {
+                                        return 'S/ ' + value.toFixed(2);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error("Error al procesar los datos del historial de costos para el gráfico:", e);
+            }
+        });
+    }
 });

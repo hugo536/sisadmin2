@@ -1,365 +1,233 @@
 /**
- * LÓGICA CENTRALIZADA PARA REPORTES DE VENTAS
- * Archivo: public/assets/js/reportes/ventas.js
+ * LÓGICA CENTRALIZADA PARA PERFIL DE ÍTEM
+ * Archivo: public/assets/js/items/perfil.js
  */
 
-if (typeof window.inicializarModuloReporteVentas === 'undefined') {
+if (typeof window.inicializarModuloPerfilItem === 'undefined') {
 
-    // 1. FUNCIÓN INDEPENDIENTE PARA BUSCADORES AJAX
-    window.inicializarBuscadoresAjax = function() {
-        if (typeof window.TomSelect === 'undefined') return;
+    window.inicializarModuloPerfilItem = function() {
+        "use strict";
 
-        const clienteSelect = document.getElementById('filtroVentasCliente');
-        const tipoTerceroSelect = document.getElementById('filtroVentasTipoTercero');
-        const productoSelect = document.getElementById('filtroVentasProducto');
-        
-        // Capturamos el select de categoría
-        const categoriaSelect = document.getElementById('filtroVentasCategoria');
+        // --- 1. VISOR DE DOCUMENTOS ---
+        const itemsDocs = document.querySelectorAll('.doc-item');
+        const visorContainer = document.getElementById('visorContainer');
+        const placeholder = document.getElementById('visorPlaceholder');
+        const pdfFrame = document.getElementById('visorPDF');
+        const imgVisor = document.getElementById('visorIMG');
+        const extVisor = document.getElementById('visorExternal');
+        const btnDescarga = document.getElementById('btnDescarga');
+        const toolbar = document.getElementById('visorToolbar');
+        const toolbarName = document.getElementById('visorFileName');
+        const toolbarBtn = document.getElementById('visorBtnOpen');
 
-        const initTS = (el, actionStr, depEl = null, depParam = '') => {
-            if (el && !el.tomselect) {
-                new TomSelect(el, {
-                    valueField: 'id', 
-                    labelField: 'text', 
-                    searchField: ['text'], 
-                    placeholder: 'Escriba para buscar...', 
-                    maxOptions: 50, 
-                    create: false,
-                    allowEmptyOption: true,
-                    plugins: ['clear_button'],
-                    
-                    render: {
-                        item: function(data, escape) {
-                            return '<div class="text-truncate" title="' + escape(data.text) + '" style="max-width: calc(100% - 24px);">' + escape(data.text) + '</div>';
-                        },
-                        option: function(data, escape) {
-                            return '<div class="text-truncate" title="' + escape(data.text) + '">' + escape(data.text) + '</div>';
-                        }
-                    },
+        itemsDocs.forEach((item) => {
+            // Remover event listeners huérfanos si la función se llama varias veces en la SPA
+            const nuevoItem = item.cloneNode(true);
+            item.parentNode.replaceChild(nuevoItem, item);
 
-                    load(query, callback) {
-                        const u = new URL(window.location.origin + window.location.pathname);
-                        u.searchParams.set('ruta', 'reportes/ventas');
-                        u.searchParams.set('accion', actionStr);
-                        u.searchParams.set('q', query || '');
-                        
-                        if(depEl && depParam) {
-                            u.searchParams.set(depParam, depEl.value || '');
-                        }
-                        
-                        // Si estamos buscando productos, enviamos la categoría seleccionada al backend
-                        if (actionStr === 'buscar_productos' && typeof categoriaSelect !== 'undefined' && categoriaSelect && categoriaSelect.value) {
-                            u.searchParams.set('id_categoria', categoriaSelect.value);
-                        }
-                        
-                        fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                            .then(r => r.json())
-                            .then(json => {
-                                const data = Array.isArray(json?.data) ? json.data : [];
-                                const mappedData = data.map(item => ({
-                                    id: item.id,
-                                    text: actionStr === 'buscar_productos' ? item.nombre : item.nombre_completo,
-                                    ...item
-                                }));
-                                callback(mappedData);
-                            })
-                            .catch(() => callback());
-                    },
-                    onChange: function() { 
-                        el.dispatchEvent(new Event('change', { bubbles: true }));
-                    },
-                    onInitialize() { 
-                        if (!this.getValue()) this.clear(true); 
-                    }
+            nuevoItem.addEventListener('click', (e) => {
+                if (e.target.closest('button') || e.target.closest('form')) return;
+                e.preventDefault();
+
+                document.querySelectorAll('.doc-item').forEach((i) => i.classList.remove('active', 'bg-white', 'border-start', 'border-primary', 'border-3'));
+                nuevoItem.classList.add('active', 'bg-white', 'border-start', 'border-primary', 'border-3');
+
+                const url = nuevoItem.dataset.url;
+                const ext = nuevoItem.dataset.type;
+                const titleEl = nuevoItem.querySelector('h6');
+                const nombreVisual = titleEl ? titleEl.textContent.trim() : 'Documento';
+
+                placeholder?.classList.add('d-none');
+                pdfFrame?.classList.add('d-none');
+                imgVisor?.classList.add('d-none');
+                extVisor?.classList.add('d-none');
+
+                if (toolbar && toolbarName && toolbarBtn) {
+                    toolbar.classList.remove('d-none');
+                    toolbarName.textContent = nombreVisual;
+                    toolbarBtn.href = url;
+                }
+
+                if (ext === 'pdf' && pdfFrame) {
+                    pdfFrame.src = url;
+                    pdfFrame.classList.remove('d-none');
+                } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) && imgVisor) {
+                    imgVisor.src = url;
+                    imgVisor.classList.remove('d-none');
+                } else if (extVisor && btnDescarga) {
+                    btnDescarga.href = url;
+                    extVisor.classList.remove('d-none');
+                }
+
+                if (window.innerWidth < 992 && visorContainer) {
+                    visorContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // --- 2. CONFIGURACIÓN DE TIPOS DE DOCUMENTO ---
+        const tipos = [
+            { val: 'REG_SANITARIO', text: 'Registro Sanitario' },
+            { val: 'FICHA_TECNICA', text: 'Ficha Técnica' },
+            { val: 'MSDS', text: 'Seguridad MSDS' },
+            { val: 'CERT_CALIDAD', text: 'Certificado de Calidad' },
+            { val: 'OTRO', text: 'Otros Documentos' }
+        ];
+
+        const selectUpload = document.getElementById('docTipoSelect');
+        const selectEdit = document.getElementById('editDocTipo');
+
+        const populateSelect = (targetSelect) => {
+            if (!targetSelect) return;
+            targetSelect.innerHTML = '<option value="">Seleccione tipo...</option>';
+            tipos.forEach((tipo) => {
+                const opt = document.createElement('option');
+                opt.value = tipo.val;
+                opt.textContent = tipo.text;
+                targetSelect.appendChild(opt);
+            });
+        };
+
+        populateSelect(selectUpload);
+        populateSelect(selectEdit);
+
+        // --- 3. BÚSQUEDA DE DOCUMENTOS ---
+        const searchInput = document.getElementById('docSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase().trim();
+                document.querySelectorAll('.doc-item').forEach((doc) => {
+                    const text = doc.getAttribute('data-search') || '';
+                    doc.classList.toggle('d-none', !text.includes(term));
                 });
-            }
-        };
-
-        initTS(clienteSelect, 'buscar_clientes', tipoTerceroSelect, 'tipo_tercero');
-        initTS(productoSelect, 'buscar_productos');
-    };
-
-    // 2. FUNCIÓN PRINCIPAL DEL MÓDULO
-    window.inicializarModuloReporteVentas = function() {
-        
-        // Inicializamos los buscadores
-        setTimeout(window.inicializarBuscadoresAjax, 100);
-
-        const formId = 'formFiltrosReporteVentas';
-        const formReporte = document.getElementById(formId);
-
-        if (!formReporte || formReporte.getAttribute('data-js-init') === 'true') {
-            return;
-        }
-        formReporte.setAttribute('data-js-init', 'true');
-
-        // --- FUNCIÓN PARA ENVIAR FILTROS ---
-        const submitReporteFiltros = () => {
-            const desde = formReporte.querySelector('input[name="fecha_desde"]');
-            const hasta = formReporte.querySelector('input[name="fecha_hasta"]');
-            
-            if (desde && hasta && desde.value && hasta.value && desde.value > hasta.value) {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Rango inválido',
-                        text: 'La fecha "Desde" no puede ser mayor que la fecha "Hasta".',
-                        confirmButtonColor: '#0B5ED7'
-                    });
-                } else {
-                    alert('La fecha "Desde" no puede ser mayor que la fecha "Hasta".');
-                }
-                return false;
-            }
-
-            const params = new URLSearchParams(new FormData(formReporte));
-            const baseUrl = formReporte.action.split('?')[0];
-            const destino = new URL(baseUrl, window.location.origin);
-            destino.search = params.toString();
-
-            if (typeof window.navigateWithoutReload === 'function') {
-                window.navigateWithoutReload(destino, true);
-            } else {
-                window.location.href = destino.toString();
-            }
-        };
-
-        // --- TEMPORIZADOR AUTO-SUBMIT ---
-        const autoSubmitReporte = (() => {
-            let timer = null;
-            return (delay = 350) => {
-                if (timer) window.clearTimeout(timer);
-                timer = window.setTimeout(() => submitReporteFiltros(), delay);
-            };
-        })();
-
-        formReporte.addEventListener('submit', (event) => {
-            if(event.submitter && (event.submitter.name === 'exportar_pdf' || event.submitter.name === 'exportar_excel' || event.submitter.formTarget === '_blank')) {
-                return; 
-            }
-            event.preventDefault();
-            submitReporteFiltros();
-        });
-
-        const filtrosAutoSubmit = formReporte.querySelectorAll('.auto-submit');
-        filtrosAutoSubmit.forEach((field) => {
-            field.addEventListener('change', () => autoSubmitReporte(150));
-        });
-
-        const btnLimpiar = document.getElementById('btnLimpiarFiltros');
-        if (btnLimpiar) {
-            btnLimpiar.addEventListener('click', () => {
-                const seccion = document.getElementById('input_seccion_activa').value;
-                const baseUrl = formReporte.action.split('?')[0];
-                const destino = new URL(baseUrl, window.location.origin);
-                
-                destino.searchParams.set('ruta', 'reportes/ventas');
-                destino.searchParams.set('seccion_activa', seccion);
-                
-                if (typeof window.navigateWithoutReload === 'function') {
-                    window.navigateWithoutReload(destino, true);
-                } else {
-                    window.location.href = destino.toString();
-                }
             });
         }
 
-        const linksTabs = document.querySelectorAll('.nav-tabs .nav-link');
-        const inputSeccion = document.getElementById('input_seccion_activa');
+        // --- 4. EDICIÓN DE DOCUMENTOS ---
+        const modalEditEl = document.getElementById('modalEditarDoc');
+        const editIdInput = document.getElementById('editDocId');
+        const btnsEdit = document.querySelectorAll('.btn-edit-doc');
 
-        linksTabs.forEach(link => {
-            link.addEventListener('click', function(e) {
-                const href = this.getAttribute('href');
-                if (href && href.includes('seccion_activa=')) {
-                    e.preventDefault(); 
-                    const urlObj = new URL(href, window.location.origin);
-                    const seccionSeleccionada = urlObj.searchParams.get('seccion_activa');
+        if (modalEditEl && editIdInput && selectEdit) {
+            const bsModal = new bootstrap.Modal(modalEditEl);
+            btnsEdit.forEach((btn) => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation(); 
+                    const id = btn.getAttribute('data-id');
+                    const tipo = btn.getAttribute('data-tipo');
                     
-                    if (inputSeccion && inputSeccion.value !== seccionSeleccionada) {
-                        inputSeccion.value = seccionSeleccionada;
-                        formReporte.querySelectorAll('input[required]').forEach(f => f.required = false);
-                        submitReporteFiltros();
+                    editIdInput.value = id;
+                    
+                    if (tipo && !Array.from(selectEdit.options).some((opt) => opt.value === tipo)) {
+                        const opt = document.createElement('option');
+                        opt.value = tipo;
+                        opt.textContent = tipo;
+                        selectEdit.appendChild(opt);
                     }
-                }
+                    selectEdit.value = tipo;
+                    bsModal.show();
+                });
+            });
+        }
+
+        // --- 5. ELIMINAR DOCUMENTOS (SWEETALERT2) ---
+        document.querySelectorAll('.form-eliminar-doc').forEach((form) => {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                Swal.fire({
+                    title: '¿Eliminar archivo?',
+                    text: 'Esta acción no se puede deshacer.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="bi bi-trash3 me-1"></i> Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true,
+                }).then((result) => {
+                    if (result.isConfirmed) form.submit();
+                });
             });
         });
 
-        // =======================================================
-        // INICIALIZACIÓN SEGURA DE GRÁFICOS (CHART.JS PARA SPA)
-        // =======================================================
+        // --- 6. GRÁFICO SEGURO PARA SPA (HISTORIAL DE COSTOS) ---
         if (typeof Chart !== 'undefined') {
-
-            // --- ESTA ES LA FUNCIÓN QUE EVITA EL ERROR DE MEMORIA ---
             const crearGraficoSeguroSPA = (canvasElement, config) => {
                 const chartInstance = new Chart(canvasElement, config);
-                
-                // El observador "vigila" si la SPA elimina el canvas de la pantalla
                 const observer = new MutationObserver(() => {
                     if (!document.body.contains(canvasElement)) {
-                        chartInstance.destroy(); // Destruye la animación y libera la memoria
-                        observer.disconnect();   // Apaga el espía
+                        chartInstance.destroy();
+                        observer.disconnect();
                     }
                 });
-                
                 observer.observe(document.body, { childList: true, subtree: true });
                 return chartInstance;
             };
 
-            // 1. GRÁFICO DE TENDENCIAS
-            const canvasTendencias = document.getElementById('ventasPeriodoChart');
-            if (canvasTendencias) {
-                try {
-                    const chartData = JSON.parse(canvasTendencias.getAttribute('data-chart-data') || '[]');
-                    const tipoGrafico = canvasTendencias.getAttribute('data-chart-type') || 'bar';
-                    
-                    if(chartData.length > 0) {
+            const costosTab = document.getElementById('costos-tab');
+            const canvasCosto = document.getElementById('chartPerfilCosto');
+            let chartInstanciaCosto = null;
+
+            if (costosTab && canvasCosto) {
+                costosTab.addEventListener('shown.bs.tab', function () {
+                    if (chartInstanciaCosto) return; 
+
+                    try {
+                        const chartData = JSON.parse(canvasCosto.getAttribute('data-historial') || '[]');
+                        if (chartData.length === 0) return;
+
+                        chartData.reverse(); 
+
                         const labels = chartData.map(r => {
-                            let etiqueta = String(r.etiqueta ?? '');
-                            if (/^\d{4}-\d{2}-\d{2}$/.test(etiqueta)) {
-                                const partes = etiqueta.split('-');
-                                return `${partes[2]}/${partes[1]}/${partes[0]}`;
-                            }
-                            return etiqueta;
+                            const partes = r.fecha_movimiento.split(' ')[0].split('-');
+                            return `${partes[2]}/${partes[1]}/${partes[0]}`;
                         });
-                        const data = chartData.map(r => Number(r.total_vendido ?? 0));
+                        const data = chartData.map(r => Number(r.costo_promedio_resultante || 0));
 
-                        crearGraficoSeguroSPA(canvasTendencias, {
-                            type: tipoGrafico,
-                            data: {
-                                labels,
-                                datasets: [{
-                                    label: 'Total vendido (S/)',
-                                    data,
-                                    borderColor: '#198754',
-                                    backgroundColor: tipoGrafico === 'line' ? 'rgba(25,135,84,.15)' : 'rgba(25,135,84,.35)',
-                                    tension: .25,
-                                    fill: tipoGrafico === 'line',
-                                    pointRadius: tipoGrafico === 'line' ? 3 : 0,
-                                    borderRadius: tipoGrafico === 'bar' ? 6 : 0,
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    legend: { display: false },
-                                    tooltip: { 
-                                        callbacks: { 
-                                            label(ctx) { return `S/ ${Number(ctx.parsed.y ?? 0).toFixed(2)}`; } 
-                                        } 
-                                    }
-                                },
-                                scales: {
-                                    y: { 
-                                        ticks: { 
-                                            callback(value) { return `S/ ${Number(value).toFixed(0)}`; } 
-                                        } 
-                                    }
-                                }
-                            }
-                        });
-                    }
-                } catch (err) { console.error("Error Chart Tendencias:", err); }
-            }
-
-            // 2. GRÁFICO POR CLIENTES
-            const canvasClientes = document.getElementById('ventasClientesChart');
-            if (canvasClientes) {
-                try {
-                    const chartData = JSON.parse(canvasClientes.getAttribute('data-chart-data') || '[]');
-                    if (chartData.length > 0) {
-                        const topN = chartData.slice(0, 5);
-                        const otros = chartData.slice(5).reduce((acc, curr) => acc + Number(curr.total_vendido || 0), 0);
-                        
-                        const labels = topN.map(r => r.cliente);
-                        const data = topN.map(r => Number(r.total_vendido || 0));
-                        
-                        if (otros > 0) {
-                            labels.push('OTROS CLIENTES');
-                            data.push(otros);
-                        }
-
-                        crearGraficoSeguroSPA(canvasClientes, {
-                            type: 'doughnut',
+                        chartInstanciaCosto = crearGraficoSeguroSPA(canvasCosto, {
+                            type: 'line',
                             data: {
                                 labels: labels,
                                 datasets: [{
+                                    label: 'Costo Promedio (S/)',
                                     data: data,
-                                    backgroundColor: ['#0d6efd', '#20c997', '#ffc107', '#fd7e14', '#6f42c1', '#adb5bd'],
+                                    borderColor: '#0d6efd',
+                                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
                                     borderWidth: 2,
-                                    borderColor: '#ffffff'
+                                    fill: true,
+                                    tension: 0.25,
+                                    pointRadius: 3
                                 }]
                             },
                             options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                cutout: '65%',
-                                plugins: {
-                                    legend: { position: 'bottom' },
-                                    tooltip: {
-                                        callbacks: {
-                                            label(ctx) { return ` S/ ${Number(ctx.parsed).toFixed(2)}`; }
-                                        }
-                                    }
-                                }
-                            }
-                        });
-                    }
-                } catch (err) { console.error("Error Chart Clientes:", err); }
-            }
-
-            // 3. GRÁFICO TOP PRODUCTOS
-            const canvasProductos = document.getElementById('ventasProductosChart');
-            if (canvasProductos) {
-                try {
-                    const chartData = JSON.parse(canvasProductos.getAttribute('data-chart-data') || '[]');
-                    if (chartData.length > 0) {
-                        const topN = chartData.slice(0, 7);
-                        const labels = topN.map(r => {
-                            let nombre = r.producto || '';
-                            return nombre.length > 25 ? nombre.substring(0, 25) + '...' : nombre; 
-                        });
-                        const data = topN.map(r => Number(r.total_monto || 0));
-
-                        crearGraficoSeguroSPA(canvasProductos, {
-                            type: 'bar',
-                            data: {
-                                labels: labels,
-                                datasets: [{
-                                    label: 'Monto Generado',
-                                    data: data,
-                                    backgroundColor: 'rgba(13, 110, 253, 0.8)',
-                                    borderRadius: 4,
-                                }]
-                            },
-                            options: {
-                                indexAxis: 'y',
                                 responsive: true,
                                 maintainAspectRatio: false,
                                 plugins: {
                                     legend: { display: false },
                                     tooltip: {
                                         callbacks: {
-                                            label(ctx) { return ` S/ ${Number(ctx.parsed.x).toFixed(2)}`; }
+                                            label(ctx) { return ` S/ ${Number(ctx.parsed.y ?? 0).toFixed(4)}`; }
                                         }
                                     }
                                 },
                                 scales: {
-                                    x: {
-                                        ticks: { 
-                                            callback(value) { return `S/ ${value}`; } 
+                                    y: {
+                                        ticks: {
+                                            callback(value) { return `S/ ${Number(value).toFixed(2)}`; }
                                         }
                                     }
                                 }
                             }
                         });
+                    } catch (err) {
+                        console.error("Error Chart Historial Costos:", err);
                     }
-                } catch (err) { console.error("Error Chart Productos:", err); }
+                });
             }
         }
     };
 
-    // --- AUTO-INICIALIZACIÓN INTELIGENTE ---
-    document.addEventListener('DOMContentLoaded', window.inicializarModuloReporteVentas);
-    document.addEventListener('sisadmin:route-loaded', window.inicializarModuloReporteVentas);
+    // --- AUTO-INICIALIZACIÓN INTELIGENTE (ESTÁNDAR SPA) ---
+    document.addEventListener('DOMContentLoaded', window.inicializarModuloPerfilItem);
+    document.addEventListener('sisadmin:route-loaded', window.inicializarModuloPerfilItem);
 }
