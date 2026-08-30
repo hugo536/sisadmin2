@@ -41,6 +41,7 @@ class Router
         ];
 
         $controlador_clase = $mapa_alias[$controlador_clase_base] ?? $controlador_clase_base;
+        $archivo_controlador = null;
 
         // --- MANEJO DE MÓDULOS ESPECÍFICOS ---
 
@@ -66,6 +67,14 @@ class Router
                 $accion = 'index';
             } elseif ($accion === 'cxp') {
                 $controlador_clase = 'CxpController';
+                $accion = 'index';
+            } elseif ($accion === 'compras') {
+                $controlador_clase = 'ReporteComprasController';
+                $archivo_controlador = BASE_PATH . '/app/controllers/reportes/ComprasController.php';
+                $accion = 'index';
+            } elseif ($accion === 'ventas') {
+                $controlador_clase = 'ReporteVentasController';
+                $archivo_controlador = BASE_PATH . '/app/controllers/reportes/VentasController.php';
                 $accion = 'index';
             }
         }
@@ -183,7 +192,7 @@ class Router
         }
 
         // Búsqueda del archivo
-        $archivo = $this->resolver_controlador_archivo($controlador_clase);
+        $archivo = $archivo_controlador ?? $this->resolver_controlador_archivo($controlador_clase);
         
         if (!$archivo) {
             if ($this->debug) {
