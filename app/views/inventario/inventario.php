@@ -347,11 +347,12 @@ $tipoItemLabel = static function (string $tipo): string {
                     <div class="card border-0 shadow-sm mb-4">
                         <div class="card-body p-4">
                             <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Datos del Movimiento</h6>
-                            <div class="row g-3">
-                                <div class="col-md-6">
+                            <div class="row g-3 align-items-end">
+                                <!-- Columna 1 (33%) -->
+                                <div class="col-md-4">
                                     <label for="tipoMovimiento" class="form-label text-muted small fw-bold mb-1">Tipo de Movimiento <span class="text-danger">*</span></label>
                                     <select id="tipoMovimiento" name="tipo_movimiento" class="form-select" required>
-                                        <option value="">Seleccione...</option>
+                                        <option value=""></option> <!-- Vacío para que TomSelect use su placeholder -->
                                         <option value="INI">INI - Inicial</option>
                                         <option value="AJ+">AJ+ - Ajuste positivo</option>
                                         <option value="AJ-">AJ- - Ajuste negativo</option>
@@ -359,40 +360,34 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <option value="CON">CON - Consumo</option>
                                     </select>
                                 </div>
-                                <div class="col-md-6">
+                                
+                                <!-- Columna 2 (33%) -->
+                                <div class="col-md-4">
                                     <label for="almacenMovimiento" class="form-label text-muted small fw-bold mb-1">Almacén Origen <span class="text-danger">*</span></label>
                                     <select id="almacenMovimiento" name="id_almacen" class="form-select" required>
-                                        <option value="">Seleccione...</option>
+                                        <option value=""></option> <!-- Vacío, elimina el "Seleccione..." -->
                                         <?php foreach ($almacenes as $almacen): ?>
                                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
 
-                                <div class="col-12 mt-3 d-none" id="grupoProveedorMovimiento">
-                                    <label for="proveedorMovimiento" class="form-label text-muted small fw-bold mb-1">Proveedor (Opcional / Para compras)</label>
-                                    <select id="proveedorMovimiento" name="id_proveedor" class="form-select">
-                                        <option value="">Seleccione proveedor...</option>
-                                        <?php foreach (($proveedores ?? []) as $proveedor): ?>
-                                            <option value="<?php echo (int) ($proveedor['id'] ?? 0); ?>"><?php echo e((string) ($proveedor['nombre_completo'] ?? '')); ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-
-                                <div class="col-12 d-none mt-3" id="grupoAlmacenDestino">
-                                    <label for="almacenDestinoMovimiento" class="form-label text-muted small fw-bold mb-1 text-primary">Almacén Destino (Solo Transferencias)</label>
+                                <!-- Columna 3 Dinámica: Destino (33%) -->
+                                <div class="col-md-4 d-none" id="grupoAlmacenDestino">
+                                    <label for="almacenDestinoMovimiento" class="form-label text-muted small fw-bold mb-1 text-primary">Almacén Destino <span class="text-danger">*</span></label>
                                     <select id="almacenDestinoMovimiento" name="id_almacen_destino" class="form-select border-primary-subtle">
-                                        <option value="">Seleccione...</option>
+                                        <option value=""></option>
                                         <?php foreach ($almacenes as $almacen): ?>
                                             <option value="<?php echo (int) ($almacen['id'] ?? 0); ?>"><?php echo e((string) ($almacen['nombre'] ?? '')); ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
 
-                                <div class="col-12 d-none mt-3" id="grupoMotivoMovimiento">
+                                <!-- Columna 3 Alternativa Dinámica: Motivo (33%) -->
+                                <div class="col-md-4 d-none" id="grupoMotivoMovimiento">
                                     <label for="motivoMovimiento" class="form-label text-muted small fw-bold mb-1">Motivo del Movimiento</label>
                                     <select id="motivoMovimiento" name="motivo" class="form-select">
-                                        <option value="">Seleccione motivo...</option>
+                                        <option value=""></option>
                                         <option value="Merma recuperada">Merma recuperada</option>
                                         <option value="Conteo físico">Conteo físico</option>
                                         <option value="Error anterior">Error anterior</option>
@@ -408,13 +403,25 @@ $tipoItemLabel = static function (string $tipo): string {
                                         <option value="Otro">Otro</option>
                                     </select>
                                 </div>
+
+                                <!-- Proveedor (Si llegara a usarse, ocupa su propio espacio de 33%) -->
+                                <div class="col-md-4 d-none" id="grupoProveedorMovimiento">
+                                    <label for="proveedorMovimiento" class="form-label text-muted small fw-bold mb-1">Proveedor (Opcional)</label>
+                                    <select id="proveedorMovimiento" name="id_proveedor" class="form-select">
+                                        <option value=""></option>
+                                        <?php foreach (($proveedores ?? []) as $proveedor): ?>
+                                            <option value="<?php echo (int) ($proveedor['id'] ?? 0); ?>"><?php echo e((string) ($proveedor['nombre_completo'] ?? '')); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
                                 
-                                <div class="col-12 d-none mt-3" id="grupoCentroCostoMovimiento">
+                                <!-- Fila independiente debajo (100%) para Centro de Costo -->
+                                <div class="col-12 d-none" id="grupoCentroCostoMovimiento">
                                     <label for="centroCostoMovimiento" class="form-label small fw-bold text-warning-emphasis mb-1">
                                         Centro de Costos <span class="text-danger">*</span>
                                     </label>
                                     <select id="centroCostoMovimiento" name="id_centro_costo" class="form-select border-warning-subtle bg-warning-subtle text-dark">
-                                        <option value="">Seleccione centro de costos...</option>
+                                        <option value=""></option>
                                         <?php foreach ($centros_costo as $cc): ?>
                                             <option value="<?php echo (int) ($cc['id'] ?? 0); ?>">
                                                 <?php echo e((string) ($cc['codigo'] ?? '') . ' - ' . (string) ($cc['nombre'] ?? '')); ?>
@@ -430,61 +437,69 @@ $tipoItemLabel = static function (string $tipo): string {
                         <div class="card-body p-4">
                             <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Detalle del Producto</h6>
                             
-                            <div class="row g-3 align-items-end mb-4">
-                                <div class="col-md-8">
+                            <!-- FILA 1: Datos principales súper compactos (5 + 2 + 2 + 3 = 12 columnas) -->
+                            <div class="row g-3 align-items-end mb-3">
+                                <div class="col-md-5">
                                     <label class="form-label text-muted small fw-bold mb-1">Buscar Ítem (SKU / Nombre) <span class="text-danger">*</span></label>
                                     <select id="itemMovimiento" class="form-select" placeholder="Escriba para buscar...">
-                                        <option value="">Escriba para buscar...</option>
+                                        <option value=""></option>
                                     </select>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="form-label text-muted small fw-bold mb-1">Stock en Almacén</label>
-                                    <input type="text" class="form-control bg-light text-primary fw-bold" id="stockActualItemSeleccionado" value="0" readonly>
-                                </div>
-                            </div>
-
-                            <div class="row g-3 align-items-start">
-                                <div class="col-md-6">
-                                    <label for="cantidadMovimiento" class="form-label text-muted small fw-bold mb-1">Cantidad a Mover <span class="text-danger">*</span></label>
-                                    <input type="number" step="0.0001" min="0.0001" class="form-control bg-light" id="cantidadMovimiento" name="cantidad" disabled>
+                                
+                                <div class="col-md-2">
+                                    <label class="form-label text-muted small fw-bold mb-1">Stock Actual</label>
+                                    <input type="text" class="form-control bg-light text-primary fw-bold text-end" id="stockActualItemSeleccionado" value="0" readonly>
                                 </div>
 
-                                <div class="col-md-6" id="grupoUnidadMovimiento">
-                                    <label for="unidadMovimiento" class="form-label text-muted small fw-bold mb-1">Unidad transaccional</label>
+                                <div class="col-md-2">
+                                    <label for="cantidadMovimiento" class="form-label text-muted small fw-bold mb-1">Cantidad <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.0001" min="0.0001" class="form-control bg-light text-end" id="cantidadMovimiento" name="cantidad" disabled>
+                                </div>
+
+                                <div class="col-md-3" id="grupoUnidadMovimiento">
+                                    <label for="unidadMovimiento" class="form-label text-muted small fw-bold mb-1">Unidad</label>
                                     <select id="unidadMovimiento" class="form-select bg-light" disabled>
                                         <option value="">Unidad base</option>
                                     </select>
                                 </div>
+                            </div>
 
-                                <div class="d-none !important" id="grupoCostoUnitarioMovimiento" style="display: none !important;">
-                                    <input type="number" step="0.0001" min="0" class="form-control" id="costoUnitarioMovimiento" name="costo_unitario" value="0">
+                            <!-- FILA 2: Campos dinámicos y Botón de Acción -->
+                            <div class="row g-3 align-items-end">
+                                
+                                <div class="col-md-3 d-none !important" id="grupoCostoUnitarioMovimiento" style="display: none !important;">
+                                    <label class="form-label text-muted small fw-bold mb-1">Costo Unit.</label>
+                                    <input type="number" step="0.0001" min="0" class="form-control text-end" id="costoUnitarioMovimiento" name="costo_unitario" value="0">
                                 </div>
 
-                                <div class="col-md-6 d-none mt-3" id="grupoLoteInput">
+                                <div class="col-md-3 d-none" id="grupoLoteInput">
                                     <label for="loteMovimientoInput" class="form-label text-muted small fw-bold mb-1">Nuevo Lote</label>
-                                    <input type="text" class="form-control" id="loteMovimientoInput" maxlength="100" placeholder="Ej. LOTE-001">
+                                    <input type="text" class="form-control text-uppercase" id="loteMovimientoInput" maxlength="100" placeholder="Ej. L001">
                                 </div>
 
-                                <div class="col-md-6 d-none mt-3" id="grupoLoteSelect">
+                                <div class="col-md-3 d-none" id="grupoLoteSelect">
                                     <label for="loteMovimientoSelect" class="form-label text-muted small fw-bold mb-1">Lote Existente</label>
                                     <select class="form-select" id="loteMovimientoSelect">
-                                        <option value="">Seleccione lote...</option>
+                                        <option value=""></option>
                                     </select>
-                                    <div class="form-text small text-danger d-none mt-1" id="msgSinLotes"><i class="bi bi-exclamation-circle"></i> Sin lotes disponibles.</div>
+                                    <div class="form-text small text-danger d-none mt-1" id="msgSinLotes"><i class="bi bi-exclamation-circle"></i> Sin lotes.</div>
                                 </div>
 
-                                <div class="col-md-6 d-none mt-3" id="grupoVencimientoMovimiento">
-                                    <label for="vencimientoMovimiento" class="form-label text-muted small fw-bold mb-1">Fecha Vencimiento</label>
+                                <div class="col-md-3 d-none" id="grupoVencimientoMovimiento">
+                                    <label for="vencimientoMovimiento" class="form-label text-muted small fw-bold mb-1">Vencimiento</label>
                                     <input type="date" class="form-control" id="vencimientoMovimiento" name="fecha_vencimiento">
+                                </div>
+                                
+                                <!-- BOTÓN COMPACTO ALINEADO A LA DERECHA -->
+                                <div class="col-12 mt-4 text-end">
+                                    <button type="button" class="btn btn-primary fw-semibold px-4 shadow-sm" id="btnAgregarLineaMovimiento">
+                                        <i class="bi bi-plus-lg me-2"></i>Agregar Ítem
+                                    </button>
                                 </div>
                             </div>
 
-                            <div class="row mt-4">
-                                <div class="col-12 text-end mb-2">
-                                    <button type="button" class="btn btn-outline-primary fw-semibold btn-sm w-100 w-md-auto" id="btnAgregarLineaMovimiento">
-                                        <i class="bi bi-plus-circle me-1"></i>Agregar ítem a la operación
-                                    </button>
-                                </div>
+                            <!-- TABLA DE LÍNEAS -->
+                            <div class="row mt-3">
                                 <div class="col-12">
                                     <div class="table-responsive border rounded-3 bg-white">
                                         <table class="table table-sm align-middle mb-0 table-pro" id="tablaLineasMovimiento">
@@ -510,9 +525,11 @@ $tipoItemLabel = static function (string $tipo): string {
                         </div>
                     </div>
 
-                    <div class="form-floating shadow-sm rounded">
-                        <textarea class="form-control border-0" id="referenciaMovimiento" name="referencia" style="height: 80px" maxlength="255" placeholder="Ref"></textarea>
-                        <label for="referenciaMovimiento" class="fw-semibold text-muted">Referencia / Comentario <small class="text-muted">(opcional)</small></label>
+                    <div class="mt-4">
+                        <label for="referenciaMovimiento" class="form-label text-muted small fw-bold mb-1">
+                            Referencia / Comentario <span class="text-muted fw-normal">(opcional)</span>
+                        </label>
+                        <textarea class="form-control" id="referenciaMovimiento" name="referencia" style="height: 80px" maxlength="255" placeholder="Escriba un motivo, referencia o comentario sobre esta operación..."></textarea>
                     </div>
 
                 </form>

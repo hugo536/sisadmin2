@@ -1,7 +1,7 @@
 /**
  * LÓGICA PARA EL MÓDULO DE PLANILLAS Y PAGOS
  * Archivo: public/assets/js/rrhh/planillas.js
- * Compatible con arquitectura SPA
+ * Compatible con arquitectura SPA y Hotwire/Turbo
  */
 
 (function() {
@@ -195,6 +195,9 @@
             });
         }
 
+        // ==============================================================
+        // LÓGICA DE GENERACIÓN DE LOTES (CON SOPORTE SEMANAL ISO 8601)
+        // ==============================================================
         const modalGenerarLote = document.getElementById('modalGenerarLote');
         const selectFrecuenciaLote = document.getElementById('frecuenciaLote');
         const inputFechaInicioLote = document.getElementById('fechaInicioLote');
@@ -202,10 +205,15 @@
         const ayudaFrecuenciaLote = document.getElementById('ayudaFrecuenciaLote');
         const inputNombreGenerado = document.getElementById('nombreGeneradoLote');
 
+        // Elementos para la selección por semana
+        const divRangoNormal = document.getElementById('rangoFechasNormal');
+        const divRangoSemanal = document.getElementById('rangoFechasSemanal');
+        const inputSemana = document.getElementById('semanaLoteInput');
+
         const PERIODOS_DIAS = { TODOS: 30, SEMANAL: 7, QUINCENAL: 15, MENSUAL: 30 };
         const MENSAJES_PERIODO = {
-            TODOS: 'Rango libre recomendado hasta 30 días. Se calcularán todos los empleados activos.',
-            SEMANAL: 'Se configuró un rango de 7 días para empleados con frecuencia semanal.',
+            TODOS: 'Rango libre recomendado hasta 30 días. Se calcularán todos los empleados.',
+            SEMANAL: 'Se ha seleccionado una semana exacta (Rango estricto de Lunes a Domingo).',
             QUINCENAL: 'Se configuró un rango de 15 días para empleados con frecuencia quincenal.',
             MENSUAL: 'Se configuró un rango de 30 días para empleados con frecuencia mensual.'
         };
@@ -213,6 +221,38 @@
         function formatDateISO(date) { return date.toISOString().slice(0, 10); }
         function formatLatino(dateStr) { if (!dateStr) return ''; const [year, month, day] = dateStr.split('-'); return `${day}/${month}/${year}`; }
         function addDays(dateValue, days) { const date = new Date(dateValue + 'T00:00:00'); if (isNaN(date.getTime())) return null; date.setDate(date.getDate() + days); return date; }
+
+        function obtenerSemanaISOActual() {
+            const hoy = new Date();
+            const d = new Date(Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()));
+            const diaSemana = d.getUTCDay() || 7; 
+            d.setUTCDate(d.getUTCDate() + 4 - diaSemana);
+            const inicioAnio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            const numSemana = Math.ceil((((d - inicioAnio) / 86400000) + 1) / 7);
+            return `${d.getUTCFullYear()}-W${numSemana.toString().padStart(2, '0')}`;
+        }
+
+        function calcularRangoDesdeSemanaISO(semanaISO) {
+            if (!semanaISO) return null;
+            const [anioStr, semanaStr] = semanaISO.split('-W');
+            const anio = parseInt(anioStr, 10);
+            const semana = parseInt(semanaStr, 10);
+            
+            const simple = new Date(anio, 0, 1 + (semana - 1) * 7);
+            const inicioISO = new Date(simple);
+            
+            if (simple.getDay() <= 4) {
+                inicioISO.setDate(simple.getDate() - simple.getDay() + 1);
+            } else {
+                inicioISO.setDate(simple.getDate() + 8 - simple.getDay());
+            }
+            
+            const lunes = new Date(inicioISO);
+            const domingo = new Date(inicioISO);
+            domingo.setDate(domingo.getDate() + 6);
+            
+            return { inicio: formatDateISO(lunes), fin: formatDateISO(domingo) };
+        }
 
         function actualizarNombreLote() {
             if (inputNombreGenerado && inputFechaInicioLote.value && inputFechaFinLote.value) {
@@ -223,22 +263,45 @@
         function ajustarRangoPorFrecuencia() {
             if (!selectFrecuenciaLote || !inputFechaInicioLote || !inputFechaFinLote) return;
             const frecuencia = (selectFrecuenciaLote.value || 'TODOS').toUpperCase();
-            const diasPeriodo = PERIODOS_DIAS[frecuencia] ?? 30;
-
-            if (!inputFechaInicioLote.value) {
-                const hoy = new Date(); hoy.setHours(0,0,0,0);
-                inputFechaInicioLote.value = formatDateISO(hoy);
-            }
-
-            const fechaFinCalculada = addDays(inputFechaInicioLote.value, diasPeriodo - 1);
-            if (fechaFinCalculada) {
-                inputFechaFinLote.value = formatDateISO(fechaFinCalculada);
-                inputFechaFinLote.min = inputFechaInicioLote.value;
-                inputFechaFinLote.max = formatDateISO(addDays(inputFechaInicioLote.value, diasPeriodo - 1));
-            }
-
+            
             if (ayudaFrecuenciaLote) {
                 ayudaFrecuenciaLote.innerHTML = `<i class="bi bi-info-circle text-primary me-1"></i> ${MENSAJES_PERIODO[frecuencia] ?? MENSAJES_PERIODO.TODOS}`;
+            }
+
+            if (frecuencia === 'SEMANAL') {
+                if (divRangoNormal) divRangoNormal.classList.add('d-none');
+                if (divRangoSemanal) divRangoSemanal.classList.remove('d-none');
+                
+                if (inputSemana && !inputSemana.value) {
+                    inputSemana.value = obtenerSemanaISOActual();
+                }
+                
+                if (inputSemana) {
+                    const rango = calcularRangoDesdeSemanaISO(inputSemana.value);
+                    if (rango) {
+                        inputFechaInicioLote.value = rango.inicio;
+                        inputFechaFinLote.value = rango.fin;
+                        inputFechaFinLote.min = rango.inicio;
+                        inputFechaFinLote.max = rango.fin;
+                    }
+                }
+            } else {
+                if (divRangoNormal) divRangoNormal.classList.remove('d-none');
+                if (divRangoSemanal) divRangoSemanal.classList.add('d-none');
+                
+                const diasPeriodo = PERIODOS_DIAS[frecuencia] ?? 30;
+
+                if (!inputFechaInicioLote.value) {
+                    const hoy = new Date(); hoy.setHours(0,0,0,0);
+                    inputFechaInicioLote.value = formatDateISO(hoy);
+                }
+
+                const fechaFinCalculada = addDays(inputFechaInicioLote.value, diasPeriodo - 1);
+                if (fechaFinCalculada) {
+                    inputFechaFinLote.value = formatDateISO(fechaFinCalculada);
+                    inputFechaFinLote.min = inputFechaInicioLote.value;
+                    inputFechaFinLote.max = formatDateISO(addDays(inputFechaInicioLote.value, diasPeriodo - 1));
+                }
             }
 
             actualizarNombreLote();
@@ -258,7 +321,7 @@
                 return;
             }
 
-            if (diferenciaDias !== diasPeriodo) {
+            if (frecuencia !== 'SEMANAL' && diferenciaDias !== diasPeriodo) {
                 inputFechaFinLote.setCustomValidity(`Para frecuencia ${frecuencia.toLowerCase()} el rango debe ser de ${diasPeriodo} días.`);
                 return;
             }
@@ -274,9 +337,17 @@
                 if (formGenerarLote) restaurarBotonSubmit(formGenerarLote);
             });
         }
+        
         if (selectFrecuenciaLote) selectFrecuenciaLote.addEventListener('change', () => { inputFechaFinLote?.setCustomValidity(''); ajustarRangoPorFrecuencia(); });
         if (inputFechaInicioLote) inputFechaInicioLote.addEventListener('change', () => { inputFechaFinLote?.setCustomValidity(''); ajustarRangoPorFrecuencia(); });
         if (inputFechaFinLote) inputFechaFinLote.addEventListener('change', validarRangoSegunFrecuencia);
+        
+        if (inputSemana) {
+            inputSemana.addEventListener('change', () => {
+                ajustarRangoPorFrecuencia();
+                validarRangoSegunFrecuencia();
+            });
+        }
 
         const formGenerarLote = modalGenerarLote?.querySelector('form');
         if (formGenerarLote) {
@@ -387,8 +458,40 @@
                     }).then((result) => {
                         if (result.isConfirmed) {
                             bloquearBotonSubmit(formCerrar, "Cerrando...");
-                            // CAMBIO CLAVE AQUI: Forzamos el submit real saltando el EventListener
                             HTMLFormElement.prototype.submit.call(formCerrar);
+                        }
+                    });
+                }
+            });
+        }
+
+        // ==========================================
+        // ELIMINAR LOTE BORRADOR
+        // ==========================================
+        const formEliminar = document.getElementById('formEliminarLote');
+        if (formEliminar) {
+            formEliminar.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                if (!window.Swal) {
+                    if (confirm("¿Estás seguro? Se borrará todo el cálculo de este borrador y no se puede deshacer.")) {
+                        bloquearBotonSubmit(formEliminar, "Eliminando...");
+                        HTMLFormElement.prototype.submit.call(formEliminar);
+                    }
+                } else {
+                    Swal.fire({
+                        title: '¿Eliminar borrador?',
+                        text: "Se borrará todo el cálculo de esta planilla. Esta acción no se puede deshacer.",
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#dc3545',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: '<i class="bi bi-trash-fill me-1"></i> Sí, eliminar lote',
+                        cancelButtonText: 'Cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            bloquearBotonSubmit(formEliminar, "Eliminando...");
+                            HTMLFormElement.prototype.submit.call(formEliminar);
                         }
                     });
                 }
@@ -442,12 +545,10 @@ window.exportarSiEsValido = function(formato, idLote, esBorrador, tienePagos) {
         return; 
     }
 
-    // Rutas dinámicas según el formato elegido
     const baseUrl = window.BASE_URL || '';
     let url = '';
 
     if (formato === 'pdf') {
-        // Enlaza a tu método de imprimir reporte general (PDF)
         url = baseUrl + 'index.php?ruta=planillas/imprimir_reporte_planilla&id_lote=' + idLote;
     } else if (formato === 'excel') {
         url = baseUrl + 'index.php?ruta=planillas/exportar_excel&id_lote=' + idLote;

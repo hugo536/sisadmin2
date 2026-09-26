@@ -137,6 +137,7 @@ if (!str_starts_with($temaElegido, 'theme-')) {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"
         onerror="(function(){var s=document.createElement('script');s.src='https://unpkg.com/tom-select@2.2.2/dist/js/tom-select.complete.min.js';document.head.appendChild(s);}())"></script>
 
@@ -175,15 +176,11 @@ if (!str_starts_with($temaElegido, 'theme-')) {
     <script src="<?php echo e(asset_url('js/configuracion/empresa.js')); ?>?v=<?php echo $getAssetVersion('js/configuracion/empresa.js'); ?>"></script>
 <?php endif; ?>
 
-<?php if (in_array($currentRoute, ['items', 'items/index'], true)): ?>
+<?php if (str_starts_with($currentRoute, 'items')): ?>
     <script src="<?php echo e(asset_url('js/items/categorias_rubros.js')); ?>?v=<?php echo $getAssetVersion('js/items/categorias_rubros.js'); ?>"></script>
     <script src="<?php echo e(asset_url('js/items/atributos.js')); ?>?v=<?php echo $getAssetVersion('js/items/atributos.js'); ?>"></script>
     <script src="<?php echo e(asset_url('js/items/unidades_conversion.js')); ?>?v=<?php echo $getAssetVersion('js/items/unidades_conversion.js'); ?>"></script>
     <script src="<?php echo e(asset_url('js/items/main.js')); ?>?v=<?php echo $getAssetVersion('js/items/main.js'); ?>"></script>
-<?php endif; ?>
-
-<?php if ($currentRoute === 'items/perfil'): ?>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="<?php echo e(asset_url('js/items/perfil.js')); ?>?v=<?php echo $getAssetVersion('js/items/perfil.js'); ?>"></script>
 <?php endif; ?>
 
@@ -219,17 +216,14 @@ if (!str_starts_with($temaElegido, 'theme-')) {
 <?php endif; ?>
 
 <?php if ($currentRoute === 'reportes/inventario'): ?>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="<?php echo e(asset_url('js/reportes/inventario.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/inventario.js'); ?>"></script>
 <?php endif; ?>
 
 <?php if ($currentRoute === 'reportes/compras'): ?>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="<?php echo e(asset_url('js/reportes/compras.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/compras.js'); ?>"></script>
 <?php endif; ?>
 
 <?php if ($currentRoute === 'reportes/ventas'): ?>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script src="<?php echo e(asset_url('js/reportes/ventas.js')); ?>?v=<?php echo $getAssetVersion('js/reportes/ventas.js'); ?>"></script>
 <?php endif; ?>
 
@@ -379,9 +373,6 @@ Swal.fire({
         }, 50);
     })();
 </script>
-
-</body>
-</html>
 
 </body>
 </html>

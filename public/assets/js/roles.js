@@ -1,7 +1,7 @@
 /**
  * public/assets/js/roles.js
  * Gestión de Roles y Permisos (Cliente)
- * V5 - Fix: Error de estilos (Null Style) corregido
+ * V6 - Integración de Master Switch (Todo el módulo) y Cascada
  */
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -12,10 +12,21 @@ document.addEventListener('DOMContentLoaded', function () {
     let isSyncingRoleSwitch = false;
 
     // =========================================================
-    // 1. LÓGICA DE CASCADA (VER -> HIJOS) Y BLOQUEO DE ROL
+    // 1. LÓGICA DE CASCADA Y MASTER SWITCH (TODO EL MÓDULO)
     // =========================================================
     
-    // Función A: Controla la cascada dentro de un módulo
+    // Función A: Verifica si todos los checks hijos están marcados para encender/apagar el Master Switch
+    function syncMasterSwitch(childClass) {
+        const masterSwitch = document.querySelector(`.switch-master-modulo[data-target-class="${childClass}"]`);
+        if (masterSwitch) {
+            const allSiblings = document.querySelectorAll(`.${childClass}`);
+            // Evalúa que existan siblings y que absolutamente todos estén en "checked = true"
+            const allChecked = allSiblings.length > 0 && Array.from(allSiblings).every(chk => chk.checked);
+            masterSwitch.checked = allChecked;
+        }
+    }
+
+    // Función B: Controla la cascada dentro de un módulo (Apagar Permiso VER -> Apaga y bloquea Hijos)
     function updateModuleCascade(masterCheckbox) {
         const container = masterCheckbox.closest('.accordion-body');
         if (!container) return;
@@ -27,7 +38,6 @@ document.addEventListener('DOMContentLoaded', function () {
         siblings.forEach(chk => {
             if (chk === masterCheckbox) return;
 
-            // CORRECCIÓN AQUÍ: Usamos .closest('.form-check') en lugar de label
             const wrapper = chk.closest('.form-check'); 
 
             if (isChecked && !isMasterDisabled) {
@@ -39,12 +49,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 if(wrapper) wrapper.style.opacity = '0.5';
             }
         });
+
+        // Sincronizar master switch global del módulo por si la cascada apagó todo
+        const classes = Array.from(masterCheckbox.classList);
+        const childClass = classes.find(c => c.startsWith('child-perm-'));
+        if (childClass) syncMasterSwitch(childClass);
     }
 
-    // Función B: Controla el bloqueo total según el Switch del Rol
+    // Función C: Controla el bloqueo total según el Switch general del Rol (Inactivar Rol)
     function updateRoleMatrixState(switchRol) {
         const rowMain = switchRol.closest('tr.role-row-main');
-        if (!rowMain) return; // Validación extra
+        if (!rowMain) return; 
         
         const rolId = rowMain.dataset.roleId;
         const rowDetail = document.querySelector(`tr.role-row-detail[data-detail-for="${rolId}"]`);
@@ -52,23 +67,25 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!rowDetail) return;
 
         const allCheckboxes = rowDetail.querySelectorAll('input[type="checkbox"].permiso-check');
+        const allMasterSwitches = rowDetail.querySelectorAll('input[type="checkbox"].switch-master-modulo');
         const isRoleActive = switchRol.checked;
 
+        // Bloquea/Desbloquea Master Switches
+        allMasterSwitches.forEach(master => {
+            master.disabled = !isRoleActive;
+        });
+
         allCheckboxes.forEach(chk => {
-            // CORRECCIÓN AQUÍ TAMBIÉN
             const wrapper = chk.closest('.form-check');
 
             if (isRoleActive) {
                 const slug = chk.dataset.slug || '';
-                
                 if (slug.endsWith('.ver')) {
                     chk.disabled = false;
                     if(wrapper) wrapper.style.opacity = '1';
-                    // Disparamos la actualización para sus hijos
                     updateModuleCascade(chk);
                 }
             } else {
-                // Rol inactivo -> Todo deshabilitado
                 chk.disabled = true;
                 if(wrapper) wrapper.style.opacity = '0.5';
             }
@@ -77,16 +94,53 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let cascadeListenersBound = false;
 
-    // Inicializar listeners de Cascada
+    // Inicializar listeners de Eventos
     function initCascadeListeners() {
         if (!cascadeListenersBound) {
             document.addEventListener('change', function(e) {
+                
+                // EVENTO 1: Lógica del Master Switch ("Todo")
+                if (e.target.classList.contains('switch-master-modulo')) {
+                    const targetClass = e.target.dataset.targetClass;
+                    const isChecked = e.target.checked;
+                    
+                    if (targetClass) {
+                        const childCheckboxes = document.querySelectorAll(`.${targetClass}`);
+                        
+                        // PASO 1: Encender primero los permisos "padre" (.ver) para desbloquear a los hijos
+                        childCheckboxes.forEach(chk => {
+                            const slug = chk.dataset.slug || '';
+                            if (slug.endsWith('.ver') && !chk.disabled && chk.checked !== isChecked) {
+                                chk.checked = isChecked;
+                                // Disparamos el evento para que active la cascada
+                                chk.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        });
+                        
+                        // PASO 2: Encender el resto de los permisos hijos que ya están desbloqueados
+                        childCheckboxes.forEach(chk => {
+                            const slug = chk.dataset.slug || '';
+                            if (!slug.endsWith('.ver') && !chk.disabled && chk.checked !== isChecked) {
+                                chk.checked = isChecked;
+                            }
+                        });
+                    }
+                }
+
+                // EVENTO 2: Lógica de checks individuales
                 if (e.target.classList.contains('permiso-check')) {
                     const slug = e.target.dataset.slug || '';
                     if (slug.endsWith('.ver')) {
                         updateModuleCascade(e.target);
                     }
+                    
+                    // Sincronizar hacia arriba: El hijo le avisa al Master Switch
+                    const classes = Array.from(e.target.classList);
+                    const childClass = classes.find(c => c.startsWith('child-perm-'));
+                    if (childClass) syncMasterSwitch(childClass);
                 }
+                
+                // EVENTO 3: Lógica de switch general del Rol
                 if (e.target.classList.contains('switch-estado-rol')) {
                     updateRoleMatrixState(e.target);
                 }
@@ -94,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function () {
             cascadeListenersBound = true;
         }
 
-        // Ejecución inicial / resincronización
+        // Ejecución inicial: Sincroniza cascadas y estados al cargar la vista
         document.querySelectorAll('input[data-slug$=".ver"]').forEach(chk => {
             updateModuleCascade(chk);
         });
@@ -102,8 +156,12 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.switch-estado-rol').forEach(sw => {
             updateRoleMatrixState(sw);
         });
-    }
 
+        document.querySelectorAll('.switch-master-modulo').forEach(sw => {
+            const targetClass = sw.dataset.targetClass;
+            if (targetClass) syncMasterSwitch(targetClass);
+        });
+    }
 
     // =========================================================
     // 2. GESTIÓN DE TABLA (Renderizado y Filtros)
@@ -142,7 +200,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // =========================================================
-    // 3. SWITCH DE ESTADO DE ROL (persistente + antisucidio)
+    // 3. SWITCH DE ESTADO DE ROL (Persistente + Seguridad)
     // =========================================================
     document.addEventListener('change', function (e) {
         if (!e.target.classList.contains('switch-estado-rol')) return;
@@ -235,6 +293,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             
+            // Truco: Reactivamos los deshabilitados un milisegundo para que FormData los atrape si estaban checked
             const allDisabled = this.querySelectorAll('input:disabled');
             allDisabled.forEach(i => i.disabled = false);
 
@@ -285,7 +344,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // =========================================================
-    // 5. OTROS FORMULARIOS
+    // 5. FORMULARIOS SECUNDARIOS (Crear, Editar, Eliminar)
     // =========================================================
     const formCrear = document.getElementById('formCrearRol');
     if (formCrear) {

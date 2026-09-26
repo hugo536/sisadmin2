@@ -1,105 +1,121 @@
-document.addEventListener('DOMContentLoaded', () => {
-    "use strict";
+(function () {
+    'use strict';
+
+    // Variable global para mantener la instancia del gráfico y evitar duplicados en SPA
+    let chartInstance = null;
 
     // --- 1. VISOR DE DOCUMENTOS ---
-    const items = document.querySelectorAll('.doc-item');
-    const visorContainer = document.getElementById('visorContainer');
-    const placeholder = document.getElementById('visorPlaceholder');
-    const pdfFrame = document.getElementById('visorPDF');
-    const imgVisor = document.getElementById('visorIMG');
-    const extVisor = document.getElementById('visorExternal');
-    const btnDescarga = document.getElementById('btnDescarga');
-    const toolbar = document.getElementById('visorToolbar');
-    const toolbarName = document.getElementById('visorFileName');
-    const toolbarBtn = document.getElementById('visorBtnOpen');
+    function initVisorDocumentos() {
+        const items = document.querySelectorAll('.doc-item');
+        const visorContainer = document.getElementById('visorContainer');
+        const placeholder = document.getElementById('visorPlaceholder');
+        const pdfFrame = document.getElementById('visorPDF');
+        const imgVisor = document.getElementById('visorIMG');
+        const extVisor = document.getElementById('visorExternal');
+        const btnDescarga = document.getElementById('btnDescarga');
+        const toolbar = document.getElementById('visorToolbar');
+        const toolbarName = document.getElementById('visorFileName');
+        const toolbarBtn = document.getElementById('visorBtnOpen');
 
-    items.forEach((item) => {
-        item.addEventListener('click', (e) => {
-            // Ignorar clics si provienen de botones de acción (editar/eliminar)
-            if (e.target.closest('button') || e.target.closest('form')) return;
-            e.preventDefault();
+        if (items.length === 0) return;
 
-            // Limpiar estado activo de todos los items
-            items.forEach((i) => i.classList.remove('active', 'bg-white', 'border-start', 'border-primary', 'border-3'));
-            
-            // Activar el item actual
-            item.classList.add('active', 'bg-white', 'border-start', 'border-primary', 'border-3');
+        items.forEach((item) => {
+            // Removemos listeners previos clonando el nodo (Vital para SPA)
+            const nuevoItem = item.cloneNode(true);
+            item.parentNode.replaceChild(nuevoItem, item);
 
-            const url = item.dataset.url;
-            const ext = item.dataset.type;
-            const titleEl = item.querySelector('h6');
-            const nombreVisual = titleEl ? titleEl.textContent.trim() : 'Documento';
+            nuevoItem.addEventListener('click', (e) => {
+                if (e.target.closest('button') || e.target.closest('form')) return;
+                e.preventDefault();
 
-            // Ocultar todos los visores de forma segura
-            placeholder?.classList.add('d-none');
-            pdfFrame?.classList.add('d-none');
-            imgVisor?.classList.add('d-none');
-            extVisor?.classList.add('d-none');
+                document.querySelectorAll('.doc-item').forEach((i) => {
+                    i.classList.remove('active', 'bg-white', 'border-start', 'border-primary', 'border-3');
+                });
+                
+                nuevoItem.classList.add('active', 'bg-white', 'border-start', 'border-primary', 'border-3');
 
-            // Actualizar Toolbar
-            if (toolbar && toolbarName && toolbarBtn) {
-                toolbar.classList.remove('d-none');
-                toolbarName.textContent = nombreVisual;
-                toolbarBtn.href = url;
-            }
+                const url = nuevoItem.dataset.url;
+                const ext = nuevoItem.dataset.type;
+                const titleEl = nuevoItem.querySelector('h6');
+                const nombreVisual = titleEl ? titleEl.textContent.trim() : 'Documento';
 
-            // Mostrar el visor correspondiente según la extensión
-            if (ext === 'pdf' && pdfFrame) {
-                pdfFrame.src = url;
-                pdfFrame.classList.remove('d-none');
-            } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) && imgVisor) {
-                imgVisor.src = url;
-                imgVisor.classList.remove('d-none');
-            } else if (extVisor && btnDescarga) {
-                btnDescarga.href = url;
-                extVisor.classList.remove('d-none');
-            }
+                placeholder?.classList.add('d-none');
+                pdfFrame?.classList.add('d-none');
+                imgVisor?.classList.add('d-none');
+                extVisor?.classList.add('d-none');
 
-            // Scroll automático en dispositivos móviles para ver el documento
-            if (window.innerWidth < 992 && visorContainer) {
-                visorContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
+                if (toolbar && toolbarName && toolbarBtn) {
+                    toolbar.classList.remove('d-none');
+                    toolbarName.textContent = nombreVisual;
+                    toolbarBtn.href = url;
+                }
+
+                if (ext === 'pdf' && pdfFrame) {
+                    pdfFrame.src = url;
+                    pdfFrame.classList.remove('d-none');
+                } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) && imgVisor) {
+                    imgVisor.src = url;
+                    imgVisor.classList.remove('d-none');
+                } else if (extVisor && btnDescarga) {
+                    btnDescarga.href = url;
+                    extVisor.classList.remove('d-none');
+                }
+
+                if (window.innerWidth < 992 && visorContainer) {
+                    visorContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
         });
-    });
+    }
 
     // --- 2. CONFIGURACIÓN DE TIPOS DE DOCUMENTO ---
-    const tipos = [
-        { val: 'REG_SANITARIO', text: 'Registro Sanitario' },
-        { val: 'FICHA_TECNICA', text: 'Ficha Técnica' },
-        { val: 'MSDS', text: 'Seguridad MSDS' },
-        { val: 'CERT_CALIDAD', text: 'Certificado de Calidad' },
-        { val: 'OTRO', text: 'Otros Documentos' }
-    ];
+    function initConfiguracionTipos() {
+        const tipos = [
+            { val: 'REG_SANITARIO', text: 'Registro Sanitario' },
+            { val: 'FICHA_TECNICA', text: 'Ficha Técnica' },
+            { val: 'MSDS', text: 'Seguridad MSDS' },
+            { val: 'CERT_CALIDAD', text: 'Certificado de Calidad' },
+            { val: 'OTRO', text: 'Otros Documentos' }
+        ];
 
-    const selectUpload = document.getElementById('docTipoSelect');
-    const selectEdit = document.getElementById('editDocTipo');
+        const selectUpload = document.getElementById('docTipoSelect');
+        const selectEdit = document.getElementById('editDocTipo');
 
-    const populateSelect = (targetSelect) => {
-        if (!targetSelect) return;
-        targetSelect.innerHTML = '<option value="">Seleccione tipo...</option>';
-        tipos.forEach((tipo) => {
-            const opt = document.createElement('option');
-            opt.value = tipo.val;
-            opt.textContent = tipo.text;
-            targetSelect.appendChild(opt);
-        });
-    };
+        const populateSelect = (targetSelect) => {
+            if (!targetSelect) return;
+            targetSelect.innerHTML = '<option value="">Seleccione tipo...</option>';
+            tipos.forEach((tipo) => {
+                const opt = document.createElement('option');
+                opt.value = tipo.val;
+                opt.textContent = tipo.text;
+                targetSelect.appendChild(opt);
+            });
+        };
 
-    populateSelect(selectUpload);
-    populateSelect(selectEdit);
+        populateSelect(selectUpload);
+        populateSelect(selectEdit);
+    }
 
     // --- 3. NAVEGACIÓN POR TABS (URL PARAMS) ---
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('tab') === 'documentos') {
-        const triggerEl = document.querySelector('#docs-tab');
-        if (triggerEl) bootstrap.Tab.getOrCreateInstance(triggerEl).show();
+    function initNavegacionTabs() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('tab') === 'documentos') {
+            const triggerEl = document.querySelector('#docs-tab');
+            if (triggerEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Tab.getOrCreateInstance(triggerEl).show();
+            }
+        }
     }
 
     // --- 4. BÚSQUEDA DE DOCUMENTOS ---
-    const searchInput = document.getElementById('docSearch');
-    if (searchInput) {
-        // Se usa 'input' en lugar de 'keyup' para detectar también cuando se pega texto con el ratón
-        searchInput.addEventListener('input', (e) => {
+    function initBusquedaDocumentos() {
+        const searchInput = document.getElementById('docSearch');
+        if (!searchInput) return;
+
+        const newSearchInput = searchInput.cloneNode(true);
+        searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+
+        newSearchInput.addEventListener('input', (e) => {
             const term = e.target.value.toLowerCase().trim();
             document.querySelectorAll('.doc-item').forEach((doc) => {
                 const text = doc.getAttribute('data-search') || '';
@@ -109,23 +125,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 5. EDICIÓN DE DOCUMENTOS ---
-    const modalEditEl = document.getElementById('modalEditarDoc');
-    const editIdInput = document.getElementById('editDocId');
-    const btnsEdit = document.querySelectorAll('.btn-edit-doc');
+    function initEdicionDocumentos() {
+        const modalEditEl = document.getElementById('modalEditarDoc');
+        const editIdInput = document.getElementById('editDocId');
+        const btnsEdit = document.querySelectorAll('.btn-edit-doc');
+        const selectEdit = document.getElementById('editDocTipo');
 
-    if (modalEditEl && editIdInput && selectEdit) {
+        if (!modalEditEl || !editIdInput || !selectEdit || typeof bootstrap === 'undefined') return;
+
         const bsModal = new bootstrap.Modal(modalEditEl);
         
         btnsEdit.forEach((btn) => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Evitar que el clic dispare el visor del documento
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+
+            newBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); 
                 
-                const id = btn.getAttribute('data-id');
-                const tipo = btn.getAttribute('data-tipo');
+                const id = newBtn.getAttribute('data-id');
+                const tipo = newBtn.getAttribute('data-tipo');
                 
                 editIdInput.value = id;
                 
-                // Si el tipo actual no existe en el select, lo agregamos temporalmente
                 if (tipo && !Array.from(selectEdit.options).some((opt) => opt.value === tipo)) {
                     const opt = document.createElement('option');
                     opt.value = tipo;
@@ -139,52 +160,63 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 6. ELIMINAR DOCUMENTOS (SWEETALERT2) ---
-    document.querySelectorAll('.form-eliminar-doc').forEach((form) => {
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            Swal.fire({
-                title: '¿Eliminar archivo?',
-                text: 'Esta acción no se puede deshacer.',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc3545',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: '<i class="bi bi-trash3 me-1"></i> Sí, eliminar',
-                cancelButtonText: 'Cancelar',
-                reverseButtons: true,
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    form.submit();
+    // --- 6. ELIMINAR DOCUMENTOS ---
+    function initEliminarDocumentos() {
+        document.querySelectorAll('.form-eliminar-doc').forEach((form) => {
+            const newForm = form.cloneNode(true);
+            form.parentNode.replaceChild(newForm, form);
+
+            newForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: '¿Eliminar archivo?',
+                        text: 'Esta acción no se puede deshacer.',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#dc3545',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: '<i class="bi bi-trash3 me-1"></i> Sí, eliminar',
+                        cancelButtonText: 'Cancelar',
+                        reverseButtons: true,
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            newForm.submit(); 
+                        }
+                    });
+                } else {
+                    if (confirm('¿Eliminar archivo? Esta acción no se puede deshacer.')) {
+                        newForm.submit();
+                    }
                 }
             });
         });
-    });
+    }
 
     // --- 7. GRÁFICO DE COSTOS Y FLUCTUACIÓN ---
-    const costosTab = document.getElementById('costos-tab');
-    const chartCanvas = document.getElementById('chartPerfilCosto');
-    let chartInstance = null;
+    function initGraficoCostos() {
+        const costosTab = document.getElementById('costos-tab');
+        const chartCanvas = document.getElementById('chartPerfilCosto');
+        
+        if (!costosTab || !chartCanvas || typeof Chart === 'undefined') return;
 
-    if (costosTab && chartCanvas && typeof Chart !== 'undefined') {
-        // Renderizar solo cuando se abre la pestaña (para evitar que se dibuje apretado o con dimensiones en 0)
-        costosTab.addEventListener('shown.bs.tab', function () {
-            if (chartInstance) return; // Evitar renderizar múltiples veces
+        if (chartInstance) {
+            chartInstance.destroy();
+            chartInstance = null;
+        }
+
+        const renderChart = () => {
+            if (chartInstance) return; 
 
             const rawData = chartCanvas.getAttribute('data-historial');
             if (!rawData || rawData === '[]') return;
 
             try {
                 const historial = JSON.parse(rawData);
-                // Invertir el arreglo para que el tiempo vaya de izquierda a derecha (más viejo a más nuevo)
                 historial.reverse();
 
-                const labels = historial.map(item => {
-                    const dateObj = new Date(item.fecha_movimiento);
-                    return dateObj.toLocaleDateString();
-                });
-                
+                const labels = historial.map(item => new Date(item.fecha_movimiento).toLocaleDateString());
                 const dataCostos = historial.map(item => parseFloat(item.costo_promedio_resultante));
 
                 chartInstance = new Chart(chartCanvas.getContext('2d'), {
@@ -194,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         datasets: [{
                             label: 'Costo Promedio (S/)',
                             data: dataCostos,
-                            borderColor: '#0d6efd', // Color azul Bootstrap (primary)
+                            borderColor: '#0d6efd',
                             backgroundColor: 'rgba(13, 110, 253, 0.1)',
                             borderWidth: 2,
                             fill: true,
@@ -209,32 +241,48 @@ document.addEventListener('DOMContentLoaded', () => {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: {
-                                display: false // Ocultamos la leyenda superior para ahorrar espacio
-                            },
+                            legend: { display: false },
                             tooltip: {
                                 callbacks: {
-                                    label: function(context) {
-                                        return 'S/ ' + context.parsed.y.toFixed(4);
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: false,
-                                ticks: {
-                                    callback: function(value) {
-                                        return 'S/ ' + value.toFixed(2);
-                                    }
+                                    label: function(context) { return 'S/ ' + context.parsed.y.toFixed(4); }
                                 }
                             }
                         }
                     }
                 });
             } catch (e) {
-                console.error("Error al procesar los datos del historial de costos para el gráfico:", e);
+                console.error("Error al procesar los datos:", e);
             }
-        });
+        };
+
+        costosTab.addEventListener('shown.bs.tab', renderChart);
+        
+        if (costosTab.classList.contains('active')) {
+            renderChart();
+        }
     }
-});
+
+    // --- INICIALIZADOR PRINCIPAL ---
+    function arrancarModuloPerfil() {
+        // Verificar si estamos realmente en la vista del perfil (vital para el orquestador)
+        if (!document.getElementById('perfilTabs')) return;
+
+        initVisorDocumentos();
+        initConfiguracionTipos();
+        initNavegacionTabs();
+        initBusquedaDocumentos();
+        initEdicionDocumentos();
+        initEliminarDocumentos();
+        initGraficoCostos();
+    }
+
+    // =========================================================
+    // MAGIA SPA: Mismos disparadores que tu módulo de Ventas
+    // =========================================================
+    document.addEventListener('DOMContentLoaded', arrancarModuloPerfil);
+    document.addEventListener('sisadmin:route-loaded', arrancarModuloPerfil);
+
+    // Exportar al objeto window (Opcional)
+    window.inicializarPerfilItem = arrancarModuloPerfil;
+
+})();

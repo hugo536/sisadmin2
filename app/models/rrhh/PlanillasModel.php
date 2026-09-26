@@ -820,4 +820,118 @@ class PlanillasModel extends Modelo
         $stmt->execute(['nombre' => $nombre]);
         return (int) $stmt->fetchColumn() ?: 1; 
     }
+
+    /**
+     * ========================================================================
+     * 11. ELIMINAR LOTE BORRADOR (CASCADA)
+     * ========================================================================
+     */
+    public function eliminarLoteBorrador(int $idLote): bool
+    {
+        $db = $this->db();
+        $this->ultimoError = '';
+
+        try {
+            $db->beginTransaction();
+
+            // 1. Validar por precaución a nivel de base de datos
+            $stmtCheck = $db->prepare("SELECT estado FROM rrhh_nominas WHERE id = ? FOR UPDATE");
+            $stmtCheck->execute([$idLote]);
+            $estado = $stmtCheck->fetchColumn();
+
+            if (!$estado || strtoupper(trim((string)$estado)) !== 'BORRADOR') {
+                throw new Exception("El lote no existe o no está en estado BORRADOR.");
+            }
+
+            // 2. Borrar los conceptos manuales (bonos/descuentos) asociados a los detalles de este lote
+            $db->prepare("DELETE FROM rrhh_nominas_conceptos 
+                          WHERE id_detalle_nomina IN (SELECT id FROM rrhh_nominas_detalles WHERE id_nomina = ?)")
+               ->execute([$idLote]);
+
+            // 3. Borrar los detalles (filas de cada empleado en este lote)
+            $db->prepare("DELETE FROM rrhh_nominas_detalles WHERE id_nomina = ?")
+               ->execute([$idLote]);
+
+            // 4. Borrar la cabecera del lote principal
+            $db->prepare("DELETE FROM rrhh_nominas WHERE id = ?")
+               ->execute([$idLote]);
+
+            $db->commit();
+            return true;
+
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            $this->ultimoError = $e->getMessage();
+            error_log("Error al eliminar Lote Borrador ID {$idLote}: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function registrarNuevoAdelanto(array $datos, int $userId): bool
+    {
+        $db = $this->db();
+        try {
+            $db->beginTransaction();
+
+            $idTercero = (int) $datos['id_tercero'];
+            $idCuenta = (int) $datos['id_cuenta_tesoreria'];
+            $monto = (float) $datos['monto'];
+            $observacion = trim((string) ($datos['observacion'] ?? ''));
+            $fecha = date('Y-m-d');
+
+            if ($idTercero <= 0 || $idCuenta <= 0 || $monto <= 0) {
+                throw new Exception("Datos incompletos para el adelanto.");
+            }
+
+            // 1. Insertar el adelanto en la tabla rrhh_adelantos
+            $stmt = $db->prepare("INSERT INTO rrhh_adelantos 
+                (id_tercero, id_cuenta_tesoreria, monto, saldo_pendiente, fecha, observacion, estado, created_by, created_at) 
+                VALUES (:id_tercero, :id_cuenta, :monto, :monto, :fecha, :observacion, 'PENDIENTE', :user_id, NOW())");
+            
+            $stmt->execute([
+                'id_tercero' => $idTercero,
+                'id_cuenta' => $idCuenta,
+                'monto' => $monto,
+                'fecha' => $fecha,
+                'observacion' => $observacion,
+                'user_id' => $userId
+            ]);
+
+            $idAdelanto = $db->lastInsertId();
+
+            // 2. (Opcional pero recomendado) Registrar la salida de dinero en Tesorería
+            $sqlTeso = "INSERT INTO tesoreria_movimientos 
+                (id_cuenta, id_metodo_pago, id_tercero, tipo, origen, id_origen, monto, observaciones, fecha, estado, created_by) 
+                VALUES (:cuenta, 1, :tercero, 'EGRESO', 'ADELANTO', :origen, :monto, :obs, :fecha, 'CONFIRMADO', :user)";
+            
+            $db->prepare($sqlTeso)->execute([
+                'cuenta' => $idCuenta,
+                'tercero' => $idTercero,
+                'origen' => $idAdelanto,
+                'monto' => $monto,
+                'obs' => "Adelanto de Sueldo / Préstamo: " . $observacion,
+                'fecha' => $fecha,
+                'user' => $userId
+            ]);
+
+            $db->commit();
+            return true;
+
+        } catch (Exception $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            $this->ultimoError = $e->getMessage();
+            return false;
+        }
+    }
+
+    public function obtenerEmpleadosActivos(): array
+    {
+        $sql = "SELECT id, nombre_completo, numero_documento 
+                FROM terceros 
+                WHERE es_empleado = 1 AND estado = 1 AND deleted_at IS NULL 
+                ORDER BY nombre_completo ASC";
+        return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 }

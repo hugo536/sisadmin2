@@ -957,6 +957,7 @@
         };
 
         const bindDynamicEvents = () => {
+            // 1. Manejo del Switch de Estado (Tu código actual)
             tableBody.querySelectorAll('.switch-estado-item-dynamic').forEach((switchInput) => {
                 switchInput.addEventListener('change', async function () {
                     const id = Number(this.getAttribute('data-id') || 0);
@@ -983,6 +984,7 @@
                 });
             });
 
+            // 2. Manejo de Eliminación (Tu código actual)
             tableBody.querySelectorAll('.form-eliminar-dinamico').forEach((form) => {
                 form.addEventListener('submit', async (event) => {
                     event.preventDefault();
@@ -991,6 +993,23 @@
                         text: 'Esta acción no se puede deshacer.'
                     });
                     if (confirmed) form.submit();
+                });
+            });
+
+            // 3. NUEVO: Intercepción SPA para el botón "Ver Perfil"
+            tableBody.querySelectorAll('a[href*="ruta=items/perfil"]').forEach((link) => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault(); 
+                    
+                    // link.href obtiene la ruta absoluta correcta automáticamente
+                    // Ej: http://localhost/sisadmin2/public/index.php?ruta=items/perfil...
+                    const targetUrl = link.href; 
+                    
+                    if (typeof window.navigateWithoutReload === 'function') {
+                        window.navigateWithoutReload(new window.URL(targetUrl), true);
+                    } else {
+                        window.location.href = targetUrl;
+                    }
                 });
             });
         };

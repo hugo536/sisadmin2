@@ -35,15 +35,24 @@ class PlanillasController extends Controlador
         $loteActual = null;
         $detallesNomina = [];
 
+        // Lógica de Memoria para mantener el lote abierto
         $idLote = (int) ($_GET['id_lote'] ?? 0);
-        
-        if ($idLote === 0 && !empty($lotesRecientes)) {
-            $idLote = (int) $lotesRecientes[0]['id'];
+
+        if ($idLote > 0) {
+            // Si viene un ID en la URL, lo guardamos en la memoria
+            $_SESSION['ultimo_lote_abierto'] = $idLote;
+        } elseif (isset($_SESSION['ultimo_lote_abierto']) && $_SESSION['ultimo_lote_abierto'] > 0) {
+            // Si no viene en la URL pero existe en la memoria, lo cargamos
+            $idLote = (int) $_SESSION['ultimo_lote_abierto'];
         }
 
         if ($idLote > 0) {
             $loteActual = $this->planillasModel->obtenerLotePorId($idLote);
-            if ($loteActual) {
+            
+            // Si el lote ya no existe en la base de datos, limpiamos la memoria
+            if (!$loteActual) {
+                unset($_SESSION['ultimo_lote_abierto']);
+            } else {
                 $estadoLote = strtoupper(trim((string)$loteActual['estado']));
                 
                 if (in_array($estadoLote, ['PENDIENTE', 'BORRADOR', 'CREADO'])) {
@@ -73,6 +82,9 @@ class PlanillasController extends Controlador
         }
 
         $cuentasTesoreria = $this->planillasModel->obtenerCuentasTesoreria();
+        
+        // --- NUEVO: Obtener empleados para el modal de adelantos ---
+        $empleados = $this->planillasModel->obtenerEmpleadosActivos();
 
         $this->render('rrhh/planillas', [
             'ruta_actual' => 'planillas',
@@ -80,6 +92,7 @@ class PlanillasController extends Controlador
             'lote_actual' => $loteActual,
             'detalles_nomina' => $detallesNomina,
             'cuentas' => $cuentasTesoreria,
+            'empleados' => $empleados, // <--- NUEVA VARIABLE AGREGADA
             'csrf_token' => $_SESSION['csrf_token']
         ]);
     }
@@ -102,6 +115,7 @@ class PlanillasController extends Controlador
             $userId = AuthMiddleware::getUserId();
             $idLoteNuevo = $this->planillasModel->generarLoteNomina($_POST, $userId);
             
+            // Redireccionará con el id_lote nuevo, el index() lo atrapará y guardará en memoria
             redirect("planillas?id_lote={$idLoteNuevo}&ok=" . urlencode('Lote generado correctamente.'));
         } catch (Exception $e) {
             $msgError = urlencode($e->getMessage());
@@ -120,7 +134,10 @@ class PlanillasController extends Controlador
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $exito = $this->planillasModel->agregarConceptoManual($_POST);
-            $referer = $_SERVER['HTTP_REFERER'] ?? 'planillas';
+            
+            // Usamos el lote en memoria para asegurar que recargue el mismo lote
+            $idLoteEnMemoria = $_SESSION['ultimo_lote_abierto'] ?? 0;
+            $referer = ($idLoteEnMemoria > 0) ? "planillas&id_lote={$idLoteEnMemoria}" : 'planillas';
             
             if ($exito) {
                 redirect($referer); 
@@ -202,7 +219,7 @@ class PlanillasController extends Controlador
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
-        if (ob_get_length()) ob_end_clean(); // <-- PROTECCIÓN CONTRA CORRUPCIÓN PDF
+        if (ob_get_length()) ob_end_clean();
 
         $nombreArchivo = 'Boleta_' . str_replace(' ', '_', $boleta['nombre_completo']) . '.pdf';
         $dompdf->stream($nombreArchivo, ["Attachment" => 0]);
@@ -228,14 +245,12 @@ class PlanillasController extends Controlador
             exit;
         }
         
-        // 1. Declarar variables
         $empresa = [
             'nombre' => 'Agua Belén',
             'ruc' => '20123456789',
             'direccion' => 'Av. Principal 123, Ciudad'
         ];
 
-        // 2. Extraer y requerir la vista directamente (SIN el layout)
         ob_start();
         extract(compact('boletas', 'empresa'));
         require BASE_PATH . '/app/views/rrhh/planillas_boleta_pdf.php';
@@ -250,7 +265,7 @@ class PlanillasController extends Controlador
         $dompdf->setPaper('A4', 'portrait'); 
         $dompdf->render();
 
-        if (ob_get_length()) ob_end_clean(); // <-- PROTECCIÓN CONTRA CORRUPCIÓN PDF
+        if (ob_get_length()) ob_end_clean();
 
         $nombreArchivo = 'Boletas_Masivas_Lote_' . $idLote . '.pdf';
         $dompdf->stream($nombreArchivo, ["Attachment" => 0]);
@@ -274,7 +289,6 @@ class PlanillasController extends Controlador
 
         $detallesNomina = $this->planillasModel->obtenerDetallesLote($idLote);
 
-        // 1. Declarar variables
         $boletas = $detallesNomina; 
         $lote = $loteActual;
         $empresa = [
@@ -283,7 +297,6 @@ class PlanillasController extends Controlador
             'direccion' => 'Av. Principal 123, Ciudad'
         ];
 
-        // 2. Extraer y requerir la vista directamente (SIN el layout)
         ob_start();
         extract(compact('boletas', 'lote', 'empresa'));
         require BASE_PATH . '/app/views/rrhh/planillas_boleta_pdf.php';
@@ -298,7 +311,7 @@ class PlanillasController extends Controlador
         $dompdf->setPaper('A4', 'landscape');
         $dompdf->render();
 
-        if (ob_get_length()) ob_end_clean(); // <-- PROTECCIÓN CONTRA CORRUPCIÓN PDF
+        if (ob_get_length()) ob_end_clean();
 
         $nombreArchivo = 'Reporte_Planilla_' . $loteActual['referencia'] . '.pdf';
         $dompdf->stream($nombreArchivo, ["Attachment" => 0]);
@@ -332,7 +345,7 @@ class PlanillasController extends Controlador
 
     /**
      * ========================================================================
-     * 9. EXPORTAR A CSV (Súper rápido y liviano)
+     * 9. EXPORTAR A CSV
      * ========================================================================
      */
     public function exportar_csv(): void
@@ -348,22 +361,16 @@ class PlanillasController extends Controlador
 
         $nombreArchivo = "Planilla_" . $lote['referencia'] . ".csv";
 
-        // Forzar la descarga del archivo en el navegador
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $nombreArchivo . '"');
         
-        // Limpiar buffer por si hay espacios en blanco
         if (ob_get_length()) ob_end_clean();
 
         $salida = fopen('php://output', 'w');
         
-        // Agregar BOM para que Excel reconozca los tildes y ñ (UTF-8) correctamente
         fprintf($salida, chr(0xEF).chr(0xBB).chr(0xBF));
-
-        // Encabezados de las columnas
         fputcsv($salida, ['DNI', 'EMPLEADO', 'CARGO', 'ASISTENCIA (Días)', 'INGRESOS (S/)', 'DEDUCCIONES (S/)', 'NETO A PAGAR (S/)']);
 
-        // Imprimir cada fila de datos
         foreach ($detalles as $row) {
             fputcsv($salida, [
                 $row['numero_documento'] ?? 'No registrado',
@@ -382,7 +389,7 @@ class PlanillasController extends Controlador
 
     /**
      * ========================================================================
-     * 10. EXPORTAR A EXCEL (.xlsx) - FORMATO BOLETAS INDIVIDUALES
+     * 10. EXPORTAR A EXCEL (.xlsx)
      * ========================================================================
      */
     public function exportar_excel(): void
@@ -404,21 +411,18 @@ class PlanillasController extends Controlador
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Boletas de Pago');
 
-        // Ocultar líneas de cuadrícula para que parezca un documento en blanco limpio
         $sheet->setShowGridlines(false);
 
-        $fila = 2; // Empezamos en la fila 2 para dejar un margen superior
+        $fila = 2; 
 
         foreach ($detalles as $row) {
-            // --- 1. ENCABEZADO DE LA BOLETA (Azul con letras blancas) ---
             $sheet->setCellValue('B' . $fila, 'BOLETA DE PAGO - ' . $lote['referencia']);
-            $sheet->mergeCells("B{$fila}:E{$fila}"); // Unir celdas
+            $sheet->mergeCells("B{$fila}:E{$fila}");
             $sheet->getStyle("B{$fila}")->getFont()->setBold(true)->setSize(13)->getColor()->setARGB('FFFFFFFF');
             $sheet->getStyle("B{$fila}:E{$fila}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF0D6EFD'); 
             $sheet->getStyle("B{$fila}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             $fila++;
 
-            // --- 2. DATOS DEL EMPLEADO ---
             $sheet->setCellValue('B' . $fila, 'EMPLEADO:');
             $sheet->setCellValue('C' . $fila, $row['nombre_completo']);
             $sheet->setCellValue('D' . $fila, 'DNI:');
@@ -438,19 +442,17 @@ class PlanillasController extends Controlador
             $sheet->setCellValue('B' . $fila, 'PERIODO:');
             $sheet->setCellValue('C' . $fila, date('d/m/Y', strtotime($lote['fecha_inicio'])) . ' al ' . date('d/m/Y', strtotime($lote['fecha_fin'])));
             $sheet->getStyle("B{$fila}")->getFont()->setBold(true);
-            $fila += 2; // Salto de línea
+            $fila += 2; 
 
-            // --- 3. ENCABEZADOS DE LA MINI TABLA ---
             $sheet->setCellValue('B' . $fila, 'CONCEPTO');
             $sheet->setCellValue('D' . $fila, 'INGRESOS');
             $sheet->setCellValue('E' . $fila, 'DEDUCCIONES');
             
             $sheet->getStyle("B{$fila}:E{$fila}")->getFont()->setBold(true);
             $sheet->getStyle("B{$fila}:E{$fila}")->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-            $sheet->getStyle("B{$fila}:E{$fila}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFF3F6FB'); // Fondo gris claro
+            $sheet->getStyle("B{$fila}:E{$fila}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFF3F6FB'); 
             $fila++;
 
-            // --- 4. DETALLE DE MONTOS ---
             $sheet->setCellValue('B' . $fila, 'Total Remuneraciones / Ingresos');
             $sheet->setCellValue('D' . $fila, (float)$row['total_percepciones']);
             $sheet->getStyle("D{$fila}")->getNumberFormat()->setFormatCode('"S/" #,##0.00');
@@ -461,22 +463,18 @@ class PlanillasController extends Controlador
             $sheet->getStyle("E{$fila}")->getNumberFormat()->setFormatCode('"S/" #,##0.00');
             $fila++;
 
-            // --- 5. NETO A PAGAR ---
             $sheet->setCellValue('B' . $fila, 'NETO A PAGAR');
             $sheet->setCellValue('E' . $fila, (float)$row['neto_a_pagar']);
             $sheet->getStyle("B{$fila}:E{$fila}")->getFont()->setBold(true);
             $sheet->getStyle("B{$fila}:E{$fila}")->getBorders()->getTop()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
             $sheet->getStyle("E{$fila}")->getNumberFormat()->setFormatCode('"S/" #,##0.00');
             
-            // Dibujar un borde exterior alrededor de toda esta boleta
             $inicioBoleta = $fila - 8;
             $sheet->getStyle("B{$inicioBoleta}:E{$fila}")->getBorders()->getOutline()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM);
 
-            // Dejar 4 filas de espacio para la boleta del siguiente trabajador
             $fila += 4;
         }
 
-        // Anchos de columna predefinidos para que encaje perfecto
         $sheet->getColumnDimension('B')->setWidth(35);
         $sheet->getColumnDimension('C')->setWidth(25);
         $sheet->getColumnDimension('D')->setWidth(15);
@@ -493,5 +491,66 @@ class PlanillasController extends Controlador
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         $writer->save('php://output');
         exit;
+    }
+
+    /**
+     * ========================================================================
+     * 11. ELIMINAR LOTE BORRADOR
+     * ========================================================================
+     */
+    public function eliminar(): void
+    {
+        AuthMiddleware::handle();
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $idLote = (int) ($_POST['id_lote'] ?? 0);
+            
+            if ($idLote > 0) {
+                $lote = $this->planillasModel->obtenerLotePorId($idLote);
+                
+                if ($lote && $lote['estado'] === 'BORRADOR') {
+                    $exito = $this->planillasModel->eliminarLoteBorrador($idLote);
+                    
+                    if ($exito) {
+                        // Limpiamos la memoria para que el sistema regrese a la pantalla en blanco
+                        unset($_SESSION['ultimo_lote_abierto']);
+                        
+                        redirect('planillas?ok=' . urlencode('Planilla borrador eliminada correctamente.'));
+                        return;
+                    } else {
+                        $errorMsg = $this->planillasModel->ultimoError ?? 'No se pudo eliminar el lote por un error en la base de datos.';
+                        redirect("planillas?id_lote={$idLote}&error=" . urlencode($errorMsg));
+                        return;
+                    }
+                } else {
+                    redirect("planillas?id_lote={$idLote}&error=" . urlencode('Por seguridad, solo se pueden eliminar planillas en estado BORRADOR.'));
+                    return;
+                }
+            }
+            redirect('planillas');
+        }
+    }
+
+    /**
+     * ========================================================================
+     * REGISTRAR NUEVO ADELANTO/PRÉSTAMO
+     * ========================================================================
+     */
+    public function guardar_adelanto(): void
+    {
+        AuthMiddleware::handle();
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $userId = AuthMiddleware::getUserId();
+            $exito = $this->planillasModel->registrarNuevoAdelanto($_POST, $userId);
+
+            if ($exito) {
+                // Redirigir a la vista actual con mensaje de éxito
+                redirect('planillas?ok=' . urlencode('Adelanto registrado correctamente. El descuento se aplicará en la próxima planilla.'));
+            } else {
+                $errorMsg = $this->planillasModel->ultimoError ?? 'Error al registrar el adelanto.';
+                redirect('planillas?error=' . urlencode($errorMsg));
+            }
+        }
     }
 }

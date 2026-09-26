@@ -7,7 +7,8 @@ $permisos = $permisos ?? [];
 // Permisos agrupados por módulo
 $permisosPorModulo = [];
 foreach ($permisos as $permiso) {
-    $modulo = (string)($permiso['modulo'] ?? 'General');
+    // Normalizamos a mayúsculas y quitamos espacios accidentales
+    $modulo = trim(mb_strtoupper((string)($permiso['modulo'] ?? 'GENERAL'), 'UTF-8'));
     $permisosPorModulo[$modulo][] = $permiso;
 }
 
@@ -21,19 +22,30 @@ unset($permisosModulo);
 ?>
 
 <style>
-    /* Efecto hover sutil para la tarjeta del permiso */
+    /* Efecto hover y diseño para la tarjeta del permiso */
     .permiso-card {
         transition: all 0.2s ease-in-out;
-        border: 1px solid #dee2e6;
+        border: 1px solid #e9ecef;
+        user-select: none;
     }
     
     .permiso-card:hover {
-        border-color: #0d6efd !important;
+        border-color: #86b7fe;
+        background-color: #f8fbff !important;
         transform: translateY(-2px);
-        box-shadow: 0 .5rem 1rem rgba(0,0,0,.05)!important;
+        box-shadow: 0 0.25rem 0.75rem rgba(13, 110, 253, 0.08) !important;
     }
 
-    /* Ocultar el slug técnico por defecto para limpiar la vista */
+    .permiso-card:has(.form-check-input:checked) {
+        border-color: #0d6efd;
+        background-color: #f0f7ff !important;
+    }
+
+    .accordion-header-master {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+
     .permiso-tecnico-wrapper {
         max-height: 0;
         opacity: 0;
@@ -41,34 +53,48 @@ unset($permisosModulo);
         transition: all 0.3s ease;
     }
 
-    .permiso-card:hover .permiso-tecnico-wrapper {
+    .permiso-card:hover .permiso-tecnico-wrapper,
+    .permiso-card:has(.form-check-input:checked) .permiso-tecnico-wrapper {
         max-height: 30px;
         opacity: 1;
         margin-top: 4px;
     }
 
     /* ===================================================
-       CORRECCIONES PARA MÓVILES (Falta de espacio en filas)
+       NUEVO: ESTILOS PARA EL ACORDEÓN DEL ROL (MASTER)
+       =================================================== */
+    .role-row-main td:first-child:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .role-chevron {
+        transition: transform 0.3s ease;
+    }
+    
+    /* Gira la flecha cuando el acordeón está abierto */
+    td[aria-expanded="true"] .role-chevron {
+        transform: rotate(180deg);
+    }
+
+    /* ===================================================
+       CORRECCIONES PARA MÓVILES
        =================================================== */
     @media (max-width: 767px) {
-        /* Permite que el texto en todas las celdas baje de línea */
         #rolesTable td {
             white-space: normal !important;
             word-wrap: break-word !important;
             overflow-wrap: break-word !important;
         }
 
-        /* Ajuste específico para la celda del "Rol" para que no empuje el contenido */
         #rolesTable .role-row-main td .d-flex {
-            align-items: flex-start !important; /* Alinea arriba por si el texto baja a 2 líneas */
+            align-items: flex-start !important;
         }
         
         #rolesTable .role-row-main td .d-flex > div:last-child {
-            min-width: 0; /* Clave: Permite que el flex-item se encoja */
+            min-width: 0;
             flex: 1;
         }
 
-        /* Aseguramos que las acciones (botones) tengan un poco de espacio y no se aplasten */
         #rolesTable .role-row-main .text-end {
             display: flex;
             justify-content: flex-end;
@@ -176,7 +202,8 @@ unset($permisosModulo);
                                 $rolNombre = (string)($rol['nombre'] ?? '');
                                 $rolSlug = (string)($rol['slug'] ?? '');
                                 $rolEstado = (int)($rol['estado'] ?? 0);
-                                $rolUpdated = (string)($rol['updated_at'] ?? $rol['created_at'] ?? '-');
+                                $rolUpdatedRaw = (string)($rol['updated_at'] ?? $rol['created_at'] ?? '');
+                                $rolUpdated = $rolUpdatedRaw !== '' ? date('d/m/Y h:i A', strtotime($rolUpdatedRaw)) : '-';
                                 $rolUpdatedBy = (string)($rol['updated_by_nombre'] ?? $rol['created_by_nombre'] ?? 'Sistema');
                                 $dataSearch = mb_strtolower(trim($rolNombre . ' ' . $rolSlug));
                                 ?>
@@ -186,16 +213,24 @@ unset($permisosModulo);
                                     data-search="<?php echo e($dataSearch); ?>"
                                     data-estado="<?php echo $rolEstado; ?>">
                                     
-                                    <td class="ps-4">
+                                    <!-- COLUMNA 1: CONVERTIDA EN EL GATILLO DEL ACORDEÓN PRINCIPAL -->
+                                    <td class="ps-4" 
+                                        style="cursor: pointer; width: 45%;" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#collapseRol_<?php echo $rolId; ?>" 
+                                        aria-expanded="false">
+                                        
                                         <div class="d-flex align-items-center">
+                                            <!-- Ícono Chevron animado -->
+                                            <i class="bi bi-chevron-down text-primary me-3 fs-5 role-chevron"></i>
+
                                             <div class="avatar-circle me-3 bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center" 
                                                  style="width:40px; height:40px; border-radius:50%; flex-shrink: 0;">
                                                 <i class="bi bi-shield-fill"></i>
                                             </div>
                                             <div>
-                                                <!-- Agregado text-wrap y text-break para móviles -->
                                                 <div class="fw-bold text-dark text-wrap text-break"><?php echo e($rolNombre); ?></div>
-                                                <div class="small text-muted text-wrap text-break">ID: <?php echo $rolId; ?></div>
+                                                <div class="small text-muted text-wrap text-break">ID: <?php echo $rolId; ?> <span class="ms-1 d-none d-sm-inline fw-normal text-primary-emphasis opacity-75">(Clic para configurar)</span></div>
                                                 <?php if ($rolSlug !== ''): ?>
                                                     <code class="small text-primary bg-primary bg-opacity-10 px-2 py-1 rounded-2 d-inline-block mt-1"><?php echo e($rolSlug); ?></code>
                                                 <?php endif; ?>
@@ -212,11 +247,11 @@ unset($permisosModulo);
                                     </td>
 
                                     <td class="text-muted small">
-                                        <!-- Agregado text-wrap para que la fecha larga no empuje la vista -->
                                         <div class="text-wrap text-break"><i class="bi bi-clock me-1"></i><?php echo e($rolUpdated); ?></div>
                                         <div class="text-secondary text-wrap text-break">Por: <?php echo e($rolUpdatedBy); ?></div>
                                     </td>
 
+                                    <!-- ACCIONES (Fuera del gatillo para evitar conflictos de clic) -->
                                     <td class="text-end pe-4">
                                         <div class="d-flex align-items-center justify-content-end gap-2">
                                             
@@ -256,87 +291,124 @@ unset($permisosModulo);
 
                                 <tr class="role-row-detail bg-light-subtle" data-detail-for="<?php echo $rolId; ?>">
                                     <td colspan="4" class="p-0 border-0">
-                                        <div class="px-2 px-sm-3 py-3">
-                                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                                <h6 class="fw-bold text-primary mb-0 text-wrap">
-                                                    <i class="bi bi-sliders me-2"></i>Permisos asignados a: <span class="text-dark"><?php echo e($rolNombre); ?></span>
-                                                </h6>
-                                            </div>
+                                        
+                                        <!-- NUEVO: EL CONTENEDOR COLLAPSE DEL ROL -->
+                                        <div class="collapse" id="collapseRol_<?php echo $rolId; ?>">
+                                            <div class="px-3 px-sm-4 py-3">
+                                                
+                                                <form method="post" class="permiso-form" id="formPermisos<?php echo $rolId; ?>">
+                                                    <input type="hidden" name="accion" value="permisos">
+                                                    <input type="hidden" name="id_rol" value="<?php echo $rolId; ?>">
 
-                                            <form method="post" class="permiso-form">
-                                                <input type="hidden" name="accion" value="permisos">
-                                                <input type="hidden" name="id_rol" value="<?php echo $rolId; ?>">
+                                                    <!-- CABECERA: Botón Guardar -->
+                                                    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle gap-2">
+                                                        <h6 class="fw-bold text-primary mb-0 text-wrap">
+                                                            <i class="bi bi-sliders me-2"></i>Configuración de permisos: <span class="text-dark"><?php echo e($rolNombre); ?></span>
+                                                        </h6>
+                                                        <button class="btn btn-sm btn-primary px-4 fw-bold shadow-sm" type="submit">
+                                                            <i class="bi bi-save-fill me-2"></i>Guardar Permisos
+                                                        </button>
+                                                    </div>
 
-                                                <div class="accordion shadow-sm rounded-3 overflow-hidden" id="acordeonRol<?php echo $rolId; ?>">
-                                                    <?php $idx = 0; foreach ($permisosPorModulo as $modulo => $items): $idx++; ?>
-                                                        <div class="accordion-item border-0 border-bottom">
-                                                            <h2 class="accordion-header" id="heading<?php echo $rolId . $idx; ?>">
-                                                                <button class="accordion-button collapsed py-2 bg-white fw-semibold"
-                                                                        type="button"
-                                                                        data-bs-toggle="collapse"
-                                                                        data-bs-target="#collapse<?php echo $rolId . $idx; ?>">
-                                                                    <span class="text-uppercase small ls-1 text-wrap"><?php echo e((string)$modulo); ?></span>
-                                                                    <span class="badge bg-light text-secondary ms-2 border flex-shrink-0"><?php echo count($items); ?></span>
-                                                                </button>
-                                                            </h2>
+                                                    <!-- ACORDEÓN FLUSH DE LOS MÓDULOS -->
+                                                    <div class="accordion accordion-flush shadow-sm rounded-3 overflow-hidden border bg-white" id="acordeonRol<?php echo $rolId; ?>">
+                                                        <?php $idx = 0; foreach ($permisosPorModulo as $modulo => $items): $idx++; ?>
+                                                            
+                                                            <?php
+                                                                // Verificamos si TODOS los permisos de este módulo están asignados
+                                                                $todosActivos = true;
+                                                                foreach ($items as $p) {
+                                                                    if (!in_array((int)($p['id'] ?? 0), ($rol['permisos_ids'] ?? []), true)) {
+                                                                        $todosActivos = false;
+                                                                        break;
+                                                                    }
+                                                                }
+                                                            ?>
 
-                                                            <div id="collapse<?php echo $rolId . $idx; ?>"
-                                                                 class="accordion-collapse collapse"
-                                                                 data-bs-parent="#acordeonRol<?php echo $rolId; ?>">
-                                                                <div class="accordion-body bg-light bg-opacity-50 px-2 px-sm-3">
+                                                            <div class="accordion-item <?php echo $idx < count($permisosPorModulo) ? 'border-bottom' : ''; ?>">
+                                                                
+                                                                <!-- HEADER MÓDULO CON MASTER SWITCH -->
+                                                                <h2 class="accordion-header d-flex align-items-stretch accordion-header-master" id="heading<?php echo $rolId . $idx; ?>">
                                                                     
-                                                                    <div class="row g-3">
-                                                                        <?php foreach ($items as $permiso): ?>
-                                                                            <?php
-                                                                            $permId   = (int)($permiso['id'] ?? 0);
-                                                                            $permNom  = (string)($permiso['nombre'] ?? '');
-                                                                            $permSlug = (string)($permiso['slug'] ?? '');
-                                                                            $checked  = in_array($permId, ($rol['permisos_ids'] ?? []), true);
-                                                                            ?>
-                                                                            
-                                                                            <div class="col-12 col-lg-6">
-                                                                                <div class="form-check form-switch bg-white rounded-3 p-3 h-100 d-flex align-items-center shadow-sm permiso-card">
-                                                                                    
-                                                                                    <input class="form-check-input m-0 me-3 flex-shrink-0 permiso-check"
-                                                                                           type="checkbox"
-                                                                                           role="switch"
-                                                                                           id="perm_<?php echo $rolId . '_' . $permId; ?>" 
-                                                                                           name="permisos[]"
-                                                                                           value="<?php echo $permId; ?>"
-                                                                                           data-slug="<?php echo e($permSlug); ?>"
-                                                                                           style="width: 3em; height: 1.5em; cursor: pointer;"
-                                                                                           <?php echo $checked ? 'checked' : ''; ?>>
-                                                                                    
-                                                                                    <div class="lh-1 w-100">
-                                                                                        <label class="d-block fw-semibold text-dark mb-0 w-100 text-wrap" 
-                                                                                               style="cursor: pointer; font-size: 0.95rem;" 
-                                                                                               for="perm_<?php echo $rolId . '_' . $permId; ?>">
-                                                                                            <?php echo e($permNom); ?>
-                                                                                        </label>
-                                                                                        
-                                                                                        <div class="permiso-tecnico-wrapper">
-                                                                                            <code class="text-secondary bg-light px-2 py-1 rounded-2 text-break" style="font-size: 0.75em; display: inline-block; margin-top: 5px;">
-                                                                                                <i class="bi bi-code-slash me-1"></i><?php echo e($permSlug); ?>
-                                                                                            </code>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
-                                                                        <?php endforeach; ?>
+                                                                    <button class="accordion-button collapsed py-3 px-4 bg-transparent shadow-none fw-semibold border-0 flex-grow-1"
+                                                                            type="button"
+                                                                            data-bs-toggle="collapse"
+                                                                            data-bs-target="#collapseModulo<?php echo $rolId . $idx; ?>">
+                                                                        <div class="d-flex align-items-center">
+                                                                            <span class="text-uppercase ls-1 text-dark fw-bold" style="letter-spacing: 0.5px;"><?php echo e((string)$modulo); ?></span>
+                                                                            <span class="badge bg-primary text-white ms-3 rounded-pill"><?php echo count($items); ?></span>
+                                                                        </div>
+                                                                    </button>
+                                                                    
+                                                                    <!-- MASTER SWITCH -->
+                                                                    <div class="d-flex align-items-center pe-4 ps-3 border-start fs-6 fw-normal">
+                                                                        <div class="form-check form-switch m-0 d-flex align-items-center gap-2" data-bs-toggle="tooltip" title="Activar/Desactivar todo">
+                                                                            <label class="form-check-label text-muted d-none d-sm-block mb-0" 
+                                                                                   style="cursor: pointer; font-size: 0.85rem; font-weight: 600;" 
+                                                                                   for="master_<?php echo $rolId . '_' . $idx; ?>">Todo</label>
+                                                                            <input class="form-check-input m-0 switch-master-modulo" 
+                                                                                   type="checkbox" 
+                                                                                   role="switch" 
+                                                                                   id="master_<?php echo $rolId . '_' . $idx; ?>"
+                                                                                   data-target-class="child-perm-<?php echo $rolId . '-' . $idx; ?>"
+                                                                                   style="width: 2.5em; height: 1.25em; cursor: pointer;"
+                                                                                   <?php echo $todosActivos ? 'checked' : ''; ?>>
+                                                                        </div>
                                                                     </div>
+                                                                </h2>
 
+                                                                <div id="collapseModulo<?php echo $rolId . $idx; ?>"
+                                                                     class="accordion-collapse collapse"
+                                                                     data-bs-parent="#acordeonRol<?php echo $rolId; ?>">
+                                                                    <div class="accordion-body bg-light px-4 py-4 border-top">
+                                                                        
+                                                                        <!-- GRID PERMISOS INDIVIDUALES -->
+                                                                        <div class="row g-3">
+                                                                            <?php foreach ($items as $permiso): ?>
+                                                                                <?php
+                                                                                $permId   = (int)($permiso['id'] ?? 0);
+                                                                                $permNom  = (string)($permiso['nombre'] ?? '');
+                                                                                $permSlug = (string)($permiso['slug'] ?? '');
+                                                                                $checked  = in_array($permId, ($rol['permisos_ids'] ?? []), true);
+                                                                                ?>
+                                                                                
+                                                                                <div class="col-12 col-md-6 col-xl-4">
+                                                                                    <label class="form-check form-switch m-0 h-100 p-3 bg-white rounded-3 shadow-sm d-flex align-items-start gap-3 permiso-card" 
+                                                                                           style="cursor: pointer;"
+                                                                                           for="perm_<?php echo $rolId . '_' . $permId; ?>">
+                                                                                        
+                                                                                        <input class="form-check-input m-0 flex-shrink-0 mt-1 permiso-check child-perm-<?php echo $rolId . '-' . $idx; ?>"
+                                                                                               type="checkbox"
+                                                                                               role="switch"
+                                                                                               id="perm_<?php echo $rolId . '_' . $permId; ?>" 
+                                                                                               name="permisos[]"
+                                                                                               value="<?php echo $permId; ?>"
+                                                                                               data-slug="<?php echo e($permSlug); ?>"
+                                                                                               style="width: 2.5em; height: 1.25em; cursor: pointer;"
+                                                                                               <?php echo $checked ? 'checked' : ''; ?>>
+                                                                                        
+                                                                                        <div class="d-flex flex-column justify-content-center w-100">
+                                                                                            <span class="fw-bold text-dark lh-sm" style="font-size: 0.9rem;"><?php echo e($permNom); ?></span>
+                                                                                            <div class="permiso-tecnico-wrapper mt-1">
+                                                                                                <code class="text-secondary bg-light border px-2 py-1 rounded-2" style="font-size: 0.75rem;">
+                                                                                                    <i class="bi bi-code-slash me-1"></i><?php echo e($permSlug); ?>
+                                                                                                </code>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </label>
+                                                                                </div>
+                                                                            <?php endforeach; ?>
+                                                                        </div>
+
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3 px-2 px-sm-3">
-                                                    <button class="btn btn-primary px-4 fw-bold shadow-sm">
-                                                        <i class="bi bi-check-circle-fill me-2"></i>Guardar Permisos
-                                                    </button>
-                                                </div>
-                                            </form>
-                                        </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div> <!-- CIERRE DEL COLLAPSE PRINCIPAL DEL ROL -->
+
                                     </td>
                                 </tr>
 
@@ -379,7 +451,7 @@ unset($permisosModulo);
                         <table class="table align-middle mb-0 table-pro" id="permisosTable"
                                data-erp-table="true"
                                data-rows-selector="tbody tr[data-search]"
-                               data-search-input="#permisosSearch"
+                               data-search-input="#permisoSearch"
                                data-pagination-controls="#permisosPaginationControls"
                                data-pagination-info="#permisosPaginationInfo">
                             <thead>
@@ -400,7 +472,8 @@ unset($permisosModulo);
                                     $nom  = (string)($permiso['nombre'] ?? '');
                                     $desc = (string)($permiso['descripcion'] ?? '');
                                     $est  = (int)($permiso['estado'] ?? 0);
-                                    $updatedAt = (string)($permiso['updated_at'] ?? $permiso['created_at'] ?? '-');
+                                    $updatedAtRaw = (string)($permiso['updated_at'] ?? $permiso['created_at'] ?? '');
+                                    $updatedAt = $updatedAtRaw !== '' ? date('d/m/Y h:i A', strtotime($updatedAtRaw)) : '-';
                                     $updatedBy = (string)($permiso['updated_by_nombre'] ?? $permiso['created_by_nombre'] ?? 'Sistema');
                                     $search = mb_strtolower(trim($mod . ' ' . $slug . ' ' . $nom . ' ' . $desc));
                                     ?>

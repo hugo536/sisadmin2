@@ -25,12 +25,12 @@ class AuthMiddleware
 
         if ($ultimo_acceso > 0 && ($ahora - $ultimo_acceso) > $timeout_inactividad) {
             self::cerrarSesionPorExpiracion();
-            self::redirect('login/index&error=expired');
+            self::redirect('login/index&motivo=expirado');
         }
 
         if ($inicio_sesion > 0 && ($ahora - $inicio_sesion) > $timeout_absoluto) {
             self::cerrarSesionPorExpiracion();
-            self::redirect('login/index&error=expired');
+            self::redirect('login/index&motivo=expirado');
         }
 
         if ($inicio_sesion <= 0) {

@@ -792,7 +792,7 @@ class AsistenciaModel extends Modelo
                 FROM terceros t
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
                 LEFT JOIN asistencia_registros ar ON ar.id_tercero = t.id AND ar.fecha = :fecha_registro
-                WHERE t.es_empleado = 1 AND t.deleted_at IS NULL';
+                WHERE t.es_empleado = 1 AND t.estado = 1 AND t.deleted_at IS NULL';
 
         $params = ['fecha_dashboard' => $fecha, 'fecha_registro' => $fecha];
 
@@ -816,7 +816,7 @@ class AsistenciaModel extends Modelo
                        GROUP_CONCAT(ar.estado_asistencia SEPARATOR "|") AS estados_asistencia
                 FROM asistencia_registros ar
                 INNER JOIN terceros t ON t.id = ar.id_tercero
-                WHERE ar.fecha BETWEEN :desde AND :hasta AND t.es_empleado = 1 AND t.deleted_at IS NULL';
+                WHERE ar.fecha BETWEEN :desde AND :hasta AND t.es_empleado = 1 AND t.estado = 1 AND t.deleted_at IS NULL';
 
         $params = ['desde' => $desde, 'hasta' => $hasta];
 
@@ -836,7 +836,7 @@ class AsistenciaModel extends Modelo
     {
         $sql = 'SELECT t.id, t.nombre_completo, te.codigo_biometrico FROM terceros t
                 INNER JOIN terceros_empleados te ON te.id_tercero = t.id
-                WHERE t.es_empleado = 1 AND t.deleted_at IS NULL ORDER BY t.nombre_completo ASC';
+                WHERE t.es_empleado = 1 AND t.estado = 1 AND t.deleted_at IS NULL ORDER BY t.nombre_completo ASC';
         return $this->db()->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 

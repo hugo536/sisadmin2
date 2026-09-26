@@ -58,23 +58,24 @@ if (!function_exists('tiene_permiso')) {
             return true;
         }
 
-        // 3. CACHÉ DE SESIÓN
-        if (!isset($_SESSION['permisos'])) {
-            $modeloPath = BASE_PATH . '/app/models/PermisoModel.php';
-            if (is_file($modeloPath)) {
-                require_once $modeloPath;
-                if (class_exists('PermisoModel')) {
-                    $model = new PermisoModel();
-                    $_SESSION['permisos'] = $model->obtener_slugs_por_rol($idRol);
-                } else {
-                    $_SESSION['permisos'] = [];
-                }
-            } else {
-                $_SESSION['permisos'] = [];
+        // 3. CONSULTA DIRECTA (Sin caché de sesión)
+        // Esto obliga al sistema a leer la BD cada vez que recargas la página
+        $modeloPath = BASE_PATH . '/app/models/PermisoModel.php';
+        if (is_file($modeloPath)) {
+            require_once $modeloPath;
+            if (class_exists('PermisoModel')) {
+                $model = new PermisoModel();
+                // Obtenemos los permisos frescos de la base de datos
+                $permisosActualizados = $model->obtener_slugs_por_rol($idRol);
+                
+                // Sobrescribimos la sesión por si otras partes del sistema la necesitan
+                $_SESSION['permisos'] = $permisosActualizados; 
+                
+                return in_array($slug, $permisosActualizados, true);
             }
         }
 
-        return in_array($slug, $_SESSION['permisos'], true);
+        return false;
     }
 }
 

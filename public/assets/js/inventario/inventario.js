@@ -200,16 +200,36 @@
   function actualizarBloqueoCabecera() {
     const bloquear = lineasMovimiento.length > 0;
     if (tipo) {
-      tipo.disabled = bloquear;
-      if (tomSelectTipo) bloquear ? tomSelectTipo.disable() : tomSelectTipo.enable();
+        tipo.addEventListener('change', () => {
+            limpiarEditorLinea(); // <--- Reinicia la búsqueda al cambiar el tipo
+            actualizarUIModal();
+            actualizarStockHint();
+            if (Number((itemIdInput && itemIdInput.value) || '0') > 0 || Number((packIdInput && packIdInput.value) || '0') > 0) cargarResumenItem();
+            cargarUnidadesTransferencia();
+            verificarCabeceraCompletada();
+        });
     }
+
     if (almacen) {
-      almacen.disabled = bloquear;
-      if (tomSelectAlmacen) bloquear ? tomSelectAlmacen.disable() : tomSelectAlmacen.enable();
+        almacen.addEventListener('change', () => {
+            limpiarEditorLinea(); // <--- Reinicia la búsqueda al cambiar el origen
+            actualizarOpcionesDestino();
+            if (!grupoLoteSelect.classList.contains('d-none')) cargarLotesDisponibles();
+            actualizarStockHint();
+            cargarResumenItem();
+            verificarCabeceraCompletada();
+        });
     }
+
     if (almacenDestino) {
-      almacenDestino.disabled = bloquear;
-      if (tomSelectAlmacenDestino) bloquear ? tomSelectAlmacenDestino.disable() : tomSelectAlmacenDestino.enable();
+      almacenDestino.addEventListener('change', () => {
+        if ((tipo && tipo.value) === 'TRF' && almacen && String(almacen.value) === String(almacenDestino.value)) {
+          window.Swal.fire({ icon: 'warning', title: 'Destino inválido', text: 'El almacén destino no puede ser igual al origen.' });
+          if (tomSelectAlmacenDestino) tomSelectAlmacenDestino.clear();
+        }
+        limpiarEditorLinea(); // <--- Reinicia la búsqueda al cambiar el destino
+        verificarCabeceraCompletada();
+      });
     }
   }
 
@@ -268,7 +288,8 @@
                 if (idAlmacen <= 0) return callback();
                 
                 const tipoVal = (tipo && tipo.value) || '';
-                const soloConStock = esTipoSalida(tipoVal) ? '1' : '0';
+                // MODIFICADO: Fuerza a '1' para que solo traiga lo que existe en el Almacén Origen (excepto Saldo Inicial que puede crear stock de 0)
+                const soloConStock = tipoVal === 'INI' ? '0' : '1'; 
                 const controlaStock = tipoVal === 'TRF' ? '&controla_stock=1' : '';
 
                 const tstamp = new Date().getTime();
@@ -596,6 +617,31 @@
     filtrarAlmacenesPorTipo();
   }
 
+  // --- NUEVA FUNCIÓN: Verificar que la cabecera esté completa ---
+  function verificarCabeceraCompletada() {
+    const tipoVal = tipo ? tipo.value : '';
+    const almacenVal = almacen ? almacen.value : '';
+    const destinoVal = almacenDestino ? almacenDestino.value : '';
+
+    let completado = false;
+    if (tipoVal && almacenVal) {
+      if (tipoVal === 'TRF') {
+        completado = (destinoVal !== '' && destinoVal !== almacenVal);
+      } else {
+        completado = true;
+      }
+    }
+
+    if (tomSelectItem) {
+      if (completado) {
+        tomSelectItem.enable();
+      } else {
+        tomSelectItem.disable();
+        tomSelectItem.clear(true); // Limpiamos si se bloquea
+      }
+    }
+  }
+
   async function obtenerStockActual(idItem, idAlmacen, tipoRegistro = 'item') {
     if (idItem <= 0 || idAlmacen <= 0) return 0;
     try {
@@ -762,31 +808,18 @@
             actualizarStockHint();
             if (Number((itemIdInput && itemIdInput.value) || '0') > 0 || Number((packIdInput && packIdInput.value) || '0') > 0) cargarResumenItem();
             cargarUnidadesTransferencia();
+            verificarCabeceraCompletada(); // Validar habilitación de ítem
         });
     }
 
     if (almacen) {
         almacen.addEventListener('change', () => {
-            if (tomSelectItem) {
-              if (almacen.value) {
-                  tomSelectItem.enable();
-              } else {
-                  tomSelectItem.disable();
-              }
-            }
-            if (!grupoLoteSelect.classList.contains('d-none')) cargarLotesDisponibles();
             actualizarOpcionesDestino();
+            if (!grupoLoteSelect.classList.contains('d-none')) cargarLotesDisponibles();
             actualizarStockHint();
             cargarResumenItem();
+            verificarCabeceraCompletada(); // Validar habilitación de ítem
         });
-    }
-
-    if (selectLoteExistente) {
-      selectLoteExistente.addEventListener('change', () => {
-        if (!inputVencimiento) return;
-        const opcion = selectLoteExistente.options[selectLoteExistente.selectedIndex];
-        inputVencimiento.value = (opcion && opcion.dataset && opcion.dataset.vencimiento) ? opcion.dataset.vencimiento : '';
-      });
     }
 
     if (almacenDestino) {
@@ -795,6 +828,7 @@
           window.Swal.fire({ icon: 'warning', title: 'Destino inválido', text: 'El almacén destino no puede ser igual al origen.' });
           if (tomSelectAlmacenDestino) tomSelectAlmacenDestino.clear();
         }
+        verificarCabeceraCompletada(); // Validar habilitación de ítem
       });
     }
 
@@ -806,8 +840,32 @@
 
     function limpiarEditorLinea() {
       if (tomSelectItem) {
+        tomSelectItem.enable();
         tomSelectItem.clear(true);
+        tomSelectItem.clearOptions();
+        
+        if (typeof tomSelectItem.clearCache === 'function') {
+            tomSelectItem.clearCache();
+        }
+        tomSelectItem.loadedSearches = {};
+        tomSelectItem.lastQuery = ''; 
+        
+        // Borrado del input visual
+        if (typeof tomSelectItem.setTextboxValue === 'function') {
+            tomSelectItem.setTextboxValue('');
+        }
+        if (tomSelectItem.control_input) {
+            tomSelectItem.control_input.value = '';
+        }
+        
+        // LA SOLUCIÓN AL TEXTO FANTASMA:
+        // Cerramos el menú a la fuerza y le quitamos el foco al input 
+        // para que no reviva lo que el usuario estaba escribiendo.
+        tomSelectItem.close();
+        tomSelectItem.blur(); 
       }
+      
+      // Reseteo de los demás campos del formulario
       if (itemIdInput) itemIdInput.value = '0';
       if (packIdInput) packIdInput.value = '0';
       if (tipoRegistroInput) tipoRegistroInput.value = 'item';
@@ -823,6 +881,7 @@
       if (stockHint) stockHint.textContent = '';
       stockActualBase = null;
       if (stockActualItemLabel) stockActualItemLabel.value = '0';
+      
       limpiarUnidadesTransferencia();
       actualizarUIModal();
     }
@@ -1016,6 +1075,7 @@
             actualizarBloqueoCabecera();
             limpiarUnidadesTransferencia(); 
             if (stockHint) stockHint.textContent = '';
+            verificarCabeceraCompletada(); // Bloquea el ítem al abrir
         });
 
         modalEl.addEventListener('hidden.bs.modal', () => {
@@ -1030,6 +1090,7 @@
                 tomSelectItem.clearOptions();
                 tomSelectItem.clear();
                 tomSelectItem.disable(); 
+                verificarCabeceraCompletada();
             }
             
             if (itemIdInput) itemIdInput.value = '0';
