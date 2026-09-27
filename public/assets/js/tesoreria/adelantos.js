@@ -6,12 +6,25 @@
 (function() {
     'use strict';
 
+    // Función auxiliar para bloquear botones y evitar doble clic
+    function bloquearBotonSubmit(form, textoCarga = "Procesando...") {
+        const btnSubmit = form.querySelector('button[type="submit"]');
+        if (btnSubmit) {
+            if (!btnSubmit.dataset.originalHtml) btnSubmit.dataset.originalHtml = btnSubmit.innerHTML;
+            btnSubmit.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${textoCarga}`;
+            btnSubmit.classList.add('disabled');
+            setTimeout(() => { btnSubmit.disabled = true; }, 10);
+        }
+    }
+
     function iniciarModuloAdelantos() {
         const appContenedor = document.getElementById('adelantosApp');
         if (!appContenedor || appContenedor.dataset.iniciado === '1') return;
         appContenedor.dataset.iniciado = '1';
 
-        // 1. Buscador de tabla
+        // ==============================================================
+        // 1. BUSCADOR EN TIEMPO REAL
+        // ==============================================================
         const searchInput = document.getElementById('searchAdelantos');
         const tablaAdelantos = document.getElementById('tablaAdelantos');
 
@@ -27,7 +40,9 @@
             });
         }
 
-        // 2. Llenar Modal de Devolución
+        // ==============================================================
+        // 2. MODAL: DEVOLUCIÓN DE DINERO
+        // ==============================================================
         const modalDevolver = document.getElementById('modalDevolver');
         if (modalDevolver) {
             modalDevolver.addEventListener('show.bs.modal', function (event) {
@@ -39,42 +54,75 @@
                 inputMonto.value = button.getAttribute('data-saldo');
                 inputMonto.max = button.getAttribute('data-saldo');
             });
+
+            const formDevolver = document.getElementById('formDevolverAdelanto');
+            if (formDevolver) {
+                formDevolver.addEventListener('submit', function () {
+                    if (this.checkValidity()) bloquearBotonSubmit(this, "Registrando...");
+                });
+            }
         }
 
-        // 3. Bloquear envíos múltiples
-        document.querySelectorAll('#adelantosApp form').forEach(form => {
-            form.addEventListener('submit', function() {
-                const btnSubmit = this.querySelector('button[type="submit"]');
-                if (btnSubmit && this.checkValidity()) {
-                    btnSubmit.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Procesando...`;
-                    btnSubmit.classList.add('disabled');
-                    setTimeout(() => { btnSubmit.disabled = true; }, 10);
+        // ==============================================================
+        // 3. MODAL: NUEVO ADELANTO (TomSelect + SweetAlert)
+        // ==============================================================
+        const modalNuevoAdelanto = document.getElementById('modalNuevoAdelanto');
+        if (modalNuevoAdelanto) {
+            // Inicializar TomSelect solo cuando el modal sea visible
+            modalNuevoAdelanto.addEventListener('shown.bs.modal', function () {
+                const selectEmpleado = document.getElementById('selectEmpleado');
+                if (selectEmpleado && !selectEmpleado.tomselect) {
+                    window.AppSelects.initLocal('#selectEmpleado', {
+                        placeholder: 'Buscar y seleccionar trabajador...',
+                        dropdownParent: 'body'
+                    });
                 }
             });
-        });
 
-        // 4. Inicializar TomSelect en el modal de Nuevo Adelanto
-        const modalNuevoAdelanto = document.getElementById('modalNuevoAdelanto');
-        const selectEmpleado = document.getElementById('selectEmpleado');
-        
-        if (selectEmpleado && typeof TomSelect !== 'undefined') {
-            const tomSelectInstance = new TomSelect(selectEmpleado, {
-                create: false,
-                placeholder: 'Buscar y seleccionar trabajador...',
-                // Asegurar que el menú se vea por encima del modal
-                dropdownParent: 'body'
-            });
+            const formNuevoAdelanto = document.getElementById('formNuevoAdelanto');
+            if (formNuevoAdelanto) {
+                formNuevoAdelanto.addEventListener('submit', function (e) {
+                    e.preventDefault(); 
+                    
+                    if (!this.checkValidity()) {
+                        this.reportValidity();
+                        return;
+                    }
 
-            // Truco para limpiar el select si se cierra y vuelve a abrir el modal
-            if (modalNuevoAdelanto) {
-                modalNuevoAdelanto.addEventListener('hidden.bs.modal', () => {
-                    tomSelectInstance.clear();
+                    const selectEl = document.getElementById('selectEmpleado');
+                    const empleadoNombre = selectEl.options[selectEl.selectedIndex]?.text || 'el empleado';
+                    const monto = this.querySelector('input[name="monto"]').value;
+
+                    // SweetAlert de Confirmación
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: '¿Confirmar Desembolso?',
+                            html: `Vas a entregar <b>S/ ${parseFloat(monto).toFixed(2)}</b> a <b>${empleadoNombre}</b>.<br><br>El dinero saldrá de Tesorería en este momento y se descontará en su próxima planilla.`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#198754',
+                            cancelButtonColor: '#6c757d',
+                            confirmButtonText: '<i class="bi bi-check-lg me-1"></i> Sí, entregar dinero',
+                            cancelButtonText: 'Cancelar'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                bloquearBotonSubmit(formNuevoAdelanto, "Procesando...");
+                                HTMLFormElement.prototype.submit.call(formNuevoAdelanto);
+                            }
+                        });
+                    } else {
+                        // Fallback nativo
+                        if (confirm(`¿Entregar S/ ${monto} a ${empleadoNombre}?`)) {
+                            bloquearBotonSubmit(formNuevoAdelanto, "Procesando...");
+                            HTMLFormElement.prototype.submit.call(formNuevoAdelanto);
+                        }
+                    }
                 });
             }
         }
         
         // ==============================================================
-        // 5. HISTORIAL DE PAGOS (VER DETALLES) - NUEVO
+        // 4. HISTORIAL DE PAGOS (VER DETALLES AJAX)
         // ==============================================================
         const modalVerDetalle = document.getElementById('modalVerDetalle');
         if (modalVerDetalle) {
@@ -85,7 +133,6 @@
                 const idAdelanto = button?.getAttribute('data-id');
                 const nombreEmpleado = button?.getAttribute('data-empleado') || '--';
 
-                // 5.1 Asignar el nombre al UI
                 const spanNombre = document.getElementById('detNombreEmpleado');
                 if (spanNombre) spanNombre.textContent = nombreEmpleado;
 
@@ -97,13 +144,10 @@
                     return;
                 }
 
-                // 5.2 Mostrar estado de carga
                 tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Cargando historial...</td></tr>`;
 
                 let timeoutId = null;
                 try {
-                    // 5.3 Hacer petición AJAX al backend
-                    // Asume que tienes una ruta así. El fallback a '' es por si window.BASE_URL no está definido.
                     const baseUrl = window.BASE_URL || ''; 
                     const url = `${baseUrl}?ruta=tesoreria/adelantos&accion=historial&id=${idAdelanto}&_t=${new Date().getTime()}`;
                     
@@ -111,20 +155,20 @@
                     historialController = new AbortController();
                     const requestController = historialController;
                     timeoutId = window.setTimeout(() => requestController.abort(), 10000);
+                    
                     const resp = await fetch(url, {
                         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
                         signal: requestController.signal
                     });
+                    
                     if (!resp.ok) throw new Error(`Respuesta HTTP ${resp.status}`);
                     const data = await resp.json();
 
-                    tbody.innerHTML = ''; // Limpiar tabla
+                    tbody.innerHTML = ''; 
 
-                    // 5.4 Procesar respuesta y dibujar filas
                     if (data.ok && data.historial && data.historial.length > 0) {
                         data.historial.forEach(item => {
                             const tr = document.createElement('tr');
-                            // Identificar color según origen
                             const isCaja = item.origen.toLowerCase().includes('caja') || item.origen.toLowerCase().includes('efectivo');
                             const colorBadge = isCaja ? 'bg-success-subtle text-success border-success-subtle' : 'bg-primary-subtle text-primary border-primary-subtle';
                             

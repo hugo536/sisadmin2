@@ -39,17 +39,14 @@ class PlanillasController extends Controlador
         $idLote = (int) ($_GET['id_lote'] ?? 0);
 
         if ($idLote > 0) {
-            // Si viene un ID en la URL, lo guardamos en la memoria
             $_SESSION['ultimo_lote_abierto'] = $idLote;
         } elseif (isset($_SESSION['ultimo_lote_abierto']) && $_SESSION['ultimo_lote_abierto'] > 0) {
-            // Si no viene en la URL pero existe en la memoria, lo cargamos
             $idLote = (int) $_SESSION['ultimo_lote_abierto'];
         }
 
         if ($idLote > 0) {
             $loteActual = $this->planillasModel->obtenerLotePorId($idLote);
             
-            // Si el lote ya no existe en la base de datos, limpiamos la memoria
             if (!$loteActual) {
                 unset($_SESSION['ultimo_lote_abierto']);
             } else {
@@ -82,9 +79,6 @@ class PlanillasController extends Controlador
         }
 
         $cuentasTesoreria = $this->planillasModel->obtenerCuentasTesoreria();
-        
-        // --- NUEVO: Obtener empleados para el modal de adelantos ---
-        $empleados = $this->planillasModel->obtenerEmpleadosActivos();
 
         $this->render('rrhh/planillas', [
             'ruta_actual' => 'planillas',
@@ -92,7 +86,6 @@ class PlanillasController extends Controlador
             'lote_actual' => $loteActual,
             'detalles_nomina' => $detallesNomina,
             'cuentas' => $cuentasTesoreria,
-            'empleados' => $empleados, // <--- NUEVA VARIABLE AGREGADA
             'csrf_token' => $_SESSION['csrf_token']
         ]);
     }
@@ -115,7 +108,6 @@ class PlanillasController extends Controlador
             $userId = AuthMiddleware::getUserId();
             $idLoteNuevo = $this->planillasModel->generarLoteNomina($_POST, $userId);
             
-            // Redireccionará con el id_lote nuevo, el index() lo atrapará y guardará en memoria
             redirect("planillas?id_lote={$idLoteNuevo}&ok=" . urlencode('Lote generado correctamente.'));
         } catch (Exception $e) {
             $msgError = urlencode($e->getMessage());
@@ -135,14 +127,15 @@ class PlanillasController extends Controlador
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $exito = $this->planillasModel->agregarConceptoManual($_POST);
             
-            // Usamos el lote en memoria para asegurar que recargue el mismo lote
             $idLoteEnMemoria = $_SESSION['ultimo_lote_abierto'] ?? 0;
             $referer = ($idLoteEnMemoria > 0) ? "planillas&id_lote={$idLoteEnMemoria}" : 'planillas';
             
             if ($exito) {
                 redirect($referer); 
             } else {
-                redirect($referer . "&error=" . urlencode('No se pudo aplicar el ajuste. Es posible que el lote ya esté cerrado.'));
+                // Capturamos el error exacto generado por el modelo
+                $errorMsg = $this->planillasModel->ultimoError ?: 'No se pudo aplicar el ajuste.';
+                redirect($referer . "&error=" . urlencode($errorMsg));
             }
         }
     }
@@ -246,7 +239,7 @@ class PlanillasController extends Controlador
         }
         
         $empresa = [
-            'nombre' => 'Agua Belén',
+            'nombre' => 'Tu Empresa S.A.C.',
             'ruc' => '20123456789',
             'direccion' => 'Av. Principal 123, Ciudad'
         ];
@@ -292,7 +285,7 @@ class PlanillasController extends Controlador
         $boletas = $detallesNomina; 
         $lote = $loteActual;
         $empresa = [
-            'nombre' => 'Agua Belén',
+            'nombre' => 'Tu Empresa S.A.C.',
             'ruc' => '20123456789',
             'direccion' => 'Av. Principal 123, Ciudad'
         ];
@@ -412,7 +405,6 @@ class PlanillasController extends Controlador
         $sheet->setTitle('Boletas de Pago');
 
         $sheet->setShowGridlines(false);
-
         $fila = 2; 
 
         foreach ($detalles as $row) {
@@ -512,45 +504,20 @@ class PlanillasController extends Controlador
                     $exito = $this->planillasModel->eliminarLoteBorrador($idLote);
                     
                     if ($exito) {
-                        // Limpiamos la memoria para que el sistema regrese a la pantalla en blanco
                         unset($_SESSION['ultimo_lote_abierto']);
-                        
                         redirect('planillas?ok=' . urlencode('Planilla borrador eliminada correctamente.'));
                         return;
                     } else {
-                        $errorMsg = $this->planillasModel->ultimoError ?? 'No se pudo eliminar el lote por un error en la base de datos.';
+                        $errorMsg = $this->planillasModel->ultimoError ?? 'No se pudo eliminar el lote.';
                         redirect("planillas?id_lote={$idLote}&error=" . urlencode($errorMsg));
                         return;
                     }
                 } else {
-                    redirect("planillas?id_lote={$idLote}&error=" . urlencode('Por seguridad, solo se pueden eliminar planillas en estado BORRADOR.'));
+                    redirect("planillas?id_lote={$idLote}&error=" . urlencode('Solo se pueden eliminar planillas en estado BORRADOR.'));
                     return;
                 }
             }
             redirect('planillas');
-        }
-    }
-
-    /**
-     * ========================================================================
-     * REGISTRAR NUEVO ADELANTO/PRÉSTAMO
-     * ========================================================================
-     */
-    public function guardar_adelanto(): void
-    {
-        AuthMiddleware::handle();
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $userId = AuthMiddleware::getUserId();
-            $exito = $this->planillasModel->registrarNuevoAdelanto($_POST, $userId);
-
-            if ($exito) {
-                // Redirigir a la vista actual con mensaje de éxito
-                redirect('planillas?ok=' . urlencode('Adelanto registrado correctamente. El descuento se aplicará en la próxima planilla.'));
-            } else {
-                $errorMsg = $this->planillasModel->ultimoError ?? 'Error al registrar el adelanto.';
-                redirect('planillas?error=' . urlencode($errorMsg));
-            }
         }
     }
 }

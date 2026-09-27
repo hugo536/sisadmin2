@@ -41,39 +41,66 @@
             const categoria = (data.categoria || '').toString().trim();
             const descripcion = (data.descripcion || '').toString().trim();
             const monto = Number.parseFloat(data.monto ?? 0);
-            
-            const idConcepto = data.id_concepto || '';
-            const idAdelantoRef = data.id_adelanto_ref || '';
 
             const inputTipo = nodo.querySelector('[data-name="tipo_concepto"]');
             const inputCategoria = nodo.querySelector('[data-name="categoria_concepto"]');
             const inputDescripcion = nodo.querySelector('[data-name="descripcion"]');
             const inputMonto = nodo.querySelector('[data-name="monto"]');
             
-            const inputIdConcepto = nodo.querySelector('[data-name="id_concepto"]');
-            const inputIdAdelantoRef = nodo.querySelector('[data-name="id_adelanto_ref"]');
-            const msgAdelanto = nodo.querySelector('.js-msg-adelanto');
+            // 1. DICCIONARIO DE CATEGORÍAS DEPENDIENTES
+            const categoriasDisponibles = {
+                'PERCEPCION': ['Mérito / Productividad', 'Movilidad / Viáticos', 'Reintegro de Gastos', 'Bono Extra', 'Otros'],
+                'DEDUCCION': ['Adelanto de Sueldo', 'Penalidad / Multa', 'Falta no justificada', 'Otros']
+            };
 
-            if (inputTipo && (tipo === 'PERCEPCION' || tipo === 'DEDUCCION')) inputTipo.value = tipo;
-            if (inputCategoria && categoria !== '') inputCategoria.value = categoria;
+            // 2. FUNCIÓN PARA ACTUALIZAR SELECT Y COLORES
+            const actualizarDependencias = (tipoSeleccionado, categoriaActual) => {
+                // Limpiar categorías
+                inputCategoria.innerHTML = '<option value="" disabled selected>Seleccione categoría...</option>';
+                
+                // Llenar nuevas categorías según el Tipo
+                if (categoriasDisponibles[tipoSeleccionado]) {
+                    categoriasDisponibles[tipoSeleccionado].forEach(cat => {
+                        inputCategoria.add(new Option(cat, cat));
+                    });
+                }
+                
+                // Seleccionar la categoría si ya existía
+                if (categoriaActual && categoriasDisponibles[tipoSeleccionado]?.includes(categoriaActual)) {
+                    inputCategoria.value = categoriaActual;
+                } else if (categoriaActual) {
+                    inputCategoria.add(new Option(categoriaActual, categoriaActual));
+                    inputCategoria.value = categoriaActual;
+                }
+
+                // Cambiar colores del monto
+                inputMonto.classList.remove('text-primary', 'text-success', 'text-danger', 'text-dark');
+                if (tipoSeleccionado === 'PERCEPCION') {
+                    inputMonto.classList.add('text-primary'); // Azul
+                } else if (tipoSeleccionado === 'DEDUCCION') {
+                    inputMonto.classList.add('text-danger'); // Rojo
+                } else {
+                    inputMonto.classList.add('text-dark'); // Gris por defecto
+                }
+            };
+
+            // 3. ESCUCHAR CAMBIOS EN EL SELECT DE TIPO
+            if (inputTipo) {
+                inputTipo.addEventListener('change', (e) => {
+                    actualizarDependencias(e.target.value, '');
+                });
+            }
+
+            // 4. ASIGNAR VALORES INICIALES
+            if (inputTipo && (tipo === 'PERCEPCION' || tipo === 'DEDUCCION')) {
+                inputTipo.value = tipo;
+                actualizarDependencias(tipo, categoria);
+            } else {
+                actualizarDependencias('', '');
+            }
+
             if (inputDescripcion) inputDescripcion.value = descripcion;
             if (inputMonto && Number.isFinite(monto) && monto > 0) inputMonto.value = monto.toFixed(2);
-            
-            if (inputIdConcepto) inputIdConcepto.value = idConcepto;
-            if (inputIdAdelantoRef) inputIdAdelantoRef.value = idAdelantoRef;
-
-            if (idAdelantoRef !== '' || categoria === 'Adelanto') {
-                if (msgAdelanto) msgAdelanto.classList.remove('d-none');
-                
-                if (inputTipo) { inputTipo.setAttribute('readonly', true); inputTipo.style.pointerEvents = 'none'; }
-                if (inputCategoria) { inputCategoria.setAttribute('readonly', true); inputCategoria.style.pointerEvents = 'none'; }
-                if (inputDescripcion) { inputDescripcion.setAttribute('readonly', true); }
-                
-                const btnRemove = nodo.querySelector('.js-remove-movimiento');
-                if (btnRemove) {
-                    btnRemove.style.display = 'none';
-                }
-            }
 
             contenedorMovimientos.appendChild(nodo);
             return nodo;

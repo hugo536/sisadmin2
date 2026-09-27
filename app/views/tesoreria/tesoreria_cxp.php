@@ -109,6 +109,9 @@ if (!empty($_GET['error'])) {
                         <option value="">Todos los Tipos de Tercero</option>
                         <option value="proveedor" <?php echo (($filtros['tipo_tercero'] ?? '') === 'proveedor') ? 'selected' : ''; ?>>Proveedor</option>
                         <option value="servicios" <?php echo (($filtros['tipo_tercero'] ?? '') === 'servicios') ? 'selected' : ''; ?>>Servicios</option>
+                        
+                        <!-- NUEVA OPCIÓN: Para filtrar rápidamente los adelantos de personal -->
+                        <option value="empleado" <?php echo (($filtros['tipo_tercero'] ?? '') === 'empleado') ? 'selected' : ''; ?>>Empleado (Adelantos)</option>
                     </select>
                 </div>
 
@@ -207,6 +210,9 @@ if (!empty($_GET['error'])) {
                                 <tr class="border-bottom" data-search="<?php echo htmlspecialchars($searchStr, ENT_QUOTES, 'UTF-8'); ?>">
                                     <td class="ps-4 align-top pt-3">
                                         <div class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">
+                                            <?php if (($r['tipo_tercero'] ?? '') === 'empleado'): ?>
+                                                <span class="badge bg-info text-white me-1" style="font-size: 0.65rem;">PERSONAL</span>
+                                            <?php endif; ?>
                                             <?php echo e((string) ($r['proveedor'] ?? '')); ?>
                                         </div>
                                         <?php 

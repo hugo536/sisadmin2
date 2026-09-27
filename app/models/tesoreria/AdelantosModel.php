@@ -303,7 +303,7 @@ class AdelantosModel extends Modelo
 
         $db->exec("ALTER TABLE tesoreria_movimientos
                    MODIFY COLUMN tipo ENUM('COBRO','PAGO','INGRESO','EGRESO') NOT NULL,
-                   MODIFY COLUMN origen ENUM('CXC','CXP','ADELANTO') NOT NULL");
+                   MODIFY COLUMN origen ENUM('CXC','CXP','ADELANTO','PLANILLA') NOT NULL");
     }
 
     private function mensajeSeguro(Throwable $error): string

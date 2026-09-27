@@ -59,11 +59,6 @@ $csrf_token = $csrf_token ?? '';
                     </ul>
                 </div>
 
-                <!-- NUEVO: Botón Dar Adelanto -->
-                <button type="button" class="btn btn-outline-success fw-bold shadow-sm px-4 py-2 d-flex align-items-center bg-white transition-hover" data-bs-toggle="modal" data-bs-target="#modalNuevoAdelanto">
-                    <i class="bi bi-cash-coin me-2"></i>Dar Adelanto
-                </button>
-
                 <!-- Botón Generar -->
                 <button type="button" class="btn btn-primary fw-bold shadow-sm px-4 py-2 d-flex align-items-center transition-hover" data-bs-toggle="modal" data-bs-target="#modalGenerarLote">
                     <i class="bi bi-plus-lg me-2"></i>Generar Nuevo Lote
@@ -187,6 +182,10 @@ $csrf_token = $csrf_token ?? '';
                                     <tr>
                                         <th class="text-start ps-4 py-3">Empleado</th>
                                         <th class="py-3">Asistencia</th>
+                                        
+                                        <!-- NUEVO ENCABEZADO -->
+                                        <th class="py-3">Préstamos</th>
+                                        
                                         <th class="py-3">Ingresos (S/)</th>
                                         <th class="py-3">Deducciones (S/)</th>
                                         <th class="bg-success-subtle text-success py-3">Neto a Pagar</th>
@@ -228,7 +227,22 @@ $csrf_token = $csrf_token ?? '';
                                                         <span class="text-muted"><?php echo $det['horas_acumuladas']; ?>h (<?php echo $det['horas_extras']; ?>h ext)</span>
                                                     <?php endif; ?>
                                                 </td>
-                                                
+
+                                                <!-- COLUMNA: PRÉSTAMOS / ADELANTOS (Limpia) -->
+                                                <td class="text-center align-middle" style="font-size: 0.85rem;">
+                                                    <?php 
+                                                        $monto_deuda = isset($det['monto_adeudado']) ? (float)$det['monto_adeudado'] : 0;
+                                                    ?>
+                                                    
+                                                    <?php if ($monto_deuda > 0): ?>
+                                                        <div class="fw-bold text-danger">S/ <?php echo number_format($monto_deuda, 2); ?></div>
+                                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle mt-1" style="font-size: 0.65rem;">Deuda Activa</span>
+                                                    <?php else: ?>
+                                                        <div class="text-muted fw-medium">S/ 0.00</div>
+                                                        <!-- Se eliminó la etiqueta "Sin Deudas" para no saturar la vista -->
+                                                    <?php endif; ?>
+                                                </td>
+                                       
                                                 <!-- INGRESOS -->
                                                 <td style="font-size: 0.9rem;">
                                                     <?php if ($det['tiene_conflicto']): ?>
@@ -299,68 +313,6 @@ $csrf_token = $csrf_token ?? '';
         </div>
         
         <!-- MODALES DENTRO DEL TURBO-FRAME (para asegurar que existen en el DOM) -->
-        
-        <!-- MODAL: REGISTRAR NUEVO ADELANTO/PRÉSTAMO -->
-        <div class="modal fade" id="modalNuevoAdelanto" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content border-0 shadow-lg rounded-4">
-                    <div class="modal-header bg-success text-white border-bottom-0 pb-3 rounded-top-4">
-                        <h5 class="modal-title fw-bold"><i class="bi bi-cash-coin me-2"></i>Registrar Nuevo Adelanto</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                    </div>
-                    <form action="<?php echo e(route_url('planillas/guardar_adelanto')); ?>" method="POST">
-                        <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token); ?>">
-                        
-                        <div class="modal-body p-4 bg-light" style="margin-top: -10px; border-top-left-radius: 1rem; border-top-right-radius: 1rem;">
-                            
-                            <div class="alert alert-success bg-success-subtle border-success-subtle text-success-emphasis fw-medium mb-4">
-                                <i class="bi bi-info-circle-fill me-2"></i>
-                                El dinero saldrá de Tesorería. El sistema cobrará esta deuda automáticamente en las próximas planillas.
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label fw-bold small text-muted">Empleado <span class="text-danger">*</span></label>
-                                <select id="selectEmpleadoAdelanto" class="form-select bg-white shadow-none border-secondary-subtle fw-medium" name="id_tercero" required autocomplete="off">
-                                    <option value="" disabled selected>Seleccione al empleado...</option>
-                                    <?php foreach (($empleados ?? []) as $emp): ?>
-                                        <option value="<?php echo $emp['id']; ?>">
-                                            <?php echo htmlspecialchars($emp['nombre_completo'] . ' (DNI: ' . $emp['numero_documento'] . ')'); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label fw-bold small text-muted">Monto del Adelanto (S/) <span class="text-danger">*</span></label>
-                                <input type="number" step="0.01" min="0.10" class="form-control bg-white shadow-none text-success fw-bold border-secondary-subtle fs-5" name="monto" placeholder="0.00" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label fw-bold small text-muted">¿De qué cuenta sale el dinero? <span class="text-danger">*</span></label>
-                                <select class="form-select bg-white shadow-none border-secondary-subtle fw-medium" name="id_cuenta_tesoreria" required>
-                                    <option value="" disabled selected>Seleccione la cuenta origen...</option>
-                                    <?php foreach (($cuentas ?? []) as $cta): ?>
-                                        <option value="<?php echo $cta['id']; ?>">
-                                            <?php echo htmlspecialchars($cta['nombre']); ?> (Saldo: <?php echo $cta['moneda']; ?> <?php echo number_format((float)$cta['saldo_actual'], 2); ?>)
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-
-                            <div class="mb-0">
-                                <label class="form-label fw-bold small text-muted">Motivo / Observación</label>
-                                <input type="text" class="form-control bg-white border-secondary-subtle shadow-none" name="observacion" placeholder="Ej. Adelanto por emergencia familiar" maxlength="255">
-                            </div>
-
-                        </div>
-                        <div class="modal-footer bg-white border-top shadow-sm rounded-bottom-4">
-                            <button type="button" class="btn btn-light fw-bold text-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="submit" class="btn btn-success fw-bold px-4"><i class="bi bi-check-lg me-2"></i>Guardar Adelanto</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
 
         <!-- MODAL: GENERAR LOTE -->
         <div class="modal fade" id="modalGenerarLote" tabindex="-1" aria-hidden="true">
@@ -524,19 +476,16 @@ $csrf_token = $csrf_token ?? '';
                     <div class="col-md-3">
                         <label class="form-label small text-muted fw-bold mb-1">Tipo <span class="text-danger">*</span></label>
                         <select class="form-select form-select-sm shadow-none fw-medium border-secondary-subtle js-tipo-select" data-name="tipo_concepto" required>
+                            <option value="" disabled selected>Seleccione...</option>
                             <option value="PERCEPCION">Bono / Percepción</option>
                             <option value="DEDUCCION">Deducción / Descuento</option>
                         </select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label small text-muted fw-bold mb-1">Categoría <span class="text-danger">*</span></label>
+                        <!-- Inicia en blanco, el JS lo llenará -->
                         <select class="form-select form-select-sm shadow-none border-secondary-subtle fw-medium" data-name="categoria_concepto" required>
-                            <option value="" disabled selected>Seleccione...</option>
-                            <option value="Mérito">Mérito / Productividad</option>
-                            <option value="Movilidad">Movilidad / Viáticos</option>
-                            <option value="Reintegro">Reintegro de Gastos</option>
-                            <option value="Penalidad">Penalidad / Multa</option>
-                            <option value="Otros">Otros</option>
+                            <option value="" disabled selected>Elija un Tipo primero</option>
                         </select>
                     </div>
                     <div class="col-md-4">
@@ -545,7 +494,7 @@ $csrf_token = $csrf_token ?? '';
                     </div>
                     <div class="col-md-2">
                         <label class="form-label small text-muted fw-bold mb-1">Monto (S/) <span class="text-danger">*</span></label>
-                        <input type="number" step="0.01" min="0.01" class="form-control form-control-sm shadow-none fw-bold text-primary border-secondary-subtle js-monto-input" data-name="monto" placeholder="0.00" required>
+                        <input type="number" step="0.01" min="0.01" class="form-control form-control-sm shadow-none fw-bold border-secondary-subtle js-monto-input" data-name="monto" placeholder="0.00" required>
                     </div>
                 </div>
                 
