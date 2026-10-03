@@ -117,6 +117,22 @@ class UnidadConversionModel extends Modelo
         ]);
     }
 
+    /**
+     * Indica si la unidad ya está referenciada por algún documento o movimiento.
+     *
+     * El controlador usa esta comprobación al cargar el detalle para deshabilitar
+     * la eliminación de unidades con historial. Debe vivir en este modelo (y no
+     * en ItemModel), pues es el modelo que atiende el módulo de conversiones.
+     */
+    public function tieneHistorial(int $idUnidad): bool
+    {
+        if ($idUnidad <= 0) {
+            return false;
+        }
+
+        return $this->obtenerBloqueosEliminacionUnidad($idUnidad) !== [];
+    }
+
     private function obtenerBloqueosEliminacionUnidad(int $idUnidad): array
     {
         $db = $this->db();
@@ -133,10 +149,16 @@ class UnidadConversionModel extends Modelo
             if (!$this->tablaExiste($tabla)) {
                 continue;
             }
-            $stmt = $db->prepare($sql);
-            $stmt->execute(['id' => $idUnidad]);
-            if ((int) $stmt->fetchColumn() > 0) {
-                $usos[] = $tabla;
+            try {
+                $stmt = $db->prepare($sql);
+                $stmt->execute(['id' => $idUnidad]);
+                if ((int) $stmt->fetchColumn() > 0) {
+                    $usos[] = $tabla;
+                }
+            } catch (Throwable $e) {
+                // Algunas instalaciones aún no tienen todas las migraciones de
+                // referencias. No impedir la carga del detalle por ese desfase.
+                error_log('Error al verificar historial de unidad de conversión en ' . $tabla . ': ' . $e->getMessage());
             }
         }
 
