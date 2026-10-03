@@ -48,8 +48,18 @@ class UnidadConversionModel extends Modelo
 
     public function crearUnidadConversion(array $data, int $userId): int
     {
-        $sql = 'INSERT INTO items_unidades (id_item, nombre, codigo_unidad, factor_conversion, peso_kg, estado, created_by, updated_by, created_at, updated_at)
-                VALUES (:id_item, :nombre, :codigo_unidad, :factor_conversion, :peso_kg, :estado, :created_by, :updated_by, NOW(), NOW())';
+        // 1. Verificamos si ya existen unidades previas para este ítem
+        $sqlCheck = 'SELECT COUNT(id) FROM items_unidades WHERE id_item = :id_item AND deleted_at IS NULL';
+        $stmtCheck = $this->db()->prepare($sqlCheck);
+        $stmtCheck->execute(['id_item' => (int) $data['id_item']]);
+        $totalUnidades = (int) $stmtCheck->fetchColumn();
+
+        // 2. Si el conteo es 0, es la primera unidad y será la predeterminada (1)
+        $esPredeterminada = ($totalUnidades === 0) ? 1 : 0;
+
+        // 3. Insertamos agregando el campo es_predeterminada
+        $sql = 'INSERT INTO items_unidades (id_item, nombre, codigo_unidad, factor_conversion, peso_kg, estado, es_predeterminada, created_by, updated_by, created_at, updated_at)
+                VALUES (:id_item, :nombre, :codigo_unidad, :factor_conversion, :peso_kg, :estado, :es_predeterminada, :created_by, :updated_by, NOW(), NOW())';
 
         $stmt = $this->db()->prepare($sql);
         $stmt->execute([
@@ -59,6 +69,7 @@ class UnidadConversionModel extends Modelo
             'factor_conversion' => (float) ($data['factor_conversion'] ?? 1),
             'peso_kg' => (float) ($data['peso_kg'] ?? 0),
             'estado' => (int) ($data['estado'] ?? 1),
+            'es_predeterminada' => $esPredeterminada,
             'created_by' => $userId,
             'updated_by' => $userId
         ]);
@@ -99,22 +110,57 @@ class UnidadConversionModel extends Modelo
             throw new RuntimeException('No se puede eliminar esta unidad porque ya tiene uso en: ' . implode(', ', $bloqueos) . '.');
         }
 
-        $sql = 'UPDATE items_unidades
-                SET deleted_at = NOW(),
-                    deleted_by = :deleted_by,
-                    updated_at = NOW(),
-                    updated_by = :updated_by,
-                    estado = 0
-                WHERE id = :id
-                  AND id_item = :id_item
-                  AND deleted_at IS NULL';
+        $db = $this->db();
+        $db->beginTransaction();
 
-        return $this->db()->prepare($sql)->execute([
-            'deleted_by' => $userId,
-            'updated_by' => $userId,
-            'id' => $id,
-            'id_item' => $idItem
-        ]);
+        try {
+            // 1. Verificar si la unidad a eliminar es la predeterminada actualmente
+            $stmtCheck = $db->prepare('SELECT es_predeterminada FROM items_unidades WHERE id = :id');
+            $stmtCheck->execute(['id' => $id]);
+            $esPredeterminada = (int) $stmtCheck->fetchColumn();
+
+            // 2. Realizar el borrado lógico (quitándole también la estrellita por seguridad)
+            $sqlDelete = 'UPDATE items_unidades
+                          SET deleted_at = NOW(),
+                              deleted_by = :deleted_by,
+                              updated_at = NOW(),
+                              updated_by = :updated_by,
+                              estado = 0,
+                              es_predeterminada = 0
+                          WHERE id = :id
+                            AND id_item = :id_item
+                            AND deleted_at IS NULL';
+
+            $db->prepare($sqlDelete)->execute([
+                'deleted_by' => $userId,
+                'updated_by' => $userId,
+                'id' => $id,
+                'id_item' => $idItem
+            ]);
+
+            // 3. Si era la predeterminada, transferir la estrella a la siguiente unidad disponible
+            if ($esPredeterminada === 1) {
+                $sqlReasignar = 'UPDATE items_unidades 
+                                 SET es_predeterminada = 1, 
+                                     updated_at = NOW(), 
+                                     updated_by = :updated_by
+                                 WHERE id_item = :id_item 
+                                   AND deleted_at IS NULL 
+                                 ORDER BY id ASC LIMIT 1';
+                                 
+                $db->prepare($sqlReasignar)->execute([
+                    'updated_by' => $userId,
+                    'id_item' => $idItem
+                ]);
+            }
+
+            $db->commit();
+            return true;
+
+        } catch (Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
     }
 
     /**

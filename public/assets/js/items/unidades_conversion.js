@@ -288,6 +288,28 @@
                     if (idUnidad <= 0 || idItem <= 0) return;
 
                     const icon = btn.querySelector('i');
+
+                    // --- NUEVAS REGLAS DE VALIDACIÓN FRONTEND ---
+                    // Regla 1: Si ya tiene la estrella llena (es la predeterminada), detenemos el clic
+                    if (icon.classList.contains('bi-star-fill')) {
+                        return;
+                    }
+
+                    // Regla 2: Si el ítem solo tiene 1 unidad en total en la tabla, no dejamos cambiarla
+                    if (items.length <= 1) {
+                        window.Swal?.fire({
+                            icon: 'info',
+                            title: 'Acción no permitida',
+                            text: 'El ítem debe tener al menos una unidad predeterminada.',
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                        return;
+                    }
+                    // ---------------------------------------------
+
                     const originalClass = icon.className;
                     icon.className = 'bi bi-hourglass-split text-info fs-5 spinner-border spinner-border-sm border-0';
 

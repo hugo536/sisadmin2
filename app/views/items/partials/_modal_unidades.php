@@ -22,7 +22,7 @@
                 <div class="row g-3 h-100">
                     
                     <!-- PANEL IZQUIERDO: Buscador y Lista de Ítems (Ajustado a col-lg-4 para dar más espacio al panel principal) -->
-                    <div class="col-lg-4 d-flex flex-column" style="max-height: 70vh;">
+                    <div class="col-lg-5 d-flex flex-column" style="max-height: 70vh;">
                         <div class="card shadow-sm border-0 d-flex flex-column h-100 overflow-hidden">
                             
                             <!-- Buscador Fijo -->
@@ -57,7 +57,7 @@
                     </div>
                     
                     <!-- PANEL DERECHO: Gestión de Unidades (Ajustado a col-lg-8) -->
-                    <div class="col-lg-8 d-flex flex-column" style="max-height: 70vh;">
+                    <div class="col-lg-7 d-flex flex-column" style="max-height: 70vh;">
                         <div class="card shadow-sm border-0 h-100 d-flex flex-column overflow-hidden p-3 p-md-4">
                             
                             <!-- Encabezado de Selección -->

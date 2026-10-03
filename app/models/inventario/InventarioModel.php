@@ -1231,7 +1231,8 @@ class InventarioModel extends Modelo
 
             $texto = "";
             if ($cantidadPresentacion > 0) {
-                $texto = "{$cantidadPresentacion} {$unidadNombre} x {$factor}";
+                // CORRECCIÓN: Se eliminó el ' x {$factor}' del texto
+                $texto = "{$cantidadPresentacion} {$unidadNombre}";
                 if ($sobrante > 0) {
                     $texto .= " + " . number_format($sobrante, 0) . " sueltas";
                 }
