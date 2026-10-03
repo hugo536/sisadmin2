@@ -165,8 +165,7 @@ class PlanillasModel extends Modelo
                 $mapaAsistencia[$idT] = [
                     'asistidos' => 0, 'justificados' => 0, 'faltas' => 0,
                     'tardanzas' => 0, 'horas_trabajadas' => 0.0, 'horas_extras' => 0.0, 'tiene_conflicto' => false,
-                    'dias_ya_pagados' => 0,
-                    'horas_esperadas' => 0.0
+                    'dias_ya_pagados' => 0, 'horas_esperadas' => 0.0
                 ];
             }
 
@@ -250,13 +249,27 @@ class PlanillasModel extends Modelo
         $mapaManuales = [];
         foreach ($conceptosManuales as $cm) {
             $idD = $cm['id_detalle_nomina'];
-            if (!isset($mapaManuales[$idD])) $mapaManuales[$idD] = ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0, 'adelantos_editados' => []];
+            if (!isset($mapaManuales[$idD])) {
+                $mapaManuales[$idD] = [
+                    'percepciones' => 0, 
+                    'deducciones' => 0, 
+                    'bonos' => 0, 
+                    'adelantos_manuales' => 0, 
+                    'adelantos_editados' => []
+                ];
+            }
             
             if ($cm['tipo'] === 'PERCEPCION') {
                 $mapaManuales[$idD]['percepciones'] += $cm['monto'];
                 $mapaManuales[$idD]['bonos'] += $cm['monto'];
             } else {
                 $mapaManuales[$idD]['deducciones'] += $cm['monto'];
+                
+                // Mapeamos lo que el usuario ingresó manualmente en el modal como Adelanto
+                if ($cm['categoria'] === 'Adelanto de Sueldo') {
+                    $mapaManuales[$idD]['adelantos_manuales'] += $cm['monto'];
+                }
+                
                 if (!empty($cm['id_adelanto_ref'])) {
                     $mapaManuales[$idD]['adelantos_editados'][(int)$cm['id_adelanto_ref']] = (float)$cm['monto'];
                 }
@@ -292,7 +305,6 @@ class PlanillasModel extends Modelo
                 
                 if ($horasAcumuladas < $horasEsperadas) {
                     $horasPerdidas = $horasEsperadas - $horasAcumuladas;
-                    
                     $descuentoTardanzas = round($horasPerdidas * $pagoPorHora, 2);
                 } else {
                     $descuentoTardanzas = 0;
@@ -303,38 +315,43 @@ class PlanillasModel extends Modelo
             }
 
             $pagoHorasExtras = round($pagoPorHora * $horasExtras, 2);
-            $manuales = $mapaManuales[$idDetalle] ?? ['percepciones' => 0, 'deducciones' => 0, 'bonos' => 0, 'adelantos_editados' => []];
+            $manuales = $mapaManuales[$idDetalle] ?? [
+                'percepciones' => 0, 
+                'deducciones' => 0, 
+                'bonos' => 0, 
+                'adelantos_manuales' => 0, 
+                'adelantos_editados' => []
+            ];
 
             $totalPercepciones = $sueldoBaseCalculado + $pagoHorasExtras + $manuales['percepciones'];
             $deduccionesPrevias = $descuentoTardanzas + $manuales['deducciones'];
             
-            $netoTemporal = $totalPercepciones - $deduccionesPrevias;
-            
-            $descuentoAdelanto = 0;
+            $descuentoAdelanto = $manuales['adelantos_manuales']; // Mostramos solo lo que el usuario ingresó manualmente
             $adelantosAplicados = [];
             $montoAdeudadoInfo = 0;
             
             if (!$tieneConflicto && isset($mapaAdelantos[$idTercero])) {
+                $saldoParaDistribuir = $descuentoAdelanto; // Dinero que el usuario decidió descontarle hoy
+
                 foreach ($mapaAdelantos[$idTercero] as &$ad) {
                     $idAd = (int)$ad['id'];
-                    $montoAdeudadoInfo += (float)$ad['saldo_pendiente'];
+                    $montoAdeudadoInfo += (float)$ad['saldo_pendiente']; // Acumulamos para la etiqueta roja "Deuda Activa"
                     
-                    if (isset($manuales['adelantos_editados'][$idAd])) {
-                        $montoEditado = $manuales['adelantos_editados'][$idAd];
-                        $adelantosAplicados[] = ['id' => $idAd, 'monto' => $montoEditado, 'es_manual' => true];
-                        continue;
+                    // Si el usuario aplicó un descuento manual para préstamos, lo cruzamos con sus deudas pendientes
+                    if ($saldoParaDistribuir > 0) {
+                        $aDescontar = min($saldoParaDistribuir, (float)$ad['saldo_pendiente']);
+                        $adelantosAplicados[] = [
+                            'id' => $idAd, 
+                            'monto' => $aDescontar, 
+                            'es_manual' => true // Marcamos como manual para evitar doble inserción en bd al cerrar
+                        ];
+                        $saldoParaDistribuir -= $aDescontar;
                     }
-
-                    if ($netoTemporal <= 0) continue;
-                    $aDescontar = min($netoTemporal, (float)$ad['saldo_pendiente']);
-                    $descuentoAdelanto += $aDescontar;
-                    $netoTemporal -= $aDescontar;
-                    $adelantosAplicados[] = ['id' => $idAd, 'monto' => $aDescontar, 'es_manual' => false];
-                    $ad['saldo_pendiente'] -= $aDescontar;
                 }
             }
 
-            $totalDeducciones = round($deduccionesPrevias + $descuentoAdelanto, 2);
+            // Ya no sumamos $descuentoAdelanto aquí porque ya viene incluido dentro de $manuales['deducciones']
+            $totalDeducciones = round($deduccionesPrevias, 2);
             $totalPercepciones = round($totalPercepciones, 2);
             $netoFinal = round($totalPercepciones - $totalDeducciones, 2);
 
@@ -416,7 +433,6 @@ class PlanillasModel extends Modelo
 
             if ($idDetalle <= 0) throw new InvalidArgumentException('Detalle de nómina inválido.');
 
-            // Traemos el ID del lote para poder calcular los ingresos
             $stmtDetalle = $db->prepare('SELECT n.id as id_nomina, n.estado 
                                          FROM rrhh_nominas_detalles nd
                                          INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
@@ -428,9 +444,6 @@ class PlanillasModel extends Modelo
                 throw new InvalidArgumentException('Solo se pueden editar movimientos en lotes BORRADOR.');
             }
 
-            // ========================================================
-            // REGLA CONTABLE DE SEGURIDAD (Validación antes de guardar)
-            // ========================================================
             $totalPercepcionesNuevas = 0;
             $totalDeduccionesNuevas = 0;
             foreach ($movimientos as $mov) {
@@ -440,7 +453,6 @@ class PlanillasModel extends Modelo
                 if ($tipo === 'DEDUCCION') $totalDeduccionesNuevas += $monto;
             }
 
-            // Calculamos cuánto generó el empleado por su asistencia
             $lote = $this->obtenerLotePorId((int)$detalle['id_nomina']);
             $nominaCalculada = $this->calcularNominaEnMemoria($lote);
             $ingresosGenerados = 0;
@@ -454,11 +466,9 @@ class PlanillasModel extends Modelo
 
             $ingresosTotales = $ingresosGenerados + $totalPercepcionesNuevas;
             
-            // Si el descuento supera a los ingresos, bloqueamos la operación
             if ($totalDeduccionesNuevas > $ingresosTotales) {
                 throw new InvalidArgumentException("¡Operación Rechazada! El trabajador solo ha generado S/ " . number_format($ingresosTotales, 2) . " en esta planilla. No puedes descontarle S/ " . number_format($totalDeduccionesNuevas, 2) . " porque dejarías su sueldo en negativo.");
             }
-            // ========================================================
 
             $db->beginTransaction();
 
@@ -597,6 +607,8 @@ class PlanillasModel extends Modelo
                                 'descuento_estado' => $ad['monto'],
                                 'id_adelanto' => $ad['id'],
                             ]);
+                            
+                            // Ya no creamos el concepto si fue manual, porque el modal de JS ya lo insertó en BD.
                             if (empty($ad['es_manual'])) {
                                 $stmtConceptoAdelanto->execute([
                                     'id_det' => $calc['id'],
@@ -816,11 +828,6 @@ class PlanillasModel extends Modelo
         return (int) $stmt->fetchColumn() ?: 1; 
     }
 
-    /**
-     * ========================================================================
-     * 11. ELIMINAR LOTE BORRADOR (CASCADA)
-     * ========================================================================
-     */
     public function eliminarLoteBorrador(int $idLote): bool
     {
         $db = $this->db();

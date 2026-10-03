@@ -18,6 +18,7 @@
         const tituloSeleccion = document.getElementById('ucTituloSeleccion');
         const btnAgregar = document.getElementById('btnAgregarUnidadConversion');
         const form = document.getElementById('formUnidadConversion');
+        const contenedorFormulario = document.getElementById('contenedorFormulario'); // <--- NUEVA REFERENCIA AÑADIDA
         const btnCancelar = document.getElementById('btnCancelarUnidadConversion');
         const btnGuardar = document.getElementById('btnGuardarUnidadConversion');
         const inputBuscarItem = document.getElementById('ucBuscarItem');
@@ -35,7 +36,7 @@
         const inputEstado = document.getElementById('ucEstado');
         const resumenFormula = document.getElementById('ucResumenFormula');
 
-        if (!modal || !tbodyResumen || !tbodyDetalle || !form) return;
+        if (!modal || !tbodyResumen || !tbodyDetalle || !form || !contenedorFormulario) return;
         if (modal.dataset.ucInit === '1') return;
         modal.dataset.ucInit = '1';
 
@@ -60,20 +61,18 @@
         };
 
         const showSuccess = async (message, title = 'Éxito') => {
-            // Verificamos que la librería SweetAlert2 esté cargada en el sistema
             if (window.Swal && typeof window.Swal.fire === 'function') {
                 await window.Swal.fire({
-                    icon: 'success',         // Tipo de icono (verde con el check)
-                    title,                   // Título de la alerta
-                    text: message || 'Operación completada correctamente.', // Mensaje de éxito
-                    confirmButtonText: 'OK', // Texto que mostrará el botón
-                    confirmButtonColor: '#198754', // Color verde estándar para coincidir con tu sistema
-                    timer: 2000,             // Tiempo en milisegundos (2 segundos) para que desaparezca sola
-                    showConfirmButton: true  // Activamos el botón para que el usuario pueda cerrarlo inmediatamente
+                    icon: 'success',         
+                    title,                   
+                    text: message || 'Operación completada correctamente.', 
+                    confirmButtonText: 'OK', 
+                    confirmButtonColor: '#198754', 
+                    timer: 2000,             
+                    showConfirmButton: true  
                 });
                 return;
             }
-            // Mensaje de respaldo en la consola por si SweetAlert2 no está disponible
             console.info(message || 'Operación completada correctamente.');
         };
 
@@ -101,7 +100,7 @@
             if (inputFactor) inputFactor.value = '';
             if (inputPeso) inputPeso.value = '';
             if (inputEstado) inputEstado.checked = true;
-            form.classList.add('d-none');
+            contenedorFormulario.classList.add('d-none'); // <--- CORRECCIÓN APLICADA AQUÍ
             actualizarBotonGuardar(false);
             renderFormula();
         };
@@ -117,7 +116,7 @@
             if (inputPeso) inputPeso.value = '0.000';
             if (inputEstado) inputEstado.checked = true;
             generarCodigoUnidadAuto();
-            form.classList.remove('d-none');
+            contenedorFormulario.classList.remove('d-none'); // <--- CORRECCIÓN APLICADA AQUÍ
             actualizarBotonGuardar(false);
             renderFormula();
             inputNombre?.focus();
@@ -133,7 +132,7 @@
             if (inputPeso) inputPeso.value = Number(registro.peso_kg || 0).toFixed(3);
             if (inputEstado) inputEstado.checked = Number(registro.estado || 0) === 1;
             
-            form.classList.remove('d-none');
+            contenedorFormulario.classList.remove('d-none'); // <--- CORRECCIÓN APLICADA AQUÍ
             actualizarBotonGuardar(true);
             renderFormula();
             inputNombre?.focus();
@@ -184,8 +183,7 @@
 
         const renderDetalle = (items = []) => {
             if (!Array.isArray(items) || items.length === 0) {
-                // MODIFICADO: colspan de 6 a 7 por la nueva columna
-                tbodyDetalle.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No hay unidades registradas para este ítem.</td></tr>';
+                tbodyDetalle.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay unidades registradas para este ítem.</td></tr>';
                 return;
             }
 
@@ -195,12 +193,29 @@
                     ? '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">Activo</span>'
                     : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill">Inactivo</span>';
 
-                // Usando el catálogo global de iconos
+                // Usando el catálogo global de iconos para editar
                 const btnEditar = IconosAccion.crear('editar', item.id, 'js-uc-editar');
-                const btnEliminar = IconosAccion.crear('eliminar', item.id, 'js-uc-eliminar');
+
+                // Lógica del basurero gris deshabilitado si tiene historial
+                const puedeEliminar = item.hasOwnProperty('puede_eliminar') ? Number(item.puede_eliminar) === 1 : true;
+                let btnEliminar = '';
+
+                if (puedeEliminar) {
+                    // Basurero normal activo
+                    btnEliminar = IconosAccion.crear('eliminar', item.id, 'js-uc-eliminar');
+                } else {
+                    // Basurero gris deshabilitado con mensaje de advertencia
+                    const motivo = item.motivo_no_eliminar || 'Tiene historial de movimientos. Puedes desactivarlo usando el interruptor.';
+                    btnEliminar = `
+                        <button type="button" class="btn-icon text-muted opacity-50 border-0 bg-transparent p-1" 
+                                style="cursor: not-allowed;" title="${motivo}" disabled>
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    `;
+                }
+
                 const accionesHTML = IconosAccion.agrupar(btnEditar, btnEliminar);
 
-                // --- NUEVO: Lógica de la Estrellita ---
                 const isPredeterminada = Number(item.es_predeterminada || 0) === 1;
                 const starClass = isPredeterminada ? 'bi-star-fill text-warning' : 'bi-star text-secondary opacity-50';
                 const starBtn = `
@@ -210,26 +225,23 @@
                         <i class="bi ${starClass} fs-5"></i>
                     </button>
                 `;
-                // --------------------------------------
 
                 return `
                     <tr class="border-bottom">
-                        <td class="fw-semibold text-dark" style="max-width: 150px;">
-                            <div class="text-truncate" title="${item.nombre || ''}">${item.nombre || ''}</div>
+                        <td class="fw-semibold text-dark">
+                            <div class="text-wrap text-break" title="${item.nombre || ''}">${item.nombre || ''}</div>
                         </td>
-                        <td class="small text-muted">${item.codigo_unidad || '-'}</td>
                         <td class="text-end fw-medium text-primary">${Number(item.factor_conversion || 0).toFixed(4)}</td>
-                        <td class="text-end small">${Number(item.peso_kg || 0).toFixed(3)}</td>
+                        <td class="text-end small d-none d-sm-table-cell">${Number(item.peso_kg || 0).toFixed(3)}</td>
                         
                         <td class="text-center bg-light-subtle">${starBtn}</td>
                         
-                        <td class="text-center">${badge}</td>
-                        <td class="text-end pe-3">${accionesHTML}</td>
+                        <td class="text-center d-none d-md-table-cell">${badge}</td>
+                        <td class="text-end pe-3 text-nowrap">${accionesHTML}</td>
                     </tr>
                 `;
             }).join('');
 
-            // Bind Eventos de Edición
             tbodyDetalle.querySelectorAll('.js-uc-editar').forEach((btn) => {
                 btn.addEventListener('click', () => {
                     const id = Number(btn.dataset.id || 0);
@@ -238,7 +250,6 @@
                 });
             });
 
-            // Bind Eventos de Eliminación
             tbodyDetalle.querySelectorAll('.js-uc-eliminar').forEach((btn) => {
                 btn.addEventListener('click', async () => {
                     const id = Number(btn.dataset.id || 0);
@@ -265,14 +276,12 @@
                 });
             });
 
-            // --- NUEVO: Bind Eventos de la Estrellita (Predeterminada) ---
             tbodyDetalle.querySelectorAll('.js-uc-predeterminada').forEach((btn) => {
                 btn.addEventListener('click', async () => {
                     const idUnidad = Number(btn.dataset.id || 0);
                     const idItem = Number(btn.dataset.item || 0);
                     if (idUnidad <= 0 || idItem <= 0) return;
 
-                    // Cambiar icono a "Cargando" (Spinner)
                     const icon = btn.querySelector('i');
                     const originalClass = icon.className;
                     icon.className = 'bi bi-hourglass-split text-info fs-5 spinner-border spinner-border-sm border-0';
@@ -284,7 +293,6 @@
                             id_item: String(idItem)
                         });
                         
-                        // Recargamos la tablita para que pinte la estrellita correctamente
                         await cargarDetalle(idItem);
                     } catch (error) {
                         icon.className = originalClass;
@@ -292,7 +300,6 @@
                     }
                 });
             });
-            // -------------------------------------------------------------
         };
 
         const renderResumen = (items = []) => {
@@ -312,25 +319,23 @@
 
                 const esActivo = itemActivo && itemActivo.id === item.id ? 'table-active' : '';
 
-                // Usando el catálogo global de iconos
                 const btnGestionar = IconosAccion.crear('gestionar', item.id, 'js-uc-seleccionar');
                 const accionesHTML = IconosAccion.agrupar(btnGestionar);
 
                 return `
                     <tr class="${esActivo}">
-                        <td class="ps-3 w-50" style="max-width: 180px;">
-                            <div class="fw-semibold text-dark text-truncate" title="${item.nombre || ''}">${item.nombre || ''}</div>
-                            <div class="small text-muted text-truncate" style="font-size: 0.75rem;">${item.sku || ''}</div>
+                        <td class="ps-3">
+                            <div class="fw-semibold text-dark text-wrap text-break" title="${item.nombre || ''}">${item.nombre || ''}</div>
+                            <div class="small text-muted text-wrap text-break" style="font-size: 0.75rem;">${item.sku || ''}</div>
                         </td>
-                        <td class="text-center align-middle fw-medium text-secondary">${item.unidad_base || 'UND'}</td>
+                        <td class="text-center align-middle fw-medium text-secondary d-none d-xl-table-cell">${item.unidad_base || 'UND'}</td>
                         <td class="text-center align-middle fw-bold text-dark">${total}</td>
-                        <td class="text-center align-middle">${estado}</td>
-                        <td class="text-end pe-3 align-middle">${accionesHTML}</td>
+                        <td class="text-center align-middle d-none d-md-table-cell">${estado}</td>
+                        <td class="text-end pe-3 align-middle text-nowrap">${accionesHTML}</td>
                     </tr>
                 `;
             }).join('');
 
-            // Bind Evento de Selección
             tbodyResumen.querySelectorAll('.js-uc-seleccionar').forEach((btn) => {
                 btn.addEventListener('click', () => {
                     const id = Number(btn.dataset.id || 0);
@@ -344,7 +349,7 @@
                     
                     resetFormulario();
                     cargarDetalle(item.id);
-                    renderResumenFiltrado(); // Re-render para aplicar la clase 'table-active'
+                    renderResumenFiltrado(); 
                 });
             });
         };
@@ -452,7 +457,7 @@
                 if (btnAgregar) btnAgregar.disabled = true;
                 if (tituloSeleccion) tituloSeleccion.textContent = 'Selecciona un ítem para gestionar sus conversiones';
                 
-                tbodyDetalle.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-5">Selecciona un ítem para ver sus unidades de conversión.</td></tr>';
+                tbodyDetalle.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">Selecciona un ítem para ver sus unidades de conversión.</td></tr>';
                 
                 resetFormulario();
                 await cargarResumen();

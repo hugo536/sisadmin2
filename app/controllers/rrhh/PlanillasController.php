@@ -127,14 +127,34 @@ class PlanillasController extends Controlador
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $exito = $this->planillasModel->agregarConceptoManual($_POST);
             
+            // Variable para detectar si es una petición AJAX enviada por JS (fetch)
+            $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
+            
             $idLoteEnMemoria = $_SESSION['ultimo_lote_abierto'] ?? 0;
             $referer = ($idLoteEnMemoria > 0) ? "planillas&id_lote={$idLoteEnMemoria}" : 'planillas';
             
             if ($exito) {
+                if ($isAjax) {
+                    header('Content-Type: application/json');
+                    echo json_encode([
+                        'status' => 'success',
+                        'message' => 'Los ajustes manuales se guardaron correctamente.'
+                    ]);
+                    exit;
+                }
                 redirect($referer); 
             } else {
                 // Capturamos el error exacto generado por el modelo
                 $errorMsg = $this->planillasModel->ultimoError ?: 'No se pudo aplicar el ajuste.';
+                
+                if ($isAjax) {
+                    header('Content-Type: application/json');
+                    echo json_encode([
+                        'status' => 'error',
+                        'message' => $errorMsg
+                    ]);
+                    exit;
+                }
                 redirect($referer . "&error=" . urlencode($errorMsg));
             }
         }

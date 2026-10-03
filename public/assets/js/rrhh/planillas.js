@@ -209,8 +209,11 @@
         const formAjustar = document.querySelector('#modalAjustarNomina form');
         if (formAjustar) {
             formAjustar.addEventListener('submit', function (e) {
+                // 1. Evitar siempre la recarga tradicional de la página
+                e.preventDefault(); 
+
                 if (!validarDuplicadosMovimientos()) {
-                    e.preventDefault(); e.stopPropagation();
+                    e.stopPropagation();
                     if(typeof Swal !== 'undefined') {
                         Swal.fire('Atención', 'Hay movimientos repetidos. Ajusta tipo/categoría/descripción para continuar.', 'warning');
                     } else {
@@ -218,7 +221,62 @@
                     }
                     return;
                 }
-                if (this.checkValidity()) bloquearBotonSubmit(this, "Guardando...");
+
+                if (this.checkValidity()) {
+                    bloquearBotonSubmit(this, "Guardando...");
+
+                    // 2. Crear el FormData y enviarlo por Fetch (AJAX)
+                    const formData = new FormData(this);
+
+                    fetch(this.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest' // Importante para que PHP sepa que es AJAX
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'error') {
+                            // 3. Si hay error, restauramos el botón y mostramos la alerta (EL MODAL NO SE CIERRA)
+                            restaurarBotonSubmit(this);
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Atención',
+                                    text: data.message,
+                                    confirmButtonColor: '#dc3545'
+                                });
+                            } else {
+                                alert(data.message);
+                            }
+                        } else if (data.status === 'success') {
+                            // 4. Si es éxito, mostramos mensaje y recargamos para ver los cambios
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Éxito',
+                                    text: data.message,
+                                    confirmButtonColor: '#198754'
+                                }).then(() => {
+                                    window.location.reload(); 
+                                });
+                            } else {
+                                alert(data.message);
+                                window.location.reload();
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        restaurarBotonSubmit(this);
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire('Error', 'Hubo un problema de conexión con el servidor.', 'error');
+                        }
+                    });
+                } else {
+                    this.reportValidity();
+                }
             });
         }
 

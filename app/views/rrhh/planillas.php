@@ -3,10 +3,40 @@ $lotes_recientes = $lotes_recientes ?? [];
 $lote_actual = $lote_actual ?? null;
 $detalles_nomina = $detalles_nomina ?? [];
 $csrf_token = $csrf_token ?? '';
+
+// 1. CAPTURAR ALERTAS DE LA URL
+$swalMsg = '';
+$swalIcon = '';
+if (!empty($_GET['error'])) {
+    $swalMsg = $_GET['error'];
+    $swalIcon = 'error';
+} elseif (!empty($_GET['ok'])) {
+    $swalMsg = $_GET['ok'];
+    $swalIcon = 'success';
+}
 ?>
 
 <!-- Turbo Frame principal: Evita recargar el sidebar y actualiza solo esta sección -->
 <turbo-frame id="planillasApp" class="d-block">
+
+    <!-- 2. DISPARAR SWEETALERT SI HAY MENSAJE -->
+    <?php if ($swalMsg !== ''): ?>
+    <script>
+        setTimeout(() => {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: '<?php echo $swalIcon; ?>',
+                    title: '<?php echo $swalIcon === "error" ? "Atención" : "Éxito"; ?>',
+                    text: '<?php echo htmlspecialchars($swalMsg, ENT_QUOTES); ?>',
+                    confirmButtonColor: '<?php echo $swalIcon === "error" ? "#dc3545" : "#198754"; ?>'
+                });
+            } else {
+                alert('<?php echo htmlspecialchars($swalMsg, ENT_QUOTES); ?>');
+            }
+        }, 150);
+    </script>
+    <?php endif; ?>
+
     <div class="container-fluid p-4 fade-in">
         
         <!-- ========================================== -->
@@ -182,10 +212,7 @@ $csrf_token = $csrf_token ?? '';
                                     <tr>
                                         <th class="text-start ps-4 py-3">Empleado</th>
                                         <th class="py-3">Asistencia</th>
-                                        
-                                        <!-- NUEVO ENCABEZADO -->
-                                        <th class="py-3">Préstamos</th>
-                                        
+                                        <th class="py-3 text-center">Préstamos</th>
                                         <th class="py-3">Ingresos (S/)</th>
                                         <th class="py-3">Deducciones (S/)</th>
                                         <th class="bg-success-subtle text-success py-3">Neto a Pagar</th>
@@ -195,7 +222,7 @@ $csrf_token = $csrf_token ?? '';
                                 <tbody>
                                     <?php if (empty($detalles_nomina)): ?>
                                         <tr class="empty-msg-row">
-                                            <td colspan="6" class="py-5 text-muted">No se encontraron empleados para este lote.</td>
+                                            <td colspan="7" class="py-5 text-muted">No se encontraron empleados para este lote.</td>
                                         </tr>
                                     <?php else: ?>
                                         <?php foreach ($detalles_nomina as $det): ?>
@@ -227,8 +254,10 @@ $csrf_token = $csrf_token ?? '';
                                                         <span class="text-muted"><?php echo $det['horas_acumuladas']; ?>h (<?php echo $det['horas_extras']; ?>h ext)</span>
                                                     <?php endif; ?>
                                                 </td>
-
+                                                
+                                                <!-- ========================================== -->
                                                 <!-- COLUMNA: PRÉSTAMOS / ADELANTOS (Limpia) -->
+                                                <!-- ========================================== -->
                                                 <td class="text-center align-middle" style="font-size: 0.85rem;">
                                                     <?php 
                                                         $monto_deuda = isset($det['monto_adeudado']) ? (float)$det['monto_adeudado'] : 0;
@@ -239,10 +268,10 @@ $csrf_token = $csrf_token ?? '';
                                                         <span class="badge bg-danger-subtle text-danger border border-danger-subtle mt-1" style="font-size: 0.65rem;">Deuda Activa</span>
                                                     <?php else: ?>
                                                         <div class="text-muted fw-medium">S/ 0.00</div>
-                                                        <!-- Se eliminó la etiqueta "Sin Deudas" para no saturar la vista -->
                                                     <?php endif; ?>
                                                 </td>
-                                       
+                                                <!-- ========================================== -->
+
                                                 <!-- INGRESOS -->
                                                 <td style="font-size: 0.9rem;">
                                                     <?php if ($det['tiene_conflicto']): ?>
@@ -312,7 +341,7 @@ $csrf_token = $csrf_token ?? '';
             </div>
         </div>
         
-        <!-- MODALES DENTRO DEL TURBO-FRAME (para asegurar que existen en el DOM) -->
+        <!-- MODALES DENTRO DEL TURBO-FRAME -->
 
         <!-- MODAL: GENERAR LOTE -->
         <div class="modal fade" id="modalGenerarLote" tabindex="-1" aria-hidden="true">
@@ -483,7 +512,6 @@ $csrf_token = $csrf_token ?? '';
                     </div>
                     <div class="col-md-3">
                         <label class="form-label small text-muted fw-bold mb-1">Categoría <span class="text-danger">*</span></label>
-                        <!-- Inicia en blanco, el JS lo llenará -->
                         <select class="form-select form-select-sm shadow-none border-secondary-subtle fw-medium" data-name="categoria_concepto" required>
                             <option value="" disabled selected>Elija un Tipo primero</option>
                         </select>

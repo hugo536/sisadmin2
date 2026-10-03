@@ -97,9 +97,30 @@ class ItemController extends Controlador
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar_detalle_unidades_conversion') {
             require_permiso('items.ver');
             $idItem = (int) ($_GET['id_item'] ?? 0);
+            
+            // Obtenemos las unidades del modelo
+            $unidades = $this->unidadConversionModel->listarDetalleUnidadesConversion($idItem);
+
+            // Verificamos el historial de cada una para indicarle al frontend si se puede eliminar
+            foreach ($unidades as &$unidad) {
+                $idUnidad = (int) $unidad['id'];
+                
+                // Consultamos si tiene historial (idealmente esto se haría directo en la consulta SQL del modelo para mayor rendimiento)
+                $tieneHistorial = $this->unidadConversionModel->tieneHistorial($idUnidad);
+                
+                if ($tieneHistorial) {
+                    $unidad['puede_eliminar'] = 0;
+                    $unidad['motivo_no_eliminar'] = 'Tiene historial de movimientos. Puedes desactivarlo usando el interruptor.';
+                } else {
+                    $unidad['puede_eliminar'] = 1;
+                    $unidad['motivo_no_eliminar'] = '';
+                }
+            }
+            unset($unidad); // Romper la referencia
+
             json_response([
                 'ok' => true,
-                'items' => $this->unidadConversionModel->listarDetalleUnidadesConversion($idItem),
+                'items' => $unidades,
             ]);
             return;
         }
@@ -184,9 +205,23 @@ class ItemController extends Controlador
                     require_permiso('items.editar');
                     $id = (int) ($_POST['id'] ?? 0);
                     $idItem = (int) ($_POST['id_item'] ?? 0);
+                    
                     if ($id <= 0 || $idItem <= 0) {
                         throw new RuntimeException('Parámetros inválidos.');
                     }
+
+                    // =========================================================================
+                    // NUEVA VALIDACIÓN: BLOQUEO POR HISTORIAL DE MOVIMIENTOS
+                    // =========================================================================
+                    // Nota: Debes crear este método 'tieneHistorial()' en tu UnidadConversionModel
+                    // para que consulte en la BD si la unidad ya se usó en compras, ventas, etc.
+                    $tieneHistorial = $this->unidadConversionModel->tieneHistorial($id);
+                    
+                    if ($tieneHistorial) {
+                        throw new RuntimeException('No se puede eliminar esta unidad porque ya tiene movimientos de inventario registrados. Por favor, utilice el interruptor para desactivarla.');
+                    }
+                    // =========================================================================
+
                     $this->unidadConversionModel->eliminarUnidadConversion($id, $idItem, $userId);
                     $respuesta = ['ok' => true, 'mensaje' => 'Unidad de conversión eliminada correctamente.'];
                 }

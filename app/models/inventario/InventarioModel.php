@@ -1175,87 +1175,74 @@ class InventarioModel extends Modelo
         $inQuery = implode(',', array_fill(0, count($itemIds), '?'));
         $params = [];
 
+        // 1. Consultar el stock real consolidado directo de inventario_stock
         if ($idAlmacen > 0) {
-            $whereAlmacen = 'AND (m.id_almacen_destino = ? OR m.id_almacen_origen = ?)';
-            $calcTrf = 'CASE WHEN m.id_almacen_destino = ? THEN m.cantidad WHEN m.id_almacen_origen = ? THEN -m.cantidad ELSE 0 END';
-            
-            // ORDEN ESTRICTO PARA PDO:
-            // 1. Dos parámetros para el SELECT ($calcTrf)
-            $params[] = $idAlmacen;
-            $params[] = $idAlmacen;
-            
-            // 2. Parámetros para el WHERE IN (IDs de los ítems)
-            $params = array_merge($params, $itemIds);
-            
-            // 3. Dos parámetros para el WHERE final ($whereAlmacen)
-            $params[] = $idAlmacen;
-            $params[] = $idAlmacen;
-
+            $sqlStock = "SELECT id_item, SUM(stock_actual) AS total_stock FROM inventario_stock WHERE id_item IN ({$inQuery}) AND id_almacen = ? GROUP BY id_item";
+            $params = array_merge($itemIds, [$idAlmacen]);
         } else {
-            $whereAlmacen = '';
-            $calcTrf = '0'; // En la vista global, las transferencias no alteran el stock total
-            
-            // Solo necesitamos los IDs de los ítems
-            $params = array_merge($params, $itemIds);
+            $sqlStock = "SELECT id_item, SUM(stock_actual) AS total_stock FROM inventario_stock WHERE id_item IN ({$inQuery}) GROUP BY id_item";
+            $params = $itemIds;
         }
 
-        $sql = "SELECT 
-                    m.id_item,
-                    m.id_item_unidad,
-                    u.nombre AS unidad_nombre,
-                    u.factor_conversion,
-                    SUM(
-                        CASE 
-                            WHEN m.tipo_movimiento IN ('INI', 'AJ+', 'COM', 'PROD') THEN m.cantidad
-                            WHEN m.tipo_movimiento IN ('AJ-', 'CON', 'VEN', 'SALIDA_MERMA_PLANTA') THEN -m.cantidad
-                            WHEN m.tipo_movimiento = 'TRF' THEN {$calcTrf}
-                            ELSE 0 
-                        END
-                    ) AS saldo_unidades
-                FROM inventario_movimientos m
-                LEFT JOIN items_unidades u ON m.id_item_unidad = u.id
-                WHERE m.id_item IN ({$inQuery})
-                AND m.deleted_at IS NULL
-                {$whereAlmacen}
-                GROUP BY m.id_item, m.id_item_unidad
-                HAVING saldo_unidades > 0";
-
-        $stmt = $this->db()->prepare($sql);
+        $stmt = $this->db()->prepare($sqlStock);
         $stmt->execute($params);
-        $desglosesCrudos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stockReal = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // 2. Obtener la unidad principal de conversión por ítem
+        $sqlUnidades = "SELECT id_item, nombre AS unidad_nombre, factor_conversion
+                        FROM items_unidades
+                        WHERE id_item IN ({$inQuery}) AND estado = 1 AND deleted_at IS NULL
+                        ORDER BY factor_conversion DESC";
+        $stmtUnidades = $this->db()->prepare($sqlUnidades);
+        $stmtUnidades->execute($itemIds);
+        $unidadesCrudas = $stmtUnidades->fetchAll(PDO::FETCH_ASSOC);
+
+        $unidadesPorItem = [];
+        foreach ($unidadesCrudas as $u) {
+            if (!isset($unidadesPorItem[$u['id_item']])) {
+                $unidadesPorItem[$u['id_item']] = $u; // Captura la unidad con mayor factor
+            }
+        }
+
+        // 3. Calcular el desglose fraccionando el stock consolidado
         $resultadoAgrupado = [];
-        foreach ($desglosesCrudos as $fila) {
-            $idItem = (int)$fila['id_item'];
-            if (!isset($resultadoAgrupado[$idItem])) {
-                $resultadoAgrupado[$idItem] = [];
+        foreach ($stockReal as $filaStock) {
+            $idItem = (int)$filaStock['id_item'];
+            $totalUnidades = (float)$filaStock['total_stock'];
+
+            if ($totalUnidades <= 0) {
+                continue;
             }
 
-            $factor = max((float)($fila['factor_conversion'] ?? 1), 1);
-            $totalUnidades = (float)$fila['saldo_unidades'];
-
-            if (empty($fila['id_item_unidad'])) {
+            // Si el ítem no tiene unidad de conversión registrada
+            if (!isset($unidadesPorItem[$idItem])) {
                 $resultadoAgrupado[$idItem][] = [
                     'texto' => number_format($totalUnidades, 0) . " sueltas (UND)",
                     'cantidad' => $totalUnidades
                 ];
-            } else {
-                $cantidadPresentacion = floor($totalUnidades / $factor);
-                $sobrante = $totalUnidades - ($cantidadPresentacion * $factor);
-
-                if ($cantidadPresentacion > 0) {
-                    $texto = "{$cantidadPresentacion} " . $fila['unidad_nombre'];
-                    if ($sobrante > 0) {
-                        $texto .= " + " . number_format($sobrante, 0) . " sueltas";
-                    }
-                    $resultadoAgrupado[$idItem][] = ['texto' => $texto, 'cantidad' => $totalUnidades];
-                } elseif ($sobrante > 0) {
-                    $resultadoAgrupado[$idItem][] = [
-                        'texto' => number_format($sobrante, 0) . " sueltas (de " . $fila['unidad_nombre'] . ")",
-                        'cantidad' => $totalUnidades
-                    ];
-                }
+                continue;
             }
+
+            $factor = max((float)$unidadesPorItem[$idItem]['factor_conversion'], 1);
+            $unidadNombre = $unidadesPorItem[$idItem]['unidad_nombre'];
+
+            $cantidadPresentacion = floor($totalUnidades / $factor);
+            $sobrante = $totalUnidades - ($cantidadPresentacion * $factor);
+
+            $texto = "";
+            if ($cantidadPresentacion > 0) {
+                $texto = "{$cantidadPresentacion} {$unidadNombre} x {$factor}";
+                if ($sobrante > 0) {
+                    $texto .= " + " . number_format($sobrante, 0) . " sueltas";
+                }
+            } else {
+                $texto = number_format($sobrante, 0) . " sueltas";
+            }
+
+            $resultadoAgrupado[$idItem][] = [
+                'texto' => $texto,
+                'cantidad' => $totalUnidades
+            ];
         }
 
         return $resultadoAgrupado;

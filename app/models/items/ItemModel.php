@@ -365,7 +365,26 @@ class ItemModel extends Modelo
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_item' => $idItem]);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // --- NUEVA LÓGICA DE BLOQUEO DE ELIMINACIÓN ---
+        foreach ($rows as &$row) {
+            $idUnidad = (int) $row['id'];
+            
+            // Verificamos si la unidad ya se usó en alguna transacción
+            $tieneHistorial = $this->tieneHistorialUnidadConversion($idUnidad);
+            
+            if ($tieneHistorial) {
+                $row['puede_eliminar'] = 0;
+                $row['motivo_no_eliminar'] = 'Tiene historial de movimientos de inventario o ventas. Puedes desactivarla.';
+            } else {
+                $row['puede_eliminar'] = 1;
+                $row['motivo_no_eliminar'] = '';
+            }
+        }
+        unset($row);
+
+        return $rows;
     }
 
     public function crearUnidadConversion(array $data, int $userId): int
@@ -432,6 +451,31 @@ class ItemModel extends Modelo
             'id' => $id,
             'id_item' => $idItem
         ]);
+    }
+
+    public function tieneHistorialUnidadConversion(int $idUnidad): bool
+    {
+        try {
+            // IMPORTANTE: Cambia 'id_unidad' por el nombre real de la columna en tus tablas
+            // que guarda la unidad de medida (podría ser 'id_unidad', 'unidad_id', etc.)
+            $columna = 'id_unidad'; 
+
+            $ventas = $this->contarReferenciasActivas('ventas_documentos_detalle', $columna, $idUnidad);
+            if ($ventas > 0) return true;
+
+            $compras = $this->contarReferenciasActivas('compras_ordenes_detalle', $columna, $idUnidad);
+            if ($compras > 0) return true;
+
+            $movimientos = $this->contarReferenciasActivas('inventario_movimientos', $columna, $idUnidad);
+            if ($movimientos > 0) return true;
+
+            return false;
+        } catch (\Throwable $e) {
+            // Si la columna no existe o hay error SQL, evitamos que el sistema colapse.
+            // Registramos el error en el log del servidor para depuración.
+            error_log('Error al verificar historial de unidad de conversión: ' . $e->getMessage());
+            return false; 
+        }
     }
 
     public function rubroExisteActivo(int $idRubro): bool
