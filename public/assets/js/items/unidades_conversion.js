@@ -43,6 +43,7 @@
         let itemsResumen = [];
         let itemActivo = null;
         let terminoBusquedaResumen = '';
+        let solicitudDetalleActual = 0;
 
         // --- FUNCIONES AUXILIARES ---
         const generarCodigoUnidadAuto = () => {
@@ -302,6 +303,14 @@
             });
         };
 
+        const renderDetalleCargando = () => {
+            tbodyDetalle.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Cargando unidades de conversión...</td></tr>';
+        };
+
+        const renderDetalleError = () => {
+            tbodyDetalle.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-5">No se pudieron cargar las unidades de conversión del ítem seleccionado.</td></tr>';
+        };
+
         const renderResumen = (items = []) => {
             if (!Array.isArray(items) || items.length === 0) {
                 const mensaje = terminoBusquedaResumen
@@ -337,7 +346,7 @@
             }).join('');
 
             tbodyResumen.querySelectorAll('.js-uc-seleccionar').forEach((btn) => {
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', async () => {
                     const id = Number(btn.dataset.id || 0);
                     const item = items.find((r) => Number(r.id) === id);
                     if (!item) return;
@@ -348,8 +357,16 @@
                     if (btnAgregar) btnAgregar.disabled = false;
                     
                     resetFormulario();
-                    cargarDetalle(item.id);
                     renderResumenFiltrado(); 
+
+                    try {
+                        await cargarDetalle(item.id);
+                    } catch (error) {
+                        if (Number(itemActivo?.id || 0) === Number(item.id || 0)) {
+                            renderDetalleError();
+                            showError(error.message);
+                        }
+                    }
                 });
             });
         };
@@ -375,6 +392,14 @@
         };
 
         const cargarDetalle = async (idItem) => {
+            const id = Number(idItem || 0);
+            if (id <= 0) {
+                throw new Error('El ítem seleccionado no es válido.');
+            }
+
+            const solicitudActual = ++solicitudDetalleActual;
+            renderDetalleCargando();
+
             const response = await fetch(getItemsEndpoint({ accion: 'listar_detalle_unidades_conversion', id_item: String(idItem) }), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
@@ -382,7 +407,11 @@
             
             const data = await response.json();
             if (!data.ok) throw new Error(data.mensaje || 'No se pudo cargar el detalle de conversiones.');
-            
+
+            // Si el usuario eligió otro ítem antes de que termine la consulta,
+            // no reemplazamos el detalle del ítem que está gestionando ahora.
+            if (solicitudActual !== solicitudDetalleActual || Number(itemActivo?.id || 0) !== id) return;
+
             renderDetalle(data.items || []);
         };
 
@@ -456,6 +485,7 @@
                 if (inputBuscarItem) inputBuscarItem.value = '';
                 if (btnAgregar) btnAgregar.disabled = true;
                 if (tituloSeleccion) tituloSeleccion.textContent = 'Selecciona un ítem para gestionar sus conversiones';
+                solicitudDetalleActual += 1;
                 
                 tbodyDetalle.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">Selecciona un ítem para ver sus unidades de conversión.</td></tr>';
                 
