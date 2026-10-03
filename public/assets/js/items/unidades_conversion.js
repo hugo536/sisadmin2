@@ -218,11 +218,15 @@
                 const accionesHTML = IconosAccion.agrupar(btnEditar, btnEliminar);
 
                 const isPredeterminada = Number(item.es_predeterminada || 0) === 1;
+                const puedeFijarPredeterminada = Number(item.puede_fijar_predeterminada || 0) === 1;
                 const starClass = isPredeterminada ? 'bi-star-fill text-warning' : 'bi-star text-secondary opacity-50';
+                const starTitle = puedeFijarPredeterminada
+                    ? 'Usar como predeterminada en Inventario'
+                    : 'La unidad predeterminada estará disponible después de actualizar la base de datos';
                 const starBtn = `
                     <button type="button" class="btn btn-sm btn-light border-0 js-uc-predeterminada p-1 rounded-circle shadow-none" 
                             data-id="${item.id}" data-item="${item.id_item}" 
-                            title="Usar como predeterminada en Inventario">
+                            title="${starTitle}" ${puedeFijarPredeterminada ? '' : 'disabled'}>
                         <i class="bi ${starClass} fs-5"></i>
                     </button>
                 `;

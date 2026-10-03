@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 class UnidadConversionModel extends Modelo
 {
+    private ?bool $soportaUnidadPredeterminada = null;
+
     public function listarUnidadesConversion(): array
     {
         $sql = 'SELECT i.id, i.sku, i.nombre, i.unidad_base, i.requiere_factor_conversion,
@@ -25,8 +27,14 @@ class UnidadConversionModel extends Modelo
             return [];
         }
 
-        // AGREGADO: Se incluyó 'es_predeterminada' en el SELECT
-        $sql = 'SELECT id, id_item, nombre, codigo_unidad, factor_conversion, peso_kg, estado, es_predeterminada
+        // La columna se agregó después de que este módulo ya estuviera en uso.
+        // Mantener este fallback evita que una base pendiente de migración rompa la
+        // carga completa de las conversiones con un error 500.
+        $campoPredeterminado = $this->soportaPredeterminada()
+            ? 'es_predeterminada, 1 AS puede_fijar_predeterminada'
+            : '0 AS es_predeterminada, 0 AS puede_fijar_predeterminada';
+
+        $sql = 'SELECT id, id_item, nombre, codigo_unidad, factor_conversion, peso_kg, estado, ' . $campoPredeterminado . '
                 FROM items_unidades
                 WHERE id_item = :id_item
                   AND deleted_at IS NULL
@@ -153,6 +161,12 @@ class UnidadConversionModel extends Modelo
      */
     public function marcarComoPredeterminada(int $idUnidad, int $idItem, int $userId): bool
     {
+        if (!$this->soportaPredeterminada()) {
+            throw new RuntimeException(
+                'La base de datos requiere la migración 20261003_items_unidades_predeterminada.sql para usar unidades predeterminadas.'
+            );
+        }
+
         $db = $this->db();
         $db->beginTransaction();
 
@@ -176,5 +190,22 @@ class UnidadConversionModel extends Modelo
             $db->rollBack();
             throw $e;
         }
+    }
+
+    private function soportaPredeterminada(): bool
+    {
+        if ($this->soportaUnidadPredeterminada !== null) {
+            return $this->soportaUnidadPredeterminada;
+        }
+
+        try {
+            $stmt = $this->db()->prepare('SHOW COLUMNS FROM items_unidades LIKE :columna');
+            $stmt->execute(['columna' => 'es_predeterminada']);
+            $this->soportaUnidadPredeterminada = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            $this->soportaUnidadPredeterminada = false;
+        }
+
+        return $this->soportaUnidadPredeterminada;
     }
 }
