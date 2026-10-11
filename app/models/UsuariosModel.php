@@ -217,4 +217,23 @@ class UsuariosModel extends Modelo
             'user_agent' => $userAgent,
         ]);
     }
+
+    public function obtenerUltimosEventos(int $limite = 5): array
+    {
+        // Usamos la tabla correcta 'bitacora_seguridad' y la columna 'created_by'
+        $sql = "SELECT 
+                    b.created_at, 
+                    b.descripcion AS evento, 
+                    u.nombre_completo AS usuario 
+                FROM bitacora_seguridad b
+                LEFT JOIN usuarios u ON u.id = b.created_by
+                ORDER BY b.id DESC 
+                LIMIT :limite";
+                
+        $stmt = $this->db()->prepare($sql);
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 }

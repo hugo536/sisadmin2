@@ -99,7 +99,7 @@ $tipoItemLabel = static function (string $tipo): string {
                 
                 <div class="col-12 col-md-4 col-lg-2">
                     <select class="form-select bg-light" id="inventarioFiltroEstado">
-                        <option value="">Alertas</option>
+                        <option value="">Todos los estados</option>
                         <option value="disponible">Disponible (Verde)</option>
                         <option value="próximo_a_vencer">Próximo a Vencer (Amarillo)</option>
                         <option value="bajo_mínimo">Bajo Mínimo (Amarillo)</option>
@@ -224,7 +224,8 @@ $tipoItemLabel = static function (string $tipo): string {
                                                 data-alerta="<?php echo e($badgeTexto); ?>"
                                                 data-detalle-alerta="<?php echo e($detalleAlerta !== '' ? $detalleAlerta : 'Sin alertas adicionales'); ?>"
                                                 data-estado-item="<?php echo $itemActivo ? 'Activo' : 'Inactivo'; ?>"
-                                                data-tipo-registro-label="<?php echo e($tipoRegistro === 'pack' ? 'Pack' : 'Ítem'); ?>">
+                                                data-tipo-registro-label="<?php echo e($tipoRegistro === 'pack' ? 'Pack' : 'Ítem'); ?>"
+                                                data-desglose="<?php echo e((string) ($stock['almacenes_desglose'] ?? '')); ?>">
                                                 <i class="bi bi-eye fs-5"></i>
                                             </button>
                                             <a href="<?php echo e(route_url('inventario/kardex')); ?>&item_id=<?php echo (int) ($stock['id_item'] ?? 0); ?>"
@@ -256,75 +257,123 @@ $tipoItemLabel = static function (string $tipo): string {
 </div>
 
 <div class="modal fade" id="modalDetalleInventarioItem" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="bi bi-eye me-2"></i>Detalles del producto</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            
+            <!-- Encabezado -->
+            <div class="modal-header bg-primary text-white border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold"><i class="bi bi-eye me-2"></i>Detalles del Producto</h5>
+                <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body p-4 bg-light">
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
-                        <h6 class="fw-bold text-secondary mb-0"><i class="bi bi-box-seam me-2"></i>Información del Producto</h6>
+            
+            <!-- Cuerpo del Modal -->
+            <div class="modal-body p-3 p-md-4 bg-light">
+                
+                <!-- TARJETA 1: Información General -->
+                <div class="card border-0 shadow-sm mb-4 rounded-3 overflow-hidden">
+                    <div class="card-header bg-white border-bottom pt-3 pb-2 d-flex justify-content-between align-items-center">
+                        <h6 class="fw-bold text-secondary mb-0"><i class="bi bi-box-seam text-primary me-2"></i>Información General</h6>
+                        <span class="badge bg-light text-dark border shadow-sm" id="detalleInvEstadoItem">-</span>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-3 p-md-4">
+                        
+                        <!-- Nombre del producto -->
+                        <div class="p-3 bg-primary-subtle rounded-3 border border-primary-subtle mb-4">
+                            <small class="text-primary fw-bold text-uppercase d-block mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+                                <i class="bi bi-tag-fill me-1"></i>Producto
+                            </small>
+                            <div class="fw-bold text-dark fs-5 lh-sm" id="detalleInvNombre">-</div>
+                        </div>
+                        
+                        <!-- Grid de 4 columnas (2x2 en móviles, 4x1 en Desktop) -->
                         <div class="row g-3">
-                            <div class="col-12">
-                                <div class="p-3 bg-primary-subtle rounded border border-primary-subtle">
-                                    <small class="text-primary fw-bold d-block mb-1"><i class="bi bi-tag me-1"></i>Producto</small>
-                                    <div class="fw-bold text-dark fs-5" id="detalleInvNombre">-</div>
+                            <div class="col-6 col-md-3">
+                                <div class="d-flex flex-column h-100">
+                                    <span class="text-muted small fw-medium mb-1"><i class="bi bi-upc-scan me-1"></i>SKU</span>
+                                    <span class="fw-bold text-dark text-break" id="detalleInvSku">-</span>
                                 </div>
                             </div>
-                            <div class="col-md-6 col-lg-3">
-                                <small class="text-muted d-block mb-1"><i class="bi bi-upc-scan me-1"></i>SKU</small>
-                                <div class="fw-semibold text-dark" id="detalleInvSku">-</div>
+                            <div class="col-6 col-md-3">
+                                <div class="d-flex flex-column h-100">
+                                    <span class="text-muted small fw-medium mb-1"><i class="bi bi-bookmark-fill me-1"></i>Categoría</span>
+                                    <span class="fw-bold text-dark text-break" id="detalleInvCategoria">-</span>
+                                </div>
                             </div>
-                            <div class="col-md-6 col-lg-3">
-                                <small class="text-muted d-block mb-1"><i class="bi bi-bookmark me-1"></i>Categoría</small>
-                                <div class="fw-semibold text-dark" id="detalleInvCategoria">-</div>
+                            <div class="col-6 col-md-3">
+                                <div class="d-flex flex-column h-100">
+                                    <span class="text-muted small fw-medium mb-1"><i class="bi bi-gear-fill me-1"></i>Registro</span>
+                                    <span class="fw-bold text-dark text-break" id="detalleInvTipoRegistro">-</span>
+                                </div>
                             </div>
-                            <div class="col-md-6 col-lg-3">
-                                <small class="text-muted d-block mb-1"><i class="bi bi-gear me-1"></i>Tipo Registro</small>
-                                <div class="fw-semibold text-dark" id="detalleInvTipoRegistro">-</div>
-                            </div>
-                            <div class="col-md-6 col-lg-3">
-                                <small class="text-muted d-block mb-1"><i class="bi bi-boxes me-1"></i>Tipo Ítem</small>
-                                <div class="fw-semibold text-dark" id="detalleInvTipoItem">-</div>
+                            <div class="col-6 col-md-3">
+                                <div class="d-flex flex-column h-100">
+                                    <span class="text-muted small fw-medium mb-1"><i class="bi bi-boxes me-1"></i>Tipo Ítem</span>
+                                    <span class="fw-bold text-dark text-break" id="detalleInvTipoItem">-</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-white border-bottom-0 pt-3 pb-0 d-flex justify-content-between align-items-center">
-                        <h6 class="fw-bold text-secondary mb-0"><i class="bi bi-house-door me-2"></i>Estado en Almacén</h6>
-                        <span class="badge bg-light text-dark border" id="detalleInvEstadoItem">-</span>
+                <!-- TARJETA 2: Disponibilidad y Stock -->
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden">
+                    <div class="card-header bg-white border-bottom pt-3 pb-2">
+                        <h6 class="fw-bold text-secondary mb-0"><i class="bi bi-house-door-fill text-success me-2"></i>Disponibilidad y Ubicación</h6>
                     </div>
-                    <div class="card-body">
-                        <div class="row g-3 align-items-center">
-                            <div class="col-md-7">
-                                <div class="p-3 bg-light rounded border border-secondary-subtle h-100">
-                                    <small class="text-muted d-block mb-1"><i class="bi bi-building me-1"></i>Ubicación</small>
-                                    <div class="fw-bold text-dark fs-6" id="detalleInvAlmacen">-</div>
+                    <div class="card-body p-3 p-md-4">
+                        <div class="row g-3 align-items-stretch">
+                            
+                            <!-- Stock Actual (En móvil arriba, en PC a la derecha) -->
+                            <div class="col-12 col-md-5 order-1 order-md-2">
+                                <div class="p-3 bg-success-subtle rounded-3 border border-success-subtle h-100 d-flex flex-column justify-content-center align-items-center text-center shadow-sm">
+                                    <small class="text-success fw-bold text-uppercase d-block mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+                                        <i class="bi bi-layers-fill me-1"></i>Stock Actual
+                                    </small>
+                                    <div class="fw-bold text-success display-6 mb-0 lh-1" id="detalleInvStock">-</div>
                                 </div>
                             </div>
-                            <div class="col-md-5">
-                                <div class="p-3 bg-success-subtle rounded border border-success-subtle h-100 text-center">
-                                    <small class="text-success fw-bold d-block mb-1"><i class="bi bi-layers me-1"></i>Stock Actual</small>
-                                    <div class="fw-bold text-success fs-4" id="detalleInvStock">-</div>
+                            
+                            <!-- Ubicaciones / Almacenes (En móvil abajo, en PC a la izquierda) -->
+                            <div class="col-12 col-md-7 order-2 order-md-1">
+                                <div class="p-3 bg-light rounded-3 border border-secondary-subtle h-100 d-flex flex-column">
+                                    <small class="text-muted fw-bold text-uppercase d-block mb-2" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+                                        <i class="bi bi-building me-1"></i>Almacén / Ubicación
+                                    </small>
+                                    <div class="text-dark flex-grow-1 d-flex flex-column justify-content-center" id="detalleInvAlmacen">
+                                        <!-- El JS inyectará el listado aquí -->
+                                    </div>
                                 </div>
                             </div>
-                            <div class="col-md-4 mt-4">
-                                <small class="text-muted d-block mb-1"><i class="bi bi-bell me-1"></i>Situación / Alerta</small>
-                                <div class="fw-semibold text-dark" id="detalleInvAlerta">-</div>
+                            
+                        </div>
+
+                        <hr class="text-secondary-subtle my-4 opacity-25">
+
+                        <!-- Alertas -->
+                        <div class="row g-3 bg-light rounded p-2 mx-0 border border-light">
+                            <div class="col-12 col-md-4 border-end-md">
+                                <div class="d-flex flex-column">
+                                    <span class="text-muted small fw-bold mb-2"><i class="bi bi-bell-fill me-1"></i>Situación / Alerta</span>
+                                    <div id="detalleInvAlerta">
+                                        <!-- Badge de la alerta -->
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-md-8 mt-4">
-                                <small class="text-muted d-block mb-1"><i class="bi bi-info-circle me-1"></i>Detalle de la alerta</small>
-                                <div class="fw-semibold text-danger" id="detalleInvDetalleAlerta">-</div>
+                            <div class="col-12 col-md-8">
+                                <div class="d-flex flex-column">
+                                    <span class="text-muted small fw-bold mb-2"><i class="bi bi-info-circle-fill me-1"></i>Detalle de la alerta</span>
+                                    <span class="fw-semibold text-danger text-break" id="detalleInvDetalleAlerta">-</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+                
+            </div>
+            
+            <!-- Pie del Modal -->
+            <div class="modal-footer bg-white border-top-0 py-3">
+                <button type="button" class="btn btn-secondary fw-semibold shadow-sm px-4" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>

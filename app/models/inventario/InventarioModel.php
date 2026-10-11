@@ -11,7 +11,7 @@ class InventarioModel extends Modelo
 
         // 1. DEFINIMOS LAS PIEZAS DINÁMICAS PARA ÍTEMS
         if ($idAlmacen > 0) {
-            $selectAlmacen   = "a.id AS id_almacen, a.nombre AS almacen_nombre, COALESCE(s.stock_actual, 0) AS stock_actual,";
+            $selectAlmacen   = "a.id AS id_almacen, a.nombre AS almacen_nombre, COALESCE(s.stock_actual, 0) AS stock_actual, '' AS almacenes_desglose,";
             $subqueryLote    = "SELECT l.lote FROM inventario_lotes l WHERE l.id_item = i.id AND l.id_almacen = {$idAlmacen} AND l.stock_lote > 0 ORDER BY (l.fecha_vencimiento IS NULL) ASC, l.fecha_vencimiento ASC, l.id ASC LIMIT 1";
             $subqueryVenc    = "SELECT MIN(l.fecha_vencimiento) FROM inventario_lotes l WHERE l.id_item = i.id AND l.id_almacen = {$idAlmacen} AND l.stock_lote > 0 AND l.fecha_vencimiento IS NOT NULL";
             $subqueryMov     = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.id_item = i.id AND (m.id_almacen_origen = {$idAlmacen} OR m.id_almacen_destino = {$idAlmacen})";
@@ -55,7 +55,17 @@ class InventarioModel extends Modelo
                                             ELSE 0 
                                         END
                                     ), 0
-                                ) AS stock_actual,";
+                                ) AS stock_actual,
+                                COALESCE(
+                                    GROUP_CONCAT(
+                                        DISTINCT CASE 
+                                            WHEN s.stock_actual > 0 AND a.estado = 1 AND a.deleted_at IS NULL 
+                                            THEN CONCAT(a.nombre, ': ', (s.stock_actual + 0)) 
+                                        END 
+                                        SEPARATOR '|'
+                                    ), 
+                                    ''
+                                ) AS almacenes_desglose,";
             $subqueryLote    = "SELECT l.lote FROM inventario_lotes l INNER JOIN almacenes al ON al.id = l.id_almacen AND al.estado = 1 WHERE l.id_item = i.id AND l.stock_lote > 0 ORDER BY (l.fecha_vencimiento IS NULL) ASC, l.fecha_vencimiento ASC, l.id ASC LIMIT 1";
             $subqueryVenc    = "SELECT MIN(l.fecha_vencimiento) FROM inventario_lotes l INNER JOIN almacenes al ON al.id = l.id_almacen AND al.estado = 1 WHERE l.id_item = i.id AND l.stock_lote > 0 AND l.fecha_vencimiento IS NOT NULL";
             $subqueryMov     = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.id_item = i.id";
@@ -90,7 +100,7 @@ class InventarioModel extends Modelo
         // 3. AGREGAMOS LA LÓGICA DE PACKS (SI APLICA)
         if ($tablaPacksDisponible) {
             if ($idAlmacen > 0) {
-                $selectAlmacenPack = "a.id AS id_almacen, a.nombre AS almacen_nombre, COALESCE(sp.stock_actual, 0) AS stock_actual,";
+                $selectAlmacenPack = "a.id AS id_almacen, a.nombre AS almacen_nombre, COALESCE(sp.stock_actual, 0) AS stock_actual, '' AS almacenes_desglose,";
                 $subqueryMovPack   = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.referencia LIKE CONCAT('Pack: PACK-', p.id, '%') AND (m.id_almacen_origen = {$idAlmacen} OR m.id_almacen_destino = {$idAlmacen})";
                 $joinsExtraPack    = "INNER JOIN almacenes a ON a.id = {$idAlmacen} AND a.estado = 1 AND a.deleted_at IS NULL\nLEFT JOIN inventario_stock sp ON sp.id_pack = p.id AND sp.id_almacen = {$idAlmacen}";
                 $whereExtraPack    = "AND sp.id IS NOT NULL";
@@ -132,7 +142,17 @@ class InventarioModel extends Modelo
                                                   ELSE 0 
                                               END
                                           ), 0
-                                      ) AS stock_actual,";
+                                      ) AS stock_actual,
+                                      COALESCE(
+                                          GROUP_CONCAT(
+                                              DISTINCT CASE 
+                                                  WHEN sp.stock_actual > 0 AND a.estado = 1 AND a.deleted_at IS NULL 
+                                                  THEN CONCAT(a.nombre, ': ', (sp.stock_actual + 0)) 
+                                              END 
+                                              SEPARATOR '|'
+                                          ), 
+                                          ''
+                                      ) AS almacenes_desglose,";
                 $subqueryMovPack   = "SELECT MAX(m.created_at) FROM inventario_movimientos m WHERE m.referencia LIKE CONCAT('Pack: PACK-', p.id, '%')";
                 $joinsExtraPack    = "LEFT JOIN inventario_stock sp ON sp.id_pack = p.id\nLEFT JOIN almacenes a ON a.id = sp.id_almacen";
                 $whereExtraPack    = "";
@@ -158,15 +178,11 @@ class InventarioModel extends Modelo
 
         $sql .= " ORDER BY ultimo_movimiento DESC, sku ASC";
 
-        // 4. EJECUCIÓN
         $stmt = $this->db()->prepare($sql);
         $stmt->execute($params);
         $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        // 5. ANEXAR DESGLOSE MASIVO
-        if (empty($resultados)) {
-            return [];
-        }
+        if (empty($resultados)) return [];
 
         $itemsParaDesglose = [];
         foreach ($resultados as $fila) {

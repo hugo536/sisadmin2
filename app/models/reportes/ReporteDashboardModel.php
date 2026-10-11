@@ -38,20 +38,19 @@ class ReporteDashboardModel extends Modelo
      */
     public function obtenerCumpleanosMes(): array
     {
-        // Asumiendo que tu tabla se llama "empleados" o "usuarios" 
-        // y tiene campos: nombre_completo, fecha_nacimiento
+        // Hacemos JOIN entre terceros_empleados (fecha) y terceros (nombre_completo)
         $sql = "SELECT 
-                    nombre_completo, 
-                    DATE_FORMAT(fecha_nacimiento, '%d/%m') as fecha_cumple,
-                    -- Calculamos cuántos días faltan desde hoy hasta su cumpleaños este año
+                    t.nombre_completo, 
+                    DATE_FORMAT(te.fecha_nacimiento, '%d/%m') as fecha_cumple,
                     DATEDIFF(
-                        DATE(CONCAT(YEAR(CURDATE()), '-', MONTH(fecha_nacimiento), '-', DAY(fecha_nacimiento))), 
+                        DATE(CONCAT(YEAR(CURDATE()), '-', MONTH(te.fecha_nacimiento), '-', DAY(te.fecha_nacimiento))), 
                         CURDATE()
                     ) as dias_restantes
-                FROM usuarios 
-                WHERE deleted_at IS NULL 
-                  AND estado = 1 
-                  AND MONTH(fecha_nacimiento) = MONTH(CURDATE())
+                FROM terceros_empleados te
+                INNER JOIN terceros t ON t.id = te.id_tercero
+                WHERE te.estado_laboral = 'activo' 
+                  AND te.recordar_cumpleanos = 1 
+                  AND MONTH(te.fecha_nacimiento) = MONTH(CURDATE())
                 HAVING dias_restantes >= 0
                 ORDER BY dias_restantes ASC";
                 

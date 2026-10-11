@@ -444,7 +444,24 @@
       if (campos.categoria) campos.categoria.textContent = btn.dataset.categoria || '-';
       if (campos.tipoItem) campos.tipoItem.textContent = btn.dataset.tipoItem || '-';
       if (campos.estadoItem) campos.estadoItem.textContent = btn.dataset.estadoItem || '-';
-      if (campos.almacen) campos.almacen.textContent = btn.dataset.almacen || '-';
+      
+      // MAGIA DEL DESGLOSE DE ALMACENES
+      if (campos.almacen) {
+          const almacenNombre = btn.dataset.almacen || '-';
+          const desglose = btn.dataset.desglose || '';
+          
+          if (almacenNombre === 'Múltiples Almacenes' && desglose !== '') {
+              // Convertimos "Almacen 1: 50|Almacen 2: 25" en HTML
+              const listaHTML = desglose.split('|').map(item => {
+                  return `<div class="text-muted small fw-normal mt-1"><i class="bi bi-box-seam me-1"></i> ${item}</div>`;
+              }).join('');
+              
+              campos.almacen.innerHTML = `<span class="fw-bold">Múltiples Almacenes</span>${listaHTML}`;
+          } else {
+              campos.almacen.textContent = almacenNombre;
+          }
+      }
+      
       if (campos.stock) campos.stock.textContent = btn.dataset.stock || '-';
       if (campos.alerta) campos.alerta.textContent = btn.dataset.alerta || '-';
       if (campos.detalleAlerta) campos.detalleAlerta.textContent = btn.dataset.detalleAlerta || '-';

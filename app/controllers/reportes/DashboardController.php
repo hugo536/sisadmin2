@@ -32,8 +32,14 @@ class DashboardController extends Controlador
         require_permiso('reportes.dashboard.ver');
         $this->registrarAuditoria('dashboard');
 
-        // Obtenemos los productos críticos usando el nuevo modelo
+        // 1. Obtener productos críticos
         $productosCriticos = $this->dashboardModel->obtenerProductosCriticos(10);
+        
+        // 2. Obtener cumpleaños del mes (Asegúrate de tener este método en UsuariosModel o RRHHModel)
+        $cumpleanosMes = $this->dashboardModel->obtenerCumpleanosMes() ?? [];
+
+        // 3. Obtener últimos eventos de la bitácora (Asegúrate de tener este método en UsuariosModel)
+        $eventos = $this->usuariosModel->obtenerUltimosEventos(5) ?? [];
 
         $this->render('reportes/dashboard', [
             'ruta_actual' => 'reportes/dashboard',
@@ -44,7 +50,9 @@ class DashboardController extends Controlador
                 'cxc_vencida' => $this->tesoreria->contarCxcVencida(),
                 'cxp_vencida' => $this->tesoreria->contarCxpVencida(),
             ],
-            'productosCriticos' => $productosCriticos
+            'productosCriticos' => $productosCriticos,
+            'cumpleanosMes' => $cumpleanosMes, // Se envía a la vista
+            'eventos' => $eventos             // Se envía a la vista
         ]);
     }
 
