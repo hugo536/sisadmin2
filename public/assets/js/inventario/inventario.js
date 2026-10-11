@@ -486,35 +486,35 @@
     };
   }
 
-  const motivosPorTipo = {
-    'AJ+': [
-      { value: 'Conteo físico', text: 'Conteo físico' },
-      { value: 'Error anterior', text: 'Error anterior' },
-      { value: 'Devolución interna', text: 'Devolución interna' },
-      { value: 'Merma recuperada', text: 'Merma recuperada' },
-      { value: 'Muestras', text: 'Muestras' },
-      { value: 'Otro', text: 'Otro' }
-    ],
-    'AJ-': [
-      { value: 'Conteo físico', text: 'Conteo físico' },
-      { value: 'Error anterior', text: 'Error anterior' },
-      { value: 'Robo', text: 'Robo' },
-      { value: 'Caducado', text: 'Caducado' },
-      { value: 'Desperdicio', text: 'Desperdicio' },
-      { value: 'Otro', text: 'Otro' }
-    ],
-    'CON': [
-      { value: 'Consumo administrativo', text: 'Consumo administrativo' },
-      { value: 'Pruebas laboratorio', text: 'Pruebas laboratorio' },
-      { value: 'Producción', text: 'Producción' },
-      { value: 'Mantenimiento', text: 'Mantenimiento' },
-      { value: 'Otro', text: 'Otro' }
-    ],
-    'SALIDA_MERMA_PLANTA': [
-      { value: 'Merma de producción', text: 'Merma de producción' },
-      { value: 'Desperdicio', text: 'Desperdicio' }
-    ]
-  };
+    const motivosPorTipo = {
+      'AJ+': [
+        { value: 'Conteo físico', text: 'Conteo físico' },
+        { value: 'Error anterior', text: 'Error anterior' },
+        { value: 'Devolución interna', text: 'Devolución interna' },
+        { value: 'Merma recuperada', text: 'Merma recuperada' },
+        { value: 'Muestras', text: 'Muestras' },
+        { value: 'Otro', text: 'Otro' }
+      ],
+      'AJ-': [
+        { value: 'Conteo físico', text: 'Conteo físico' },
+        { value: 'Error anterior', text: 'Error anterior' },
+        { value: 'Robo', text: 'Robo' },
+        { value: 'Caducado', text: 'Caducado' },
+        { value: 'Desperdicio', text: 'Desperdicio' },
+        { value: 'Otro', text: 'Otro' }
+      ],
+      'CON': [
+        { value: 'Consumo administrativo', text: 'Consumo administrativo' },
+        { value: 'Pruebas laboratorio', text: 'Pruebas laboratorio' },
+        { value: 'Producción', text: 'Producción' },
+        { value: 'Mantenimiento', text: 'Mantenimiento' },
+        { value: 'Otro', text: 'Otro' }
+      ],
+      'SALIDA_MERMA_PLANTA': [
+        { value: 'Merma de producción', text: 'Merma de producción' },
+        { value: 'Desperdicio', text: 'Desperdicio' }
+      ]
+    };
 
   function actualizarUIModal() {
     if (!tipo) return;

@@ -318,6 +318,22 @@
       bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).hide();
     }
     
+    // --- NUEVO: DESTRUCCIÓN INTELIGENTE DE FILTROS ---
+    // Leemos en qué ruta estamos y a cuál vamos
+    const currentRuta = new URLSearchParams(window.location.search).get('ruta') || '';
+    const nextRuta = url.searchParams.get('ruta') || '';
+
+    // Si el usuario cambia de módulo (ej. de Inventario a Control de Envases)
+    if (currentRuta !== nextRuta) {
+        // Recorremos la memoria y borramos SOLO las variables de nuestros filtros
+        Object.keys(sessionStorage).forEach(key => {
+            if (key.startsWith('erp_filtro_')) {
+                sessionStorage.removeItem(key);
+            }
+        });
+    }
+    // -------------------------------------------------
+
     // Restauramos la navegación silenciosa y profesional (SPA)
     navigateWithoutReload(url, true);
   });
@@ -450,4 +466,60 @@
 
   // Escuchar resize (rotación/cambio de viewport). Ignora resize provocado por teclado móvil.
   window.addEventListener('resize', handleTomSelectResizeUX);
+
+  // =========================================================
+  // 6) PERSISTENCIA GLOBAL DE FILTROS (SESSIONSTORAGE)
+  // =========================================================
+  const initPersistentFilters = function (container) {
+      // Usamos el parámetro 'ruta' de la URL para aislar los filtros de cada módulo
+      const params = new URLSearchParams(window.location.search);
+      const currentRuta = params.get('ruta') || 'dashboard';
+
+      // Seleccionamos los filtros basándonos en tu convención de IDs (ej. inventarioFiltroCategoria)
+      // y cualquier input de búsqueda (type="search")
+      const filtros = container.querySelectorAll('select[id*="Filtro"], input[type="search"]');
+
+      let hayFiltrosAplicados = false;
+
+      filtros.forEach(filtro => {
+          if (!filtro.id) return; // El input debe tener un ID para poder guardarlo
+
+          const storageKey = `erp_filtro_${currentRuta}_${filtro.id}`;
+
+          // A. RECUPERAR DATOS AL CARGAR LA VISTA
+          const valorGuardado = sessionStorage.getItem(storageKey);
+          if (valorGuardado !== null && valorGuardado !== "") {
+              filtro.value = valorGuardado;
+              hayFiltrosAplicados = true;
+          }
+
+          // B. GUARDAR DATOS CUANDO EL USUARIO LOS CAMBIE
+          const guardarFiltro = function() {
+              sessionStorage.setItem(storageKey, this.value);
+          };
+
+          filtro.addEventListener('change', guardarFiltro);
+          if (filtro.tagName === 'INPUT') {
+              filtro.addEventListener('input', guardarFiltro);
+          }
+      });
+
+      // C. DISPARAR LA BÚSQUEDA AUTOMÁTICA
+      // Si recuperamos algún filtro, forzamos un evento 'change' para que las tablas
+      // escuchen el cambio y se filtren automáticamente al entrar a la pantalla.
+      if (hayFiltrosAplicados && filtros.length > 0) {
+          // Un pequeño delay de 50ms asegura que otros scripts (como datatables o tomselects) 
+          // ya hayan terminado de inicializarse antes de pedirles que filtren.
+          setTimeout(() => {
+              filtros[0].dispatchEvent(new Event('change', { bubbles: true }));
+          }, 50);
+      }
+  };
+
+  // Escuchamos el evento SPA que tú mismo creaste en tu sistema
+  document.addEventListener('sisadmin:route-loaded', function (e) {
+      // e.detail.container es el HTML nuevo que acaba de llegar, si no existe usamos document
+      const container = e.detail.container || document;
+      initPersistentFilters(container);
+  });
 })();

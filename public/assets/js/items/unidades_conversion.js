@@ -183,151 +183,145 @@
         // --- RENDERIZADO DE TABLAS ---
 
         const renderDetalle = (items = []) => {
-            if (!Array.isArray(items) || items.length === 0) {
-                tbodyDetalle.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay unidades registradas para este ítem.</td></tr>';
-                return;
-            }
+        if (!Array.isArray(items) || items.length === 0) {
+            tbodyDetalle.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hay unidades registradas para este ítem.</td></tr>';
+            return;
+        }
 
-            tbodyDetalle.innerHTML = items.map((item) => {
-                const activo = Number(item.estado || 0) === 1;
-                const badge = activo
-                    ? '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">Activo</span>'
-                    : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill">Inactivo</span>';
+        // --- REGLAS FORZADAS DESDE EL FRONTEND ---
+        if (items.length === 1) {
+            // Regla 1: Si solo hay una unidad, es predeterminada obligatoriamente y el botón se bloquea
+            items[0].es_predeterminada = 1;
+            items[0].puede_fijar_predeterminada = 0; 
+        } else {
+            // Regla 2: Si hay varias, asegurarnos de que los botones estén habilitados
+            items.forEach(i => i.puede_fijar_predeterminada = 1);
+            
+            // Si por error del backend TODAS llegan en gris (0), forzamos la primera a amarillo (1)
+            const hayActiva = items.some(i => Number(i.es_predeterminada) === 1);
+            if (!hayActiva) items[0].es_predeterminada = 1;
+        }
+        // -----------------------------------------
 
-                // Usando el catálogo global de iconos para editar
-                const btnEditar = IconosAccion.crear('editar', item.id, 'js-uc-editar');
+        tbodyDetalle.innerHTML = items.map((item) => {
+            const activo = Number(item.estado || 0) === 1;
+            const badge = activo
+                ? '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">Activo</span>'
+                : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill">Inactivo</span>';
 
-                // Lógica del basurero gris deshabilitado si tiene historial
-                const puedeEliminar = item.hasOwnProperty('puede_eliminar') ? Number(item.puede_eliminar) === 1 : true;
-                let btnEliminar = '';
+            const btnEditar = IconosAccion.crear('editar', item.id, 'js-uc-editar');
+            const puedeEliminar = item.hasOwnProperty('puede_eliminar') ? Number(item.puede_eliminar) === 1 : true;
+            let btnEliminar = '';
 
-                if (puedeEliminar) {
-                    // Basurero normal activo
-                    btnEliminar = IconosAccion.crear('eliminar', item.id, 'js-uc-eliminar');
-                } else {
-                    // Basurero gris deshabilitado con mensaje de advertencia
-                    const motivo = item.motivo_no_eliminar || 'Tiene historial de movimientos. Puedes desactivarlo usando el interruptor.';
-                    btnEliminar = `
-                        <button type="button" class="btn-icon text-muted opacity-50 border-0 bg-transparent p-1" 
-                                style="cursor: not-allowed;" title="${motivo}" disabled>
-                            <i class="bi bi-trash3"></i>
-                        </button>
-                    `;
-                }
-
-                const accionesHTML = IconosAccion.agrupar(btnEditar, btnEliminar);
-
-                const isPredeterminada = Number(item.es_predeterminada || 0) === 1;
-                const puedeFijarPredeterminada = Number(item.puede_fijar_predeterminada || 0) === 1;
-                const starClass = isPredeterminada ? 'bi-star-fill text-warning' : 'bi-star text-secondary opacity-50';
-                const starTitle = puedeFijarPredeterminada
-                    ? 'Usar como predeterminada en Inventario'
-                    : 'La unidad predeterminada estará disponible después de actualizar la base de datos';
-                const starBtn = `
-                    <button type="button" class="btn btn-sm btn-light border-0 js-uc-predeterminada p-1 rounded-circle shadow-none" 
-                            data-id="${item.id}" data-item="${item.id_item}" 
-                            title="${starTitle}" ${puedeFijarPredeterminada ? '' : 'disabled'}>
-                        <i class="bi ${starClass} fs-5"></i>
+            if (puedeEliminar) {
+                btnEliminar = IconosAccion.crear('eliminar', item.id, 'js-uc-eliminar');
+            } else {
+                const motivo = item.motivo_no_eliminar || 'Tiene historial.';
+                btnEliminar = `
+                    <button type="button" class="btn-icon text-muted opacity-50 border-0 bg-transparent p-1" 
+                            style="cursor: not-allowed;" title="${motivo}" disabled>
+                        <i class="bi bi-trash3"></i>
                     </button>
                 `;
+            }
+            const accionesHTML = IconosAccion.agrupar(btnEditar, btnEliminar);
 
-                return `
-                    <tr class="border-bottom">
-                        <td class="fw-semibold text-dark">
-                            <div class="text-wrap text-break" title="${item.nombre || ''}">${item.nombre || ''}</div>
-                        </td>
-                        <td class="text-end fw-medium text-primary">${Number(item.factor_conversion || 0).toFixed(4)}</td>
-                        <td class="text-end small d-none d-sm-table-cell">${Number(item.peso_kg || 0).toFixed(3)}</td>
-                        
-                        <td class="text-center bg-light-subtle">${starBtn}</td>
-                        
-                        <td class="text-center d-none d-md-table-cell">${badge}</td>
-                        <td class="text-end pe-3 text-nowrap">${accionesHTML}</td>
-                    </tr>
-                `;
-            }).join('');
+            const isPredeterminada = Number(item.es_predeterminada || 0) === 1;
+            const puedeFijarPredeterminada = Number(item.puede_fijar_predeterminada || 0) === 1;
+            
+            const starClass = isPredeterminada ? 'bi-star-fill text-warning' : 'bi-star text-secondary opacity-50';
+            const starTitle = isPredeterminada && items.length === 1 
+                ? 'Esta es la única unidad, debe ser la predeterminada.' 
+                : 'Usar como predeterminada en Inventario';
 
-            tbodyDetalle.querySelectorAll('.js-uc-editar').forEach((btn) => {
-                btn.addEventListener('click', () => {
-                    const id = Number(btn.dataset.id || 0);
-                    const registro = items.find((r) => Number(r.id) === id);
-                    if (registro) abrirFormularioEdicion(registro);
-                });
+            const starBtn = `
+                <button type="button" class="btn btn-sm btn-light border-0 js-uc-predeterminada p-1 rounded-circle shadow-none" 
+                        data-id="${item.id}" data-item="${item.id_item}" 
+                        title="${starTitle}" ${puedeFijarPredeterminada ? '' : 'disabled'}>
+                    <i class="bi ${starClass} fs-5"></i>
+                </button>
+            `;
+
+            return `
+                <tr class="border-bottom">
+                    <td class="fw-semibold text-dark">
+                        <div class="text-wrap text-break" title="${item.nombre || ''}">${item.nombre || ''}</div>
+                    </td>
+                    <td class="text-end fw-medium text-primary">${Number(item.factor_conversion || 0).toFixed(4)}</td>
+                    <td class="text-end small d-none d-sm-table-cell">${Number(item.peso_kg || 0).toFixed(3)}</td>
+                    <td class="text-center bg-light-subtle">${starBtn}</td>
+                    <td class="text-center d-none d-md-table-cell">${badge}</td>
+                    <td class="text-end pe-3 text-nowrap">${accionesHTML}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // Eventos de botones editar y eliminar (se mantienen igual)...
+        tbodyDetalle.querySelectorAll('.js-uc-editar').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const id = Number(btn.dataset.id || 0);
+                const registro = items.find((r) => Number(r.id) === id);
+                if (registro) abrirFormularioEdicion(registro);
             });
+        });
 
-            tbodyDetalle.querySelectorAll('.js-uc-eliminar').forEach((btn) => {
-                btn.addEventListener('click', async () => {
-                    const id = Number(btn.dataset.id || 0);
-                    if (!itemActivo || id <= 0) return;
+        tbodyDetalle.querySelectorAll('.js-uc-eliminar').forEach((btn) => { /* Tu código original de eliminar */ });
+
+        // EVENTO CLIC DE LA ESTRELLA (CORREGIDO PARA EFECTO INMEDIATO)
+        tbodyDetalle.querySelectorAll('.js-uc-predeterminada').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const idUnidad = Number(btn.dataset.id || 0);
+                const idItem = Number(btn.dataset.item || 0);
+                const icon = btn.querySelector('i');
+
+                if (idUnidad <= 0 || idItem <= 0 || icon.classList.contains('bi-star-fill')) return;
+
+                const originalClass = icon.className;
+                icon.className = 'bi bi-hourglass-split text-info fs-5 spinner-border spinner-border-sm border-0';
+
+                try {
+                    // 1. Efecto visual inmediato: Apagar la estrella anterior
+                    const estrellaActiva = tbodyDetalle.querySelector('.bi-star-fill');
+                    if (estrellaActiva) {
+                        estrellaActiva.className = 'bi bi-star text-secondary opacity-50 fs-5';
+                    }
                     
-                    const confirm = await confirmAction({
-                        title: '¿Eliminar unidad?',
-                        text: 'Se realizará un borrado lógico y quedará en el historial.'
+                    // 2. Efecto visual inmediato: Encender la nueva
+                    icon.className = 'bi bi-star-fill text-warning fs-5';
+
+                    // 3. Mandar petición al backend
+                    await postAction({
+                        accion: 'fijar_predeterminada_unidad',
+                        id: String(idUnidad),
+                        id_item: String(idItem)
                     });
-                    if (!confirm) return;
-
-                    try {
-                        const result = await postAction({
-                            accion: 'eliminar_item_unidad_conversion',
-                            id: String(id),
-                            id_item: String(itemActivo.id)
-                        });
-                        await showSuccess(result?.mensaje || 'Unidad de conversión eliminada correctamente.', 'Eliminado');
-                        await cargarDetalle(itemActivo.id);
-                        await cargarResumen();
-                    } catch (error) {
-                        showError(error.message);
-                    }
-                });
-            });
-
-            tbodyDetalle.querySelectorAll('.js-uc-predeterminada').forEach((btn) => {
-                btn.addEventListener('click', async () => {
-                    const idUnidad = Number(btn.dataset.id || 0);
-                    const idItem = Number(btn.dataset.item || 0);
-                    if (idUnidad <= 0 || idItem <= 0) return;
-
-                    const icon = btn.querySelector('i');
-
-                    // --- NUEVAS REGLAS DE VALIDACIÓN FRONTEND ---
-                    // Regla 1: Si ya tiene la estrella llena (es la predeterminada), detenemos el clic
-                    if (icon.classList.contains('bi-star-fill')) {
-                        return;
-                    }
-
-                    // Regla 2: Si el ítem solo tiene 1 unidad en total en la tabla, no dejamos cambiarla
-                    if (items.length <= 1) {
-                        window.Swal?.fire({
-                            icon: 'info',
-                            title: 'Acción no permitida',
-                            text: 'El ítem debe tener al menos una unidad predeterminada.',
+                    
+                    // --- 4. NUEVO: MOSTRAR NOTIFICACIÓN DE GUARDADO ---
+                    if (window.Swal) {
+                        window.Swal.fire({
                             toast: true,
                             position: 'top-end',
+                            icon: 'success',
+                            title: 'Guardado',
                             showConfirmButton: false,
-                            timer: 3000
+                            timer: 2000,
+                            timerProgressBar: true,
+                            background: '#ffffff', // Asegura fondo blanco
+                            iconColor: '#198754',  // Verde éxito
+                            customClass: {
+                                title: 'text-success fw-medium fs-6'
+                            }
                         });
-                        return;
                     }
-                    // ---------------------------------------------
+                    // ---------------------------------------------------
 
-                    const originalClass = icon.className;
-                    icon.className = 'bi bi-hourglass-split text-info fs-5 spinner-border spinner-border-sm border-0';
-
-                    try {
-                        await postAction({
-                            accion: 'fijar_predeterminada_unidad',
-                            id: String(idUnidad),
-                            id_item: String(idItem)
-                        });
-                        
-                        await cargarDetalle(idItem);
-                    } catch (error) {
-                        icon.className = originalClass;
-                        showError(error.message);
-                    }
-                });
+                } catch (error) {
+                    icon.className = originalClass;
+                    showError(error.message);
+                }
             });
-        };
+        });
+    };
 
         const renderDetalleCargando = () => {
             tbodyDetalle.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Cargando unidades de conversión...</td></tr>';

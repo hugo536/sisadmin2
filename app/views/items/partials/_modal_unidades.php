@@ -70,7 +70,7 @@
                                 </div>
                                 <button type="button" class="btn btn-primary shadow-sm fw-medium text-nowrap" id="btnAgregarUnidadConversion" disabled>
                                     <i class="bi bi-plus-circle me-1"></i>Agregar Unidad
-                                </button>
+                                </button>   
                             </div>
 
                             <!-- FORMULARIO DE INSERCIÓN/EDICIÓN -->

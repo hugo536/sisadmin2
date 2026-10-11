@@ -28,23 +28,23 @@ class InventarioModel extends Modelo
                                                             THEN s.id_almacen 
                                                         END) = 1
                                          AND MAX(CASE WHEN s.stock_actual > 0 THEN s.id_almacen END) = 0
-                                        THEN 'Sin Ubicación Física'
+                                    THEN 'Sin Ubicación Física'
                                     WHEN COUNT(DISTINCT CASE 
                                                             WHEN s.stock_actual > 0 
                                                                  AND (s.id_almacen = 0 OR (a.estado = 1 AND a.deleted_at IS NULL))
                                                             THEN s.id_almacen 
                                                         END) = 1
-                                        THEN COALESCE(MAX(CASE 
-                                                             WHEN s.stock_actual > 0
-                                                                  AND a.estado = 1 AND a.deleted_at IS NULL
-                                                             THEN a.nombre 
-                                                         END), 'Sin Ubicación Física')
+                                    THEN COALESCE(MAX(CASE 
+                                                         WHEN s.stock_actual > 0
+                                                              AND a.estado = 1 AND a.deleted_at IS NULL
+                                                         THEN a.nombre 
+                                                     END), 'Sin Ubicación Física')
                                     WHEN COUNT(DISTINCT CASE 
                                                             WHEN s.stock_actual > 0 
                                                                  AND (s.id_almacen = 0 OR (a.estado = 1 AND a.deleted_at IS NULL))
                                                             THEN s.id_almacen 
                                                         END) > 1 
-                                        THEN 'Múltiples Almacenes'
+                                    THEN 'Múltiples Almacenes'
                                     ELSE 'Sin Ubicación Física' 
                                 END AS almacen_nombre, 
                                 COALESCE(
@@ -105,23 +105,23 @@ class InventarioModel extends Modelo
                                                                   THEN sp.id_almacen 
                                                               END) = 1
                                                AND MAX(CASE WHEN sp.stock_actual > 0 THEN sp.id_almacen END) = 0
-                                              THEN 'Sin Ubicación Física'
+                                          THEN 'Sin Ubicación Física'
                                           WHEN COUNT(DISTINCT CASE 
                                                                   WHEN sp.stock_actual > 0 
                                                                        AND (sp.id_almacen = 0 OR (a.estado = 1 AND a.deleted_at IS NULL))
                                                                   THEN sp.id_almacen 
                                                               END) = 1
-                                              THEN COALESCE(MAX(CASE 
-                                                                   WHEN sp.stock_actual > 0
-                                                                        AND a.estado = 1 AND a.deleted_at IS NULL
-                                                                   THEN a.nombre 
-                                                               END), 'Sin Ubicación Física')
+                                          THEN COALESCE(MAX(CASE 
+                                                               WHEN sp.stock_actual > 0
+                                                                    AND a.estado = 1 AND a.deleted_at IS NULL
+                                                               THEN a.nombre 
+                                                           END), 'Sin Ubicación Física')
                                           WHEN COUNT(DISTINCT CASE 
                                                                   WHEN sp.stock_actual > 0 
                                                                        AND (sp.id_almacen = 0 OR (a.estado = 1 AND a.deleted_at IS NULL))
                                                                   THEN sp.id_almacen 
                                                               END) > 1
-                                              THEN 'Múltiples Almacenes'
+                                          THEN 'Múltiples Almacenes'
                                           ELSE 'Sin Ubicación Física' 
                                       END AS almacen_nombre, 
                                       COALESCE(
@@ -1190,9 +1190,9 @@ class InventarioModel extends Modelo
 
         // 2. Obtener la unidad principal de conversión por ítem
         $sqlUnidades = "SELECT id_item, nombre AS unidad_nombre, factor_conversion
-                        FROM items_unidades
-                        WHERE id_item IN ({$inQuery}) AND estado = 1 AND deleted_at IS NULL
-                        ORDER BY factor_conversion DESC";
+                FROM items_unidades
+                WHERE id_item IN ({$inQuery}) AND estado = 1 AND deleted_at IS NULL
+                ORDER BY es_predeterminada DESC, factor_conversion DESC";
         $stmtUnidades = $this->db()->prepare($sqlUnidades);
         $stmtUnidades->execute($itemIds);
         $unidadesCrudas = $stmtUnidades->fetchAll(PDO::FETCH_ASSOC);

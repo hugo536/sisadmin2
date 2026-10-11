@@ -267,8 +267,8 @@ class UnidadConversionModel extends Modelo
         }
 
         try {
-            $stmt = $this->db()->prepare('SHOW COLUMNS FROM items_unidades LIKE :columna');
-            $stmt->execute(['columna' => 'es_predeterminada']);
+            // Solución: No usar parámetros bindeados en un SHOW COLUMNS LIKE
+            $stmt = $this->db()->query("SHOW COLUMNS FROM items_unidades LIKE 'es_predeterminada'");
             $this->soportaUnidadPredeterminada = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
             $this->soportaUnidadPredeterminada = false;
