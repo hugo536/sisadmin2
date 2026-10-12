@@ -9,7 +9,6 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
     window.inicializarBuscadoresAjaxCompras = function() {
         if (typeof window.TomSelect === 'undefined') return;
 
-        // Capturamos los selects por su atributo name (ya que se usan en las vistas de insumos/variación)
         const formReporte = document.getElementById('formFiltrosReporteCompras');
         if (!formReporte) return;
 
@@ -40,11 +39,10 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
 
                     load(query, callback) {
                         const u = new URL(window.location.origin + window.location.pathname);
-                        u.searchParams.set('ruta', 'reportes/compras'); // Ajustado para compras
+                        u.searchParams.set('ruta', 'reportes/compras'); 
                         u.searchParams.set('accion', actionStr);
                         u.searchParams.set('q', query || '');
                         
-                        // Si estamos buscando productos, enviamos la categoría seleccionada al backend
                         if (actionStr === 'buscar_insumos' && categoriaSelect && categoriaSelect.value) {
                             u.searchParams.set('id_categoria', categoriaSelect.value);
                         }
@@ -72,19 +70,13 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
             }
         };
 
-        if (productoSelect) {
-            // Cambiamos la acción a buscar_insumos
-            initTS(productoSelect, 'buscar_insumos');
-        }
-        if (proveedorSelect) {
-            initTS(proveedorSelect, 'buscar_proveedores');
-        }
+        if (productoSelect) initTS(productoSelect, 'buscar_insumos');
+        if (proveedorSelect) initTS(proveedorSelect, 'buscar_proveedores');
     };
 
     // 2. FUNCIÓN PRINCIPAL DEL MÓDULO DE COMPRAS
     window.inicializarModuloReporteCompras = function() {
         
-        // Inicializamos los buscadores
         setTimeout(window.inicializarBuscadoresAjaxCompras, 100);
 
         const formId = 'formFiltrosReporteCompras';
@@ -106,7 +98,7 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
                         icon: 'error',
                         title: 'Rango inválido',
                         text: 'La fecha "Desde" no puede ser mayor que la fecha "Hasta".',
-                        confirmButtonColor: '#0d6efd' // Color primary azul
+                        confirmButtonColor: '#0d6efd'
                     });
                 } else {
                     alert('La fecha "Desde" no puede ser mayor que la fecha "Hasta".');
@@ -166,46 +158,32 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
             });
         }
 
-        const linksTabs = document.querySelectorAll('.nav-tabs .nav-link');
+        // --- NAVEGACIÓN DE PESTAÑAS (SPA HOMOGENIZADO) ---
+        const linksTabs = document.querySelectorAll('.nav-tabs .btn-tab-seccion');
         const inputSeccion = document.getElementById('input_seccion_activa');
 
         linksTabs.forEach(link => {
             link.addEventListener('click', function(e) {
-                const href = this.getAttribute('href');
-                if (href && href.includes('seccion_activa=')) {
-                    e.preventDefault(); 
-                    const urlObj = new URL(href, window.location.origin);
-                    const seccionSeleccionada = urlObj.searchParams.get('seccion_activa');
-                    
-                    if (inputSeccion && inputSeccion.value !== seccionSeleccionada) {
-                        inputSeccion.value = seccionSeleccionada;
-                        formReporte.querySelectorAll('input[required]').forEach(f => f.required = false);
-                        submitReporteFiltros();
-                    }
+                e.preventDefault(); 
+                const seccionSeleccionada = this.getAttribute('data-seccion');
+                
+                if (seccionSeleccionada && inputSeccion && inputSeccion.value !== seccionSeleccionada) {
+                    inputSeccion.value = seccionSeleccionada;
+                    formReporte.querySelectorAll('input[required]').forEach(f => f.required = false);
+                    submitReporteFiltros();
                 }
             });
         });
 
         // =======================================================
-        // INICIALIZACIÓN SEGURA DE GRÁFICOS (CHART.JS PARA SPA)
+        // INICIALIZACIÓN DE GRÁFICOS (CHART.JS - FIX PARA SPA)
         // =======================================================
         if (typeof Chart !== 'undefined') {
-
-            const crearGraficoSeguroSPA = (canvasElement, config) => {
-                const chartInstance = new Chart(canvasElement, config);
-                const observer = new MutationObserver(() => {
-                    if (!document.body.contains(canvasElement)) {
-                        chartInstance.destroy(); 
-                        observer.disconnect();   
-                    }
-                });
-                observer.observe(document.body, { childList: true, subtree: true });
-                return chartInstance;
-            };
 
             // 1. GRÁFICO DE TENDENCIAS DE COMPRAS
             const canvasTendencias = document.getElementById('comprasPeriodoChart');
             if (canvasTendencias) {
+                if (window.graficoComprasPeriodoInst instanceof Chart) window.graficoComprasPeriodoInst.destroy();
                 try {
                     const chartData = JSON.parse(canvasTendencias.getAttribute('data-chart-data') || '[]');
                     const tipoGrafico = canvasTendencias.getAttribute('data-chart-type') || 'bar';
@@ -219,16 +197,16 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
                             }
                             return etiqueta;
                         });
-                        const data = chartData.map(r => Number(r.total_comprado ?? 0)); // Usando total_comprado
+                        const data = chartData.map(r => Number(r.total_comprado ?? 0));
 
-                        crearGraficoSeguroSPA(canvasTendencias, {
+                        window.graficoComprasPeriodoInst = new Chart(canvasTendencias, {
                             type: tipoGrafico,
                             data: {
                                 labels,
                                 datasets: [{
                                     label: 'Total comprado (S/)',
                                     data,
-                                    borderColor: '#0d6efd', // Azul primario
+                                    borderColor: '#0d6efd',
                                     backgroundColor: tipoGrafico === 'line' ? 'rgba(13,110,253,.15)' : 'rgba(13,110,253,.8)',
                                     tension: .25,
                                     fill: tipoGrafico === 'line',
@@ -241,18 +219,10 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
                                 maintainAspectRatio: false,
                                 plugins: {
                                     legend: { display: false },
-                                    tooltip: { 
-                                        callbacks: { 
-                                            label(ctx) { return `S/ ${Number(ctx.parsed.y ?? 0).toFixed(2)}`; } 
-                                        } 
-                                    }
+                                    tooltip: { callbacks: { label(ctx) { return `S/ ${Number(ctx.parsed.y ?? 0).toFixed(2)}`; } } }
                                 },
                                 scales: {
-                                    y: { 
-                                        ticks: { 
-                                            callback(value) { return `S/ ${Number(value).toFixed(0)}`; } 
-                                        } 
-                                    }
+                                    y: { beginAtZero: true, ticks: { callback(value) { return `S/ ${Number(value).toFixed(0)}`; } } }
                                 }
                             }
                         });
@@ -263,6 +233,7 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
             // 2. GRÁFICO TOP INSUMOS (DOUGHNUT)
             const canvasInsumos = document.getElementById('comprasInsumosChart');
             if (canvasInsumos) {
+                if (window.graficoComprasInsumosInst instanceof Chart) window.graficoComprasInsumosInst.destroy();
                 try {
                     const chartData = JSON.parse(canvasInsumos.getAttribute('data-chart-data') || '[]');
                     if (chartData.length > 0) {
@@ -280,7 +251,7 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
                             data.push(otros);
                         }
 
-                        crearGraficoSeguroSPA(canvasInsumos, {
+                        window.graficoComprasInsumosInst = new Chart(canvasInsumos, {
                             type: 'doughnut',
                             data: {
                                 labels: labels,
@@ -292,29 +263,24 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
                                 }]
                             },
                             options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                cutout: '65%',
+                                responsive: true, maintainAspectRatio: false, cutout: '65%',
                                 plugins: {
                                     legend: { position: 'bottom' },
-                                    tooltip: {
-                                        callbacks: {
-                                            label(ctx) { return ` S/ ${Number(ctx.parsed).toFixed(2)}`; }
-                                        }
-                                    }
+                                    tooltip: { callbacks: { label(ctx) { return ` S/ ${Number(ctx.parsed).toFixed(2)}`; } } }
                                 }
                             }
                         });
                     }
                 } catch (err) { console.error("Error Chart Insumos:", err); }
             }
+
             // 3. GRÁFICO CONCENTRACIÓN DE PROVEEDORES (DOUGHNUT)
             const canvasProveedores = document.getElementById('comprasProveedoresChart');
             if (canvasProveedores) {
+                if (window.graficoComprasProveedoresInst instanceof Chart) window.graficoComprasProveedoresInst.destroy();
                 try {
                     const chartData = JSON.parse(canvasProveedores.getAttribute('data-chart-data') || '[]');
                     if (chartData.length > 0) {
-                        // Tomamos los 5 proveedores principales y agrupamos el resto en "Otros"
                         const topN = chartData.slice(0, 5);
                         const otros = chartData.slice(5).reduce((acc, curr) => acc + Number(curr.total_recibido || 0), 0);
                         
@@ -329,29 +295,22 @@ if (typeof window.inicializarModuloReporteCompras === 'undefined') {
                             data.push(otros);
                         }
 
-                        crearGraficoSeguroSPA(canvasProveedores, {
+                        window.graficoComprasProveedoresInst = new Chart(canvasProveedores, {
                             type: 'doughnut',
                             data: {
                                 labels: labels,
                                 datasets: [{
                                     data: data,
-                                    // Usamos la misma paleta de colores de tu sistema
                                     backgroundColor: ['#0d6efd', '#20c997', '#ffc107', '#fd7e14', '#6f42c1', '#adb5bd'],
                                     borderWidth: 2,
                                     borderColor: '#ffffff'
                                 }]
                             },
                             options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                cutout: '65%', // Esto hace que parezca una Dona y no un pastel entero
+                                responsive: true, maintainAspectRatio: false, cutout: '65%',
                                 plugins: {
                                     legend: { position: 'bottom' },
-                                    tooltip: {
-                                        callbacks: {
-                                            label(ctx) { return ` S/ ${Number(ctx.parsed).toFixed(2)}`; }
-                                        }
-                                    }
+                                    tooltip: { callbacks: { label(ctx) { return ` S/ ${Number(ctx.parsed).toFixed(2)}`; } } }
                                 }
                             }
                         });

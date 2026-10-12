@@ -5,7 +5,7 @@
         $seccionActiva = 'tendencias';
     }
 ?>
-<div class="container-fluid p-4" id="reportesVentasApp">
+<div class="container-fluid p-3 p-md-4" id="reportesVentasApp">
     
     <!-- ENCABEZADO -->
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in">
@@ -34,38 +34,38 @@
         </a>
     </div>
 
-    <!-- PESTAÑAS (Estilo "Carpeta" moderna) -->
-    <div class="bg-light pt-2 px-3 rounded-top border border-bottom-0">
-        <ul class="nav nav-tabs border-bottom-0 mb-0" role="tablist">
+    <!-- PESTAÑAS (Estilo "Carpeta" moderna con Scroll Horizontal en Móvil) -->
+    <div class="bg-light pt-2 px-2 px-md-3 rounded-top border border-bottom-0">
+        <ul class="nav nav-tabs border-bottom-0 mb-0 flex-nowrap overflow-x-auto hide-scrollbar" role="tablist" style="white-space: nowrap; -webkit-overflow-scrolling: touch;">
             <li class="nav-item" role="presentation">
-                <a href="<?php echo e(route_url('reportes/ventas')); ?>&seccion_activa=tendencias" 
-                   class="nav-link fs-6 fw-semibold py-3 px-4 <?php echo $seccionActiva === 'tendencias' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
-                    <i class="bi bi-graph-up-arrow me-2"></i>Tendencias y Periodos
+                <a href="#" data-seccion="tendencias" 
+                   class="btn-tab-seccion nav-link fs-6 fw-semibold py-2 py-md-3 px-3 px-md-4 <?php echo $seccionActiva === 'tendencias' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
+                    <i class="bi bi-graph-up-arrow me-1 me-md-2"></i>Tendencias
                 </a>
             </li>
             <li class="nav-item" role="presentation">
-                <a href="<?php echo e(route_url('reportes/ventas')); ?>&seccion_activa=clientes" 
-                   class="nav-link fs-6 fw-semibold py-3 px-4 <?php echo $seccionActiva === 'clientes' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
-                    <i class="bi bi-person-lines-fill me-2"></i>Por Clientes
+                <a href="#" data-seccion="clientes" 
+                   class="btn-tab-seccion nav-link fs-6 fw-semibold py-2 py-md-3 px-3 px-md-4 <?php echo $seccionActiva === 'clientes' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
+                    <i class="bi bi-person-lines-fill me-1 me-md-2"></i>Clientes
                 </a>
             </li>
             <li class="nav-item" role="presentation">
-                <a href="<?php echo e(route_url('reportes/ventas')); ?>&seccion_activa=productos" 
-                   class="nav-link fs-6 fw-semibold py-3 px-4 <?php echo $seccionActiva === 'productos' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
-                    <i class="bi bi-star-fill me-2"></i>Top Productos
+                <a href="#" data-seccion="productos" 
+                   class="btn-tab-seccion nav-link fs-6 fw-semibold py-2 py-md-3 px-3 px-md-4 <?php echo $seccionActiva === 'productos' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
+                    <i class="bi bi-star-fill me-1 me-md-2"></i>Productos
                 </a>
             </li>
             <li class="nav-item" role="presentation">
-                <a href="<?php echo e(route_url('reportes/ventas')); ?>&seccion_activa=pendientes" 
-                   class="nav-link fs-6 fw-semibold py-3 px-4 <?php echo $seccionActiva === 'pendientes' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
-                    <i class="bi bi-truck me-2"></i>Pendientes de Despacho
+                <a href="#" data-seccion="pendientes" 
+                   class="btn-tab-seccion nav-link fs-6 fw-semibold py-2 py-md-3 px-3 px-md-4 <?php echo $seccionActiva === 'pendientes' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
+                    <i class="bi bi-truck me-1 me-md-2"></i>Pendientes
                 </a>
             </li>
         </ul>
     </div>
 
     <!-- TARJETA DE FILTROS -->
-    <div class="card border-0 shadow-sm mb-4 rounded-top-0 border-top border-primary border-3">
+    <div class="card border-0 shadow-sm mb-4 rounded-top-0">
         <div class="card-body p-3 p-md-4 bg-white">
             <form class="row g-3 align-items-end" method="get" action="<?php echo e(route_url('reportes/ventas')); ?>" id="formFiltrosReporteVentas">
                 <input type="hidden" name="ruta" value="reportes/ventas">
@@ -123,7 +123,6 @@
                             <div class="col-12 col-sm-7">
                                 <label class="form-label text-muted small fw-bold mb-1 ms-1">Cliente Específico</label>
                                 <select name="id_cliente" id="filtroVentasCliente" class="form-select bg-light shadow-none border-secondary-subtle auto-submit" placeholder="Buscar cliente...">
-                                    <!-- Reemplazamos "Todos..." por el texto exacto del placeholder -->
                                     <option value="" <?php echo empty($filtros['id_cliente']) ? 'selected' : ''; ?>>Buscar cliente...</option>
                                     <?php foreach (($clientesFiltro ?? []) as $cli): ?>
                                         <option value="<?php echo (int) ($cli['id'] ?? 0); ?>" <?php echo ((int)($filtros['id_cliente'] ?? 0) === (int)($cli['id'] ?? 0)) ? 'selected' : ''; ?>>
@@ -151,7 +150,6 @@
                             <div class="col-12 col-sm-7">
                                 <label class="form-label text-muted small fw-bold mb-1 ms-1">Producto Específico</label>
                                 <select name="id_item" id="filtroVentasProducto" class="form-select bg-light shadow-none border-secondary-subtle auto-submit" placeholder="Buscar producto...">
-                                    <!-- Reemplazamos "Todos..." por el texto exacto del placeholder -->
                                     <option value="" <?php echo empty($filtros['producto_filtro']) ? 'selected' : ''; ?>>Buscar producto...</option>
                                     <?php foreach (($productosFiltro ?? []) as $item): ?>
                                         <option value="<?php echo e((string) ($item['id'] ?? '')); ?>" <?php echo (($filtros['producto_filtro'] ?? '') === (string)($item['id'] ?? '')) ? 'selected' : ''; ?>>
@@ -164,21 +162,30 @@
                     <?php endif; ?>
                 </div>
 
+                <!-- 3. PERIODO DE FECHAS (Responsive Mobile-First) -->
                 <div class="col-12 col-xl-5">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Periodo de Fechas <span class="text-danger">*</span></label>
-                    <div class="input-group shadow-sm">
-                        <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
-                        <input type="date" name="fecha_desde" id="fecha_desde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
+                    <div class="d-flex flex-column flex-md-row gap-2">
+                        <!-- Desde -->
+                        <div class="input-group shadow-sm flex-fill">
+                            <span class="input-group-text bg-white text-muted border-end-0"><i class="bi bi-calendar3 d-md-none me-1"></i>Desde</span>
+                            <input type="date" name="fecha_desde" id="fecha_desde" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
+                        </div>
 
-                        <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
-                        <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
-                                                                        
-                        <button class="btn btn-light border text-primary px-3 transition-hover" type="submit" title="Aplicar filtros">
-                            <i class="bi bi-funnel-fill"></i>
-                        </button>
-                        <button type="button" id="btnLimpiarFiltros" class="btn btn-light border text-danger px-3 transition-hover" title="Limpiar filtros">
-                            <i class="bi bi-eraser-fill"></i>
-                        </button>
+                        <!-- Hasta y Botones -->
+                        <div class="input-group shadow-sm flex-fill">
+                            <span class="input-group-text bg-white text-muted border-end-0 d-none d-md-flex">Hasta</span>
+                            <span class="input-group-text bg-white text-muted border-end-0 d-md-none"><i class="bi bi-calendar3 me-1"></i>Hasta</span>
+                            <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
+                            
+                            <button class="btn btn-primary px-3 transition-hover" type="submit" title="Aplicar filtros">
+                                <i class="bi bi-funnel-fill"></i>
+                            </button>
+                            <!-- Agregamos la clase btn-danger explícita para el JS -->
+                            <button type="button" class="btn btn-danger px-3 transition-hover" id="btnLimpiarFiltros" title="Limpiar fechas">
+                                <i class="bi bi-eraser-fill"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </form>
@@ -222,7 +229,7 @@
             <div class="row g-4">
                 <!-- COLUMNA DEL GRÁFICO -->
                 <div class="col-12 col-lg-7">
-                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light" style="position: relative; height: 450px;">
+                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light chart-container">
                         <canvas id="ventasPeriodoChart" 
                                 aria-label="Gráfico de ventas por periodo" 
                                 role="img"
@@ -313,9 +320,9 @@
                 
                 <!-- COLUMNA DEL GRÁFICO (Dona/Pastel) -->
                 <div class="col-12 col-lg-5">
-                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light d-flex flex-column h-100">
+                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light d-flex flex-column h-100 chart-container">
                         <h6 class="text-center fw-bold text-secondary mb-3"><i class="bi bi-pie-chart-fill me-2"></i>Participación de Clientes Principales</h6>
-                        <div style="flex: 1; position: relative; min-height: 350px;">
+                        <div style="flex: 1; position: relative;">
                             <canvas id="ventasClientesChart" 
                                     data-chart-data='<?php echo htmlspecialchars(json_encode($porCliente['rows'] ?? []), ENT_QUOTES, 'UTF-8'); ?>'>
                             </canvas>
@@ -355,10 +362,10 @@
                                                                   '&vista=PRODUCTO';
                                                 ?>
                                                 <a href="<?php echo $urlDetalle; ?>" 
-                                                onclick="document.querySelectorAll('.tooltip').forEach(t => t.remove()); if(typeof window.navigateWithoutReload === 'function') { event.preventDefault(); window.navigateWithoutReload(new window.URL(this.href, window.location.origin), true); }"
-                                                class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm transition-hover" 
-                                                data-bs-toggle="tooltip" 
-                                                title="Ver estado de cuenta del cliente">
+                                                   onclick="document.querySelectorAll('.tooltip').forEach(t => t.remove()); if(typeof window.navigateWithoutReload === 'function') { event.preventDefault(); window.navigateWithoutReload(new window.URL(this.href, window.location.origin), true); }"
+                                                   class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm transition-hover" 
+                                                   data-bs-toggle="tooltip" 
+                                                   title="Ver estado de cuenta del cliente">
                                                     <i class="bi bi-eye-fill me-1"></i> Detalle
                                                 </a>
                                             </td>
@@ -411,9 +418,9 @@
                 
                 <!-- COLUMNA DEL GRÁFICO (Barras horizontales) -->
                 <div class="col-12 col-lg-5">
-                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light d-flex flex-column h-100">
+                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light d-flex flex-column h-100 chart-container">
                         <h6 class="text-center fw-bold text-secondary mb-3"><i class="bi bi-bar-chart-steps me-2"></i>Ranking de Productos</h6>
-                        <div style="flex: 1; position: relative; min-height: 350px;">
+                        <div style="flex: 1; position: relative;">
                             <canvas id="ventasProductosChart" 
                                     data-chart-data='<?php echo htmlspecialchars(json_encode($topProductos ?? []), ENT_QUOTES, 'UTF-8'); ?>'>
                             </canvas>
@@ -502,7 +509,7 @@
             
             <!-- TARJETAS DE RESUMEN (WIDGETS) -->
             <div class="row g-3 px-4 pt-4 pb-3 border-bottom border-secondary-subtle bg-light">
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-4 widget-resumen">
                     <div class="p-3 border rounded-3 bg-white shadow-sm d-flex align-items-center h-100 border-start border-primary border-4">
                         <div class="bg-primary-subtle p-3 rounded-circle me-3">
                             <i class="bi bi-receipt fs-4 text-primary"></i>
@@ -513,7 +520,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-4 widget-resumen">
                     <div class="p-3 border rounded-3 bg-white shadow-sm d-flex align-items-center h-100 border-start border-warning border-4">
                         <div class="bg-warning-subtle p-3 rounded-circle me-3">
                             <i class="bi bi-box-seam fs-4 text-warning-emphasis"></i>
@@ -524,7 +531,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-4 widget-resumen">
                     <div class="p-3 border rounded-3 bg-white shadow-sm d-flex align-items-center h-100 border-start border-danger border-4">
                         <div class="bg-danger-subtle p-3 rounded-circle me-3">
                             <i class="bi bi-exclamation-triangle-fill fs-4 text-danger"></i>

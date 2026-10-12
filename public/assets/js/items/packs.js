@@ -3,7 +3,7 @@
     if (!app) return;
 
     // --- ELEMENTOS DEL DOM ---
-    const listaPacks = Array.from(document.querySelectorAll('.pack-item-btn'));
+    const listaPacksContainer = document.getElementById('listaPacks');
     const inputBuscar = document.getElementById('buscarPack');
     const btnNuevoPack = document.getElementById('btnNuevoPack');
     const btnCerrarPanelMobile = document.getElementById('btnCerrarPanelMobile');
@@ -15,6 +15,7 @@
     const idPackSeleccionadoInput = document.getElementById('idPackSeleccionado');
     const inputNombrePack = document.getElementById('inputNombrePack');
     const inputPrecioPack = document.getElementById('inputPrecioPack');
+    const selectTipoCombo = document.getElementById('selectTipoCombo'); // NUEVO
     const lblEstadoPack = document.getElementById('lblEstadoPack');
     const btnEliminarPack = document.getElementById('btnEliminarPack');
     
@@ -29,7 +30,7 @@
     const checkBonificacion = document.getElementById('checkBonificacion');
 
     const tbodyComponentes = document.querySelector('#tablaComponentes tbody');
-    const tablaComponentes = document.getElementById('tablaComponentes'); // Referencia a la tabla para ERPTable
+    const tablaComponentes = document.getElementById('tablaComponentes'); 
     const templateFila = document.getElementById('templateFilaComponente');
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
@@ -91,7 +92,7 @@
         tbodyComponentes.innerHTML = '';
         const tr = document.createElement('tr');
         tr.id = 'filaVacia';
-        tr.innerHTML = `<td colspan="4" class="text-center text-muted py-4">${mensaje}</td>`;
+        tr.innerHTML = `<td colspan="4" class="text-center text-muted py-5">${mensaje}</td>`;
         tbodyComponentes.appendChild(tr);
         refrescarUI_Tabla();
     }
@@ -106,24 +107,21 @@
         }
     }
 
-    // MAGIA VISUAL: Evalúa si muestra el switch o lo oculta
     function evaluarVisibilidadSwitchEnvase() {
         if (!contenedorSwitchEnvase) return;
         
-        // Busca si hay al menos un componente en memoria o en la tabla que requiera envase
         const algunRetornableLocales = componentesLocales.some(c => Number(c.requiere_envase) === 1);
         const algunRetornableTabla = Array.from(tbodyComponentes.querySelectorAll('tr')).some(tr => tr.dataset.requiereEnvase === '1');
 
         if (algunRetornableLocales || algunRetornableTabla) {
-            contenedorSwitchEnvase.classList.remove('d-none'); // Mostrar
+            contenedorSwitchEnvase.classList.remove('d-none');
         } else {
-            contenedorSwitchEnvase.classList.add('d-none'); // Ocultar
-            if (checkIncluyeEnvase) checkIncluyeEnvase.checked = false; // Apagar por seguridad
+            contenedorSwitchEnvase.classList.add('d-none');
+            if (checkIncluyeEnvase) checkIncluyeEnvase.checked = false;
         }
     }
 
     // --- FUNCIONES DE DIBUJADO DE TABLA ---
-    
     function renderTablaLocales() {
         if (componentesLocales.length === 0) {
             renderFilaVacia('Agrega productos a la lista. Se guardarán al crear el combo.');
@@ -140,10 +138,10 @@
             const badgeTipo = clon.querySelector('.badge-tipo');
             if (data.es_bonificacion === 1) {
                 badgeTipo.textContent = 'Regalo';
-                badgeTipo.classList.add('bg-warning-subtle', 'text-warning-emphasis', 'border', 'border-warning-subtle');
+                badgeTipo.className = 'badge rounded-pill badge-tipo px-3 py-2 shadow-sm bg-warning-subtle text-warning-emphasis border border-warning-subtle';
             } else {
                 badgeTipo.textContent = 'Componente';
-                badgeTipo.classList.add('bg-info-subtle', 'text-info', 'border', 'border-info-subtle');
+                badgeTipo.className = 'badge rounded-pill badge-tipo px-3 py-2 shadow-sm bg-info-subtle text-info border border-info-subtle';
             }
 
             const celdas = clon.querySelectorAll('td');
@@ -160,7 +158,7 @@
 
                 componentesLocales.splice(index, 1);
                 renderTablaLocales();
-                evaluarVisibilidadSwitchEnvase(); // Reevaluar al borrar
+                evaluarVisibilidadSwitchEnvase(); 
             });
 
             tbodyComponentes.appendChild(clon);
@@ -178,7 +176,7 @@
         const clon = templateFila.content.cloneNode(true);
         const tr = clon.querySelector('tr');
         tr.dataset.idDetalle = String(data.id_detalle || 0);
-        tr.dataset.requiereEnvase = String(data.requiere_envase || 0); // Guardar si exige envase
+        tr.dataset.requiereEnvase = String(data.requiere_envase || 0); 
 
         clon.querySelector('.td-nombre').textContent = data.nombre_item || 'Sin nombre';
         clon.querySelector('.td-cantidad').textContent = Number(data.cantidad || 0).toFixed(2);
@@ -186,10 +184,10 @@
         const badgeTipo = clon.querySelector('.badge-tipo');
         if (Number(data.es_bonificacion || 0) === 1) {
             badgeTipo.textContent = 'Regalo';
-            badgeTipo.classList.add('bg-warning-subtle', 'text-warning-emphasis', 'border', 'border-warning-subtle');
+            badgeTipo.className = 'badge rounded-pill badge-tipo px-3 py-2 shadow-sm bg-warning-subtle text-warning-emphasis border border-warning-subtle';
         } else {
             badgeTipo.textContent = 'Componente';
-            badgeTipo.classList.add('bg-info-subtle', 'text-info', 'border', 'border-info-subtle');
+            badgeTipo.className = 'badge rounded-pill badge-tipo px-3 py-2 shadow-sm bg-info-subtle text-info border border-info-subtle';
         }
 
         const celdas = clon.querySelectorAll('td');
@@ -226,7 +224,7 @@
                     const tooltipInstance = bootstrap.Tooltip.getInstance(btnEliminar);
                     if (tooltipInstance) tooltipInstance.dispose();
                 }
-                evaluarVisibilidadSwitchEnvase(); // Reevaluar al borrar
+                evaluarVisibilidadSwitchEnvase(); 
 
             } catch (error) {
                 toastError(error.message);
@@ -240,7 +238,7 @@
         if (window.ERPTable && typeof window.ERPTable.showLoading === 'function') {
             window.ERPTable.showLoading(tablaComponentes);
         } else {
-            tbodyComponentes.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Cargando...</td></tr>';
+            tbodyComponentes.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Cargando...</td></tr>';
         }
 
         try {
@@ -269,10 +267,11 @@
     }
 
     // --- LÓGICA DE INTERFAZ GENERAL ---
+    
     if (inputBuscar) {
         inputBuscar.addEventListener('input', function () {
             const termino = this.value.trim().toLowerCase();
-            listaPacks.forEach((btn) => {
+            document.querySelectorAll('.pack-item-btn').forEach((btn) => {
                 btn.style.display = btn.textContent.toLowerCase().includes(termino) ? '' : 'none';
             });
         });
@@ -280,15 +279,16 @@
 
     if (btnNuevoPack) {
         btnNuevoPack.addEventListener('click', () => {
-            listaPacks.forEach((b) => b.classList.remove('active', 'bg-primary-subtle', 'border-primary'));
+            document.querySelectorAll('.pack-item-btn').forEach((b) => b.classList.remove('active'));
 
             idPackSeleccionadoInput.value = '0';
             inputNombrePack.value = '';
             inputPrecioPack.value = '';
+            if (selectTipoCombo) selectTipoCombo.value = 'consolidado'; // Por defecto
             if (checkIncluyeEnvase) checkIncluyeEnvase.checked = false;
             
-            lblEstadoPack.textContent = 'Nuevo Combo';
-            lblEstadoPack.className = 'badge bg-success-subtle text-success border border-success-subtle mb-2';
+            lblEstadoPack.innerHTML = '<i class="bi bi-star-fill me-1"></i> Nuevo Combo';
+            lblEstadoPack.className = 'badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill fs-6 shadow-sm';
             setEstadoBotonEliminar(0);
 
             seccionComponentes.style.opacity = '1';
@@ -304,19 +304,23 @@
         });
     }
 
-    listaPacks.forEach((btn) => {
-        btn.addEventListener('click', () => {
-            listaPacks.forEach((b) => b.classList.remove('active', 'bg-primary-subtle', 'border-primary'));
-            btn.classList.add('active', 'bg-primary-subtle', 'border-primary');
+    if (listaPacksContainer) {
+        listaPacksContainer.addEventListener('click', (e) => {
+            const btn = e.target.closest('.pack-item-btn');
+            if (!btn) return; 
+
+            document.querySelectorAll('.pack-item-btn').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
 
             idPackSeleccionadoInput.value = btn.dataset.id || '0';
             inputNombrePack.value = btn.dataset.nombre || '';
             inputPrecioPack.value = Number(btn.dataset.precio || 0).toFixed(2);
+            if (selectTipoCombo) selectTipoCombo.value = btn.dataset.tipoCombo || 'consolidado'; // Cargar propiedad
             
             if (checkIncluyeEnvase) checkIncluyeEnvase.checked = (btn.dataset.incluyeEnvase === '1');
             
-            lblEstadoPack.textContent = 'Editando Combo';
-            lblEstadoPack.className = 'badge bg-primary-subtle text-primary border border-primary-subtle mb-2';
+            lblEstadoPack.innerHTML = '<i class="bi bi-pencil-square me-1"></i> Editando Combo';
+            lblEstadoPack.className = 'badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill fs-6 shadow-sm';
             setEstadoBotonEliminar(idPackSeleccionadoInput.value);
 
             seccionComponentes.style.opacity = '1';
@@ -328,19 +332,18 @@
 
             cargarComponentesDelPack(idPackSeleccionadoInput.value);
         });
-    });
+    }
 
     if (btnCerrarPanelMobile) {
         btnCerrarPanelMobile.addEventListener('click', () => {
             panelConfiguracion.classList.add('d-none');
             panelConfiguracion.classList.remove('d-flex');
             panelVacio.classList.remove('d-none');
-            listaPacks.forEach((b) => b.classList.remove('active', 'bg-primary-subtle', 'border-primary'));
+            document.querySelectorAll('.pack-item-btn').forEach((b) => b.classList.remove('active'));
         });
     }
 
     // --- PETICIONES DE GUARDADO ---
-
     formAgregar.addEventListener('submit', async (event) => {
         event.preventDefault();
 
@@ -366,11 +369,11 @@
                 nombre_item: nombreTomSelect,
                 cantidad: cantidad,
                 es_bonificacion: checkBonificacion.checked ? 1 : 0,
-                requiere_envase: optionSelect ? Number(optionSelect.requiere_envase || 0) : 0 // Atrapar el dato
+                requiere_envase: optionSelect ? Number(optionSelect.requiere_envase || 0) : 0 
             });
             limpiarFormulario();
             renderTablaLocales();
-            evaluarVisibilidadSwitchEnvase(); // Evaluar si debe mostrarse
+            evaluarVisibilidadSwitchEnvase(); 
             return; 
         }
 
@@ -400,12 +403,14 @@
 
         try {
             const incluyeEnvaseValor = (checkIncluyeEnvase && !contenedorSwitchEnvase.classList.contains('d-none') && checkIncluyeEnvase.checked) ? '1' : '0';
+            const tipoComboValor = selectTipoCombo ? selectTipoCombo.value : 'consolidado';
 
             const body = new URLSearchParams({
                 id: idPackSeleccionadoInput.value,
                 nombre: inputNombrePack.value.trim(),
                 precio_venta: inputPrecioPack.value,
-                incluye_envase: incluyeEnvaseValor, // Mandamos el valor al backend
+                tipo_combo: tipoComboValor, 
+                incluye_envase: incluyeEnvaseValor, 
                 csrf_token: csrfToken
             });
 
@@ -433,57 +438,50 @@
             const nombreGuardado = inputNombrePack.value.trim();
             const precioGuardado = Number(inputPrecioPack.value).toFixed(2);
             
-            let btnLista = listaPacks.find(btn => btn.dataset.id === idGuardado);
+            let btnLista = document.querySelector(`.pack-item-btn[data-id="${idGuardado}"]`);
 
             if (btnLista) {
                 btnLista.dataset.nombre = nombreGuardado;
                 btnLista.dataset.precio = precioGuardado;
                 btnLista.dataset.incluyeEnvase = incluyeEnvaseValor;
-                btnLista.querySelector('.fw-bold.text-dark').textContent = nombreGuardado;
-                btnLista.querySelector('.badge.bg-primary').textContent = `S/ ${precioGuardado}`;
+                btnLista.dataset.tipoCombo = tipoComboValor;
+                
+                btnLista.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <div class="fw-bold text-dark text-truncate pe-2" style="max-width: 70%;">${nombreGuardado}</div>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">S/ ${precioGuardado}</span>
+                    </div>
+                    <div class="small text-muted d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-upc-scan me-1"></i>SIN-SKU</span>
+                        ${tipoComboValor === 'desglosable' ? '<span class="badge bg-light text-secondary border px-2 py-1"><i class="bi bi-arrows-expand me-1"></i>Desglosable</span>' : ''}
+                    </div>
+                `;
             } else {
-                const listaContenedor = document.getElementById('listaPacks');
-                const msjVacio = listaContenedor.querySelector('.text-center.text-muted');
+                const msjVacio = listaPacksContainer.querySelector('.text-center.text-muted');
                 if(msjVacio) msjVacio.remove();
 
                 btnLista = document.createElement('button');
                 btnLista.type = 'button';
-                btnLista.className = 'list-group-item list-group-item-action p-3 pack-item-btn';
+                btnLista.className = 'list-group-item list-group-item-action p-3 border-bottom pack-item-btn active';
                 btnLista.dataset.id = idGuardado;
                 btnLista.dataset.nombre = nombreGuardado;
                 btnLista.dataset.precio = precioGuardado;
                 btnLista.dataset.incluyeEnvase = incluyeEnvaseValor;
+                btnLista.dataset.tipoCombo = tipoComboValor;
+                
                 btnLista.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="fw-bold text-dark">${nombreGuardado}</div>
-                        <span class="badge bg-primary rounded-pill">S/ ${precioGuardado}</span>
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <div class="fw-bold text-dark text-truncate pe-2" style="max-width: 70%;">${nombreGuardado}</div>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">S/ ${precioGuardado}</span>
                     </div>
-                    <div class="small text-muted mt-1"><i class="bi bi-upc-scan me-1"></i>SIN-SKU</div>
+                    <div class="small text-muted d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-upc-scan me-1"></i>SIN-SKU</span>
+                        ${tipoComboValor === 'desglosable' ? '<span class="badge bg-light text-secondary border px-2 py-1"><i class="bi bi-arrows-expand me-1"></i>Desglosable</span>' : ''}
+                    </div>
                 `;
 
-                btnLista.addEventListener('click', () => {
-                    listaPacks.forEach((b) => b.classList.remove('active', 'bg-primary-subtle', 'border-primary'));
-                    btnLista.classList.add('active', 'bg-primary-subtle', 'border-primary');
-                    
-                    idPackSeleccionadoInput.value = btnLista.dataset.id || '0';
-                    inputNombrePack.value = btnLista.dataset.nombre || '';
-                    inputPrecioPack.value = Number(btnLista.dataset.precio || 0).toFixed(2);
-                    
-                    if (checkIncluyeEnvase) checkIncluyeEnvase.checked = (btnLista.dataset.incluyeEnvase === '1');
-                    
-                    lblEstadoPack.textContent = 'Editando Combo';
-                    lblEstadoPack.className = 'badge bg-primary-subtle text-primary border border-primary-subtle mb-2';
-                    setEstadoBotonEliminar(idPackSeleccionadoInput.value);
-                    seccionComponentes.style.opacity = '1';
-                    seccionComponentes.style.pointerEvents = 'auto';
-                    panelVacio.classList.add('d-none');
-                    panelConfiguracion.classList.remove('d-none');
-                    panelConfiguracion.classList.add('d-flex');
-                    cargarComponentesDelPack(idPackSeleccionadoInput.value);
-                });
-
-                listaContenedor.prepend(btnLista);
-                listaPacks.push(btnLista);
+                document.querySelectorAll('.pack-item-btn').forEach((b) => b.classList.remove('active'));
+                listaPacksContainer.prepend(btnLista);
             }
 
             btnLista.click();
@@ -507,10 +505,9 @@
                 const data = await response.json();
                 if (!response.ok || !data.ok) throw new Error(data.mensaje || 'No se pudo eliminar.');
 
-                const idx = listaPacks.findIndex((btn) => Number(btn.dataset.id || 0) === idPack);
-                if (idx >= 0) {
-                    listaPacks[idx].remove();
-                    listaPacks.splice(idx, 1);
+                const btnToRemove = document.querySelector(`.pack-item-btn[data-id="${idPack}"]`);
+                if (btnToRemove) {
+                    btnToRemove.remove();
                 }
 
                 idPackSeleccionadoInput.value = '0';
@@ -538,8 +535,8 @@
             const items = Array.isArray(data.items) ? data.items : [];
             return items.map(item => ({
                 value: String(item.id),
-                text: `${item.nombre} - [${(item.tipo_item || 'Ítem').toUpperCase()}]`,
-                requiere_envase: item.requiere_envase // Guardamos si el item pide envase
+                text: `${item.nombre} [${(item.tipo_item || 'Ítem').toUpperCase()}]`,
+                requiere_envase: item.requiere_envase 
             }));
         } catch (error) {
             console.error('Error al poblar Tom Select:', error.message);

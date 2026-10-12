@@ -104,7 +104,7 @@ class ReporteComprasController extends Controlador
             'ruta_actual' => 'reportes/compras',
             'filtros' => $f,
             'almacenesFiltro' => $this->inventario->listarAlmacenesActivos(), 
-            'categoriasFiltro' => $this->compras->listarCategoriasParaCompras(), // <---- CAMBIO APLICADO
+            'categoriasFiltro' => $this->compras->listarCategoriasParaCompras(),
             'insumoSeleccionado' => $this->compras->obtenerInsumoPorId($f['id_item']),
             'proveedorSeleccionado' => $this->compras->obtenerProveedorPorId($f['id_proveedor']),
             'porPeriodo' => ($seccionActiva === 'tendencias') ? $this->compras->comprasPorPeriodo($f, $f['agrupacion'], $limiteTendencia) : [],
@@ -117,15 +117,16 @@ class ReporteComprasController extends Controlador
         ]);
     }
 
-
     private function filtrosPeriodo(): array
     {
         $fechaDesde = trim((string) ($_GET['fecha_desde'] ?? ''));
         $fechaHasta = trim((string) ($_GET['fecha_hasta'] ?? ''));
 
         if ($fechaDesde === '' || $fechaHasta === '') {
-            $fechaDesde = date('Y-m-d', strtotime('-30 days'));
-            $fechaHasta = date('Y-m-d');
+            // El primer día del mes actual (ej. 01/10/2026)
+            $fechaDesde = date('Y-m-01');
+            // El día de hoy (ej. 12/10/2026)
+            $fechaHasta = date('Y-m-d'); 
         }
 
         if ($fechaDesde > $fechaHasta) {

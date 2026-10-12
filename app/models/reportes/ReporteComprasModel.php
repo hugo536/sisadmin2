@@ -82,16 +82,15 @@ class ReporteComprasModel extends Modelo
         $count = $this->db()->prepare("SELECT COUNT(*) FROM compras_ordenes o WHERE {$w}");
         $count->execute($params);
 
-        // CORRECCIÓN: Usamos cantidad_base_solicitada para que coincida con la unidad de medida de cantidad_recibida
         $sql = "SELECT o.codigo,
                        t.nombre_completo AS proveedor,
                        ROUND(COALESCE(SUM(COALESCE(od.cantidad_base_solicitada, od.cantidad_solicitada)),0),2) AS solicitado,
                        ROUND(COALESCE(SUM(od.cantidad_recibida),0),2) AS recibido,
-                       ROUND(CASE 
+                       COALESCE(ROUND(CASE 
                            WHEN SUM(COALESCE(od.cantidad_base_solicitada, od.cantidad_solicitada)) > 0 
                            THEN (SUM(od.cantidad_recibida) / SUM(COALESCE(od.cantidad_base_solicitada, od.cantidad_solicitada))) * 100 
                            ELSE 0 
-                       END, 2) AS pct_cumplimiento,
+                       END, 2), 0) AS pct_cumplimiento,
                        CASE WHEN o.fecha_entrega_estimada IS NOT NULL AND DATE(o.fecha_entrega_estimada) < CURDATE() AND o.estado IN (1,2) THEN 1 ELSE 0 END AS retrasada
                 FROM compras_ordenes o
                 INNER JOIN terceros t ON t.id = o.id_proveedor
@@ -109,10 +108,6 @@ class ReporteComprasModel extends Modelo
 
         return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [], 'total' => (int) $count->fetchColumn()];
     }
-
-    // =========================================================================
-    // NUEVOS MÉTODOS AÑADIDOS PARA HOMOLOGAR CON VENTAS
-    // =========================================================================
 
     public function comprasPorPeriodo(array $f, string $agrupacion = 'diaria', int $limite = 12): array
     {
@@ -266,13 +261,9 @@ class ReporteComprasModel extends Modelo
     public function buscarInsumosAjax(string $q, int $idCategoria = 0, int $limite = 40): array
     {
         $params = [];
-        
-        // Corregido: usamos los valores exactos del ENUM de tu base de datos
         $where = ["deleted_at IS NULL", "tipo_item NOT IN ('producto_terminado', 'semielaborado')"];
 
         if ($q !== '') {
-            // MySQL no permite reutilizar un marcador nombrado cuando PDO usa
-            // sentencias preparadas nativas.
             $where[] = "(nombre LIKE :q_nombre OR sku LIKE :q_sku)";
             $params['q_nombre'] = "%{$q}%";
             $params['q_sku'] = "%{$q}%";
@@ -285,7 +276,6 @@ class ReporteComprasModel extends Modelo
 
         $w = implode(' AND ', $where);
         
-        // Corregido: Seleccionamos 'sku'
         $sql = "SELECT id, nombre, sku, tipo_item 
                 FROM items 
                 WHERE {$w} 

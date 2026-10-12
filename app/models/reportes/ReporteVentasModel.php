@@ -57,25 +57,29 @@ class ReporteVentasModel extends Modelo
     {
         $condiciones = ["d.id_documento_venta = {$aliasDocumento}.id", "d.deleted_at IS NULL"];
         
-        // FORZAMOS: Solo contabilizar "Productos Terminados"
-        $condiciones[] = "i.tipo_item = 'producto_terminado'";
+        // PERMITIMOS: Productos Terminados O Packs Consolidados
+        $condiciones[] = "(i.tipo_item = 'producto_terminado' OR d.id_presentacion IS NOT NULL)";
 
         if (!empty($f['id_categoria'])) {
             $condiciones[] = 'i.id_categoria = :id_categoria';
             $params['id_categoria'] = (int) $f['id_categoria'];
         }
 
-        if (!empty($f['id_item'])) {
-            $condiciones[] = 'd.id_item = :id_item';
-            $params['id_item'] = (int) $f['id_item'];
+        // LÓGICA CORREGIDA PARA PACKS VS ITEMS
+        if (!empty($f['id_pack']) || !empty($f['id_presentacion'])) {
+            $condiciones[] = 'd.id_presentacion = :id_pack_filtro';
+            $params['id_pack_filtro'] = (int) (!empty($f['id_pack']) ? $f['id_pack'] : $f['id_presentacion']);
+        } elseif (!empty($f['id_item'])) {
+            $condiciones[] = 'd.id_item = :id_item_filtro';
+            $params['id_item_filtro'] = (int) $f['id_item'];
         }
 
-        // Unificamos todo en una sola subconsulta EXISTS para mayor velocidad
+        // Usamos LEFT JOIN para no descartar packs que no tengan id_item asignado
         $wDetalle = implode(' AND ', $condiciones);
         $where[] = "EXISTS (
             SELECT 1 
             FROM ventas_documentos_detalle d 
-            INNER JOIN items i ON i.id = d.id_item 
+            LEFT JOIN items i ON i.id = d.id_item 
             WHERE {$wDetalle}
         )";
     }
@@ -85,16 +89,14 @@ class ReporteVentasModel extends Modelo
         $offset = ($pagina - 1) * $tamano;
         $params = ['fd' => $f['fecha_desde'], 'fh' => $f['fecha_hasta']];
         
-        // MODIFICACIÓN: Agregamos v.tipo_operacion = 'VENTA' para que no sume clientes a los que se les donó
         $where = ["v.tipo_operacion = 'VENTA'", 'v.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh'];
         
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
         
-        // Usamos nuestro filtro de items
         $this->aplicarFiltroItem($where, $params, $f, 'v');
 
         if (($f['estado'] ?? 'validas') === 'validas') {
-            $where[] = 'v.estado NOT IN (0, 9)'; // Ni borradores ni anuladas
+            $where[] = 'v.estado NOT IN (0, 9)'; 
         } elseif ($f['estado'] !== 'todas' && $f['estado'] !== '') {
             $where[] = 'v.estado = :estado';
             $params['estado'] = (int) $f['estado'];
@@ -130,14 +132,23 @@ class ReporteVentasModel extends Modelo
         
         $where = ["v.tipo_operacion = 'VENTA'", 'v.deleted_at IS NULL', 'd.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh'];
         
-        $where[] = "i.tipo_item = 'producto_terminado'";
-        if (!empty($f['id_categoria'])) { $where[] = 'i.id_categoria = :id_categoria'; $params['id_categoria'] = (int) $f['id_categoria']; }
+        // PERMITIMOS: Productos Terminados O Packs Consolidados
+        $where[] = "(i.tipo_item = 'producto_terminado' OR d.id_presentacion IS NOT NULL)";
         
+        if (!empty($f['id_categoria'])) { $where[] = 'i.id_categoria = :id_categoria'; $params['id_categoria'] = (int) $f['id_categoria']; }
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
-        if (!empty($f['id_item'])) { $where[] = 'd.id_item = :id_item'; $params['id_item'] = (int) $f['id_item']; }
-        if (!empty($f['id_presentacion'])) { $where[] = 'd.id_presentacion = :id_presentacion'; $params['id_presentacion'] = (int) $f['id_presentacion']; }
+        
+        // LÓGICA CORREGIDA PARA PACKS VS ITEMS
+        if (!empty($f['id_pack']) || !empty($f['id_presentacion'])) { 
+            $where[] = 'd.id_presentacion = :id_pack_filtro'; 
+            $params['id_pack_filtro'] = (int) (!empty($f['id_pack']) ? $f['id_pack'] : $f['id_presentacion']); 
+        } elseif (!empty($f['id_item'])) { 
+            $where[] = 'd.id_item = :id_item_filtro'; 
+            $params['id_item_filtro'] = (int) $f['id_item']; 
+        }
+
         if (($f['estado'] ?? 'validas') === 'validas') {
-            $where[] = 'v.estado NOT IN (0, 9)'; // Ni borradores ni anuladas
+            $where[] = 'v.estado NOT IN (0, 9)'; 
         } elseif ($f['estado'] !== 'todas' && $f['estado'] !== '') {
             $where[] = 'v.estado = :estado';
             $params['estado'] = (int) $f['estado'];
@@ -145,7 +156,8 @@ class ReporteVentasModel extends Modelo
         $this->aplicarFiltroTipoTercero($where, $params, $f, 'v');
         $w = implode(' AND ', $where);
 
-        $sql = "SELECT COALESCE(i.nombre, pp.nombre) AS producto,
+        // EXTRAEMOS EL NOMBRE DEL PACK (pp.nombre) SI EL PRODUCTO ES UN COMBO
+        $sql = "SELECT COALESCE(pp.nombre, i.nombre) AS producto,
                        ROUND(SUM(d.cantidad),2) AS total_cantidad,
                        ROUND(SUM(d.cantidad * d.precio_unitario),2) AS total_monto 
                 FROM ventas_documentos v
@@ -172,9 +184,7 @@ class ReporteVentasModel extends Modelo
         $where = ['v.deleted_at IS NULL', 'DATE(v.fecha_emision) BETWEEN :fd AND :fh', 'v.estado IN (2,6)'];
         if (!empty($f['id_cliente'])) { $where[] = 'v.id_cliente = :id_cliente'; $params['id_cliente'] = (int) $f['id_cliente']; }
         
-        // Usamos nuestro filtro de items
         $this->aplicarFiltroItem($where, $params, $f, 'v');
-
         $this->aplicarFiltroTipoTercero($where, $params, $f, 'v');
         $w = implode(' AND ', $where);
 
@@ -213,11 +223,10 @@ class ReporteVentasModel extends Modelo
             $params['id_cliente'] = (int) $f['id_cliente'];
         }
         
-        // Usamos nuestro filtro de items
         $this->aplicarFiltroItem($where, $params, $f, 'v');
 
         if (($f['estado'] ?? 'validas') === 'validas') {
-            $where[] = 'v.estado NOT IN (0, 9)'; // Ni borradores ni anuladas
+            $where[] = 'v.estado NOT IN (0, 9)';
         } elseif ($f['estado'] !== 'todas' && $f['estado'] !== '') {
             $where[] = 'v.estado = :estado';
             $params['estado'] = (int) $f['estado'];
@@ -276,7 +285,6 @@ class ReporteVentasModel extends Modelo
         return array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
     }
 
-    // --- NUEVA FUNCIÓN AGREGADA AQUÍ ---
     public function categoriasProductosTerminados(): array
     {
         $sql = "SELECT DISTINCT c.id, c.nombre 

@@ -49,10 +49,13 @@ class PacksController extends Controlador
             return;
         }
 
+        // AQUÍ AGREGAMOS LAS DOS NUEVAS VARIABLES AL PAYLOAD
         $payload = [
             'id' => (int) ($_POST['id'] ?? 0),
             'nombre' => trim((string) ($_POST['nombre'] ?? '')),
             'precio_venta' => (float) str_replace(',', '.', (string) ($_POST['precio_venta'] ?? 0)),
+            'tipo_combo' => trim((string) ($_POST['tipo_combo'] ?? 'consolidado')),
+            'incluye_envase' => (int) ($_POST['incluye_envase'] ?? 0),
         ];
 
         try {

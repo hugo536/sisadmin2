@@ -1,0 +1,107 @@
+/* ==========================================================================
+   ESTILOS ESPECÍFICOS PARA EL MÓDULO DE REPORTES DE VENTAS
+   Archivo: public/assets/css/reportes/ventas.css
+   ========================================================================== */
+
+/* --- 1. ANIMACIONES BÁSICAS --- */
+.fade-in {
+    animation: fadeIn 0.4s ease-in-out;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.transition-hover {
+    transition: all 0.2s ease-in-out;
+}
+.transition-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* --- 2. FIX PARA TOMSELECT (Evitar deformaciones con nombres largos) --- */
+.ts-wrapper {
+    min-width: 0; /* Obliga al contenedor a respetar los límites del padre */
+}
+.ts-control {
+    height: 38px !important;
+    min-height: 38px !important;
+    display: flex !important;
+    flex-wrap: nowrap !important; /* Evita que el texto baje a una segunda línea */
+    align-items: center !important;
+    overflow: hidden !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    border-radius: 0.375rem !important;
+}
+.ts-control > .item {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 85% !important; /* Deja espacio para la flecha y el botón de borrar */
+    margin-bottom: 0 !important;
+}
+.ts-dropdown {
+    z-index: 1055 !important; /* Asegurar que quede por encima de otros elementos */
+}
+
+/* --- 3. ESTILOS DE TABS (PESTAÑAS DE SECCIONES) --- */
+.nav-tabs .btn-tab-seccion {
+    color: #6c757d;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+.nav-tabs .btn-tab-seccion:hover {
+    color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.03);
+    border-bottom-color: rgba(13, 110, 253, 0.3);
+}
+.nav-tabs .btn-tab-seccion.active {
+    color: #0d6efd !important;
+    background-color: #ffffff !important;
+    border-bottom: 3px solid #0d6efd !important;
+    font-weight: 600;
+}
+
+/* --- 4. CONTENEDORES DE GRÁFICOS (CHART.JS) --- */
+.chart-container {
+    position: relative;
+    width: 100%;
+    flex-grow: 1;
+    min-height: 350px;
+}
+
+/* --- 5. ESTADOS VACÍOS Y WIDGETS --- */
+.empty-msg-row td {
+    background-color: #f8f9fa !important;
+    border-bottom: none !important;
+}
+
+.empty-state-icon {
+    transition: transform 0.3s ease;
+}
+.empty-state-container:hover .empty-state-icon {
+    transform: scale(1.1);
+}
+
+/* Asegurar que las tarjetas de resumen destaquen */
+.widget-resumen {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+.widget-resumen:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08) !important;
+}
+
+/* --- SCROLL HORIZONTAL INVISIBLE PARA PESTAÑAS EN MÓVIL --- */
+.hide-scrollbar {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE y Edge */
+}
+.hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari y Opera */
+}

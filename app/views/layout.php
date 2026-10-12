@@ -57,6 +57,14 @@
         <link rel="stylesheet" href="<?php echo e(asset_url('css/reportes/tesoreria_cxpxc.css')); ?>?v=<?php echo $getAssetVersion('css/reportes/tesoreria_cxpxc.css'); ?>">
     <?php endif; ?>
 
+    <?php if ($currentRoute === 'reportes/ventas'): ?>
+        <link rel="stylesheet" href="<?php echo e(asset_url('css/reportes/ventas.css')); ?>?v=<?php echo $getAssetVersion('css/reportes/ventas.css'); ?>">
+    <?php endif; ?>
+
+    <?php if ($currentRoute === 'reportes/compras'): ?>
+        <link rel="stylesheet" href="<?php echo e(asset_url('css/reportes/compras.css')); ?>?v=<?php echo $getAssetVersion('css/reportes/compras.css'); ?>">
+    <?php endif; ?>
+
     <?php if (str_starts_with($currentRoute, 'tesoreria')): ?>
         <?php if ($currentRoute === 'tesoreria/cuentas'): ?>
             <link rel="stylesheet" href="<?php echo e(asset_url('css/tesoreria/cuentas.css')); ?>?v=<?php echo $getAssetVersion('css/tesoreria/cuentas.css'); ?>">
@@ -182,6 +190,7 @@ if (!str_starts_with($temaElegido, 'theme-')) {
     <script src="<?php echo e(asset_url('js/items/unidades_conversion.js')); ?>?v=<?php echo $getAssetVersion('js/items/unidades_conversion.js'); ?>"></script>
     <script src="<?php echo e(asset_url('js/items/main.js')); ?>?v=<?php echo $getAssetVersion('js/items/main.js'); ?>"></script>
     <script src="<?php echo e(asset_url('js/items/perfil.js')); ?>?v=<?php echo $getAssetVersion('js/items/perfil.js'); ?>"></script>
+    <script src="<?php echo e(asset_url('js/items/packs.js')); ?>?v=<?php echo $getAssetVersion('js/items/packs.js'); ?>"></script>
 <?php endif; ?>
 
 <?php if (str_starts_with($currentRoute, 'terceros')): ?>

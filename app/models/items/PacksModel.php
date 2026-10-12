@@ -17,7 +17,10 @@ class PacksModel
      */
     public function obtenerTodosLosPacks(): array
     {
-        $sql = "SELECT id, 'SIN-SKU' as sku, nombre, precio_venta 
+        // Añadimos tipo_combo e incluye_envase a la lectura
+        $sql = "SELECT id, 'SIN-SKU' as sku, nombre, precio_venta, 
+                       COALESCE(tipo_combo, 'consolidado') AS tipo_combo,
+                       COALESCE(incluye_envase, 0) AS incluye_envase
                 FROM precios_presentaciones 
                 WHERE estado = 1 
                   AND deleted_at IS NULL 
@@ -38,6 +41,11 @@ class PacksModel
         $id = (int) ($payload['id'] ?? 0);
         $nombre = trim((string) ($payload['nombre'] ?? ''));
         $precioVenta = (float) ($payload['precio_venta'] ?? 0); 
+        
+        // RECUPERAMOS LAS NUEVAS VARIABLES
+        $tipoCombo = trim((string) ($payload['tipo_combo'] ?? 'consolidado'));
+        $incluyeEnvase = (int) ($payload['incluye_envase'] ?? 0);
+        
         $usuarioId = (int) ($_SESSION['id'] ?? $_SESSION['usuario_id'] ?? 1);
 
         if ($nombre === '') {
@@ -46,26 +54,35 @@ class PacksModel
 
         try {
             if ($id > 0) {
-                // Actualizar pack existente
+                // Actualizar pack existente (agregamos tipo_combo e incluye_envase)
                 $sql = "UPDATE precios_presentaciones 
-                        SET nombre = :nombre, precio_venta = :precio_venta, updated_by = :updated_by 
+                        SET nombre = :nombre, 
+                            precio_venta = :precio_venta, 
+                            tipo_combo = :tipo_combo,
+                            incluye_envase = :incluye_envase,
+                            updated_by = :updated_by 
                         WHERE id = :id";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([
                     'nombre' => $nombre,
                     'precio_venta' => $precioVenta,
+                    'tipo_combo' => $tipoCombo,
+                    'incluye_envase' => $incluyeEnvase,
                     'updated_by' => $usuarioId,
                     'id' => $id
                 ]);
                 return $id;
             } else {
-                // Insertar nuevo pack
-                $sql = "INSERT INTO precios_presentaciones (nombre, precio_venta, estado, created_by, updated_by) 
-                        VALUES (:nombre, :precio_venta, 1, :created_by, :updated_by)";
+                // Insertar nuevo pack (agregamos tipo_combo e incluye_envase)
+                $sql = "INSERT INTO precios_presentaciones 
+                        (nombre, precio_venta, tipo_combo, incluye_envase, estado, created_by, updated_by) 
+                        VALUES (:nombre, :precio_venta, :tipo_combo, :incluye_envase, 1, :created_by, :updated_by)";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([
                     'nombre' => $nombre,
                     'precio_venta' => $precioVenta,
+                    'tipo_combo' => $tipoCombo,
+                    'incluye_envase' => $incluyeEnvase,
                     'created_by' => $usuarioId,
                     'updated_by' => $usuarioId
                 ]);
@@ -81,7 +98,6 @@ class PacksModel
      */
     public function buscarComponentes(string $termino): array
     {
-        // Traemos TODO menos los que sean tipo 'pack' y leemos si exige envase
         $sql = "SELECT id, nombre, sku, unidad_base, tipo_item, COALESCE(es_envase_retornable, 0) AS requiere_envase
                 FROM items
                 WHERE estado = 1 
@@ -106,7 +122,6 @@ class PacksModel
      */
     public function obtenerComponentesPorPack(int $idPack): array
     {
-        // Leemos también la columna es_envase_retornable del ítem (componente)
         $sql = "SELECT d.id AS id_detalle,
                        d.id_item,
                        i.nombre AS nombre_item,
@@ -126,7 +141,7 @@ class PacksModel
     }
 
     /**
-     * 5. Añade un componente a TU tabla precios_presentaciones_detalle
+     * 5. Añade un componente
      */
     public function agregarComponente(array $payload): int
     {

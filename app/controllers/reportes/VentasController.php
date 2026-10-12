@@ -58,8 +58,11 @@ class ReporteVentasController extends Controlador
         $f['producto_filtro'] = $productoFiltro;
         $f['id_item'] = 0;
         $f['id_presentacion'] = 0;
+        $f['id_pack'] = 0; // <-- AÑADIMOS ESTO PARA EL MODELO
+
         if (preg_match('/^PACK-(\d+)$/', $productoFiltro, $coincidencia)) {
             $f['id_presentacion'] = (int) $coincidencia[1];
+            $f['id_pack'] = (int) $coincidencia[1]; // <-- ASIGNAMOS EL ID DEL PACK AQUÍ
         } elseif (preg_match('/^ITEM-(\d+)$/', $productoFiltro, $coincidencia)) {
             $f['id_item'] = (int) $coincidencia[1];
         } elseif (ctype_digit($productoFiltro)) {
@@ -129,8 +132,10 @@ class ReporteVentasController extends Controlador
         $fechaHasta = trim((string) ($_GET['fecha_hasta'] ?? ''));
 
         if ($fechaDesde === '' || $fechaHasta === '') {
-            $fechaDesde = date('Y-m-d', strtotime('-30 days'));
-            $fechaHasta = date('Y-m-d');
+            // El primer día del mes actual (ej. 01/10/2026)
+            $fechaDesde = date('Y-m-01');
+            // El día de hoy (ej. 12/10/2026)
+            $fechaHasta = date('Y-m-d'); 
         }
 
         if ($fechaDesde > $fechaHasta) {

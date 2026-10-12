@@ -13,7 +13,7 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
     $seccionActiva = 'tendencias';
 }
 ?>
-<div class="container-fluid p-4" id="reportesComprasApp">
+<div class="container-fluid p-3 p-md-4" id="reportesComprasApp">
     
     <!-- ENCABEZADO -->
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 fade-in">
@@ -41,44 +41,44 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
         </a>
     </div>
 
-    <!-- PESTAÑAS (Estilo "Carpeta" moderna) -->
-    <div class="bg-light pt-2 px-3 rounded-top border border-bottom-0 overflow-auto scrollbar-hide">
-        <ul class="nav nav-tabs border-bottom-0 mb-0 flex-nowrap text-nowrap" role="tablist">
+    <!-- PESTAÑAS (Estilo "Carpeta" moderna con Scroll Horizontal en Móvil) -->
+    <div class="bg-light pt-2 px-2 px-md-3 rounded-top border border-bottom-0">
+        <ul class="nav nav-tabs border-bottom-0 mb-0 flex-nowrap overflow-x-auto hide-scrollbar" role="tablist" style="white-space: nowrap; -webkit-overflow-scrolling: touch;">
             <li class="nav-item" role="presentation">
-                <a href="<?php echo e(route_url('reportes/compras')); ?>&seccion_activa=tendencias" 
-                   class="nav-link fs-6 fw-semibold py-3 px-4 <?php echo $seccionActiva === 'tendencias' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
-                    <i class="bi bi-graph-up-arrow me-2"></i>Tendencias y Periodos
+                <a href="#" data-seccion="tendencias" 
+                   class="btn-tab-seccion nav-link fs-6 fw-semibold py-2 py-md-3 px-3 px-md-4 <?php echo $seccionActiva === 'tendencias' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
+                    <i class="bi bi-graph-up-arrow me-1 me-md-2"></i>Tendencias
                 </a>
             </li>
             <li class="nav-item" role="presentation">
-                <a href="<?php echo e(route_url('reportes/compras')); ?>&seccion_activa=insumos" 
-                   class="nav-link fs-6 fw-semibold py-3 px-4 <?php echo $seccionActiva === 'insumos' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
-                    <i class="bi bi-star-fill me-2"></i>Top Insumos
+                <a href="#" data-seccion="insumos" 
+                   class="btn-tab-seccion nav-link fs-6 fw-semibold py-2 py-md-3 px-3 px-md-4 <?php echo $seccionActiva === 'insumos' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
+                    <i class="bi bi-star-fill me-1 me-md-2"></i>Insumos
                 </a>
             </li>
             <li class="nav-item" role="presentation">
-                <a href="<?php echo e(route_url('reportes/compras')); ?>&seccion_activa=proveedores" 
-                   class="nav-link fs-6 fw-semibold py-3 px-4 <?php echo $seccionActiva === 'proveedores' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
-                    <i class="bi bi-building me-2"></i>Por Proveedores
+                <a href="#" data-seccion="proveedores" 
+                   class="btn-tab-seccion nav-link fs-6 fw-semibold py-2 py-md-3 px-3 px-md-4 <?php echo $seccionActiva === 'proveedores' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
+                    <i class="bi bi-building me-1 me-md-2"></i>Proveedores
                 </a>
             </li>
             <li class="nav-item" role="presentation">
-                <a href="<?php echo e(route_url('reportes/compras')); ?>&seccion_activa=cumplimiento" 
-                   class="nav-link fs-6 fw-semibold py-3 px-4 <?php echo $seccionActiva === 'cumplimiento' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
-                    <i class="bi bi-check2-circle me-2"></i>Cumplimiento OC
+                <a href="#" data-seccion="cumplimiento" 
+                   class="btn-tab-seccion nav-link fs-6 fw-semibold py-2 py-md-3 px-3 px-md-4 <?php echo $seccionActiva === 'cumplimiento' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
+                    <i class="bi bi-check2-circle me-1 me-md-2"></i>Cumplimiento
                 </a>
             </li>
             <li class="nav-item" role="presentation">
-                <a href="<?php echo e(route_url('reportes/compras')); ?>&seccion_activa=variacion" 
-                   class="nav-link fs-6 fw-semibold py-3 px-4 <?php echo $seccionActiva === 'variacion' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
-                    <i class="bi bi-tags-fill me-2"></i>Variación de Costos
+                <a href="#" data-seccion="variacion" 
+                   class="btn-tab-seccion nav-link fs-6 fw-semibold py-2 py-md-3 px-3 px-md-4 <?php echo $seccionActiva === 'variacion' ? 'active text-primary border-bottom-0 bg-white' : 'text-muted border-0 bg-transparent transition-hover'; ?>">
+                    <i class="bi bi-tags-fill me-1 me-md-2"></i>Variación
                 </a>
             </li>
         </ul>
     </div>
 
     <!-- TARJETA DE FILTROS -->
-    <div class="card border-0 shadow-sm mb-4 rounded-top-0 border-top border-primary border-3">
+    <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3 p-md-4 bg-white">
             <form class="row g-3 align-items-end" method="get" action="<?php echo e(route_url('reportes/compras')); ?>" id="formFiltrosReporteCompras">
                 <input type="hidden" name="ruta" value="reportes/compras">
@@ -170,22 +170,29 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
 
                 </div>
 
-                <!-- 2. BLOQUE DERECHO (Fechas y Botones Universales) -->
+                <!-- 2. BLOQUE DERECHO (Fechas y Botones Universales - Responsive Mobile First) -->
                 <div class="col-12 col-xl-5">
                     <label class="form-label text-muted small fw-bold mb-1 ms-1">Periodo de Fechas <span class="text-danger">*</span></label>
-                    <div class="input-group shadow-sm">
-                        <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
-                        <input type="date" name="fecha_desde" id="fecha_desde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
+                    <div class="d-flex flex-column flex-md-row gap-2">
+                        <!-- Desde -->
+                        <div class="input-group shadow-sm flex-fill">
+                            <span class="input-group-text bg-white text-muted border-end-0"><i class="bi bi-calendar3 d-md-none me-1"></i>Desde</span>
+                            <input type="date" name="fecha_desde" id="fecha_desde" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>" required>
+                        </div>
 
-                        <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
-                        <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
-                                                                                                                                                            
-                        <button class="btn btn-light border text-primary px-3 transition-hover" type="submit" title="Aplicar filtros">
-                            <i class="bi bi-funnel-fill"></i>
-                        </button>
-                        <button type="button" id="btnLimpiarFiltros" class="btn btn-light border text-danger px-3 transition-hover" title="Limpiar filtros">
-                            <i class="bi bi-eraser-fill"></i>
-                        </button>
+                        <!-- Hasta y Botones -->
+                        <div class="input-group shadow-sm flex-fill">
+                            <span class="input-group-text bg-white text-muted border-end-0 d-none d-md-flex">Hasta</span>
+                            <span class="input-group-text bg-white text-muted border-end-0 d-md-none"><i class="bi bi-calendar3 me-1"></i>Hasta</span>
+                            <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>" required>
+                            
+                            <button class="btn btn-primary px-3 transition-hover" type="submit" title="Aplicar filtros">
+                                <i class="bi bi-funnel-fill"></i>
+                            </button>
+                            <button type="button" class="btn btn-danger px-3 transition-hover" id="btnLimpiarFiltros" title="Limpiar fechas">
+                                <i class="bi bi-eraser-fill"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </form>
@@ -230,7 +237,7 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
             <div class="row g-4">
                 <!-- Gráfico -->
                 <div class="col-12 col-lg-7">
-                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light" style="position: relative; height: 450px;">
+                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light chart-container">
                         <canvas id="comprasPeriodoChart" 
                                 data-chart-data='<?php echo htmlspecialchars(json_encode($porPeriodo ?? []), ENT_QUOTES, 'UTF-8'); ?>'
                                 data-chart-type="<?php echo ($filtros['tipo_grafico'] ?? 'barras') === 'linea' ? 'line' : 'bar'; ?>">
@@ -316,9 +323,9 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
             <div class="row g-4">
                 <!-- Gráfico -->
                 <div class="col-12 col-lg-5">
-                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light d-flex flex-column h-100">
+                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light d-flex flex-column h-100 chart-container">
                         <h6 class="text-center fw-bold text-secondary mb-3"><i class="bi bi-pie-chart-fill me-2"></i>Distribución del Gasto</h6>
-                        <div style="flex: 1; position: relative; min-height: 350px;">
+                        <div style="flex: 1; position: relative;">
                             <canvas id="comprasInsumosChart" data-chart-data='<?php echo htmlspecialchars(json_encode($topInsumos ?? []), ENT_QUOTES, 'UTF-8'); ?>'></canvas>
                         </div>
                     </div>
@@ -388,11 +395,11 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                 
                 <!-- COLUMNA DEL GRÁFICO (Dona/Pastel) -->
                 <div class="col-12 col-lg-5">
-                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light d-flex flex-column h-100">
+                    <div class="border border-secondary-subtle rounded-3 p-3 bg-light d-flex flex-column h-100 chart-container">
                         <h6 class="text-center fw-bold text-secondary mb-3">
                             <i class="bi bi-pie-chart-fill me-2"></i>Concentración de Compras
                         </h6>
-                        <div style="flex: 1; position: relative; min-height: 350px;">
+                        <div style="flex: 1; position: relative;">
                             <canvas id="comprasProveedoresChart" 
                                     data-chart-data='<?php echo htmlspecialchars(json_encode($porProveedor['rows'] ?? []), ENT_QUOTES, 'UTF-8'); ?>'>
                             </canvas>
@@ -481,9 +488,9 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
 
         <div class="card-body p-0 d-flex flex-column">
             
-            <!-- TARJETAS DE RESUMEN (WIDGETS) SIMILARES A VENTAS -->
+            <!-- TARJETAS DE RESUMEN (WIDGETS) -->
             <div class="row g-3 px-4 pt-4 pb-3 border-bottom border-secondary-subtle bg-light">
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-4 widget-resumen">
                     <div class="p-3 border rounded-3 bg-white shadow-sm d-flex align-items-center h-100 border-start border-primary border-4">
                         <div class="bg-primary-subtle p-3 rounded-circle me-3">
                             <i class="bi bi-receipt fs-4 text-primary"></i>
@@ -494,7 +501,7 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                         </div>
                     </div>
                 </div>
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-4 widget-resumen">
                     <div class="p-3 border rounded-3 bg-white shadow-sm d-flex align-items-center h-100 border-start border-success border-4">
                         <div class="bg-success-subtle p-3 rounded-circle me-3">
                             <i class="bi bi-graph-up-arrow fs-4 text-success"></i>
@@ -505,7 +512,7 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
                         </div>
                     </div>
                 </div>
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-4 widget-resumen">
                     <div class="p-3 border rounded-3 bg-white shadow-sm d-flex align-items-center h-100 border-start border-danger border-4">
                         <div class="bg-danger-subtle p-3 rounded-circle me-3">
                             <i class="bi bi-exclamation-triangle-fill fs-4 text-danger"></i>
@@ -604,7 +611,7 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
         </div>
         
         <div class="card-body p-0 d-flex flex-column">
-            <div class="table-responsive bg-white">
+            <div class="table-responsive bg-white mt-2">
                 <table class="table align-middle mb-0 table-hover" id="tablaRepVariacion"
                        data-erp-table="true"
                        data-rows-per-page="12">
