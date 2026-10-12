@@ -126,10 +126,45 @@
             }
         });
 
+        // Reemplaza el evento submit actual por este
         formFiltros.addEventListener('submit', (e) => {
+            // Excepción Vital: Permitir descargas si se usan botones de exportar (PDF/Excel)
+            if (e.submitter && (e.submitter.name === 'exportar_pdf' || e.submitter.name === 'exportar_excel')) {
+                return; 
+            }
             e.preventDefault();
             procesarFiltros();
         });
+
+        // Agrega esto justo debajo para darle vida al botón rojo
+        const btnLimpiarFechasMov = document.getElementById('btnLimpiarFechasMov');
+        if (btnLimpiarFechasMov) {
+            btnLimpiarFechasMov.addEventListener('click', () => {
+                const hoy = new Date();
+                const haceUnaSemana = new Date();
+                haceUnaSemana.setDate(hoy.getDate() - 7);
+
+                const formatFecha = (d) => {
+                    const mes = String(d.getMonth() + 1).padStart(2, '0');
+                    const dia = String(d.getDate()).padStart(2, '0');
+                    return `${d.getFullYear()}-${mes}-${dia}`;
+                };
+
+                const fDesde = document.getElementById('filtroFechaDesde');
+                const fHasta = document.getElementById('filtroFechaHasta');
+                if (fDesde) fDesde.value = formatFecha(haceUnaSemana);
+                if (fHasta) fHasta.value = formatFecha(hoy);
+
+                // Limpiar todos los combos a su opción por defecto
+                ['filtroCuenta', 'filtroMetodo', 'filtroOrigen'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+
+                // Forzamos la recarga de datos con los filtros limpios
+                if (formFiltros.checkValidity()) procesarFiltros();
+            });
+        }
     }
 
     if (contenedorTabla) {

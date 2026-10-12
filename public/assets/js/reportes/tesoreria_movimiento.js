@@ -281,13 +281,44 @@
         formFiltros.addEventListener('submit', (e) => {
             sincronizarBusqueda();
 
-            // Excepción Vital: Si el clic fue en el botón de "PDF", permitimos el flujo normal
-            if (e.submitter && e.submitter.value === '1' && e.submitter.name === 'exportar_pdf') {
+            // Excepción Vital: Si el clic fue en el botón de "PDF" o "Excel", permitimos el flujo normal
+            if (e.submitter && e.submitter.value === '1' && (e.submitter.name === 'exportar_pdf' || e.submitter.name === 'exportar_excel')) {
                 return; 
             }
             e.preventDefault();
             procesarFiltros();
         });
+
+        // Funcionalidad del botón Rojo (Restablecer a 1 semana)
+        const btnLimpiarFechasMov = document.getElementById('btnLimpiarFechasMov');
+        
+        if (btnLimpiarFechasMov && filtroFechaDesde && filtroFechaHasta) {
+            btnLimpiarFechasMov.addEventListener('click', () => {
+                const hoy = new Date();
+                const haceUnaSemana = new Date();
+                haceUnaSemana.setDate(hoy.getDate() - 7); // Resta 7 días
+
+                // Función rápida para formato YYYY-MM-DD
+                const formatFecha = (d) => {
+                    const mes = String(d.getMonth() + 1).padStart(2, '0');
+                    const dia = String(d.getDate()).padStart(2, '0');
+                    return `${d.getFullYear()}-${mes}-${dia}`;
+                };
+
+                // Asignar los nuevos valores
+                filtroFechaDesde.value = formatFecha(haceUnaSemana);
+                filtroFechaHasta.value = formatFecha(hoy);
+
+                // Reiniciar los límites de validación
+                filtroFechaDesde.max = filtroFechaHasta.value;
+                filtroFechaHasta.min = filtroFechaDesde.value;
+
+                // Disparar automáticamente la recarga de la tabla
+                if (formFiltros.checkValidity()) {
+                    procesarFiltros();
+                }
+            });
+        }
 
         // ========================================================================
         // 5. INTERCEPTAR EVENTOS DENTRO DE LA TABLA (Delegación)

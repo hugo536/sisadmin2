@@ -134,65 +134,78 @@ class PermisoModel extends Modelo
         $this->catalogoBaseSincronizado = true;
 
         $catalogoBase = [
-            ['slug' => 'bitacora.ver', 'nombre' => 'Ver Bitácora', 'modulo' => 'BITÁCORA'],
-            ['slug' => 'config.ver', 'nombre' => 'Ver Configuración', 'modulo' => 'CONFIGURACIÓN'],
-            ['slug' => 'config.editar', 'nombre' => 'Editar Configuración', 'modulo' => 'CONFIGURACIÓN'],
-            ['slug' => 'items.ver', 'nombre' => 'Ver Ítems', 'modulo' => 'CATÁLOGO'],
-            ['slug' => 'items.crear', 'nombre' => 'Crear Ítems', 'modulo' => 'CATÁLOGO'],
-            ['slug' => 'items.editar', 'nombre' => 'Editar Ítems', 'modulo' => 'CATÁLOGO'],
-            ['slug' => 'items.eliminar', 'nombre' => 'Eliminar Ítems', 'modulo' => 'CATÁLOGO'],
-            ['slug' => 'inventario.ver', 'nombre' => 'Ver Inventario', 'modulo' => 'INVENTARIO'],
-            ['slug' => 'inventario.movimiento.crear', 'nombre' => 'Registrar Movimientos de Inventario', 'modulo' => 'INVENTARIO'],
-            ['slug' => 'terceros.ver', 'nombre' => 'Ver Terceros', 'modulo' => 'TERCEROS'],
-            ['slug' => 'terceros.crear', 'nombre' => 'Crear Terceros', 'modulo' => 'TERCEROS'],
-            ['slug' => 'terceros.editar', 'nombre' => 'Editar Terceros', 'modulo' => 'TERCEROS'],
-            ['slug' => 'terceros.eliminar', 'nombre' => 'Eliminar Terceros', 'modulo' => 'TERCEROS'],
-            ['slug' => 'distribuidores.ver', 'nombre' => 'Ver Distribuidores', 'modulo' => 'TERCEROS'],
-            ['slug' => 'asistencia.importar', 'nombre' => 'Importar Biométrico', 'modulo' => 'RRHH'],
-            ['slug' => 'ventas.ver', 'nombre' => 'Ver Ventas', 'modulo' => 'VENTAS'],
-            ['slug' => 'ventas.crear', 'nombre' => 'Crear Ventas', 'modulo' => 'VENTAS'],
-            ['slug' => 'ventas.aprobar', 'nombre' => 'Aprobar Ventas', 'modulo' => 'VENTAS'],
-            ['slug' => 'ventas.despachar', 'nombre' => 'Despachar Ventas', 'modulo' => 'VENTAS'],
-            ['slug' => 'ventas.eliminar', 'nombre' => 'Eliminar Ventas', 'modulo' => 'VENTAS'],
-            ['slug' => 'compras.ver', 'nombre' => 'Ver Compras', 'modulo' => 'COMPRAS'],
-            ['slug' => 'compras.crear', 'nombre' => 'Crear Compras', 'modulo' => 'COMPRAS'],
-            ['slug' => 'compras.aprobar', 'nombre' => 'Aprobar Compras', 'modulo' => 'COMPRAS'],
-            ['slug' => 'compras.recepcionar', 'nombre' => 'Recepcionar Compras', 'modulo' => 'COMPRAS'],
-            ['slug' => 'compras.eliminar', 'nombre' => 'Eliminar Compras', 'modulo' => 'COMPRAS'],
-            ['slug' => 'tesoreria.ver', 'nombre' => 'Ver Tesorería', 'modulo' => 'TESORERÍA'],
-            ['slug' => 'tesoreria.cxc.ver', 'nombre' => 'Ver Cuentas por Cobrar', 'modulo' => 'TESORERÍA'],
-            ['slug' => 'tesoreria.cxp.ver', 'nombre' => 'Ver Cuentas por Pagar', 'modulo' => 'TESORERÍA'],
-            ['slug' => 'tesoreria.cobros.registrar', 'nombre' => 'Registrar Cobros', 'modulo' => 'TESORERÍA'],
-            ['slug' => 'tesoreria.pagos.registrar', 'nombre' => 'Registrar Pagos', 'modulo' => 'TESORERÍA'],
-            ['slug' => 'tesoreria.movimientos.anular', 'nombre' => 'Anular Movimientos de Tesorería', 'modulo' => 'TESORERÍA'],
-            ['slug' => 'conta.ver', 'nombre' => 'Ver Contabilidad', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'conta.plan_contable.gestionar', 'nombre' => 'Gestionar Plan Contable', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'conta.asientos.crear', 'nombre' => 'Crear Asientos Contables', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'conta.asientos.anular', 'nombre' => 'Anular Asientos Contables', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'conta.periodos.ver', 'nombre' => 'Ver Períodos Contables', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'conta.periodos.cerrar', 'nombre' => 'Cerrar Períodos Contables', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'conta.reportes.ver', 'nombre' => 'Ver Reportes Contables', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'conta.conciliacion.gestionar', 'nombre' => 'Gestionar Conciliación Bancaria', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'conta.centros_costo.gestionar', 'nombre' => 'Gestionar Centros de Costo', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'conta.prorrateo.gestionar', 'nombre' => 'Gestionar Reglas de Prorrateo', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'activos.gestionar', 'nombre' => 'Gestionar Activos Fijos', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'conta.depreciacion.ejecutar', 'nombre' => 'Ejecutar Depreciación', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'conta.cierre.mensual', 'nombre' => 'Ejecutar Cierre Mensual', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'conta.cierre.anual', 'nombre' => 'Ejecutar Cierre Anual', 'modulo' => 'CONTABILIDAD'],
-            ['slug' => 'reportes.dashboard.ver', 'nombre' => 'Ver Dashboard de Reportes', 'modulo' => 'REPORTES'],
-            ['slug' => 'reportes.inventario.ver', 'nombre' => 'Ver Reporte de Inventario', 'modulo' => 'REPORTES'],
-            ['slug' => 'reportes.compras.ver', 'nombre' => 'Ver Reporte de Compras', 'modulo' => 'REPORTES'],
-            ['slug' => 'reportes.ventas.ver', 'nombre' => 'Ver Reporte de Ventas', 'modulo' => 'REPORTES'],
-            ['slug' => 'reportes.produccion.ver', 'nombre' => 'Ver Reporte de Producción', 'modulo' => 'REPORTES'],
-            ['slug' => 'reportes.tesoreria.ver', 'nombre' => 'Ver Reporte de Tesorería', 'modulo' => 'REPORTES'],
-            ['slug' => 'roles.ver', 'nombre' => 'Ver Roles y Permisos', 'modulo' => 'ROLES Y PERMISOS'],
-            ['slug' => 'roles.crear', 'nombre' => 'Crear Roles', 'modulo' => 'ROLES Y PERMISOS'],
-            ['slug' => 'roles.editar', 'nombre' => 'Editar Roles', 'modulo' => 'ROLES Y PERMISOS'],
-            ['slug' => 'roles.eliminar', 'nombre' => 'Eliminar Roles', 'modulo' => 'ROLES Y PERMISOS'],
-            ['slug' => 'usuarios.ver', 'nombre' => 'Ver Usuarios', 'modulo' => 'USUARIOS'],
-            ['slug' => 'usuarios.crear', 'nombre' => 'Crear Usuarios', 'modulo' => 'USUARIOS'],
-            ['slug' => 'usuarios.editar', 'nombre' => 'Editar Usuarios', 'modulo' => 'USUARIOS'],
-            ['slug' => 'usuarios.eliminar', 'nombre' => 'Eliminar Usuarios', 'modulo' => 'USUARIOS'],
+            // =========================================================
+            // PERMISOS GRANULARES DE VISTA (1:1 CON EL SIDEBAR)
+            // =========================================================
+
+            // CATÁLOGO E ÍTEMS
+            ['slug' => 'items.maestro.ver', 'nombre' => 'Maestro de Ítems', 'modulo' => 'CATÁLOGO'],
+            ['slug' => 'items.packs.ver', 'nombre' => 'Packs y Combos', 'modulo' => 'CATÁLOGO'],
+
+            // INVENTARIO
+            ['slug' => 'inventario.almacen.ver', 'nombre' => 'Inventario General', 'modulo' => 'INVENTARIO'],
+            ['slug' => 'inventario.envases.ver', 'nombre' => 'Control de Envases', 'modulo' => 'INVENTARIO'],
+
+            // COSTOS INDUSTRIALES
+            ['slug' => 'costos.analisis.ver', 'nombre' => 'Análisis de costos', 'modulo' => 'COSTOS INDUSTRIALES'],
+            ['slug' => 'costos.tarifas.ver', 'nombre' => 'Tarifas de Planta', 'modulo' => 'COSTOS INDUSTRIALES'],
+            ['slug' => 'costos.cierres.ver', 'nombre' => 'Cierres de costos', 'modulo' => 'COSTOS INDUSTRIALES'],
+            ['slug' => 'costos.alertas.ver', 'nombre' => 'Alertas y variaciones', 'modulo' => 'COSTOS INDUSTRIALES'],
+
+            // PRODUCCIÓN
+            ['slug' => 'produccion.recetas.ver', 'nombre' => 'Recetas (BOM)', 'modulo' => 'PRODUCCIÓN'],
+            ['slug' => 'produccion.ordenes.ver', 'nombre' => 'Órdenes de Producción', 'modulo' => 'PRODUCCIÓN'],
+
+            // RRHH
+            ['slug' => 'rrhh.biometrico.ver', 'nombre' => 'Importar Biométrico', 'modulo' => 'RRHH'],
+            ['slug' => 'rrhh.asistencia.ver', 'nombre' => 'Gestión de Asistencia', 'modulo' => 'RRHH'],
+            ['slug' => 'rrhh.planillas.ver', 'nombre' => 'Planillas y Pagos', 'modulo' => 'RRHH'],
+            ['slug' => 'rrhh.politicas.ver', 'nombre' => 'Políticas y Reglas', 'modulo' => 'RRHH'],
+
+            // GESTIÓN COMERCIAL
+            ['slug' => 'comercial.clientes.ver', 'nombre' => 'Precios Clientes', 'modulo' => 'COMERCIAL'],
+            ['slug' => 'comercial.proveedores.ver', 'nombre' => 'Precios Proveedor', 'modulo' => 'COMERCIAL'],
+
+            // GASTOS (Tal cual solicitaste)
+            ['slug' => 'gastos.conceptos.ver', 'nombre' => 'Conceptos de Gasto', 'modulo' => 'GASTOS'],
+            ['slug' => 'gastos.registros.ver', 'nombre' => 'Registro de Gastos', 'modulo' => 'GASTOS'],
+
+            // TESORERÍA
+            ['slug' => 'tesoreria.cuentas.ver', 'nombre' => 'Cuentas', 'modulo' => 'TESORERÍA'],
+            ['slug' => 'tesoreria.movimientos.ver', 'nombre' => 'Movimientos', 'modulo' => 'TESORERÍA'],
+            ['slug' => 'tesoreria.adelantos.ver', 'nombre' => 'Adelantos a Personal', 'modulo' => 'TESORERÍA'],
+            ['slug' => 'tesoreria.cxc.ver', 'nombre' => 'Ctas. por Cobrar', 'modulo' => 'TESORERÍA'],
+            ['slug' => 'tesoreria.cxp.ver', 'nombre' => 'Ctas. por Pagar', 'modulo' => 'TESORERÍA'],
+            ['slug' => 'tesoreria.saldos_iniciales.ver', 'nombre' => 'Saldos Iniciales', 'modulo' => 'TESORERÍA'],
+            ['slug' => 'tesoreria.prestamos.ver', 'nombre' => 'Préstamos Bancarios', 'modulo' => 'TESORERÍA'],
+
+            // CONTABILIDAD
+            ['slug' => 'conta.plan.ver', 'nombre' => 'Plan Contable', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.periodos.ver', 'nombre' => 'Periodos', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.asientos.ver', 'nombre' => 'Asientos', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.reportes.ver', 'nombre' => 'Reportes', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.centros_costo.ver', 'nombre' => 'Centros de costo', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.prorrateos.ver', 'nombre' => 'Reglas de prorrateo', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.conciliacion.ver', 'nombre' => 'Conciliación bancaria', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.activos.ver', 'nombre' => 'Activos fijos', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.cierres.ver', 'nombre' => 'Cierres contables', 'modulo' => 'CONTABILIDAD'],
+            ['slug' => 'conta.estados_financieros.ver', 'nombre' => 'Estados financieros', 'modulo' => 'CONTABILIDAD'],
+
+            // CONFIGURACIÓN
+            ['slug' => 'config.empresa.ver', 'nombre' => 'Datos Empresa', 'modulo' => 'CONFIGURACIÓN'],
+            ['slug' => 'config.almacenes.ver', 'nombre' => 'Almacenes', 'modulo' => 'CONFIGURACIÓN'],
+            ['slug' => 'config.cajas.ver', 'nombre' => 'Cajas y Bancos', 'modulo' => 'CONFIGURACIÓN'],
+            ['slug' => 'config.impuestos.ver', 'nombre' => 'Impuestos', 'modulo' => 'CONFIGURACIÓN'],
+            ['slug' => 'config.series.ver', 'nombre' => 'Series', 'modulo' => 'CONFIGURACIÓN'],
+
+            // REPORTES Y ANÁLISIS
+            ['slug' => 'reportes.dashboard.ver', 'nombre' => 'Dashboard Principal', 'modulo' => 'REPORTES'],
+            ['slug' => 'reportes.ventas.ver', 'nombre' => 'Ventas', 'modulo' => 'REPORTES'],
+            ['slug' => 'reportes.compras.ver', 'nombre' => 'Compras', 'modulo' => 'REPORTES'],
+            ['slug' => 'reportes.inventario.ver', 'nombre' => 'Inventario', 'modulo' => 'REPORTES'],
+            ['slug' => 'reportes.produccion.ver', 'nombre' => 'Producción', 'modulo' => 'REPORTES'],
+            ['slug' => 'reportes.cxc.ver', 'nombre' => 'Cuentas por Cobrar', 'modulo' => 'REPORTES'],
+            ['slug' => 'reportes.cxp.ver', 'nombre' => 'Cuentas por Pagar', 'modulo' => 'REPORTES'],
         ];
 
         $usaCreatedBy = $this->tablaTieneColumna('permisos_def', 'created_by');

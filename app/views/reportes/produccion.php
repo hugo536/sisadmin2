@@ -7,11 +7,64 @@
             </h1>
             <p class="text-muted small mb-0 ms-1">Análisis de productos terminados y consumo de insumos.</p>
         </div>
-        <div class="d-flex align-items-center gap-2">
-            <a href="javascript:history.back()" class="btn btn-outline-secondary shadow-sm fw-semibold">
-                <i class="bi bi-arrow-left me-2"></i>Volver
+        
+        <?php 
+            // 1. Ruta segura por defecto (Fallback principal)
+            $urlRegreso = route_url('reportes/dashboard');
+            
+            // 2. Revisar si viene un parámetro "origen" explícito en la URL
+            $origenParam = is_array($_GET['origen'] ?? '') ? ($_GET['origen'][0] ?? '') : ($_GET['origen'] ?? '');
+            $origenParam = strtoupper(trim((string)$origenParam));
+            
+            if ($origenParam === 'PRODUCCION') {
+                $urlRegreso = route_url('produccion/dashboard'); // Ajusta a tu ruta real
+            } elseif ($origenParam === 'INVENTARIO') {
+                $urlRegreso = route_url('inventario/dashboard'); // Ajusta a tu ruta real
+            } else {
+                // 3. Filtrar el Referer con Lista Blanca
+                $referer = $_SERVER['HTTP_REFERER'] ?? '';
+                $hostActual = $_SERVER['HTTP_HOST'] ?? '';
+                $refererHost = parse_url($referer, PHP_URL_HOST) ?? '';
+
+                if ($referer !== '' && $refererHost === $hostActual) {
+                    
+                    // --- LISTA BLANCA DE RUTAS PERMITIDAS PARA REPORTES DE PRODUCCION ---
+                    $rutasPermitidas = [
+                        'reportes/dashboard', 
+                        'produccion', 
+                        'inventario',
+                        'almacen',
+                        'dashboard'
+                    ];
+                    
+                    $esRefererValido = false;
+                    foreach ($rutasPermitidas as $rutaPermitida) {
+                        // Verificamos ruta válida y EVITAMOS bucles de esta misma página
+                        if (strpos($referer, $rutaPermitida) !== false && 
+                            strpos($referer, 'reportes/produccion') === false && 
+                            strpos($referer, 'reportes%2Fproduccion') === false) {
+                            $esRefererValido = true;
+                            break;
+                        }
+                    }
+
+                    // Si pasó el filtro de la lista blanca, lo usamos
+                    if ($esRefererValido) {
+                        $urlRegreso = $referer;
+                    }
+                }
+            }
+        ?>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <a href="<?= e($urlRegreso) ?>" 
+               onclick="if(typeof window.navigateWithoutReload === 'function') { event.preventDefault(); window.navigateWithoutReload(new window.URL(this.href, window.location.origin), true); }"
+               class="btn btn-light bg-white border border-secondary-subtle shadow-sm text-secondary fw-medium px-3 transition-hover d-inline-flex align-items-center text-nowrap">
+                <i class="bi bi-arrow-left me-2"></i>Regresar
             </a>
-            <a class="btn btn-outline-primary shadow-sm fw-semibold" href="<?php echo e(route_url('reportes/costos_produccion')); ?>">
+            
+            <a href="<?php echo e(route_url('reportes/costos_produccion')); ?>" 
+               onclick="if(typeof window.navigateWithoutReload === 'function') { event.preventDefault(); window.navigateWithoutReload(new window.URL(this.href, window.location.origin), true); }"
+               class="btn btn-outline-primary shadow-sm fw-semibold d-inline-flex align-items-center text-nowrap transition-hover px-3">
                 <i class="bi bi-graph-up-arrow me-2"></i>Costos de producción
             </a>
         </div>

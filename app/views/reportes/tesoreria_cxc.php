@@ -18,17 +18,66 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
 <div class="container-fluid p-4" id="reportesCxcApp" data-url-index="<?php echo e(base_url() . '/'); ?>">
     
     <!-- Cabecera de la página -->
-    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 fade-in gap-3">
         <div>
             <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center">
                 <i class="bi bi-pie-chart-fill me-2 text-primary"></i> Reporte Global de Cuentas por Cobrar
             </h1>
             <p class="text-muted small mb-0 ms-1"><?php echo e($periodoResumen); ?></p>
         </div>
-        <a href="<?php echo e(route_url('reportes/dashboard')); ?>" 
-        class="btn btn-light border shadow-sm fw-semibold text-secondary transition-hover sb-link"
-        style="width: fit-content; flex: 0 0 auto;">
-            <i class="bi bi-arrow-left-short fs-5 align-middle me-1"></i>Regresar
+        
+        <?php 
+            // 1. Ruta segura por defecto (Fallback principal)
+            $urlRegreso = route_url('reportes/dashboard');
+            
+            // 2. Revisar si viene un parámetro "origen" explícito en la URL
+            $origenParam = is_array($_GET['origen'] ?? '') ? ($_GET['origen'][0] ?? '') : ($_GET['origen'] ?? '');
+            $origenParam = strtoupper(trim((string)$origenParam));
+            
+            if ($origenParam === 'TESORERIA' || $origenParam === 'CXC') {
+                $urlRegreso = route_url('tesoreria/cxc'); // Ajusta a tu ruta real de Cuentas por Cobrar
+            } elseif ($origenParam === 'VENTAS') {
+                $urlRegreso = route_url('ventas/dashboard'); // Ajusta a tu ruta real
+            } else {
+                // 3. Filtrar el Referer con Lista Blanca
+                $referer = $_SERVER['HTTP_REFERER'] ?? '';
+                $hostActual = $_SERVER['HTTP_HOST'] ?? '';
+                $refererHost = parse_url($referer, PHP_URL_HOST) ?? '';
+
+                if ($referer !== '' && $refererHost === $hostActual) {
+                    
+                    // --- LISTA BLANCA DE RUTAS PERMITIDAS PARA REPORTES DE CXC ---
+                    $rutasPermitidas = [
+                        'reportes/dashboard', 
+                        'tesoreria', 
+                        'cxc', 
+                        'ventas',
+                        'clientes',
+                        'dashboard'
+                    ];
+                    
+                    $esRefererValido = false;
+                    foreach ($rutasPermitidas as $rutaPermitida) {
+                        // Verificamos ruta válida y EVITAMOS bucles de esta misma página
+                        if (strpos($referer, $rutaPermitida) !== false && 
+                            strpos($referer, 'reportes/cxc') === false && 
+                            strpos($referer, 'reportes%2Fcxc') === false) {
+                            $esRefererValido = true;
+                            break;
+                        }
+                    }
+
+                    // Si pasó el filtro de la lista blanca, lo usamos
+                    if ($esRefererValido) {
+                        $urlRegreso = $referer;
+                    }
+                }
+            }
+        ?>
+        <a href="<?= e($urlRegreso) ?>" 
+           onclick="if(typeof window.navigateWithoutReload === 'function') { event.preventDefault(); window.navigateWithoutReload(new window.URL(this.href, window.location.origin), true); }"
+           class="btn btn-light bg-white border border-secondary-subtle shadow-sm text-secondary fw-medium px-3 transition-hover d-inline-flex align-items-center text-nowrap">
+            <i class="bi bi-arrow-left me-2"></i>Regresar
         </a>
     </div>
 

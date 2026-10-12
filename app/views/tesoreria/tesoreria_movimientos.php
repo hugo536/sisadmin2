@@ -64,12 +64,13 @@
 
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-3 p-md-4">
-            <form method="get" action="<?= e(route_url('tesoreria/movimientos')) ?>" class="row g-2 align-items-center" id="formFiltrosMovimientos">
+            <form method="get" action="<?= e(route_url('tesoreria/movimientos')) ?>" class="row g-3 align-items-end" id="formFiltrosMovimientos">
                 <input type="hidden" name="ruta" value="tesoreria/movimientos">
 
-                <!-- Select de Cuentas -->
-                <div class="col-12 col-xl-3">
-                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="id_cuenta" id="filtroCuenta">
+                <!-- 1. CUENTA BANCARIA (3 columnas) -->
+                <div class="col-12 col-md-4 col-xl-3">
+                    <label class="form-label text-muted small fw-bold mb-1">Cuenta Bancaria / Caja</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="id_cuenta" id="filtroCuenta" style="height: 38px;">
                         <option value="">Todas las cuentas</option>
                         <?php foreach ($resumenCuentas as $c): ?>
                             <option value="<?= (int)($c['id'] ?? 0) ?>" <?= ((string)$idCuentaFiltro === (string)($c['id'] ?? 0)) ? 'selected' : '' ?>>
@@ -79,9 +80,10 @@
                     </select>
                 </div>
 
-                <!-- Select de Métodos -->
+                <!-- 2. MÉTODO DE PAGO (2 columnas) -->
                 <div class="col-12 col-md-4 col-xl-2">
-                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="id_metodo_pago" id="filtroMetodo">
+                    <label class="form-label text-muted small fw-bold mb-1">Método de Pago</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="id_metodo_pago" id="filtroMetodo" style="height: 38px;">
                         <option value="">Todos los métodos</option>
                         <?php if (!empty($metodos)): ?>
                             <?php foreach ($metodos as $m): ?>
@@ -97,9 +99,10 @@
                     </select>
                 </div>
 
-                <!-- Select de Origen -->
+                <!-- 3. ORIGEN / TIPO (2 columnas) -->
                 <div class="col-12 col-md-4 col-xl-2">
-                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="origen" id="filtroOrigen">
+                    <label class="form-label text-muted small fw-bold mb-1">Origen / Tipo</label>
+                    <select class="form-select bg-light border-secondary-subtle shadow-none text-secondary" name="origen" id="filtroOrigen" style="height: 38px;">
                         <option value="">Todos (Origen)</option>
                         <option value="CXC" <?= (($filtros['origen'] ?? '') === 'CXC') ? 'selected' : '' ?>>Cobros (CXC)</option>
                         <option value="CXP" <?= (($filtros['origen'] ?? '') === 'CXP') ? 'selected' : '' ?>>Pagos (CXP)</option>
@@ -107,22 +110,22 @@
                     </select>
                 </div>
                 
-                <!-- Fechas y Botones de Acción (Estilo Ventas) -->
-                <div class="col-12 col-md-12 col-xl-5">
-                    <div class="input-group shadow-sm">
+                <!-- 4. PERIODO DE FECHAS (5 columnas) -->
+                <div class="col-12 col-xl-5 mt-md-3 mt-xl-0">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Periodo de Fechas <span class="text-danger">*</span></label>
+                    <div class="input-group shadow-sm flex-nowrap">
                         <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
-                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-01')) ?>">
+                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary px-2" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-7 days'))) ?>" style="height: 38px; min-width: 110px;" required>
                         
                         <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
-                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>">
+                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary px-2" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-d')) ?>" style="height: 38px; min-width: 110px;" required>
                         
-                        <button type="submit" class="btn btn-light border text-primary px-3 transition-hover" title="Aplicar filtros" style="z-index: 0;">
+                        <button type="submit" id="btnFiltrarFechas" class="btn btn-primary px-3 transition-hover" style="height: 38px;" title="Aplicar filtros">
                             <i class="bi bi-funnel-fill"></i>
                         </button>
-                        
-                        <a href="<?= e(route_url('tesoreria/movimientos')) ?>" class="btn btn-light border text-danger px-3 transition-hover d-flex align-items-center" title="Limpiar filtros" style="z-index: 0;">
+                        <button type="button" id="btnLimpiarFechasMov" class="btn btn-danger px-3 transition-hover" style="height: 38px;" title="Restablecer (Última semana)">
                             <i class="bi bi-eraser-fill"></i>
-                        </a>
+                        </button>
                     </div>
                 </div>
             </form>

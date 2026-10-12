@@ -27,6 +27,7 @@ unset($permisosModulo);
         transition: all 0.2s ease-in-out;
         border: 1px solid #e9ecef;
         user-select: none;
+        border-left: 4px solid transparent !important;
     }
     
     .permiso-card:hover {
@@ -36,9 +37,21 @@ unset($permisosModulo);
         box-shadow: 0 0.25rem 0.75rem rgba(13, 110, 253, 0.08) !important;
     }
 
+    /* CSS Moderno: Si el checkbox está marcado, pinta la tarjeta de azul */
     .permiso-card:has(.form-check-input:checked) {
         border-color: #0d6efd;
         background-color: #f0f7ff !important;
+        border-left: 4px solid #0d6efd !important;
+    }
+
+    /* Animación de los Switches */
+    .form-switch .form-check-input {
+        transition: all 0.25s ease-in-out;
+    }
+    .form-switch .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+        box-shadow: 0 0 8px rgba(13, 110, 253, 0.4);
     }
 
     .accordion-header-master {
@@ -46,13 +59,13 @@ unset($permisosModulo);
         border-bottom: 1px solid #dee2e6;
     }
 
+    /* Efectos para mostrar el slug técnico al pasar el mouse o activar */
     .permiso-tecnico-wrapper {
         max-height: 0;
         opacity: 0;
         overflow: hidden;
         transition: all 0.3s ease;
     }
-
     .permiso-card:hover .permiso-tecnico-wrapper,
     .permiso-card:has(.form-check-input:checked) .permiso-tecnico-wrapper {
         max-height: 30px;
@@ -60,46 +73,27 @@ unset($permisosModulo);
         margin-top: 4px;
     }
 
-    /* ===================================================
-       NUEVO: ESTILOS PARA EL ACORDEÓN DEL ROL (MASTER)
-       =================================================== */
+    /* ACORDEÓN MASTER DE ROLES */
     .role-row-main td:first-child:hover {
         background-color: #f8f9fa;
     }
     
-    .role-chevron {
-        transition: transform 0.3s ease;
-    }
+    .role-chevron { transition: transform 0.3s ease; }
     
     /* Gira la flecha cuando el acordeón está abierto */
-    td[aria-expanded="true"] .role-chevron {
-        transform: rotate(180deg);
-    }
+    td[aria-expanded="true"] .role-chevron { transform: rotate(180deg); }
 
-    /* ===================================================
-       CORRECCIONES PARA MÓVILES
-       =================================================== */
+    /* CORRECCIONES PARA MÓVILES */
     @media (max-width: 767px) {
         #rolesTable td {
             white-space: normal !important;
             word-wrap: break-word !important;
             overflow-wrap: break-word !important;
         }
-
-        #rolesTable .role-row-main td .d-flex {
-            align-items: flex-start !important;
-        }
-        
-        #rolesTable .role-row-main td .d-flex > div:last-child {
-            min-width: 0;
-            flex: 1;
-        }
-
+        #rolesTable .role-row-main td .d-flex { align-items: flex-start !important; }
+        #rolesTable .role-row-main td .d-flex > div:last-child { min-width: 0; flex: 1; }
         #rolesTable .role-row-main .text-end {
-            display: flex;
-            justify-content: flex-end;
-            flex-wrap: wrap;
-            gap: 5px;
+            display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 5px;
         }
     }
 </style>
@@ -130,22 +124,12 @@ unset($permisosModulo);
         <div class="card-body p-2 p-sm-3">
             <ul class="nav nav-pills gap-2" id="rolesPermisosTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active fw-bold"
-                            id="tab-roles"
-                            data-bs-toggle="pill"
-                            data-bs-target="#pane-roles"
-                            type="button"
-                            role="tab">
+                    <button class="nav-link active fw-bold" id="tab-roles" data-bs-toggle="pill" data-bs-target="#pane-roles" type="button" role="tab">
                         <i class="bi bi-person-badge me-1"></i> Roles
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link fw-bold"
-                            id="tab-permisos"
-                            data-bs-toggle="pill"
-                            data-bs-target="#pane-permisos"
-                            type="button"
-                            role="tab">
+                    <button class="nav-link fw-bold" id="tab-permisos" data-bs-toggle="pill" data-bs-target="#pane-permisos" type="button" role="tab">
                         <i class="bi bi-key me-1"></i> Catálogo de Permisos
                     </button>
                 </li>
@@ -155,6 +139,9 @@ unset($permisosModulo);
 
     <div class="tab-content">
 
+        <!-- ============================================== -->
+        <!-- PESTAÑA: ROLES Y ASIGNACIÓN DE PERMISOS        -->
+        <!-- ============================================== -->
         <div class="tab-pane fade show active" id="pane-roles" role="tabpanel">
 
             <div class="card border-0 shadow-sm mb-3">
@@ -165,10 +152,7 @@ unset($permisosModulo);
                                 <span class="input-group-text bg-light border-end-0">
                                     <i class="bi bi-search text-muted"></i>
                                 </span>
-                                <input type="search"
-                                       class="form-control bg-light border-start-0 ps-0"
-                                       id="rolesSearch"
-                                       placeholder="Buscar rol...">
+                                <input type="search" class="form-control bg-light border-start-0 ps-0" id="rolesSearch" placeholder="Buscar rol...">
                             </div>
                         </div>
                         <div class="col-6 col-md-3">
@@ -194,7 +178,9 @@ unset($permisosModulo);
                                 <th class="text-end pe-4">Acciones</th>
                             </tr>
                             </thead>
-                            <tbody>
+                            
+                            <!-- CONTENEDOR MASTER PARA EXCLUSIVIDAD DE ACORDEONES DE ROL -->
+                            <tbody id="listaRolesMaster">
 
                             <?php foreach ($roles as $rol): ?>
                                 <?php
@@ -205,27 +191,21 @@ unset($permisosModulo);
                                 $rolUpdatedRaw = (string)($rol['updated_at'] ?? $rol['created_at'] ?? '');
                                 $rolUpdated = $rolUpdatedRaw !== '' ? date('d/m/Y h:i A', strtotime($rolUpdatedRaw)) : '-';
                                 $rolUpdatedBy = (string)($rol['updated_by_nombre'] ?? $rol['created_by_nombre'] ?? 'Sistema');
-                                $dataSearch = mb_strtolower(trim($rolNombre . ' ' . $rolSlug));
+                                $dataSearch = mb_strtolower(trim($rolNombre . ' ' .$rolSlug));
                                 ?>
 
-                                <tr class="role-row-main"
-                                    data-role-id="<?php echo $rolId; ?>"
-                                    data-search="<?php echo e($dataSearch); ?>"
-                                    data-estado="<?php echo $rolEstado; ?>">
+                                <!-- FILA PRINCIPAL DEL ROL -->
+                                <tr class="role-row-main" data-role-id="<?php echo $rolId; ?>" data-search="<?php echo e($dataSearch); ?>" data-estado="<?php echo $rolEstado; ?>">
                                     
-                                    <!-- COLUMNA 1: CONVERTIDA EN EL GATILLO DEL ACORDEÓN PRINCIPAL -->
-                                    <td class="ps-4" 
-                                        style="cursor: pointer; width: 45%;" 
+                                    <!-- COLUMNA GATILLO DEL ACORDEÓN -->
+                                    <td class="ps-4" style="cursor: pointer; width: 45%;" 
                                         data-bs-toggle="collapse" 
                                         data-bs-target="#collapseRol_<?php echo $rolId; ?>" 
                                         aria-expanded="false">
                                         
                                         <div class="d-flex align-items-center">
-                                            <!-- Ícono Chevron animado -->
                                             <i class="bi bi-chevron-down text-primary me-3 fs-5 role-chevron"></i>
-
-                                            <div class="avatar-circle me-3 bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center" 
-                                                 style="width:40px; height:40px; border-radius:50%; flex-shrink: 0;">
+                                            <div class="avatar-circle me-3 bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center" style="width:40px; height:40px; border-radius:50%; flex-shrink: 0;">
                                                 <i class="bi bi-shield-fill"></i>
                                             </div>
                                             <div>
@@ -251,57 +231,36 @@ unset($permisosModulo);
                                         <div class="text-secondary text-wrap text-break">Por: <?php echo e($rolUpdatedBy); ?></div>
                                     </td>
 
-                                    <!-- ACCIONES (Fuera del gatillo para evitar conflictos de clic) -->
                                     <td class="text-end pe-4">
                                         <div class="d-flex align-items-center justify-content-end gap-2">
-                                            
                                             <div class="form-check form-switch pt-1" data-bs-toggle="tooltip" title="Cambiar estado">
-                                                <input class="form-check-input switch-estado-rol" 
-                                                       type="checkbox" 
-                                                       role="switch"
-                                                       style="cursor: pointer; width: 2.5em; height: 1.25em;"
-                                                       data-id="<?php echo $rolId; ?>"
-                                                       <?php echo $rolEstado === 1 ? 'checked' : ''; ?>>
+                                                <input class="form-check-input switch-estado-rol" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" data-id="<?php echo $rolId; ?>" <?php echo $rolEstado === 1 ? 'checked' : ''; ?>>
                                             </div>
-
                                             <div class="vr bg-secondary opacity-25" style="height: 20px;"></div>
-
-                                            <button class="btn btn-sm btn-light text-primary border-0 bg-transparent btn-editar-rol"
-                                                    data-id="<?php echo $rolId; ?>"
-                                                    data-nombre="<?php echo e($rolNombre); ?>"
-                                                    data-estado="<?php echo $rolEstado; ?>"
-                                                    data-bs-toggle="tooltip"
-                                                    title="Editar Nombre">
-                                                <i class="bi bi-pencil-square fs-5"></i>
-                                            </button>
-
+                                            <button class="btn btn-sm btn-light text-primary border-0 bg-transparent btn-editar-rol" data-id="<?php echo $rolId; ?>" data-nombre="<?php echo e($rolNombre); ?>" data-estado="<?php echo $rolEstado; ?>" data-bs-toggle="tooltip" title="Editar Nombre"><i class="bi bi-pencil-square fs-5"></i></button>
                                             <form method="post" class="delete-form d-inline m-0">
                                                 <input type="hidden" name="accion" value="eliminar">
                                                 <input type="hidden" name="id" value="<?php echo $rolId; ?>">
-                                                <button type="submit"
-                                                        class="btn btn-sm btn-light text-danger border-0 bg-transparent"
-                                                        data-bs-toggle="tooltip"
-                                                        title="Eliminar Rol">
-                                                    <i class="bi bi-trash fs-5"></i>
-                                                </button>
+                                                <button type="submit" class="btn btn-sm btn-light text-danger border-0 bg-transparent" data-bs-toggle="tooltip" title="Eliminar Rol"><i class="bi bi-trash fs-5"></i></button>
                                             </form>
                                         </div>
                                     </td>
-                                </tr>
+                                    </tr>
 
-                                <tr class="role-row-detail bg-light-subtle" data-detail-for="<?php echo $rolId; ?>">
+                                    <!-- FILA DE DETALLE (ACORDEÓN DEL ROL) -->
+                                    <tr class="role-row-detail bg-light-subtle" data-detail-for="<?php echo $rolId; ?>">
                                     <td colspan="4" class="p-0 border-0">
                                         
-                                        <!-- NUEVO: EL CONTENEDOR COLLAPSE DEL ROL -->
-                                        <div class="collapse" id="collapseRol_<?php echo $rolId; ?>">
+                                        <!-- COLLAPSE DEL ROL (data-bs-parent cierra los otros roles automáticamente) -->
+                                        <div class="collapse" id="collapseRol_<?php echo $rolId; ?>" data-bs-parent="#listaRolesMaster">
                                             <div class="px-3 px-sm-4 py-3">
                                                 
                                                 <form method="post" class="permiso-form" id="formPermisos<?php echo $rolId; ?>">
                                                     <input type="hidden" name="accion" value="permisos">
                                                     <input type="hidden" name="id_rol" value="<?php echo $rolId; ?>">
 
-                                                    <!-- CABECERA: Botón Guardar -->
-                                                    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle gap-2">
+                                                    <!-- CABECERA STICKY DEL FORMULARIO -->
+                                                    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mb-3 pb-3 border-bottom border-secondary-subtle gap-2 position-sticky top-0 bg-light-subtle z-1" style="padding-top: 10px;">
                                                         <h6 class="fw-bold text-primary mb-0 text-wrap">
                                                             <i class="bi bi-sliders me-2"></i>Configuración de permisos: <span class="text-dark"><?php echo e($rolNombre); ?></span>
                                                         </h6>
@@ -310,8 +269,8 @@ unset($permisosModulo);
                                                         </button>
                                                     </div>
 
-                                                    <!-- ACORDEÓN FLUSH DE LOS MÓDULOS -->
-                                                    <div class="accordion accordion-flush shadow-sm rounded-3 overflow-hidden border bg-white" id="acordeonRol<?php echo $rolId; ?>">
+                                                    <!-- ACORDEÓN DE MÓDULOS -->
+                                                    <div class="accordion accordion-flush shadow-sm rounded-3 overflow-hidden border bg-white" id="acordeonRolModulos_<?php echo $rolId; ?>">
                                                         <?php $idx = 0; foreach ($permisosPorModulo as $modulo => $items): $idx++; ?>
                                                             
                                                             <?php
@@ -328,42 +287,41 @@ unset($permisosModulo);
                                                             <div class="accordion-item <?php echo $idx < count($permisosPorModulo) ? 'border-bottom' : ''; ?>">
                                                                 
                                                                 <!-- HEADER MÓDULO CON MASTER SWITCH -->
-                                                                <h2 class="accordion-header d-flex align-items-stretch accordion-header-master" id="heading<?php echo $rolId . $idx; ?>">
+                                                                <h2 class="accordion-header d-flex align-items-stretch accordion-header-master" id="heading_<?php echo $rolId . '_' . $idx; ?>">
                                                                     
+                                                                    <!-- Botón que despliega el módulo -->
                                                                     <button class="accordion-button collapsed py-3 px-4 bg-transparent shadow-none fw-semibold border-0 flex-grow-1"
-                                                                            type="button"
-                                                                            data-bs-toggle="collapse"
-                                                                            data-bs-target="#collapseModulo<?php echo $rolId . $idx; ?>">
+                                                                            type="button" data-bs-toggle="collapse"
+                                                                            data-bs-target="#collapseModulo_<?php echo $rolId . '_' . $idx; ?>">
                                                                         <div class="d-flex align-items-center">
                                                                             <span class="text-uppercase ls-1 text-dark fw-bold" style="letter-spacing: 0.5px;"><?php echo e((string)$modulo); ?></span>
                                                                             <span class="badge bg-primary text-white ms-3 rounded-pill"><?php echo count($items); ?></span>
                                                                         </div>
                                                                     </button>
                                                                     
-                                                                    <!-- MASTER SWITCH -->
-                                                                    <div class="d-flex align-items-center pe-4 ps-3 border-start fs-6 fw-normal">
+                                                                    <!-- MASTER SWITCH ("Todo") -->
+                                                                    <div class="d-flex align-items-center pe-4 ps-3 border-start fs-6 fw-normal" onclick="event.stopPropagation();">
                                                                         <div class="form-check form-switch m-0 d-flex align-items-center gap-2" data-bs-toggle="tooltip" title="Activar/Desactivar todo">
-                                                                            <label class="form-check-label text-muted d-none d-sm-block mb-0" 
-                                                                                   style="cursor: pointer; font-size: 0.85rem; font-weight: 600;" 
-                                                                                   for="master_<?php echo $rolId . '_' . $idx; ?>">Todo</label>
-                                                                            <input class="form-check-input m-0 switch-master-modulo" 
-                                                                                   type="checkbox" 
-                                                                                   role="switch" 
+                                                                            <label class="form-check-label text-muted d-none d-sm-block mb-0" style="cursor: pointer; font-size: 0.85rem; font-weight: 600;" for="master_<?php echo $rolId . '_' . $idx; ?>">Todo</label>
+                                                                            <input class="form-check-input m-0 switch-maestro" 
+                                                                                   type="checkbox" role="switch" 
                                                                                    id="master_<?php echo $rolId . '_' . $idx; ?>"
-                                                                                   data-target-class="child-perm-<?php echo $rolId . '-' . $idx; ?>"
+                                                                                   data-rol-id="<?php echo $rolId; ?>"
+                                                                                   data-modulo-id="<?php echo $idx; ?>"
                                                                                    style="width: 2.5em; height: 1.25em; cursor: pointer;"
                                                                                    <?php echo $todosActivos ? 'checked' : ''; ?>>
                                                                         </div>
                                                                     </div>
                                                                 </h2>
 
-                                                                <div id="collapseModulo<?php echo $rolId . $idx; ?>"
+                                                                <!-- CUERPO DEL MÓDULO (Cierra los otros módulos automáticamente) -->
+                                                                <div id="collapseModulo_<?php echo $rolId . '_' . $idx; ?>"
                                                                      class="accordion-collapse collapse"
-                                                                     data-bs-parent="#acordeonRol<?php echo $rolId; ?>">
+                                                                     data-bs-parent="#acordeonRolModulos_<?php echo $rolId; ?>">
                                                                     <div class="accordion-body bg-light px-4 py-4 border-top">
                                                                         
                                                                         <!-- GRID PERMISOS INDIVIDUALES -->
-                                                                        <div class="row g-3">
+                                                                        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
                                                                             <?php foreach ($items as $permiso): ?>
                                                                                 <?php
                                                                                 $permId   = (int)($permiso['id'] ?? 0);
@@ -372,22 +330,10 @@ unset($permisosModulo);
                                                                                 $checked  = in_array($permId, ($rol['permisos_ids'] ?? []), true);
                                                                                 ?>
                                                                                 
-                                                                                <div class="col-12 col-md-6 col-xl-4">
-                                                                                    <label class="form-check form-switch m-0 h-100 p-3 bg-white rounded-3 shadow-sm d-flex align-items-start gap-3 permiso-card" 
-                                                                                           style="cursor: pointer;"
-                                                                                           for="perm_<?php echo $rolId . '_' . $permId; ?>">
+                                                                                <div class="col">
+                                                                                    <label class="form-check form-switch m-0 h-100 p-3 bg-white rounded-3 shadow-sm d-flex align-items-start gap-3 permiso-card" style="cursor: pointer;" for="perm_<?php echo $rolId . '_' . $permId; ?>">
                                                                                         
-                                                                                        <input class="form-check-input m-0 flex-shrink-0 mt-1 permiso-check child-perm-<?php echo $rolId . '-' . $idx; ?>"
-                                                                                               type="checkbox"
-                                                                                               role="switch"
-                                                                                               id="perm_<?php echo $rolId . '_' . $permId; ?>" 
-                                                                                               name="permisos[]"
-                                                                                               value="<?php echo $permId; ?>"
-                                                                                               data-slug="<?php echo e($permSlug); ?>"
-                                                                                               style="width: 2.5em; height: 1.25em; cursor: pointer;"
-                                                                                               <?php echo $checked ? 'checked' : ''; ?>>
-                                                                                        
-                                                                                        <div class="d-flex flex-column justify-content-center w-100">
+                                                                                        <div class="d-flex flex-column justify-content-center w-100 pe-2">
                                                                                             <span class="fw-bold text-dark lh-sm" style="font-size: 0.9rem;"><?php echo e($permNom); ?></span>
                                                                                             <div class="permiso-tecnico-wrapper mt-1">
                                                                                                 <code class="text-secondary bg-light border px-2 py-1 rounded-2" style="font-size: 0.75rem;">
@@ -395,6 +341,16 @@ unset($permisosModulo);
                                                                                                 </code>
                                                                                             </div>
                                                                                         </div>
+
+                                                                                        <input class="form-check-input m-0 flex-shrink-0 mt-1 switch-hijo"
+                                                                                               type="checkbox" role="switch"
+                                                                                               name="permisos[]"
+                                                                                               value="<?php echo $permId; ?>"
+                                                                                               id="perm_<?php echo $rolId . '_' . $permId; ?>" 
+                                                                                               data-rol-id="<?php echo $rolId; ?>"
+                                                                                               data-modulo-id="<?php echo $idx; ?>"
+                                                                                               style="width: 2.5em; height: 1.25em; cursor: pointer;"
+                                                                                               <?php echo $checked ? 'checked' : ''; ?>>
                                                                                     </label>
                                                                                 </div>
                                                                             <?php endforeach; ?>
@@ -407,13 +363,11 @@ unset($permisosModulo);
                                                     </div>
                                                 </form>
                                             </div>
-                                        </div> <!-- CIERRE DEL COLLAPSE PRINCIPAL DEL ROL -->
-
+                                        </div> 
                                     </td>
                                 </tr>
 
                             <?php endforeach; ?>
-
                             </tbody>
                         </table>
                     </div>
@@ -426,9 +380,11 @@ unset($permisosModulo);
                     </div>
                 </div>
             </div>
-
         </div>
 
+        <!-- ============================================== -->
+        <!-- PESTAÑA: CATÁLOGO DE PERMISOS                  -->
+        <!-- ============================================== -->
         <div class="tab-pane fade" id="pane-permisos" role="tabpanel">
 
             <div class="card border-0 shadow-sm mb-3">
@@ -437,10 +393,7 @@ unset($permisosModulo);
                         <span class="input-group-text bg-light border-end-0">
                             <i class="bi bi-search text-muted"></i>
                         </span>
-                        <input type="search"
-                               id="permisoSearch"
-                               class="form-control bg-light border-start-0 ps-0"
-                               placeholder="Filtrar catálogo...">
+                        <input type="search" id="permisoSearch" class="form-control bg-light border-start-0 ps-0" placeholder="Filtrar catálogo...">
                     </div>
                 </div>
             </div>
@@ -479,9 +432,7 @@ unset($permisosModulo);
                                     ?>
                                     <tr data-search="<?php echo e($search); ?>">
                                         <td class="ps-4">
-                                            <span class="badge bg-light text-dark border text-wrap">
-                                                <?php echo e($mod); ?>
-                                            </span>
+                                            <span class="badge bg-light text-dark border text-wrap"><?php echo e($mod); ?></span>
                                         </td>
                                         <td><code class="text-primary text-break"><?php echo e($slug); ?></code></td>
                                         <td>
@@ -490,12 +441,10 @@ unset($permisosModulo);
                                                 <div class="small text-muted mt-1 text-wrap text-break"><?php echo e($desc); ?></div>
                                             <?php endif; ?>
                                         </td>
-
                                         <td class="small text-muted">
                                             <div class="text-wrap text-break"><i class="bi bi-clock me-1"></i><?php echo e($updatedAt); ?></div>
                                             <div class="text-secondary text-wrap text-break">Por: <?php echo e($updatedBy); ?></div>
                                         </td>
-
                                         <td class="text-center">
                                             <?php if ($est === 1): ?>
                                                 <span class="badge-status status-active">Activo</span>
@@ -517,6 +466,9 @@ unset($permisosModulo);
     </div>
 </div>
 
+<!-- ============================================== -->
+<!-- MODALES                                        -->
+<!-- ============================================== -->
 <div class="modal fade" id="modalCrearRol" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
@@ -578,6 +530,48 @@ unset($permisosModulo);
         </div>
     </div>
 </div>
+
+<!-- ============================================== -->
+<!-- JAVASCRIPT LOGICA DE SWITCHES                  -->
+<!-- ============================================== -->
 <script>
     window.MY_ROLE_ID = <?php echo (int)($_SESSION['id_rol'] ?? 0); ?>;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        'use strict';
+
+        // LÓGICA INTELIGENTE DE SWITCHES POR DELEGACIÓN DE EVENTOS
+        document.body.addEventListener('change', function(e) {
+            
+            // 1. SI SE TOCA UN SWITCH MAESTRO ("Todo")
+            if (e.target.classList.contains('switch-maestro')) {
+                const rolId = e.target.getAttribute('data-rol-id');
+                const moduloId = e.target.getAttribute('data-modulo-id');
+                const isChecked = e.target.checked;
+                
+                // Marcar/Desmarcar todos los hijos
+                const hijos = document.querySelectorAll(`.switch-hijo[data-rol-id="${rolId}"][data-modulo-id="${moduloId}"]`);
+                hijos.forEach(hijo => {
+                    hijo.checked = isChecked;
+                });
+            }
+
+            // 2. SI SE TOCA UN SWITCH HIJO (Permiso individual)
+            if (e.target.classList.contains('switch-hijo')) {
+                const rolId = e.target.getAttribute('data-rol-id');
+                const moduloId = e.target.getAttribute('data-modulo-id');
+                
+                // Buscar el switch maestro correspondiente
+                const maestro = document.querySelector(`.switch-maestro[data-rol-id="${rolId}"][data-modulo-id="${moduloId}"]`);
+                
+                if (maestro) {
+                    const total = document.querySelectorAll(`.switch-hijo[data-rol-id="${rolId}"][data-modulo-id="${moduloId}"]`).length;
+                    const checked = document.querySelectorAll(`.switch-hijo[data-rol-id="${rolId}"][data-modulo-id="${moduloId}"]:checked`).length;
+                    
+                    // Enciende el maestro si todos están marcados
+                    maestro.checked = (total > 0 && total === checked);
+                }
+            }
+        });
+    });
 </script>

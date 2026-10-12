@@ -76,6 +76,11 @@ class Router
                 $controlador_clase = 'ReporteVentasController';
                 $archivo_controlador = BASE_PATH . '/app/controllers/reportes/VentasController.php';
                 $accion = 'index';
+            
+            // ---> AGREGAR ESTAS LÍNEAS PARA TU NUEVO CONTROLLER <---
+            } elseif ($accion === 'tesoreria_movimientos') {
+                $controlador_clase = 'ReporteMovimientoController';
+                $accion = 'index';
             }
         }
 

@@ -1,6 +1,6 @@
 <?php
 // =====================================================================================
-// sidebar.php — Diseño mejorado con UX móvil y animaciones
+// sidebar.php — Diseño mejorado con UX móvil, animaciones y permisos granulares
 // - Desktop (>= lg): Sidebar fijo con colapso a iconos
 // - Mobile (< lg): Offcanvas
 // =====================================================================================
@@ -21,11 +21,6 @@ $linkGrupoActivo = static fn(array $rutas): string => array_reduce(
     static fn(bool $carry, string $ruta): bool => $carry || str_starts_with($rutaActual, $ruta),
     false
 ) ? ' active' : ' collapsed';
-
-// CORRECCIÓN 1: Se ajustaron los permisos base para los grupos principales
-$puedeVerComercial = tiene_permiso('terceros.ver') || tiene_permiso('items.ver') || tiene_permiso('ventas.ver') || tiene_permiso('compras.ver') || tiene_permiso('gastos.ver');
-$puedeVerRRHH = tiene_permiso('rrhh.ver') || tiene_permiso('asistencia.ver') || tiene_permiso('planillas.ver');
-$puedeVerDistribuidores = tiene_permiso('distribuidores.ver') || tiene_permiso('terceros.ver');
 
 $sidebarBadges = (isset($sidebarBadges) && is_array($sidebarBadges)) ? $sidebarBadges : [];
 
@@ -48,25 +43,36 @@ function renderSidebarInner(
     string $userInitial,
     string $usuarioNombre,
     string $userRole,
-    bool $puedeVerComercial,
-    bool $puedeVerRRHH,
-    bool $puedeVerDistribuidores,
     array $sidebarBadges,
     callable $activo,
     callable $grupoActivo,
     callable $linkGrupoActivo
 ): void {
+    // ---------------------------------------------------------
+    // COMPROBADORES MAESTROS DE GRUPOS (Para mostrar/ocultar el padre)
+    // ---------------------------------------------------------
+    $puedeVerReportes   = tiene_permiso('reportes.dashboard.ver') || tiene_permiso('reportes.ventas.ver') || tiene_permiso('reportes.compras.ver') || tiene_permiso('reportes.inventario.ver') || tiene_permiso('reportes.produccion.ver') || tiene_permiso('reportes.cxc.ver') || tiene_permiso('reportes.cxp.ver');
+    $puedeVerItems      = tiene_permiso('items.maestro.ver') || tiene_permiso('items.packs.ver');
+    $puedeVerInventario = tiene_permiso('inventario.almacen.ver') || tiene_permiso('inventario.envases.ver');
+    $puedeVerCostos     = tiene_permiso('costos.analisis.ver') || tiene_permiso('costos.tarifas.ver') || tiene_permiso('costos.cierres.ver') || tiene_permiso('costos.alertas.ver');
+    $puedeVerProduccion = tiene_permiso('produccion.recetas.ver') || tiene_permiso('produccion.ordenes.ver');
+    $puedeVerRRHH       = tiene_permiso('rrhh.biometrico.ver') || tiene_permiso('rrhh.asistencia.ver') || tiene_permiso('rrhh.planillas.ver') || tiene_permiso('rrhh.politicas.ver');
+    $puedeVerComercial  = tiene_permiso('comercial.clientes.ver') || tiene_permiso('comercial.proveedores.ver');
+    $puedeVerGastos     = tiene_permiso('gastos.conceptos.ver') || tiene_permiso('gastos.registros.ver');
+    $puedeVerTesoreria  = tiene_permiso('tesoreria.cuentas.ver') || tiene_permiso('tesoreria.movimientos.ver') || tiene_permiso('tesoreria.adelantos.ver') || tiene_permiso('tesoreria.cxc.ver') || tiene_permiso('tesoreria.cxp.ver') || tiene_permiso('tesoreria.saldos_iniciales.ver') || tiene_permiso('tesoreria.prestamos.ver');
+    $puedeVerConta      = tiene_permiso('conta.plan.ver') || tiene_permiso('conta.periodos.ver') || tiene_permiso('conta.asientos.ver') || tiene_permiso('conta.reportes.ver') || tiene_permiso('conta.centros_costo.ver') || tiene_permiso('conta.prorrateos.ver') || tiene_permiso('conta.conciliacion.ver') || tiene_permiso('conta.activos.ver') || tiene_permiso('conta.cierres.ver') || tiene_permiso('conta.estados_financieros.ver');
+    $puedeVerConfig     = tiene_permiso('config.empresa.ver') || tiene_permiso('config.almacenes.ver') || tiene_permiso('config.cajas.ver') || tiene_permiso('config.impuestos.ver') || tiene_permiso('config.series.ver');
+
+    // IDs dinámicos para los menús colapsables
+    $menuReportesId     = 'menuReportes_' . $navId;
     $menuItemsId        = 'menuItems_' . $navId;
+    $menuCostosId       = 'menuCostos_' . $navId;
     $menuRRHHId         = 'menuRRHH_' . $navId;
     $menuComercialId    = 'menuComercial_' . $navId;
+    $menuGastosId       = 'menuGastos_' . $navId;
     $menuTesoreriaId    = 'menuTesoreria_' . $navId;
     $menuContabilidadId = 'menuContabilidad_' . $navId;
     $menuConfiguracionId= 'menuConfiguracion_' . $navId;
-    $menuCostosId       = 'menuCostos_' . $navId;
-    $menuGastosId       = 'menuGastos_' . $navId;
-
-    $menuRutasContabilidad = ['contabilidad', 'conciliacion', 'activos', 'cierre_contable', 'contabilidad/prorrateos'];
-    $menuRutasCostos       = ['reportes/costos_produccion', 'costos/configuracion', 'costos/cierres', 'costos/alertas'];
 
     $renderBadge = static function (string $badgeKey) use ($sidebarBadges): void {
         if (!array_key_exists($badgeKey, $sidebarBadges)) return;
@@ -128,6 +134,7 @@ function renderSidebarInner(
 
         <div class="sb-section-label">Operación diaria</div>
 
+        <!-- DASHBOARD / REPORTES -->
         <?php if (tiene_permiso('reportes.dashboard.ver')): ?>
         <?php 
             $rutaMenu = $_GET['ruta'] ?? 'reportes/dashboard';
@@ -139,7 +146,8 @@ function renderSidebarInner(
         </a>
         <?php endif; ?>
 
-        <?php if (tiene_permiso('items.ver')): ?>
+        <!-- CATÁLOGO E ÍTEMS -->
+        <?php if ($puedeVerItems): ?>
         <button class="sb-link sb-group-btn<?= $linkGrupoActivo(['items', 'items/packs']) ?>"
             type="button" data-bs-toggle="collapse"
             data-bs-target="#<?= htmlspecialchars($menuItemsId) ?>"
@@ -151,80 +159,101 @@ function renderSidebarInner(
         </button>
         <div class="collapse<?= $grupoActivo(['items', 'items/packs']) ?>" id="<?= htmlspecialchars($menuItemsId) ?>" data-menu-key="items" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
             <div class="sb-submenu">
+                <?php if (tiene_permiso('items.maestro.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('items') ?>" href="<?= e(route_url('items')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-list-ul"></i></span><span class="sb-link-text">Maestro de Ítems</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('items.packs.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('items/packs') ?>" href="<?= e(route_url('items/packs')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-boxes"></i></span><span class="sb-link-text">Packs y Combos</span>
                 </a>
+                <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
 
-        <?php if (tiene_permiso('inventario.ver')): ?>
+        <!-- INVENTARIO -->
+        <?php if (tiene_permiso('inventario.almacen.ver')): ?>
         <a class="sb-link<?= $activo('inventario') ?>" href="<?= e(route_url('inventario')) ?>" data-tooltip="Inventario">
             <span class="sb-link-icon"><i class="bi bi-clipboard-data"></i></span>
-            <span class="sb-link-text">Inventario</span>
+            <span class="sb-link-text">Inventario General</span>
         </a>
-
+        <?php endif; ?>
+        <?php if (tiene_permiso('inventario.envases.ver')): ?>
         <a class="sb-link<?= $activo('inventario/envases') ?>" href="<?= e(route_url('inventario/envases')) ?>" data-tooltip="Control de Envases">
             <span class="sb-link-icon"><i class="bi bi-recycle"></i></span>
             <span class="sb-link-text">Control de Envases</span>
         </a>
         <?php endif; ?>
 
-        <?php if (tiene_permiso('reportes.produccion.ver')): ?>
-        <button class="sb-link sb-group-btn<?= $linkGrupoActivo($menuRutasCostos) ?>"
+        <!-- COSTOS INDUSTRIALES -->
+        <?php if ($puedeVerCostos): ?>
+        <?php $rutasCostos = ['reportes/costos_produccion', 'costos/configuracion', 'costos/cierres', 'costos/alertas']; ?>
+        <button class="sb-link sb-group-btn<?= $linkGrupoActivo($rutasCostos) ?>"
             type="button" data-bs-toggle="collapse"
             data-bs-target="#<?= htmlspecialchars($menuCostosId) ?>"
-            aria-expanded="<?= $grupoActivo($menuRutasCostos) ? 'true' : 'false' ?>"
+            aria-expanded="<?= $grupoActivo($rutasCostos) ? 'true' : 'false' ?>"
             data-tooltip="Costos Industriales">
             <span class="sb-link-icon"><i class="bi bi-calculator"></i></span>
             <span class="sb-link-text">Costos Industriales</span>
             <i class="bi bi-chevron-down sb-chevron ms-auto"></i>
         </button>
-        <div class="collapse<?= $grupoActivo($menuRutasCostos) ?>" id="<?= htmlspecialchars($menuCostosId) ?>" data-menu-key="costos" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
+        <div class="collapse<?= $grupoActivo($rutasCostos) ?>" id="<?= htmlspecialchars($menuCostosId) ?>" data-menu-key="costos" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
             <div class="sb-submenu">
+                <?php if (tiene_permiso('costos.analisis.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('reportes/costos_produccion') ?>" href="<?= e(route_url('reportes/costos_produccion')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-graph-up-arrow"></i></span><span class="sb-link-text">Análisis de costos</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('costos.tarifas.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('costos/configuracion') ?>" href="<?= e(route_url('costos/configuracion')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-sliders"></i></span><span class="sb-link-text">Tarifas de Planta</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('costos.cierres.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('costos/cierres') ?>" href="<?= e(route_url('costos/cierres')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-calendar-check"></i></span><span class="sb-link-text">Cierres de costos</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('costos.alertas.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('costos/alertas') ?>" href="<?= e(route_url('costos/alertas')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-bell"></i></span><span class="sb-link-text">Alertas y variaciones</span>
                 </a>
+                <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
 
-        <!-- CORRECCIÓN 2: Evaluamos 'produccion.ver' y no 'inventario.ver' -->
-        <?php if (tiene_permiso('produccion.ver')): ?>
+        <!-- PRODUCCIÓN -->
+        <?php if ($puedeVerProduccion): ?>
         <div class="sb-section-label">Producción</div>
-
+        <?php if (tiene_permiso('produccion.recetas.ver')): ?>
         <a class="sb-link<?= $activo('produccion/recetas') ?>" href="<?= e(route_url('produccion/recetas')) ?>" data-tooltip="Recetas (BOM)">
             <span class="sb-link-icon"><i class="bi bi-journal-check"></i></span>
             <span class="sb-link-text">Recetas (BOM)</span>
         </a>
+        <?php endif; ?>
+        <?php if (tiene_permiso('produccion.ordenes.ver')): ?>
         <a class="sb-link<?= $activo('produccion/ordenes') ?>" href="<?= e(route_url('produccion/ordenes')) ?>" data-tooltip="Órdenes de Producción">
             <span class="sb-link-icon"><i class="bi bi-gear-wide-connected"></i></span>
             <span class="sb-link-text">Órdenes de Producción</span>
             <?php $renderBadge('produccion/ordenes'); ?>
         </a>
         <?php endif; ?>
+        <?php endif; ?>
 
+        <!-- RELACIONES Y TALENTO -->
         <div class="sb-section-label">Relaciones y talento</div>
 
-        <?php if (tiene_permiso('terceros.ver') || tiene_permiso('items.ver')): ?>
+        <?php if (tiene_permiso('terceros.ver')): ?>
         <a class="sb-link<?= $activo('terceros') ?>" href="<?= e(route_url('terceros')) ?>" data-tooltip="Terceros">
             <span class="sb-link-icon"><i class="bi bi-people"></i></span>
             <span class="sb-link-text">Terceros</span>
         </a>
         <?php endif; ?>
 
+        <!-- RRHH -->
         <?php if ($puedeVerRRHH): ?>
         <button class="sb-link sb-group-btn<?= $linkGrupoActivo(['asistencia', 'planillas', 'rrhh/config_rrhh']) ?>"
             type="button" data-bs-toggle="collapse"
@@ -237,32 +266,43 @@ function renderSidebarInner(
         </button>
         <div class="collapse<?= $grupoActivo(['asistencia', 'planillas', 'rrhh/config_rrhh']) ?>" id="<?= htmlspecialchars($menuRRHHId) ?>" data-menu-key="rrhh" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
             <div class="sb-submenu">
+                <?php if (tiene_permiso('rrhh.biometrico.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('asistencia/importar') ?>" href="<?= e(route_url('asistencia/importar')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-file-earmark-arrow-up"></i></span><span class="sb-link-text">Importar Biométrico</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('rrhh.asistencia.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('asistencia/gestion_asistencia') ?>" href="<?= e(route_url('asistencia/gestion_asistencia')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-calendar-week"></i></span><span class="sb-link-text">Gestión de Asistencia</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('rrhh.planillas.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('planillas') ?>" href="<?= e(route_url('planillas')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-cash-coin"></i></span><span class="sb-link-text">Planillas y Pagos</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('rrhh.politicas.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('rrhh/config_rrhh') ?>" href="<?= e(route_url('rrhh/config_rrhh')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-sliders"></i></span><span class="sb-link-text">Políticas y Reglas</span>
                 </a>
+                <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
 
-        <?php if ($puedeVerDistribuidores): ?>
+        <!-- DISTRIBUIDORES -->
+        <?php if (tiene_permiso('distribuidores.ver')): ?>
             <a class="sb-link<?= $activo('distribuidores') ?>" href="<?= e(route_url('distribuidores')) ?>" data-tooltip="Distribuidores">
                 <span class="sb-link-icon"><i class="bi bi-diagram-3"></i></span>
                 <span class="sb-link-text">Distribuidores</span>
             </a>
         <?php endif; ?>
 
-        <?php if ($puedeVerComercial): ?>
+        <!-- COMERCIAL Y FINANZAS -->
         <div class="sb-section-label">Comercial y finanzas</div>
 
+        <!-- GESTIÓN COMERCIAL -->
+        <?php if ($puedeVerComercial): ?>
         <button class="sb-link sb-group-btn<?= $linkGrupoActivo(['comercial']) ?>"
             type="button" data-bs-toggle="collapse"
             data-bs-target="#<?= htmlspecialchars($menuComercialId) ?>"
@@ -274,15 +314,21 @@ function renderSidebarInner(
         </button>
         <div class="collapse<?= $grupoActivo(['comercial']) ?>" id="<?= htmlspecialchars($menuComercialId) ?>" data-menu-key="comercial" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
             <div class="sb-submenu">
+                <?php if (tiene_permiso('comercial.clientes.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('comercial/listas') ?>" href="<?= e(route_url('comercial/listas')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-currency-dollar"></i></span><span class="sb-link-text">Precios Clientes</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('comercial.proveedores.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('comercial/proveedores') ?>" href="<?= e(route_url('comercial/proveedores')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-truck"></i></span><span class="sb-link-text">Precios Proveedor</span>
                 </a>
+                <?php endif; ?>
             </div>
         </div>
+        <?php endif; ?>
 
+        <!-- VENTAS -->
         <?php if (tiene_permiso('ventas.ver')): ?>
         <a class="sb-link<?= $activo('ventas') ?>" href="<?= e(route_url('ventas')) ?>" data-tooltip="Ventas">
             <span class="sb-link-icon"><i class="bi bi-bag-check"></i></span>
@@ -291,6 +337,7 @@ function renderSidebarInner(
         </a>
         <?php endif; ?>
 
+        <!-- COMPRAS -->
         <?php if (tiene_permiso('compras.ver')): ?>
         <a class="sb-link<?= $activo('compras') ?>" href="<?= e(route_url('compras')) ?>" data-tooltip="Compras">
             <span class="sb-link-icon"><i class="bi bi-cart-check"></i></span>
@@ -298,8 +345,8 @@ function renderSidebarInner(
         </a>
         <?php endif; ?>
 
-        <!-- CORRECCIÓN 3: Se envolvió Gastos en su validación -->
-        <?php if (tiene_permiso('gastos.ver')): ?>
+        <!-- GASTOS -->
+        <?php if ($puedeVerGastos): ?>
         <button class="sb-link sb-group-btn<?= $linkGrupoActivo(['gastos']) ?>"
             type="button" data-bs-toggle="collapse"
             data-bs-target="#<?= htmlspecialchars($menuGastosId) ?>"
@@ -311,17 +358,22 @@ function renderSidebarInner(
         </button>
         <div class="collapse<?= $grupoActivo(['gastos']) ?>" id="<?= htmlspecialchars($menuGastosId) ?>" data-menu-key="gastos" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
             <div class="sb-submenu">
+                <?php if (tiene_permiso('gastos.conceptos.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('gastos/conceptos') ?>" href="<?= e(route_url('gastos/conceptos')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-tags"></i></span><span class="sb-link-text">Conceptos de Gasto</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('gastos.registros.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('gastos/registros') ?>" href="<?= e(route_url('gastos/registros')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-receipt"></i></span><span class="sb-link-text">Registro de Gastos</span>
                 </a>
+                <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
 
-        <?php if (tiene_permiso('tesoreria.ver') || tiene_permiso('tesoreria.cxc.ver') || tiene_permiso('tesoreria.cxp.ver')): ?>
+        <!-- TESORERÍA -->
+        <?php if ($puedeVerTesoreria): ?>
         <button class="sb-link sb-group-btn<?= $linkGrupoActivo(['tesoreria']) ?>"
             type="button" data-bs-toggle="collapse"
             data-bs-target="#<?= htmlspecialchars($menuTesoreriaId) ?>"
@@ -333,13 +385,17 @@ function renderSidebarInner(
         </button>
         <div class="collapse<?= $grupoActivo(['tesoreria']) ?>" id="<?= htmlspecialchars($menuTesoreriaId) ?>" data-menu-key="tesoreria" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
             <div class="sb-submenu">
-                <?php if (tiene_permiso('tesoreria.ver')): ?>
+                <?php if (tiene_permiso('tesoreria.cuentas.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('tesoreria/cuentas') ?>" href="<?= e(route_url('tesoreria/cuentas')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-bank"></i></span><span class="sb-link-text">Cuentas</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('tesoreria.movimientos.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('tesoreria/movimientos') ?>" href="<?= e(route_url('tesoreria/movimientos')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-arrow-left-right"></i></span><span class="sb-link-text">Movimientos</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('tesoreria.adelantos.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('tesoreria/adelantos') ?>" href="<?= e(route_url('tesoreria/adelantos')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-person-vcard"></i></span><span class="sb-link-text">Adelantos a Personal</span>
                 </a>
@@ -355,9 +411,13 @@ function renderSidebarInner(
                     <span class="sb-link-icon"><i class="bi bi-wallet"></i></span><span class="sb-link-text">Ctas. por Pagar</span>
                     <?php $renderBadge('tesoreria/cxp'); ?>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('tesoreria.saldos_iniciales.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('tesoreria/saldos_iniciales') ?>" href="<?= e(route_url('tesoreria/saldos_iniciales')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-hourglass-split"></i></span><span class="sb-link-text">Saldos Iniciales</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('tesoreria.prestamos.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('tesoreria/prestamos') ?>" href="<?= e(route_url('tesoreria/prestamos')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-building-fill-check"></i></span><span class="sb-link-text">Préstamos Bancarios</span>
                 </a>
@@ -366,54 +426,75 @@ function renderSidebarInner(
         </div>
         <?php endif; ?>
 
-        <!-- CORRECCIÓN 4: slug corregido -->
-        <?php if (tiene_permiso('conta.ver')): ?>
-        <button class="sb-link sb-group-btn<?= $linkGrupoActivo($menuRutasContabilidad) ?>"
+        <!-- CONTABILIDAD -->
+        <?php if ($puedeVerConta): ?>
+        <?php $rutasConta = ['contabilidad', 'conciliacion', 'activos', 'cierre_contable', 'contabilidad/prorrateos']; ?>
+        <button class="sb-link sb-group-btn<?= $linkGrupoActivo($rutasConta) ?>"
             type="button" data-bs-toggle="collapse"
             data-bs-target="#<?= htmlspecialchars($menuContabilidadId) ?>"
-            aria-expanded="<?= $grupoActivo($menuRutasContabilidad) ? 'true' : 'false' ?>"
+            aria-expanded="<?= $grupoActivo($rutasConta) ? 'true' : 'false' ?>"
             data-tooltip="Contabilidad">
             <span class="sb-link-icon"><i class="bi bi-journal-bookmark"></i></span>
             <span class="sb-link-text">Contabilidad</span>
             <i class="bi bi-chevron-down sb-chevron ms-auto"></i>
         </button>
-        <div class="collapse<?= $grupoActivo($menuRutasContabilidad) ?>" id="<?= htmlspecialchars($menuContabilidadId) ?>" data-menu-key="contabilidad" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
+        <div class="collapse<?= $grupoActivo($rutasConta) ?>" id="<?= htmlspecialchars($menuContabilidadId) ?>" data-menu-key="contabilidad" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
             <div class="sb-submenu">
+                <?php if (tiene_permiso('conta.plan.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('contabilidad/plan') ?>" href="<?= e(route_url('contabilidad/plan')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-diagram-3"></i></span><span class="sb-link-text">Plan Contable</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('conta.periodos.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('contabilidad/periodos') ?>" href="<?= e(route_url('contabilidad/periodos')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-calendar3"></i></span><span class="sb-link-text">Periodos</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('conta.asientos.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('contabilidad/asientos') ?>" href="<?= e(route_url('contabilidad/asientos')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-journal-text"></i></span><span class="sb-link-text">Asientos</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('conta.reportes.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('contabilidad/reportes') ?>" href="<?= e(route_url('contabilidad/reportes')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-bar-chart"></i></span><span class="sb-link-text">Reportes</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('conta.centros_costo.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('contabilidad/centros_costo') ?>" href="<?= e(route_url('contabilidad/centros_costo')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-bullseye"></i></span><span class="sb-link-text">Centros de costo</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('conta.prorrateos.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('contabilidad/prorrateos') ?>" href="<?= e(route_url('contabilidad/prorrateos')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-pie-chart"></i></span><span class="sb-link-text">Reglas de prorrateo</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('conta.conciliacion.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('conciliacion/index') ?>" href="<?= e(route_url('conciliacion/index')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-link-45deg"></i></span><span class="sb-link-text">Conciliación bancaria</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('conta.activos.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('activos/index') ?>" href="<?= e(route_url('activos/index')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-building"></i></span><span class="sb-link-text">Activos fijos</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('conta.cierres.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('cierre_contable/index') ?>" href="<?= e(route_url('cierre_contable/index')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-lock"></i></span><span class="sb-link-text">Cierres contables</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('conta.estados_financieros.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('cierre_contable/estados_financieros') ?>" href="<?= e(route_url('cierre_contable/estados_financieros')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-file-earmark-bar-graph"></i></span><span class="sb-link-text">Estados financieros</span>
                 </a>
+                <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
-        <?php endif; ?>
 
+        <!-- SISTEMA -->
         <div class="sb-section-label">Sistema</div>
 
         <?php if (tiene_permiso('usuarios.ver')): ?>
@@ -437,33 +518,45 @@ function renderSidebarInner(
         </a>
         <?php endif; ?>
 
-        <?php if (tiene_permiso('config.ver')): ?>
-        <button class="sb-link sb-group-btn<?= $linkGrupoActivo(['config', 'almacenes', 'cajas_bancos', 'impuestos', 'series']) ?>"
+        <!-- CONFIGURACIÓN -->
+        <?php if ($puedeVerConfig): ?>
+        <?php $rutasConfig = ['config', 'almacenes', 'cajas_bancos', 'impuestos', 'series']; ?>
+        <button class="sb-link sb-group-btn<?= $linkGrupoActivo($rutasConfig) ?>"
             type="button" data-bs-toggle="collapse"
             data-bs-target="#<?= htmlspecialchars($menuConfiguracionId) ?>"
-            aria-expanded="<?= $grupoActivo(['config', 'almacenes', 'cajas_bancos', 'impuestos', 'series']) ? 'true' : 'false' ?>"
+            aria-expanded="<?= $grupoActivo($rutasConfig) ? 'true' : 'false' ?>"
             data-tooltip="Configuración">
             <span class="sb-link-icon"><i class="bi bi-gear"></i></span>
             <span class="sb-link-text">Configuración</span>
             <i class="bi bi-chevron-down sb-chevron ms-auto"></i>
         </button>
-        <div class="collapse<?= $grupoActivo(['config', 'almacenes', 'cajas_bancos', 'impuestos', 'series']) ?>" id="<?= htmlspecialchars($menuConfiguracionId) ?>" data-menu-key="configuracion" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
+        <div class="collapse<?= $grupoActivo($rutasConfig) ?>" id="<?= htmlspecialchars($menuConfiguracionId) ?>" data-menu-key="configuracion" data-bs-parent="#<?= htmlspecialchars($navId) ?>">
             <div class="sb-submenu">
+                <?php if (tiene_permiso('config.empresa.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('config/empresa') ?>" href="<?= e(route_url('config/empresa')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-building"></i></span><span class="sb-link-text">Datos Empresa</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('config.almacenes.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('almacenes') ?>" href="<?= e(route_url('almacenes')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-archive"></i></span><span class="sb-link-text">Almacenes</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('config.cajas.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('cajas_bancos') ?>" href="<?= e(route_url('cajas_bancos')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-safe"></i></span><span class="sb-link-text">Cajas y Bancos</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('config.impuestos.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('impuestos') ?>" href="<?= e(route_url('impuestos')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-percent"></i></span><span class="sb-link-text">Impuestos</span>
                 </a>
+                <?php endif; ?>
+                <?php if (tiene_permiso('config.series.ver')): ?>
                 <a class="sb-link sb-sub<?= $activo('series') ?>" href="<?= e(route_url('series')) ?>">
                     <span class="sb-link-icon"><i class="bi bi-123"></i></span><span class="sb-link-text">Series</span>
                 </a>
+                <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
@@ -482,8 +575,7 @@ function renderSidebarInner(
     renderSidebarInner(
         'sidebarNavScrollDesktop',
         $empresaNombre, $logoUrl, $userInitial, $usuarioNombre, $userRole,
-        $puedeVerComercial, $puedeVerRRHH, $puedeVerDistribuidores, $sidebarBadges,
-        $activo, $grupoActivo, $linkGrupoActivo
+        $sidebarBadges, $activo, $grupoActivo, $linkGrupoActivo
     );
     ?>
 </aside>
@@ -499,7 +591,8 @@ function renderSidebarInner(
         <?php
         renderSidebarInner(
             'sidebarNavScrollMobile',
-            $empresaNombre,$logoUrl, $userInitial,$usuarioNombre, $userRole,$puedeVerComercial, $puedeVerRRHH,$puedeVerDistribuidores, $sidebarBadges,$activo, $grupoActivo,$linkGrupoActivo
+            $empresaNombre, $logoUrl, $userInitial, $usuarioNombre, $userRole,
+            $sidebarBadges, $activo, $grupoActivo, $linkGrupoActivo
         );
         ?>
     </div>
@@ -595,7 +688,7 @@ function setupSearch(navId) {
             const orig = span.getAttribute('data-orig') || span.textContent;
             span.setAttribute('data-orig', orig);
             const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
-            span.innerHTML = orig.replace(re, '<mark class="sb-highlight">$1</mark>');
+            span.innerHTML = orig.replace(re, '<mark class="sb-highlight">\$1</mark>');
             }
         } else {
             const span = link.querySelector('.sb-link-text');

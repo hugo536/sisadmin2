@@ -64,15 +64,19 @@
             </h1>
             <p class="text-muted small mb-0 ms-1">Análisis detallado de ingresos, egresos y transferencias.</p>
         </div>
-        <div class="d-flex gap-2 flex-wrap justify-content-end">
-            <a href="<?= e(route_url('tesoreria/cuentas')) ?>" class="btn btn-outline-secondary shadow-sm fw-semibold">
-                <i class="bi bi-bank me-2"></i>Ir a Cuentas
-            </a>
-            <a href="<?= e(route_url('tesoreria/cxc')) ?>" class="btn btn-outline-secondary shadow-sm fw-semibold">
-                <i class="bi bi-cash-stack me-2"></i>Ir a CxC
-            </a>
-            <a href="<?= e(route_url('tesoreria/cxp')) ?>" class="btn btn-outline-secondary shadow-sm fw-semibold">
-                <i class="bi bi-shop me-2"></i>Ir a CxP
+        <?php 
+            // Lógica estandarizada de retorno
+            $referer = $_SERVER['HTTP_REFERER'] ?? '';
+            $rutaPorDefecto = route_url('reportes/dashboard');
+            
+            // Evitamos bucles si el usuario recarga la página o aplica filtros
+            $urlRegreso = ($referer === '' || strpos($referer, 'tesoreria_movimientos') !== false) ? $rutaPorDefecto : $referer;
+        ?>
+        <div class="d-flex justify-content-end">
+            <a href="<?= e($urlRegreso) ?>" 
+               onclick="if(typeof window.navigateWithoutReload === 'function') { event.preventDefault(); window.navigateWithoutReload(new window.URL(this.href, window.location.origin), true); }"
+               class="btn btn-light bg-white border border-secondary-subtle shadow-sm text-secondary fw-medium px-3 transition-hover d-inline-flex align-items-center text-nowrap">
+                <i class="bi bi-arrow-left me-2"></i>Regresar
             </a>
         </div>
     </div>
@@ -83,7 +87,8 @@
                 <input type="hidden" name="ruta" value="reportes/tesoreria_movimientos">
                 <input type="hidden" name="busqueda" id="hidden_busqueda" value="<?= e($_GET['busqueda'] ?? '') ?>">
 
-                <div class="col-12 col-md-3">
+                <!-- 1. CUENTA BANCARIA -->
+                <div class="col-12 col-md-4 col-xl-3">
                     <label class="form-label text-muted small fw-bold mb-1">Cuenta Bancaria / Caja</label>
                     <div class="dropdown dropdown-multi">
                         <button class="btn btn-light border-secondary-subtle dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
@@ -119,7 +124,8 @@
                     </div>
                 </div>
 
-                <div class="col-12 col-md-2">
+                <!-- 2. MÉTODO DE PAGO -->
+                <div class="col-12 col-md-4 col-xl-2">
                     <label class="form-label text-muted small fw-bold mb-1">Método de Pago</label>
                     <div class="dropdown dropdown-multi">
                         <button class="btn btn-light border-secondary-subtle dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
@@ -134,7 +140,6 @@
                                     </div>
                                 </li>
                                 <?php 
-                                // Si no hay métodos de la BD, usamos los fijos
                                 $listaMetodos = !empty($metodos) ? $metodos : [
                                     ['id' => 'Efectivo', 'nombre' => 'Efectivo'],
                                     ['id' => 'Transferencia', 'nombre' => 'Transferencia'],
@@ -163,7 +168,8 @@
                     </div>
                 </div>
 
-                <div class="col-12 col-md-3">
+                <!-- 3. ORIGEN / TIPO -->
+                <div class="col-12 col-md-4 col-xl-2">
                     <label class="form-label text-muted small fw-bold mb-1">Origen / Tipo</label>
                     <div class="dropdown dropdown-multi">
                         <button class="btn btn-light border-secondary-subtle dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 38px;">
@@ -201,20 +207,27 @@
                     </div>
                 </div>
                 
-                <div class="col-12 col-md-4">
-                    <div class="d-flex gap-2 w-100">
-                        <div class="w-50">
-                            <label class="form-label text-muted small fw-bold mb-1">Desde</label>
-                            <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-secondary-subtle" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-01')) ?>" style="height: 38px;">
+                <!-- 4. PERIODO DE FECHAS (Estandarizado y Ampliado) -->
+                <div class="col-12 col-xl-5">
+                    <label class="form-label text-muted small fw-bold mb-1 ms-1">Periodo de Fechas <span class="text-danger">*</span></label>
+                    <div class="d-flex flex-column flex-md-row gap-2">
+                        <!-- Desde -->
+                        <div class="input-group shadow-sm flex-fill">
+                            <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
+                            <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-secondary-subtle text-secondary px-2" value="<?= e($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-7 days'))) ?>" style="height: 38px;" required>
                         </div>
-                        <div class="w-50">
-                            <label class="form-label text-muted small fw-bold mb-1">Hasta</label>
-                            <div class="input-group shadow-sm">
-                                <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-secondary-subtle" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-t')) ?>" style="height: 38px;">
-                                <button type="button" id="btnFiltrarFechas" class="btn btn-secondary shadow-sm" style="height: 38px;">
-                                    <i class="bi bi-filter"></i>
-                                </button>
-                            </div>
+
+                        <!-- Hasta y Botones -->
+                        <div class="input-group shadow-sm flex-fill">
+                            <span class="input-group-text bg-white text-muted border-end-0">Hasta</span>
+                            <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle text-secondary px-2" value="<?= e($filtros['fecha_hasta'] ?? date('Y-m-d')) ?>" style="height: 38px;" required>
+                            
+                            <button type="button" id="btnFiltrarFechas" class="btn btn-primary px-3 transition-hover" style="height: 38px;" title="Aplicar filtros">
+                                <i class="bi bi-funnel-fill"></i>
+                            </button>
+                            <button type="button" id="btnLimpiarFechasMov" class="btn btn-danger px-3 transition-hover" style="height: 38px;" title="Restablecer (Última semana)">
+                                <i class="bi bi-eraser-fill"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -231,9 +244,26 @@
             </div>
             
             <div class="d-flex gap-2 align-items-center w-100" style="max-width: 450px;">
-                <button type="submit" form="formFiltrosMovimientos" name="exportar_pdf" value="1" class="btn btn-sm btn-danger shadow-sm fw-bold px-3 d-flex align-items-center text-nowrap" formtarget="_blank" title="Exportar a PDF" onclick="document.getElementById('hidden_busqueda').value = document.getElementById('filtroRepMovimientos').value;">
-                    <i class="bi bi-file-pdf-fill"></i><span class="ms-1 d-none d-sm-inline">PDF</span>
-                </button>
+                <!-- Dropdown Exportar -->
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-secondary fw-semibold shadow-sm dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #4b5563; border-color: #4b5563;">
+                        <i class="bi bi-cloud-download me-2"></i> Exportar
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                        <li>
+                            <button type="submit" form="formFiltrosMovimientos" name="exportar_excel" value="1" class="dropdown-item py-2 d-flex align-items-center" onclick="document.getElementById('hidden_busqueda').value = document.getElementById('filtroRepMovimientos').value;">
+                                <i class="bi bi-file-earmark-excel-fill text-success fs-5 me-2"></i> Formato Excel (.xlsx)
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider m-0 border-secondary-subtle"></li>
+                        <li>
+                            <button type="submit" form="formFiltrosMovimientos" name="exportar_pdf" value="1" class="dropdown-item py-2 d-flex align-items-center" formtarget="_blank" onclick="document.getElementById('hidden_busqueda').value = document.getElementById('filtroRepMovimientos').value;">
+                                <i class="bi bi-file-earmark-pdf-fill text-danger fs-5 me-2"></i> Formato PDF (.pdf)
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                
                 <div class="input-group input-group-sm flex-grow-1">
                     <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
                     <input type="search" class="form-control bg-light border-start-0 ps-0" id="filtroRepMovimientos" placeholder="Buscar transacción..." value="<?= e($_GET['busqueda'] ?? '') ?>">

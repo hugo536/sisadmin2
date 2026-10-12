@@ -34,21 +34,55 @@ $periodoResumen = (string)($filtros['fecha_desde'] ?? '') !== '' && (string)($fi
         </div>
         
         <?php 
-            // Lógica inteligente para historial
-            $referer = $_SERVER['HTTP_REFERER'] ?? '';
-            $rutaDashboard = route_url('reportes/dashboard');
+            // 1. Ruta segura por defecto (Fallback principal)
+            $urlRegreso = route_url('reportes/dashboard');
             
-            // Verificamos si venimos de esta misma vista para evitar el bucle al recargar o filtrar
-            if ($referer === '' || strpos($referer, 'reportes/estado_cuenta') !== false || strpos($referer, 'reportes%2Festado_cuenta') !== false) {
-                $urlRegreso = $rutaDashboard;
+            // 2. Revisar si viene un parámetro "origen" explícito en la URL
+            $origenParam = is_array($_GET['origen'] ?? '') ? ($_GET['origen'][0] ?? '') : ($_GET['origen'] ?? '');
+            $origenParam = strtoupper(trim((string)$origenParam));
+            
+            if ($origenParam === 'VENTAS') {
+                $urlRegreso = route_url('ventas/dashboard'); // Ajusta según tu ruta
+            } elseif ($origenParam === 'TESORERIA' || $origenParam === 'CXC') {
+                $urlRegreso = route_url('tesoreria/cxc'); // Ajusta según tu ruta de cuentas por cobrar
             } else {
-                $urlRegreso = $referer;
+                // 3. Filtrar el Referer con Lista Blanca
+                $referer = $_SERVER['HTTP_REFERER'] ?? '';
+                $hostActual = $_SERVER['HTTP_HOST'] ?? '';
+                $refererHost = parse_url($referer, PHP_URL_HOST) ?? '';
+
+                if ($referer !== '' && $refererHost === $hostActual) {
+                    
+                    // --- LISTA BLANCA DE RUTAS PERMITIDAS PARA ESTADO DE CUENTA CLIENTES ---
+                    $rutasPermitidas = [
+                        'reportes/dashboard', 
+                        'ventas', 
+                        'tesoreria',
+                        'clientes',
+                        'cxc',
+                        'dashboard'
+                    ];
+                    
+                    $esRefererValido = false;
+                    foreach ($rutasPermitidas as $rutaPermitida) {
+                        // Verificamos ruta válida y EVITAMOS bucles de esta misma página
+                        // Buscar 'estado_cuenta' cubre tanto 'reportes/estado_cuenta' como 'reportes%2Festado_cuenta'
+                        if (strpos($referer, $rutaPermitida) !== false && strpos($referer, 'estado_cuenta') === false) {
+                            $esRefererValido = true;
+                            break;
+                        }
+                    }
+
+                    // Si pasó el filtro de la lista blanca, lo usamos
+                    if ($esRefererValido) {
+                        $urlRegreso = $referer;
+                    }
+                }
             }
         ?>
-        <a href="<?php echo $urlRegreso; ?>" 
+        <a href="<?= e($urlRegreso) ?>" 
            onclick="if(typeof window.navigateWithoutReload === 'function') { event.preventDefault(); window.navigateWithoutReload(new window.URL(this.href, window.location.origin), true); }"
-           class="btn btn-light bg-white border border-secondary-subtle shadow-sm text-secondary fw-medium px-3 transition-hover d-flex align-items-center"
-           style="width: fit-content; flex: 0 0 auto;">
+           class="btn btn-light bg-white border border-secondary-subtle shadow-sm text-secondary fw-medium px-3 transition-hover d-inline-flex align-items-center text-nowrap">
             <i class="bi bi-arrow-left me-2"></i>Regresar
         </a>
     </div>

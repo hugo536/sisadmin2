@@ -137,6 +137,25 @@ $productosCriticos = is_array($productosCriticos ?? null) ? $productosCriticos :
     <!-- SECCIÓN 2: INDICADORES OPERATIVOS (KPIs) -->
     <div class="mb-5 fade-in" style="animation-delay: 0.1s;">
         <div class="row g-3">
+            
+            <!-- NUEVO WIDGET: Flujo de Caja (Movimientos) movido abajo -->
+            <div class="col-12 col-md-6 col-lg-3 col-xl">
+                <a class="card border-0 h-100 text-decoration-none widget-bento transition-hover bg-success text-white shadow-sm" 
+                   href="<?php echo e(route_url('reportes/tesoreria_movimientos')); ?>" 
+                   onclick="navegarDesdeDashboard(event, this.href)"
+                   style="border-radius: 1.25rem;">
+                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-white-50 mb-1" style="font-size: 0.70rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Control Liquidez</div>
+                            <div class="h4 mb-0 fw-bold text-white lh-1 mt-1">Flujo Caja</div>
+                        </div>
+                        <div class="bg-white bg-opacity-25 text-white p-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                            <i class="bi bi-cash-coin fs-4"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            
             <?php 
             $widgetConfig = [
                 'produccion_proceso'   => ['color' => 'primary', 'icon' => 'bi-gear-wide',    'url' => 'reportes/produccion'],

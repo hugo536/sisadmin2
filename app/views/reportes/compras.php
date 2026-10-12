@@ -25,18 +25,55 @@ if (!in_array($seccionActiva, ['tendencias', 'insumos', 'proveedores', 'cumplimi
         </div>
         
         <?php 
-            $referer = $_SERVER['HTTP_REFERER'] ?? '';
-            $rutaDashboard = route_url('reportes/dashboard');
+            // 1. Ruta segura por defecto (Fallback principal)
+            $urlRegreso = route_url('reportes/dashboard');
             
-            if ($referer === '' || strpos($referer, 'reportes/compras') !== false || strpos($referer, 'reportes%2Fcompras') !== false) {
-                $urlRegreso = $rutaDashboard;
+            // 2. Revisar si viene un parámetro "origen" explícito en la URL
+            $origenParam = is_array($_GET['origen'] ?? '') ? ($_GET['origen'][0] ?? '') : ($_GET['origen'] ?? '');
+            $origenParam = strtoupper(trim((string)$origenParam));
+            
+            if ($origenParam === 'COMPRAS') {
+                $urlRegreso = route_url('compras/dashboard'); // Ajusta a la ruta real de tu módulo de compras
+            } elseif ($origenParam === 'INVENTARIO') {
+                $urlRegreso = route_url('inventario/dashboard'); // Por si lo llaman desde inventario
             } else {
-                $urlRegreso = $referer;
+                // 3. Filtrar el Referer con Lista Blanca
+                $referer = $_SERVER['HTTP_REFERER'] ?? '';
+                $hostActual = $_SERVER['HTTP_HOST'] ?? '';
+                $refererHost = parse_url($referer, PHP_URL_HOST) ?? '';
+
+                if ($referer !== '' && $refererHost === $hostActual) {
+                    
+                    // --- LISTA BLANCA DE RUTAS PERMITIDAS PARA REPORTES DE COMPRAS ---
+                    $rutasPermitidas = [
+                        'reportes/dashboard', 
+                        'compras', 
+                        'proveedores',
+                        'inventario',
+                        'dashboard'
+                    ];
+                    
+                    $esRefererValido = false;
+                    foreach ($rutasPermitidas as $rutaPermitida) {
+                        // Verificamos ruta válida y EVITAMOS bucles de esta misma página
+                        if (strpos($referer, $rutaPermitida) !== false && 
+                            strpos($referer, 'reportes/compras') === false && 
+                            strpos($referer, 'reportes%2Fcompras') === false) {
+                            $esRefererValido = true;
+                            break;
+                        }
+                    }
+
+                    // Si pasó el filtro de la lista blanca, lo usamos
+                    if ($esRefererValido) {
+                        $urlRegreso = $referer;
+                    }
+                }
             }
         ?>
-        <a href="<?php echo $urlRegreso; ?>" 
+        <a href="<?= e($urlRegreso) ?>" 
            onclick="if(typeof window.navigateWithoutReload === 'function') { event.preventDefault(); window.navigateWithoutReload(new window.URL(this.href, window.location.origin), true); }"
-           class="btn btn-light bg-white border border-secondary-subtle shadow-sm text-secondary fw-medium px-3 transition-hover d-flex align-items-center">
+           class="btn btn-light bg-white border border-secondary-subtle shadow-sm text-secondary fw-medium px-3 transition-hover d-flex align-items-center text-nowrap">
             <i class="bi bi-arrow-left me-2"></i>Regresar
         </a>
     </div>
