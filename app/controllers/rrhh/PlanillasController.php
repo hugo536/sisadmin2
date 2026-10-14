@@ -199,6 +199,44 @@ class PlanillasController extends Controlador
 
     /**
      * ========================================================================
+     * 4.1. REABRIR PLANILLA (Devolver a Borrador)
+     * ========================================================================
+     */
+    public function reabrir(): void
+    {
+        AuthMiddleware::handle();
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $idLote = (int) ($_POST['id_lote'] ?? 0);
+            
+            if ($idLote > 0) {
+                // Verificar que el lote exista y esté en un estado válido para reabrir (APROBADO)
+                $lote = $this->planillasModel->obtenerLotePorId($idLote);
+                
+                if ($lote && $lote['estado'] === 'APROBADO') {
+                    // Aquí llamamos al modelo para cambiar el estado a BORRADOR.
+                    // OJO: Debes crear la función 'reabrirLote' en tu PlanillasModel si no existe.
+                    $exito = $this->planillasModel->reabrirLote($idLote);
+                    
+                    if ($exito) {
+                        redirect("planillas?id_lote={$idLote}&ok=" . urlencode('La planilla ha vuelto a estado BORRADOR. Puedes editarla nuevamente.'));
+                        return;
+                    } else {
+                        $errorMsg = $this->planillasModel->ultimoError ?? 'Error al intentar reabrir la planilla.';
+                        redirect("planillas?id_lote={$idLote}&error=" . urlencode($errorMsg));
+                        return;
+                    }
+                } else {
+                    redirect("planillas?id_lote={$idLote}&error=" . urlencode('Solo se pueden reabrir planillas que están cerradas pero sin pagar.'));
+                    return;
+                }
+            }
+            redirect('planillas');
+        }
+    }
+
+    /**
+     * ========================================================================
      * 5. REPORTES: Imprimir Boleta PDF Individual
      * ========================================================================
      */

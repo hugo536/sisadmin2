@@ -16,7 +16,7 @@ if (!empty($_GET['error'])) {
 }
 ?>
 
-<!-- Turbo Frame principal: Evita recargar el sidebar y actualiza solo esta sección -->
+<!-- Turbo Frame principal -->
 <turbo-frame id="planillasApp" class="d-block">
 
     <!-- 2. DISPARAR SWEETALERT SI HAY MENSAJE -->
@@ -33,6 +33,14 @@ if (!empty($_GET['error'])) {
             } else {
                 alert('<?php echo htmlspecialchars($swalMsg, ENT_QUOTES); ?>');
             }
+            
+            // MAGIA: Limpiar la URL para evitar que la alerta se repita al presionar F5
+            if (window.history.replaceState) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('ok');
+                url.searchParams.delete('error');
+                window.history.replaceState({ path: url.href }, '', url.href);
+            }
         }, 150);
     </script>
     <?php endif; ?>
@@ -40,7 +48,7 @@ if (!empty($_GET['error'])) {
     <div class="container-fluid p-4 fade-in">
         
         <!-- ========================================== -->
-        <!-- CABECERA: TÍTULO Y CONTROLES PRINCIPALES -->
+        <!-- CABECERA PRINCIPAL -->
         <!-- ========================================== -->
         <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
             <div>
@@ -51,7 +59,6 @@ if (!empty($_GET['error'])) {
             </div>
             
             <div class="d-flex align-items-center gap-2">
-
                 <!-- Menú Desplegable: Historial de Lotes -->
                 <div class="dropdown">
                     <button class="btn btn-light bg-white border-secondary-subtle fw-bold dropdown-toggle shadow-sm px-4 py-2 d-flex align-items-center transition-hover" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -97,7 +104,7 @@ if (!empty($_GET['error'])) {
         </div>
 
         <!-- ========================================== -->
-        <!-- ÁREA DE TRABAJO (100% DE ANCHO) -->
+        <!-- ÁREA DE TRABAJO -->
         <!-- ========================================== -->
         <div class="row">
             <div class="col-12">
@@ -112,57 +119,77 @@ if (!empty($_GET['error'])) {
                     <!-- Detalle del Lote -->
                     <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
                         
-                        <div class="card-header bg-white border-bottom pt-4 pb-3 px-4 d-flex justify-content-between align-items-center">
-                            <div>
-                                <h5 class="fw-bold text-dark mb-1"><?php echo htmlspecialchars($lote_actual['nombre']); ?></h5>
+                        <!-- CARD HEADER: REESTRUCTURADO MOBILE FIRST -->
+                        <div class="card-header bg-white border-bottom pt-4 pb-3 px-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                            
+                            <!-- BLOQUE 1: TÍTULO Y ESTADO -->
+                            <div class="d-flex flex-column align-items-start gap-1">
+                                <h5 class="fw-bold text-dark mb-0 d-flex flex-wrap align-items-center gap-2">
+                                    <?php echo htmlspecialchars($lote_actual['nombre']); ?>
+                                    
+                                    <!-- BADGES DE ESTADO JUNTO AL TÍTULO -->
+                                    <?php if ($lote_actual['estado'] === 'BORRADOR'): ?>
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">EDICIÓN / BORRADOR</span>
+                                    <?php elseif ($lote_actual['estado'] === 'APROBADO'): ?>
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">FALTA PAGAR</span>
+                                    <?php elseif ($lote_actual['estado'] === 'PAGADO'): ?>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.7rem; letter-spacing: 0.5px;"><i class="bi bi-check-circle-fill me-1"></i>PAGADA</span>
+                                    <?php endif; ?>
+                                </h5>
                                 <span class="text-muted small fw-medium">Ref: <?php echo htmlspecialchars($lote_actual['referencia']); ?> | Frecuencia: <?php echo htmlspecialchars($lote_actual['frecuencia']); ?></span>
                             </div>
-                            <div class="d-flex gap-2">
+
+                            <!-- BLOQUE 2: CONTROLES DE ACCIÓN PRINCIPALES -->
+                            <div class="d-flex align-items-center gap-2 w-100 w-md-auto mt-2 mt-md-0">
                                 <?php if ($lote_actual['estado'] === 'BORRADOR'): ?>
-                                    <!-- Botón de Cerrar Planilla -->
-                                    <form action="<?php echo e(route_url('planillas/cerrar')); ?>" method="POST" id="formCerrarLote" class="m-0">
-                                        <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token); ?>">
-                                        <input type="hidden" name="id_lote" value="<?php echo $lote_actual['id']; ?>">
-                                        <button type="submit" class="btn btn-success fw-bold shadow-sm px-4 py-2 d-flex align-items-center transition-hover">
-                                            <i class="bi bi-lock-fill me-2"></i> Cerrar
-                                        </button>
-                                    </form>
-                                    
                                     <!-- Botón de Eliminar Lote -->
-                                    <form action="<?php echo e(route_url('planillas/eliminar')); ?>" method="POST" id="formEliminarLote" class="m-0">
+                                    <form action="<?php echo e(route_url('planillas/eliminar')); ?>" method="POST" id="formEliminarLote" class="m-0 flex-grow-1 flex-md-grow-0">
                                         <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token); ?>">
                                         <input type="hidden" name="id_lote" value="<?php echo $lote_actual['id']; ?>">
-                                        <button type="submit" class="btn btn-outline-danger bg-white fw-bold shadow-sm px-4 py-2 d-flex align-items-center transition-hover">
+                                        <button type="submit" class="btn btn-outline-danger bg-white fw-bold shadow-sm px-4 py-2 d-flex align-items-center justify-content-center transition-hover w-100">
                                             <i class="bi bi-trash-fill me-2"></i> Eliminar
                                         </button>
                                     </form>
+                                    
+                                    <!-- Botón de Cerrar Planilla -->
+                                    <form action="<?php echo e(route_url('planillas/cerrar')); ?>" method="POST" id="formCerrarLote" class="m-0 flex-grow-1 flex-md-grow-0">
+                                        <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token); ?>">
+                                        <input type="hidden" name="id_lote" value="<?php echo $lote_actual['id']; ?>">
+                                        <button type="submit" class="btn btn-success fw-bold shadow-sm px-4 py-2 d-flex align-items-center justify-content-center transition-hover w-100">
+                                            <i class="bi bi-lock-fill me-2"></i> Cerrar
+                                        </button>
+                                    </form>
+
                                 <?php elseif ($lote_actual['estado'] === 'APROBADO'): ?>
-                                    <!-- Indicador de Pendiente y Botón de Pagar -->
-                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-4 py-2 rounded-pill shadow-sm d-flex align-items-center fw-bold me-2">
-                                        <i class="bi bi-clock-history me-2"></i> Falta Pagar
-                                    </span>
-                                    <button type="button" class="btn btn-primary fw-bold shadow-sm px-4 py-2 d-flex align-items-center transition-hover" data-bs-toggle="modal" data-bs-target="#modalPagarPlanilla">
-                                        <i class="bi bi-cash-stack me-2"></i>Registrar Pago
+                                    
+                                    <!-- BOTÓN SECUNDARIO: Reabrir Borrador Directo -->
+                                    <form action="<?php echo e(route_url('planillas/reabrir')); ?>" method="POST" id="formReabrirLote" class="m-0 flex-grow-1 flex-md-grow-0">
+                                        <input type="hidden" name="csrf_token" value="<?php echo e($csrf_token); ?>">
+                                        <input type="hidden" name="id_lote" value="<?php echo $lote_actual['id']; ?>">
+                                        <button type="submit" class="btn btn-outline-warning fw-bold shadow-sm px-4 py-2 w-100 d-flex justify-content-center align-items-center transition-hover">
+                                            <i class="bi bi-arrow-counterclockwise me-2"></i> Reabrir Borrador
+                                        </button>
+                                    </form>
+
+                                    <!-- BOTÓN PRINCIPAL: Pagar Lote -->
+                                    <button type="button" class="btn btn-primary fw-bold shadow-sm px-4 py-2 flex-grow-1 flex-md-grow-0 text-nowrap d-flex justify-content-center align-items-center" data-bs-toggle="modal" data-bs-target="#modalPagarPlanilla">
+                                        <i class="bi bi-cash-stack me-2"></i> Pagar Lote
                                     </button>
-                                <?php elseif ($lote_actual['estado'] === 'PAGADO'): ?>
-                                    <!-- Indicador de Pagado Exitoso -->
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-4 py-2 rounded-pill shadow-sm d-flex align-items-center fw-bold me-2">
-                                        <i class="bi bi-check-circle-fill me-2"></i> Planilla Pagada
-                                    </span>
+
                                 <?php endif; ?>
                             </div>
                         </div>
 
+                        <!-- BARRA SECUNDARIA (Buscador y Exportar) -->
                         <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center px-4">
                             <!-- Buscador -->
                             <div class="input-group input-group-sm bg-white shadow-sm rounded-2" style="max-width: 350px;">
                                 <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search text-muted"></i></span>
-                                <input type="text" class="form-control border-start-0 shadow-none py-2" id="searchDetalles" placeholder="Buscar por empleado, DNI o cargo...">
+                                <input type="text" class="form-control border-start-0 shadow-none py-2" id="searchDetalles" placeholder="Buscar empleado o cargo...">
                             </div>
                             
-                            <!-- Controles de la derecha (Botón Imprimir + Badge Edición) -->
+                            <!-- Controles de la derecha (Botón Exportar) -->
                             <div class="d-flex align-items-center gap-3">
-                                
                                 <?php if ($lote_actual): ?>
                                     <?php 
                                         $tienePagos = array_reduce($detalles_nomina, function($carry, $item) {
@@ -196,17 +223,11 @@ if (!empty($_GET['error'])) {
                                         </ul>
                                     </div>
                                 <?php endif; ?>
-
-                                <?php if ($lote_actual['estado'] === 'BORRADOR'): ?>
-                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill shadow-sm d-flex align-items-center">
-                                        <i class="bi bi-pencil-square me-2"></i> Modo Edición Activo
-                                    </span>
-                                <?php endif; ?>
-                                
                             </div>
                         </div>
 
-                        <div class="table-responsive" style="max-height: calc(100vh - 280px);">
+                        <!-- TABLA DE DETALLES -->
+                        <div class="table-responsive" style="max-height: calc(100vh - 300px);">
                             <table class="table table-hover align-middle mb-0 text-center" id="tablaDetallesNomina">
                                 <thead class="table-light sticky-top shadow-sm" style="font-size: 0.8rem; text-transform: uppercase;">
                                     <tr>
@@ -216,7 +237,7 @@ if (!empty($_GET['error'])) {
                                         <th class="py-3">Ingresos (S/)</th>
                                         <th class="py-3">Deducciones (S/)</th>
                                         <th class="bg-success-subtle text-success py-3">Neto a Pagar</th>
-                                        <th class="pe-4 py-3">Acciones</th>
+                                        <th class="pe-4 py-3 text-center">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -226,7 +247,7 @@ if (!empty($_GET['error'])) {
                                         </tr>
                                     <?php else: ?>
                                         <?php foreach ($detalles_nomina as $det): ?>
-                                            <tr data-search="<?php echo strtolower(htmlspecialchars($det['nombre_completo'] . ' ' . $det['numero_documento'] . ' ' . $det['cargo'])); ?>">
+                                            <tr data-search="<?php echo strtolower(htmlspecialchars($det['nombre_completo'] . ' ' . ($det['numero_documento'] ?? '') . ' ' . $det['cargo'])); ?>">
                                                 
                                                 <!-- EMPLEADO -->
                                                 <td class="text-start ps-4">
@@ -237,9 +258,9 @@ if (!empty($_GET['error'])) {
                                                     
                                                     <?php if (!empty($det['dias_ya_pagados']) && $det['dias_ya_pagados'] > 0): ?>
                                                         <div class="mt-1">
-                                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;" title="Estos días caen en el rango de fechas, pero se omitieron automáticamente porque ya fueron pagados en una planilla anterior.">
+                                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.65rem;" title="Días omitidos porque ya fueron pagados en otra planilla.">
                                                                 <i class="bi bi-info-circle-fill me-1"></i> 
-                                                                <?php echo $det['dias_ya_pagados']; ?> día(s) omitido(s) por pago previo
+                                                                <?php echo $det['dias_ya_pagados']; ?> día(s) omitido(s)
                                                             </span>
                                                         </div>
                                                     <?php endif; ?>
@@ -255,14 +276,11 @@ if (!empty($_GET['error'])) {
                                                     <?php endif; ?>
                                                 </td>
                                                 
-                                                <!-- ========================================== -->
-                                                <!-- COLUMNA: PRÉSTAMOS / ADELANTOS (Limpia) -->
-                                                <!-- ========================================== -->
+                                                <!-- PRÉSTAMOS -->
                                                 <td class="text-center align-middle" style="font-size: 0.85rem;">
                                                     <?php 
                                                         $monto_deuda = isset($det['monto_adeudado']) ? (float)$det['monto_adeudado'] : 0;
                                                     ?>
-                                                    
                                                     <?php if ($monto_deuda > 0): ?>
                                                         <div class="fw-bold text-danger">S/ <?php echo number_format($monto_deuda, 2); ?></div>
                                                         <span class="badge bg-danger-subtle text-danger border border-danger-subtle mt-1" style="font-size: 0.65rem;">Deuda Activa</span>
@@ -270,7 +288,6 @@ if (!empty($_GET['error'])) {
                                                         <div class="text-muted fw-medium">S/ 0.00</div>
                                                     <?php endif; ?>
                                                 </td>
-                                                <!-- ========================================== -->
 
                                                 <!-- INGRESOS -->
                                                 <td style="font-size: 0.9rem;">
@@ -279,7 +296,7 @@ if (!empty($_GET['error'])) {
                                                     <?php else: ?>
                                                         <div class="fw-bold text-dark"><?php echo number_format((float)$det['total_percepciones'], 2); ?></div>
                                                         <?php if ($det['monto_bonos'] > 0): ?>
-                                                            <div class="text-success small fw-medium" style="font-size: 0.75rem;">+ <?php echo number_format((float)$det['monto_bonos'], 2); ?> Bonos/Otros</div>
+                                                            <div class="text-success small fw-medium" style="font-size: 0.75rem;">+ <?php echo number_format((float)$det['monto_bonos'], 2); ?> Bonos</div>
                                                         <?php endif; ?>
                                                     <?php endif; ?>
                                                 </td>
@@ -290,10 +307,10 @@ if (!empty($_GET['error'])) {
                                                         <span class="text-muted">--</span>
                                                     <?php else: ?>
                                                         <div class="fw-bold text-danger"><?php echo number_format((float)$det['total_deducciones'], 2); ?></div>
-                                                        <?php if ($det['descuento_tardanzas'] > 0): ?>
+                                                        <?php if (($det['descuento_tardanzas'] ?? 0) > 0): ?>
                                                             <div class="text-danger small fw-medium" style="font-size: 0.75rem;">- <?php echo number_format((float)$det['descuento_tardanzas'], 2); ?> Tardanzas</div>
                                                         <?php endif; ?>
-                                                        <?php if ($det['descuento_adelanto'] > 0): ?>
+                                                        <?php if (($det['descuento_adelanto'] ?? 0) > 0): ?>
                                                             <div class="text-danger small fw-medium" style="font-size: 0.75rem;">- <?php echo number_format((float)$det['descuento_adelanto'], 2); ?> Préstamos</div>
                                                         <?php endif; ?>
                                                     <?php endif; ?>
@@ -309,7 +326,7 @@ if (!empty($_GET['error'])) {
                                                 </td>
 
                                                 <!-- ACCIONES -->
-                                                <td class="pe-4">
+                                                <td class="pe-4 align-middle text-center">
                                                     <?php if ($lote_actual['estado'] === 'BORRADOR'): ?>
                                                         <?php if ($det['tiene_conflicto']): ?>
                                                             <a href="<?php echo e(route_url('asistencia/dashboard')); ?>" class="btn btn-sm btn-outline-danger shadow-sm px-3 rounded-pill fw-bold" title="Ir a corregir asistencia">
@@ -324,10 +341,27 @@ if (!empty($_GET['error'])) {
                                                             </button>
                                                         <?php endif; ?>
                                                     <?php else: ?>
-                                                        <!-- Botón de boleta individual -->
-                                                        <a href="<?php echo e(route_url('planillas/imprimir_boleta')); ?>&id=<?php echo $det['id']; ?>" target="_blank" class="btn btn-sm btn-outline-secondary shadow-sm px-3 rounded-pill fw-bold">
-                                                            <i class="bi bi-file-earmark-pdf me-1"></i> Boleta
-                                                        </a>
+                                                        <!-- BOTONES CUANDO LA PLANILLA YA ESTÁ APROBADA O PAGADA -->
+                                                        <div class="d-flex justify-content-center gap-2">
+                                                            <button type="button" class="btn btn-sm btn-light border border-secondary-subtle shadow-sm px-3 rounded-pill text-info fw-bold transition-hover js-ver-info-empleado"
+                                                                    data-info='<?php echo htmlspecialchars(json_encode([
+                                                                        "id_detalle" => $det['id'],
+                                                                        "nombre" => $det['nombre_completo'],
+                                                                        "cargo" => $det['cargo'],
+                                                                        "frecuencia" => $det['frecuencia'] ?? 'MENSUAL',
+                                                                        "dias" => $det['dias_pagados'],
+                                                                        "horas_normales" => $det['horas_acumuladas'],
+                                                                        "horas_extras" => $det['horas_extras'],
+                                                                        "sueldo_base" => (float)($det['sueldo_base_calculado'] ?? 0),
+                                                                        "pago_extras" => (float)($det['pago_horas_extras'] ?? 0),
+                                                                        "percepciones" => (float)($det['total_percepciones'] ?? 0),
+                                                                        "deducciones" => (float)($det['total_deducciones'] ?? 0),
+                                                                        "neto" => (float)($det['neto_a_pagar'] ?? 0)
+                                                                    ]), ENT_QUOTES, 'UTF-8'); ?>'
+                                                                    data-bs-toggle="modal" data-bs-target="#modalInfoEmpleado">
+                                                                <i class="bi bi-info-circle-fill me-1"></i> Ver Desglose
+                                                            </button>
+                                                        </div>
                                                     <?php endif; ?>
                                                 </td>
                                             </tr>
@@ -341,7 +375,9 @@ if (!empty($_GET['error'])) {
             </div>
         </div>
         
+        <!-- ========================================== -->
         <!-- MODALES DENTRO DEL TURBO-FRAME -->
+        <!-- ========================================== -->
 
         <!-- MODAL: GENERAR LOTE -->
         <div class="modal fade" id="modalGenerarLote" tabindex="-1" aria-hidden="true">
@@ -467,16 +503,25 @@ if (!empty($_GET['error'])) {
                             </div>
 
                             <div class="mb-0">
-                                <label class="form-label fw-bold small text-muted">¿De qué cuenta saldrá el dinero? <span class="text-danger">*</span></label>
-                                <select class="form-select bg-white shadow-none border-secondary-subtle fw-medium" name="id_cuenta" required>
-                                    <option value="" disabled selected>Seleccione cuenta origen...</option>
-                                    <?php foreach (($cuentas ?? []) as $cta): ?>
-                                        <option value="<?php echo $cta['id']; ?>">
-                                            <?php echo htmlspecialchars($cta['nombre']); ?> 
-                                            (Saldo: <?php echo $cta['moneda']; ?> <?php echo number_format((float)$cta['saldo_actual'], 2); ?>)
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <label class="form-label fw-bold small text-muted mb-2">¿De qué cuenta(s) saldrá el dinero? <span class="text-danger">*</span></label>
+                                
+                                <!-- Contenedor dinámico de los métodos de pago -->
+                                <div id="contenedorCuentasPlanilla" class="d-flex flex-column gap-2 mb-2">
+                                    <!-- JS inyectará las filas del template aquí -->
+                                </div>
+
+                                <!-- Controles para agregar otra cuenta y el totalizador -->
+                                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top border-secondary-subtle">
+                                    <button type="button" class="btn btn-sm btn-light text-primary fw-bold shadow-sm border border-secondary-subtle transition-hover" id="btnAgregarCuentaPlanilla">
+                                        <i class="bi bi-plus-circle me-1"></i> Añadir otra cuenta
+                                    </button>
+                                    <div class="text-end">
+                                        <small class="text-primary-emphasis fw-bold d-block lh-1" style="font-size: 0.7rem;">TOTAL DISTRIBUIDO</small>
+                                        <span class="fw-bold text-dark fs-5" id="totalPagadoPlanilla">S/ 0.00</span>
+                                        <!-- Input oculto para validación en el backend (opcional pero recomendado) -->
+                                        <input type="hidden" id="inputTotalNetoLote" value="<?php echo number_format((float)($lote_actual['total_neto'] ?? 0), 2, '.', ''); ?>">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="modal-footer bg-white border-top shadow-sm rounded-bottom-4">
@@ -488,6 +533,71 @@ if (!empty($_GET['error'])) {
             </div>
         </div>
         <?php endif; ?>
+
+        <!-- MODAL: DETALLE DEL EMPLEADO (CONSULTA RRHH) -->
+        <div class="modal fade" id="modalInfoEmpleado" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg rounded-4">
+                    <div class="modal-header bg-light border-bottom-0 pb-3 rounded-top-4">
+                        <div>
+                            <h5 class="modal-title fw-bold text-dark mb-0" id="infoEmpNombre">Nombre Empleado</h5>
+                            <span class="text-muted small fw-medium" id="infoEmpCargo">Cargo</span>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body p-4 bg-white">
+                        
+                        <h6 class="fw-bold text-muted text-uppercase small mb-3 border-bottom pb-2">Resumen de Tiempo</h6>
+                        <div class="row g-3 mb-4">
+                            <div class="col-4 text-center">
+                                <div class="fs-5 fw-bold text-dark" id="infoEmpDias">0</div>
+                                <div class="small text-muted">Días Pagados</div>
+                            </div>
+                            <div class="col-4 text-center border-start border-end">
+                                <div class="fs-5 fw-bold text-dark" id="infoEmpHoras">0h</div>
+                                <div class="small text-muted">Hrs. Normales</div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div class="fs-5 fw-bold text-warning-emphasis" id="infoEmpExtras">0h</div>
+                                <div class="small text-muted">Hrs. Extras</div>
+                            </div>
+                        </div>
+
+                        <h6 class="fw-bold text-muted text-uppercase small mb-3 border-bottom pb-2">Desglose Financiero</h6>
+                        <ul class="list-group list-group-flush mb-0">
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 border-0">
+                                <span class="text-muted">Sueldo Base Calculado</span>
+                                <span class="fw-medium text-dark" id="infoEmpSueldoBase">S/ 0.00</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 border-0">
+                                <span class="text-muted">Pago por Horas Extras</span>
+                                <span class="fw-medium text-dark" id="infoEmpPagoExtras">S/ 0.00</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 border-0 mt-2">
+                                <strong class="text-dark">Total Ingresos</strong>
+                                <strong class="text-success" id="infoEmpPercepciones">S/ 0.00</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 border-0">
+                                <strong class="text-dark">Total Deducciones</strong>
+                                <strong class="text-danger" id="infoEmpDeducciones">S/ 0.00</strong>
+                            </li>
+                        </ul>
+
+                        <div class="mt-4 pt-3 border-top d-flex justify-content-between align-items-center bg-light p-3 rounded-3 border border-secondary-subtle">
+                            <span class="fw-bold text-dark text-uppercase small">Neto a Pagar</span>
+                            <span class="fw-bold text-primary fs-4" id="infoEmpNeto">S/ 0.00</span>
+                        </div>
+
+                        <div class="modal-footer bg-light border-top shadow-sm rounded-bottom-4 d-flex justify-content-between align-items-center">
+                            <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cerrar</button>
+                            <a href="#" target="_blank" id="btnImprimirBoletaModal" class="btn btn-primary fw-bold px-4 d-flex align-items-center">
+                                <i class="bi bi-printer-fill me-2"></i> Imprimir Boleta
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- TEMPLATE: ITEM DE MOVIMIENTO -->
         <template id="tplMovimientoNomina">
@@ -533,4 +643,31 @@ if (!empty($_GET['error'])) {
         </template>
         
     </div>
+
+    <!-- TEMPLATE: FILA DE PAGO MULTICUENTA PARA PLANILLAS -->
+    <template id="templateFilaPagoPlanilla">
+        <div class="d-flex align-items-center gap-2 mb-2 fila-pago-planilla fade-in">
+            <!-- Select de Cuentas Origen -->
+            <select class="form-select form-select-sm shadow-none pago-cuenta border-primary-subtle" name="id_cuenta[]" required>
+                <option value="" selected disabled>Cuenta Origen...</option>
+                <?php foreach (($cuentas ?? []) as $cta): ?>
+                    <option value="<?php echo $cta['id']; ?>">
+                        <?php echo htmlspecialchars($cta['nombre']); ?> 
+                        (Saldo: <?php echo $cta['moneda']; ?> <?php echo number_format((float)$cta['saldo_actual'], 2); ?>)
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            
+            <!-- Input de Monto -->
+            <div class="input-group input-group-sm" style="width: 150px;">
+                <span class="input-group-text bg-primary-subtle text-primary border-primary-subtle fw-bold">S/</span>
+                <input type="number" name="monto_cuenta[]" class="form-control text-end shadow-none pago-monto border-primary-subtle fw-bold text-dark input-monto-planilla" min="0.01" step="0.01" placeholder="0.00" required>
+            </div>
+            
+            <!-- Botón Eliminar Fila -->
+            <button type="button" class="btn btn-sm text-danger bg-danger-subtle border-0 rounded-circle btn-quitar-pago p-1" data-bs-toggle="tooltip" title="Quitar cuenta" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-trash-fill"></i>
+            </button>
+        </div>
+    </template>
 </turbo-frame>

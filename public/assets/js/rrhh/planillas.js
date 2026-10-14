@@ -583,6 +583,83 @@
             });
         }
 
+        // ==========================================
+        // REABRIR LOTE (DEVOLVER A BORRADOR)
+        // ==========================================
+        const formReabrir = document.getElementById('formReabrirLote') || document.querySelector('form[action*="planillas/reabrir"]');
+        if (formReabrir) {
+            formReabrir.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                if (!window.Swal) {
+                    if (confirm("¿Estás seguro de regresar esta planilla a borrador? Podrás volver a editar los montos y agregar conceptos.")) {
+                        bloquearBotonSubmit(formReabrir, "Reabriendo...");
+                        HTMLFormElement.prototype.submit.call(formReabrir);
+                    }
+                } else {
+                    Swal.fire({
+                        title: '¿Reabrir Planilla?',
+                        text: "El lote volverá a estado BORRADOR. Podrás modificar asistencias, agregar bonos y registrar descuentos manualmente nuevamente.",
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#ffc107', // Color warning de Bootstrap
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: '<i class="bi bi-arrow-counterclockwise me-1"></i> Sí, reabrir borrador',
+                        cancelButtonText: 'Cancelar',
+                        customClass: {
+                            confirmButton: 'text-dark fw-bold shadow-sm' // Texto oscuro para contrastar con el fondo amarillo
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            bloquearBotonSubmit(formReabrir, "Reabriendo...");
+                            HTMLFormElement.prototype.submit.call(formReabrir);
+                        }
+                    });
+                }
+            });
+        }
+
+        // ==========================================
+        // LLENAR MODAL DE DETALLE EMPLEADO (RRHH)
+        // ==========================================
+        const modalInfoEmpleado = document.getElementById('modalInfoEmpleado');
+        if (modalInfoEmpleado) {
+            modalInfoEmpleado.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const dataRaw = button.getAttribute('data-info');
+                
+                if (dataRaw) {
+                    try {
+                        const data = JSON.parse(dataRaw);
+                        
+                        // Actualizar Textos
+                        document.getElementById('infoEmpNombre').textContent = data.nombre;
+                        document.getElementById('infoEmpCargo').textContent = `${data.cargo} | Pago: ${data.frecuencia}`;
+                        
+                        document.getElementById('infoEmpDias').textContent = data.dias;
+                        document.getElementById('infoEmpHoras').textContent = `${data.horas_normales}h`;
+                        document.getElementById('infoEmpExtras').textContent = `${data.horas_extras}h`;
+                        
+                        document.getElementById('infoEmpSueldoBase').textContent = `S/ ${data.sueldo_base.toFixed(2)}`;
+                        document.getElementById('infoEmpPagoExtras').textContent = `S/ ${data.pago_extras.toFixed(2)}`;
+                        document.getElementById('infoEmpPercepciones').textContent = `S/ ${data.percepciones.toFixed(2)}`;
+                        document.getElementById('infoEmpDeducciones').textContent = `S/ ${data.deducciones.toFixed(2)}`;
+                        document.getElementById('infoEmpNeto').textContent = `S/ ${data.neto.toFixed(2)}`;
+                        
+                        // Actualizar el botón de impresión de Boleta
+                        const btnBoleta = document.getElementById('btnImprimirBoletaModal');
+                        if (btnBoleta && data.id_detalle) {
+                            const baseUrl = window.location.origin + window.location.pathname;
+                            btnBoleta.href = `${baseUrl}?ruta=planillas/imprimir_boleta&id=${data.id_detalle}`;
+                        }
+                        
+                    } catch (e) {
+                        console.error('Error parseando datos del empleado:', e);
+                    }
+                }
+            });
+        }
+
         const formPagarLote = document.getElementById('formPagarLote');
         if (formPagarLote) {
             formPagarLote.addEventListener('submit', function (e) {

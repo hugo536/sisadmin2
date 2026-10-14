@@ -56,13 +56,14 @@ class PlanillasModel extends Modelo
                     t.nombre_completo,
                     t.numero_documento,
                     te.cargo,
+                    te.tipo_pago AS frecuencia,
                     nd.dias_pagados,
                     nd.sueldo_base_calculado,
                     nd.total_percepciones,
                     nd.total_deducciones,
                     nd.neto_a_pagar,
-                    (nd.dias_pagados * 8) AS horas_acumuladas,
-                    0 AS horas_extras,
+                    COALESCE((SELECT SUM(horas_trabajadas) FROM asistencia_registros ar WHERE ar.id_tercero = t.id AND ar.id_nomina_pago = nd.id_nomina), (nd.dias_pagados * 8)) AS horas_acumuladas,
+                    COALESCE((SELECT SUM(horas_extras) FROM asistencia_registros ar WHERE ar.id_tercero = t.id AND ar.id_nomina_pago = nd.id_nomina), 0) AS horas_extras,
                     
                     COALESCE((SELECT SUM(monto) FROM rrhh_nominas_conceptos nc 
                               WHERE nc.id_detalle_nomina = nd.id AND nc.tipo = 'PERCEPCION' AND nc.es_automatico = 0), 0) AS monto_bonos,
@@ -852,6 +853,86 @@ class PlanillasModel extends Modelo
                ->execute([$idLote]);
 
             $db->prepare("DELETE FROM rrhh_nominas WHERE id = ?")
+               ->execute([$idLote]);
+
+            $db->commit();
+            return true;
+
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            $this->ultimoError = $e->getMessage();
+            return false;
+        }
+    }
+
+    /**
+     * ========================================================================
+     * REABRIR LOTE A BORRADOR
+     * ========================================================================
+     */
+    public function reabrirLote(int $idLote): bool
+    {
+        $db = $this->db();
+        $this->ultimoError = '';
+
+        try {
+            $db->beginTransaction();
+
+            // 1. Validar que el lote exista y esté APROBADO (Falta Pagar)
+            $stmtCheck = $db->prepare("SELECT estado FROM rrhh_nominas WHERE id = ? FOR UPDATE");
+            $stmtCheck->execute([$idLote]);
+            $estado = $stmtCheck->fetchColumn();
+
+            if (!$estado || strtoupper(trim((string)$estado)) !== 'APROBADO') {
+                throw new Exception("El lote no está aprobado o ya fue pagado. No se puede reabrir.");
+            }
+
+            // 2. Revertir saldo de Préstamos / Adelantos descontados en esta planilla
+            // Buscamos todos los conceptos (automáticos o manuales) que hayan descontado una deuda
+            $sqlAdelantos = "SELECT nc.id_adelanto_ref, nc.monto 
+                             FROM rrhh_nominas_conceptos nc
+                             INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
+                             WHERE nd.id_nomina = ? AND nc.id_adelanto_ref IS NOT NULL";
+            $stmtAd = $db->prepare($sqlAdelantos);
+            $stmtAd->execute([$idLote]);
+            $adelantosDescontados = $stmtAd->fetchAll(PDO::FETCH_ASSOC);
+
+            if (!empty($adelantosDescontados)) {
+                $stmtRevertirAdelanto = $db->prepare("UPDATE rrhh_adelantos 
+                    SET saldo_pendiente = saldo_pendiente + :monto,
+                        estado = 'PENDIENTE'
+                    WHERE id = :id_adelanto");
+                
+                foreach ($adelantosDescontados as $ad) {
+                    $stmtRevertirAdelanto->execute([
+                        'monto' => (float)$ad['monto'],
+                        'id_adelanto' => (int)$ad['id_adelanto_ref']
+                    ]);
+                }
+            }
+
+            // 3. Liberar las marcas de asistencia para que puedan ser editadas de nuevo
+            $db->prepare("UPDATE asistencia_registros SET id_nomina_pago = NULL WHERE id_nomina_pago = ?")
+               ->execute([$idLote]);
+
+            // 4. Eliminar SOLO los conceptos automáticos generados al cerrar. 
+            // Los manuales (es_automatico = 0) se conservan intactos.
+            $db->prepare("DELETE FROM rrhh_nominas_conceptos 
+                          WHERE es_automatico = 1 AND id_detalle_nomina IN (SELECT id FROM rrhh_nominas_detalles WHERE id_nomina = ?)")
+               ->execute([$idLote]);
+
+            // 5. Limpiar valores financieros calculados en los detalles
+            $db->prepare("UPDATE rrhh_nominas_detalles 
+                          SET dias_pagados = 0, sueldo_base_calculado = 0, total_percepciones = 0, total_deducciones = 0, neto_a_pagar = 0 
+                          WHERE id_nomina = ?")
+               ->execute([$idLote]);
+
+            // 6. Cambiar estado del lote a BORRADOR y encerar métricas totales
+            $db->prepare("UPDATE rrhh_nominas 
+                          SET estado = 'BORRADOR', total_bruto = 0, total_deducciones = 0, total_neto = 0 
+                          WHERE id = ?")
                ->execute([$idLote]);
 
             $db->commit();
