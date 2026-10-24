@@ -76,11 +76,13 @@
             const t1_in = getVal('t1_in'), t1_out = getVal('t1_out');
             const t2_in = getVal('t2_in'), t2_out = getVal('t2_out');
             const t3_in = getVal('t3_in'), t3_out = getVal('t3_out');
+            const t4_in = getVal('t4_in'), t4_out = getVal('t4_out');
 
             let total = 0;
             if (t1_in && t1_out) total += calcularDiferenciaMinutos(t1_in, t1_out);
             if (t2_in && t2_out) total += calcularDiferenciaMinutos(t2_in, t2_out);
             if (t3_in && t3_out) total += calcularDiferenciaMinutos(t3_in, t3_out);
+            if (t4_in && t4_out) total += calcularDiferenciaMinutos(t4_in, t4_out);
 
             const celdaTotal = tr.querySelector('.celda-total-dia');
             if (celdaTotal) {
@@ -117,27 +119,66 @@
             }
         }
 
-        // Auto-selección desde URL (Viene del botón "Corregir" en Planillas)
+        // ==========================================
+        // AUTO-SELECCIÓN Y FILTRO DESDE URL (Corregir desde Planillas)
+        // ==========================================
         const params = new URLSearchParams(window.location.search);
-        const idTerceroUrl = params.get('id_tercero');
+        const idEmpleadoUrl = params.get('id_empleado') || params.get('id_tercero'); // Soporta ambos
+        const fechaInicioUrl = params.get('fecha_inicio');
 
-        if (idTerceroUrl && DOM.listaEmpleados) {
+        // Función para convertir fecha 'YYYY-MM-DD' al formato de semana ISO 'YYYY-Wxx'
+        function obtenerSemanaISO(fechaString) {
+            const date = new Date(fechaString + 'T00:00:00');
+            const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            return d.getUTCFullYear() + '-W' + weekNo.toString().padStart(2, '0');
+        }
+
+        // 1. Aplicar el filtro de fecha si viene en la URL
+        if (fechaInicioUrl) {
+            if (DOM.selectPeriodo) {
+                DOM.selectPeriodo.value = 'semana'; // Cambiamos la vista a Semana
+                DOM.selectPeriodo.dispatchEvent(new Event('change')); // Disparamos el evento para mostrar el input
+            }
+            const inputSemana = document.getElementById('filtroSemana');
+            if (inputSemana) {
+                inputSemana.value = obtenerSemanaISO(fechaInicioUrl);
+            }
+            // Por si acaso el usuario luego cambia el select a 'rango'
+            const inputDesde = document.getElementById('filtroDesde');
+            if (inputDesde) inputDesde.value = fechaInicioUrl;
+        }
+
+        // 2. Seleccionar el empleado
+        if (idEmpleadoUrl && DOM.listaEmpleados) {
             let intentos = 0;
             const buscadorInterval = setInterval(() => {
-                const tarjetaEmpleado = document.querySelector(`.empleado-item[data-id="${idTerceroUrl}"]`);
+                const tarjetaEmpleado = document.querySelector(`.empleado-item[data-id="${idEmpleadoUrl}"]`);
+                
                 if (tarjetaEmpleado) {
                     clearInterval(buscadorInterval);
+                    
+                    // Auto-scroll para que el empleado sea visible en la lista
+                    tarjetaEmpleado.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Forzar el click (esto llamará a cargarDatosGrid internamente usando el filtro modificado arriba)
                     tarjetaEmpleado.click();
 
+                    // Autocompletar el buscador (opcional para aislarlo visualmente)
                     if (DOM.inputBuscar) {
                         const nombreTexto = tarjetaEmpleado.querySelector('.fw-bold').textContent.trim();
                         DOM.inputBuscar.value = nombreTexto;
                         DOM.inputBuscar.dispatchEvent(new Event('input', { bubbles: true }));
                     }
 
-                    // Limpiar URL para no repetir el proceso si recarga
+                    // Limpiar la URL para evitar que vuelva a reaccionar si el usuario recarga la página
                     const nuevaUrl = new URL(window.location.href);
+                    nuevaUrl.searchParams.delete('id_empleado');
                     nuevaUrl.searchParams.delete('id_tercero');
+                    nuevaUrl.searchParams.delete('fecha_inicio');
                     window.history.replaceState({}, document.title, nuevaUrl.toString());
                 } else {
                     intentos++;
@@ -146,7 +187,7 @@
                         mostrarEstadoVacio();
                     }
                 }
-            }, 300); // Reducido a 300ms para que sea más veloz
+            }, 250); 
         } else {
             mostrarEstadoVacio();
         }
@@ -250,60 +291,93 @@
         // RENDERIZAR FILAS Y COLUMNAS
         // ==========================================
         function renderizarFilas(dias) {
-            DOM.gridCuerpo.innerHTML = '';
+        DOM.gridCuerpo.innerHTML = '';
+        
+        dias.forEach(dia => {
+            const tr = document.createElement('tr');
+            tr.dataset.fecha = dia.fecha;
             
-            dias.forEach(dia => {
-                const tr = document.createElement('tr');
-                tr.dataset.fecha = dia.fecha;
-                
-                const esDescanso = dia.es_descanso === true; 
-                const bgFila = esDescanso ? 'bg-light opacity-50' : '';
-                const propDisabled = esDescanso ? 'disabled' : '';
-                const msgTooltip = esDescanso ? 'title="Día de descanso (Sin horario asignado)"' : '';
-                const bgInput = esDescanso ? 'bg-transparent text-muted' : '';
-                const iconBtn = esDescanso ? 'bi-lock-fill' : 'bi-chat-left-text';
-                
-                const badgeEstado = esDescanso 
-                    ? '<span class="badge bg-secondary-subtle text-secondary border-0 px-2 fw-semibold">Descanso</span>' 
-                    : `<span class="badge ${dia.badge_class || 'bg-secondary-subtle text-secondary'} border-0 px-2 fw-semibold text-truncate" style="max-width: 90px;">${dia.estado_label || 'Sin datos'}</span>`;
+            const esDescanso = dia.es_descanso === true; 
+            const esPagado = dia.es_pagado === true; 
+            
+            const tieneConflicto = dia.tiene_conflicto === true || 
+                                (dia.t1_in && !dia.t1_out) || (!dia.t1_in && dia.t1_out) ||
+                                (dia.t2_in && !dia.t2_out) || (!dia.t2_in && dia.t2_out) ||
+                                (dia.t3_in && !dia.t3_out) || (!dia.t3_in && dia.t3_out) ||
+                                (dia.t4_in && !dia.t4_out) || (!dia.t4_in && dia.t4_out);
 
-                let totalMinutosDia = 0;
-                if(dia.t1_in && dia.t1_out) totalMinutosDia += calcularDiferenciaMinutos(dia.t1_in, dia.t1_out);
-                if(dia.t2_in && dia.t2_out) totalMinutosDia += calcularDiferenciaMinutos(dia.t2_in, dia.t2_out);
-                if(dia.t3_in && dia.t3_out) totalMinutosDia += calcularDiferenciaMinutos(dia.t3_in, dia.t3_out);
+            const estaBloqueado = esDescanso || esPagado;
+
+            let bgFila = '';
+            let msgTooltip = '';
+            let bgInput = '';
+            let iconBtn = 'bi-chat-left-text';
+            let opacityStyle = '';
+
+            if (esPagado) {
+                bgFila = 'bg-secondary bg-opacity-10'; 
+                msgTooltip = 'title="Bloqueado: Las horas de este día ya fueron pagadas/cerradas."';
+                bgInput = 'bg-transparent text-muted text-opacity-50'; 
+                iconBtn = 'bi-lock-fill text-danger'; 
+                opacityStyle = 'opacity: 0.85;';
+            } else if (esDescanso) {
+                bgFila = 'bg-light opacity-50';
+                msgTooltip = 'title="Día de descanso (Sin horario asignado)"';
+                bgInput = 'bg-transparent text-muted';
+                iconBtn = 'bi-lock-fill text-secondary';
+            } else if (tieneConflicto) {
+                bgFila = 'bg-danger-subtle'; 
+                msgTooltip = 'title="Atención: Marcación incompleta. Falta registrar entrada o salida."';
+                bgInput = 'text-danger fw-bold';
+            }
+
+            const propDisabled = estaBloqueado ? 'disabled' : '';
+            
+            const badgeEstado = esDescanso 
+                ? '<span class="badge bg-secondary-subtle text-secondary border-0 px-2 fw-semibold">Descanso</span>' 
+                : `<span class="badge ${dia.badge_class || 'bg-secondary-subtle text-secondary'} border-0 px-2 fw-semibold text-truncate" style="max-width: 90px;">${dia.estado_label || 'Sin datos'}</span>`;
+
+            let totalMinutosDia = 0;
+            if(dia.t1_in && dia.t1_out) totalMinutosDia += calcularDiferenciaMinutos(dia.t1_in, dia.t1_out);
+            if(dia.t2_in && dia.t2_out) totalMinutosDia += calcularDiferenciaMinutos(dia.t2_in, dia.t2_out);
+            if(dia.t3_in && dia.t3_out) totalMinutosDia += calcularDiferenciaMinutos(dia.t3_in, dia.t3_out);
+            if(dia.t4_in && dia.t4_out) totalMinutosDia += calcularDiferenciaMinutos(dia.t4_in, dia.t4_out);
+            
+            const textColorCls = esPagado ? 'fw-bold text-muted' : (totalMinutosDia > 0 ? 'fw-bold text-dark' : 'text-muted');
+            const strTotalDia = dia.total_dia_formateado || formatoHoras(totalMinutosDia);
+
+            tr.className = bgFila;
+            tr.style = opacityStyle;
+            tr.innerHTML = `
+                <td class="bg-light align-middle text-start ps-3 border-end">
+                    <span class="fw-bold text-dark d-block" style="font-size: 0.85rem;">${dia.nombre_dia}</span>
+                    <span class="text-muted fw-medium" style="font-size: 0.7rem;">${dia.fecha_formateada}</span>
+                </td>
+                <td><input type="time" class="cell-input ${bgInput}" data-tipo="t1_in" value="${dia.t1_in || ''}" ${propDisabled} ${msgTooltip}></td>
+                <td class="border-end"><input type="time" class="cell-input ${bgInput}" data-tipo="t1_out" value="${dia.t1_out || ''}" ${propDisabled} ${msgTooltip}></td>
+                <td><input type="time" class="cell-input ${bgInput}" data-tipo="t2_in" value="${dia.t2_in || ''}" ${propDisabled} ${msgTooltip}></td>
+                <td class="border-end"><input type="time" class="cell-input ${bgInput}" data-tipo="t2_out" value="${dia.t2_out || ''}" ${propDisabled} ${msgTooltip}></td>
+                <td><input type="time" class="cell-input ${bgInput}" data-tipo="t3_in" value="${dia.t3_in || ''}" ${propDisabled} ${msgTooltip}></td>
+                <td class="border-end"><input type="time" class="cell-input ${bgInput}" data-tipo="t3_out" value="${dia.t3_out || ''}" ${propDisabled} ${msgTooltip}></td>
+                <td><input type="time" class="cell-input ${bgInput}" data-tipo="t4_in" value="${dia.t4_in || ''}" ${propDisabled} ${msgTooltip}></td>
+                <td class="border-end"><input type="time" class="cell-input ${bgInput}" data-tipo="t4_out" value="${dia.t4_out || ''}" ${propDisabled} ${msgTooltip}></td>
                 
-                const textColorCls = totalMinutosDia > 0 ? 'fw-bold text-dark' : 'text-muted';
-                const strTotalDia = dia.total_dia_formateado || formatoHoras(totalMinutosDia);
+                <td class="align-middle border-end ${esPagado ? 'bg-secondary-subtle' : 'bg-warning-subtle'} celda-total-dia ${textColorCls}" style="font-size: 0.85rem;">
+                    ${strTotalDia}
+                </td>
 
-                tr.className = bgFila;
-                tr.innerHTML = `
-                    <td class="bg-light align-middle text-start ps-3 border-end">
-                        <span class="fw-bold text-dark d-block" style="font-size: 0.85rem;">${dia.nombre_dia}</span>
-                        <span class="text-muted fw-medium" style="font-size: 0.7rem;">${dia.fecha_formateada}</span>
-                    </td>
-                    <td><input type="time" class="cell-input ${bgInput}" data-tipo="t1_in" value="${dia.t1_in || ''}" ${propDisabled} ${msgTooltip}></td>
-                    <td class="border-end"><input type="time" class="cell-input ${bgInput}" data-tipo="t1_out" value="${dia.t1_out || ''}" ${propDisabled} ${msgTooltip}></td>
-                    <td><input type="time" class="cell-input ${bgInput}" data-tipo="t2_in" value="${dia.t2_in || ''}" ${propDisabled} ${msgTooltip}></td>
-                    <td class="border-end"><input type="time" class="cell-input ${bgInput}" data-tipo="t2_out" value="${dia.t2_out || ''}" ${propDisabled} ${msgTooltip}></td>
-                    <td><input type="time" class="cell-input ${bgInput}" data-tipo="t3_in" value="${dia.t3_in || ''}" ${propDisabled} ${msgTooltip}></td>
-                    <td class="border-end"><input type="time" class="cell-input ${bgInput}" data-tipo="t3_out" value="${dia.t3_out || ''}" ${propDisabled} ${msgTooltip}></td>
-                    
-                    <td class="align-middle border-end bg-warning-subtle celda-total-dia ${textColorCls}" style="font-size: 0.85rem;">
-                        ${strTotalDia}
-                    </td>
-
-                    <td class="align-middle px-2 text-start">
-                        <div class="d-flex justify-content-between align-items-center w-100">
-                            ${badgeEstado}
-                            <button type="button" class="btn btn-sm btn-light text-secondary border border-secondary-subtle p-1 rounded-2 transition-hover btn-justificar" ${propDisabled} title="${esDescanso ? 'No se puede justificar un día libre' : 'Justificar / Comentar'}">
-                                <i class="bi ${iconBtn}" style="font-size: 0.8rem; pointer-events: none;"></i>
-                            </button>
-                        </div>
-                    </td>
-                `;
-                DOM.gridCuerpo.appendChild(tr);
-            });
-        }
+                <td class="align-middle px-2 text-start">
+                    <div class="d-flex justify-content-between align-items-center w-100">
+                        ${badgeEstado}
+                        <button type="button" class="btn btn-sm btn-light text-secondary border border-secondary-subtle p-1 rounded-2 transition-hover btn-justificar" ${propDisabled} ${msgTooltip}>
+                            <i class="bi ${iconBtn}" style="font-size: 0.8rem; pointer-events: none;"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            DOM.gridCuerpo.appendChild(tr);
+        });
+    }
 
         // ==========================================
         // AUTOGUARDADO (EVENTO CHANGE)

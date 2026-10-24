@@ -329,7 +329,10 @@ if (!empty($_GET['error'])) {
                                                 <td class="pe-4 align-middle text-center">
                                                     <?php if ($lote_actual['estado'] === 'BORRADOR'): ?>
                                                         <?php if ($det['tiene_conflicto']): ?>
-                                                            <a href="<?php echo e(route_url('asistencia/dashboard')); ?>" class="btn btn-sm btn-outline-danger shadow-sm px-3 rounded-pill fw-bold" title="Ir a corregir asistencia">
+                                                            <!-- BOTÓN CORREGIR ACTUALIZADO -->
+                                                            <a href="<?php echo e(route_url('asistencia/gestion_asistencia')); ?>&id_empleado=<?php echo $det['id_tercero']; ?>&fecha_inicio=<?php echo $lote_actual['fecha_inicio']; ?>" 
+                                                            class="btn btn-sm btn-outline-danger shadow-sm px-3 rounded-pill fw-bold" 
+                                                            title="Ir a corregir asistencia en esta fecha">
                                                                 <i class="bi bi-calendar-x"></i> Corregir
                                                             </a>
                                                         <?php else: ?>

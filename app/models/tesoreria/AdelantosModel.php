@@ -244,21 +244,28 @@ class AdelantosModel extends Modelo
                         LEFT JOIN tesoreria_cuentas c ON m.id_cuenta = c.id
                         WHERE m.origen = 'ADELANTO' 
                           AND m.tipo = 'INGRESO' 
+                          AND m.estado = 'CONFIRMADO'
                           AND m.id_origen = :id_adelanto_tesoreria
-                          AND m.deleted_at IS NULL
                           
                         UNION ALL
                         
-                        -- 2. Descuentos automáticos o manuales por planilla
+                        -- 2. Descuentos en planillas (Automáticos o manuales del empleado)
                         SELECT 
                             DATE(n.fecha_fin) AS fecha_raw,
-                            CAST(CONCAT('Planilla Cerrada (Ref: ', COALESCE(n.referencia, 'S/R'), ')') AS CHAR) AS origen,
+                            CAST(CONCAT('Planilla ', n.estado, ' (Ref: ', COALESCE(n.referencia, 'S/R'), ')') AS CHAR) AS origen,
                             nc.monto
                         FROM rrhh_nominas_conceptos nc
                         INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
                         INNER JOIN rrhh_nominas n ON n.id = nd.id_nomina
-                        WHERE nc.id_adelanto_ref = :id_adelanto_planilla
-                           OR nc.descripcion LIKE CONCAT('%adelanto #', :id_adelanto_desc)
+                        WHERE n.estado IN ('APROBADO', 'PAGADO')
+                          AND (
+                              nc.id_adelanto_ref = :id_adelanto_planilla
+                              OR (
+                                  nc.categoria = 'Adelanto de Sueldo' 
+                                  AND nc.id_adelanto_ref IS NULL 
+                                  AND nd.id_tercero = (SELECT id_tercero FROM rrhh_adelantos WHERE id = :id_adelanto_tercero LIMIT 1)
+                              )
+                          )
                     ) AS historial
                     ORDER BY fecha_raw DESC";
 
@@ -267,13 +274,13 @@ class AdelantosModel extends Modelo
             $stmt->execute([
                 ':id_adelanto_tesoreria' => $idAdelanto,
                 ':id_adelanto_planilla'  => $idAdelanto,
-                ':id_adelanto_desc'      => $idAdelanto
+                ':id_adelanto_tercero'   => $idAdelanto
             ]);
 
             return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
             
         } catch (PDOException $e) {
-            error_log("❌ Error SQL en obtenerHistorialAdelanto: " . $e->getMessage());
+            error_log("Error SQL en obtenerHistorialAdelanto: " . $e->getMessage());
             return []; 
         }
     }

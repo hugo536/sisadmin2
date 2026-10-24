@@ -34,7 +34,7 @@ class ReporteDashboardModel extends Modelo
 
     /**
      * Obtiene los empleados que cumplen años en el mes actual.
-     * Solo retorna aquellos cuya fecha de cumpleaños aún no ha pasado en el mes.
+     * Solo retorna aquellos cuya fecha de cumpleaños aún no ha pasado en el mes y están ACTIVOS.
      */
     public function obtenerCumpleanosMes(): array
     {
@@ -49,6 +49,8 @@ class ReporteDashboardModel extends Modelo
                 FROM terceros_empleados te
                 INNER JOIN terceros t ON t.id = te.id_tercero
                 WHERE te.estado_laboral = 'activo' 
+                  AND t.estado = 1 
+                  AND t.deleted_at IS NULL
                   AND te.recordar_cumpleanos = 1 
                   AND MONTH(te.fecha_nacimiento) = MONTH(CURDATE())
                 HAVING dias_restantes >= 0

@@ -164,13 +164,13 @@ $empleados = $empleados ?? [];
                     <table class="table table-hover grid-asistencia mb-0 text-center">
                         <thead class="sticky-top z-2 shadow-sm">
                             <tr>
-                                <th style="width: 12%; background: #f8f9fa;" class="align-middle" rowspan="2">Fecha</th>
+                                <th style="width: 10%; background: #f8f9fa;" class="align-middle" rowspan="2">Fecha</th>
                                 <th colspan="2" style="background: #e9ecef;" class="border-start">Tramo 1</th>
                                 <th colspan="2" style="background: #f8f9fa;" class="border-start">Tramo 2</th>
                                 <th colspan="2" style="background: #e9ecef;" class="border-start">Tramo 3</th>
-                                <!-- Columna recomendada: suma de horas de los 3 tramos (NO dinero) -->
+                                <th colspan="2" style="background: #f8f9fa;" class="border-start">Tramo 4</th>
                                 <th style="width: 8%; background: #fff3cd;" class="align-middle border-start text-dark" rowspan="2">Horas Día</th>
-                                <th style="width: 20%; background: #f8f9fa;" class="align-middle border-start" rowspan="2">Estado / Observación</th>
+                                <th style="width: 15%; background: #f8f9fa;" class="align-middle border-start" rowspan="2">Estado / Observación</th>
                             </tr>
                             <tr>
                                 <th class="py-2 border-start" style="background: #e9ecef; font-size: 0.7rem;">Ingreso</th>
@@ -179,12 +179,13 @@ $empleados = $empleados ?? [];
                                 <th class="py-2" style="background: #f8f9fa; font-size: 0.7rem;">Salida</th>
                                 <th class="py-2 border-start" style="background: #e9ecef; font-size: 0.7rem;">Ingreso</th>
                                 <th class="py-2" style="background: #e9ecef; font-size: 0.7rem;">Salida</th>
+                                <th class="py-2 border-start" style="background: #f8f9fa; font-size: 0.7rem;">Ingreso</th>
+                                <th class="py-2" style="background: #f8f9fa; font-size: 0.7rem;">Salida</th>
                             </tr>
                         </thead>
                         <tbody id="gridAsistenciaCuerpo">
-                            <!-- Estado Vacío Inicial -->
                             <tr>
-                                <td colspan="9" class="text-center py-5 bg-light border-bottom-0">
+                                <td colspan="11" class="text-center py-5 bg-light border-bottom-0">
                                     <i class="bi bi-person-lines-fill d-block text-muted opacity-25 mb-3" style="font-size: 4rem;"></i>
                                     <h5 class="fw-bold text-dark">Selecciona un Empleado</h5>
                                     <p class="text-muted small mb-0">Haz clic en un empleado del panel lateral izquierdo para cargar su cuadrícula de asistencia.</p>

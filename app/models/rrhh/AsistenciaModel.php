@@ -132,7 +132,7 @@ class AsistenciaModel extends Modelo
     
     public function calcularResumenDesdeMarcas(int $idTercero, string $fecha, array $marcas): array
     {
-        $marcasNormalizadas = array_values(array_filter(array_map(static fn($m) => trim((string) $m), $marcas), static fn($m) => $m !== ''));
+        $marcasNormalizadas = array_values(array_filter(array_map(static fn($m) => trim((string) $m), $marcas), static fn($m) => $m !== '' && strtolower($m) !== 'null'));
         sort($marcasNormalizadas);
         $marcasCount = count($marcasNormalizadas);
 
@@ -347,7 +347,6 @@ class AsistenciaModel extends Modelo
         $fechaFinTs = strtotime($hasta);
         $diasSemanaNombres = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
         
-        // NUEVO: Contadores separados para horas regulares y extras
         $totalRegulares = 0.0;
         $totalExtras = 0.0;
 
@@ -356,14 +355,12 @@ class AsistenciaModel extends Modelo
             $diaW = (int) date('w', $fechaActual);
             
             $reg = $registrosBD[$fechaStr] ?? null;
-            $ingresosArr = $reg && $reg['marcas_ingresos'] ? array_filter(explode('|', $reg['marcas_ingresos']), fn($h) => $h !== '') : [];
-            $salidasArr = $reg && $reg['marcas_salidas'] ? array_filter(explode('|', $reg['marcas_salidas']), fn($h) => $h !== '') : [];
+            $ingresosArr = $reg && !empty($reg['marcas_ingresos']) ? array_filter(explode('|', $reg['marcas_ingresos']), fn($h) => $h !== '') : [];
+            $salidasArr = $reg && !empty($reg['marcas_salidas']) ? array_filter(explode('|', $reg['marcas_salidas']), fn($h) => $h !== '') : [];
             
-            // BÚSCALO ASÍ Y REEMPLÁZALO:
             if (!$reg) {
                 if ($fechaStr < date('Y-m-d')) {
-                    // --- NUEVA LÓGICA AUTOMÁTICA PARA EL DOMINGO ---
-                    if ($diaW === 0) { // 0 = Domingo en PHP
+                    if ($diaW === 0) { 
                         $estadoStr = 'DESCANSO';
                         $badgeClass = 'bg-info-subtle text-info border border-info-subtle fw-bold';
                     } else {
@@ -385,7 +382,6 @@ class AsistenciaModel extends Modelo
                 }
             }
 
-            // NUEVO: Acumular horas separadas y formatear el total del día
             $strTotalDia = '0h';
             if ($reg) {
                 $horasTrabajadas = (float) ($reg['horas_trabajadas'] ?? 0);
@@ -394,7 +390,6 @@ class AsistenciaModel extends Modelo
                 $totalRegulares += $horasTrabajadas;
                 $totalExtras += $horasExtrasDia;
 
-                // Formato exacto del día para sobrescribir el cálculo del frontend
                 $totalDiaDecimal = $horasTrabajadas + $horasExtrasDia;
                 $diaH = floor($totalDiaDecimal);
                 $diaM = round(($totalDiaDecimal - $diaH) * 60);
@@ -413,16 +408,19 @@ class AsistenciaModel extends Modelo
                 't2_out' => isset($salidasArr[1]) && $salidasArr[1] !== 'null' ? substr($salidasArr[1], 11, 5) : '',
                 't3_in' => isset($ingresosArr[2]) && $ingresosArr[2] !== 'null' ? substr($ingresosArr[2], 11, 5) : '',
                 't3_out' => isset($salidasArr[2]) && $salidasArr[2] !== 'null' ? substr($salidasArr[2], 11, 5) : '',
+                't4_in' => isset($ingresosArr[3]) && $ingresosArr[3] !== 'null' ? substr($ingresosArr[3], 11, 5) : '',
+                't4_out' => isset($salidasArr[3]) && $salidasArr[3] !== 'null' ? substr($salidasArr[3], 11, 5) : '',
                 'estado_label' => $estadoStr,
                 'badge_class' => $badgeClass,
                 'es_descanso' => false,
-                'total_dia_formateado' => $strTotalDia // <-- INYECTAMOS EL RESULTADO MATEMÁTICO AL JS
+                'es_pagado' => ($reg && !empty($reg['id_nomina_pago'])) ? true : false,
+                'tiene_conflicto' => ($estadoStr === 'INCOMPLETO'),
+                'total_dia_formateado' => $strTotalDia 
             ];
             
             $fechaActual = strtotime('+1 day', $fechaActual);
         }
 
-        // NUEVO: Formatear totales separados a strings ("XXh YYm")
         $regH = floor($totalRegulares);
         $regM = round(($totalRegulares - $regH) * 60);
         $strTotalReg = $regH . 'h' . ($regM > 0 ? " {$regM}m" : '');
@@ -431,7 +429,6 @@ class AsistenciaModel extends Modelo
         $extM = round(($totalExtras - $extH) * 60);
         $strTotalExt = $extH . 'h' . ($extM > 0 ? " {$extM}m" : '');
 
-        // NUEVO: Retornar las llaves que el JS realmente está esperando
         return [
             'dias' => $dias,
             'rango_label' => $rangoLabel,
@@ -448,14 +445,19 @@ class AsistenciaModel extends Modelo
         $stmt->execute(['id_tercero' => $idTercero, 'fecha' => $fecha]);
         $registro = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $ingresos = $registro && !empty($registro['marcas_ingresos']) ? explode('|', $registro['marcas_ingresos']) : ['', '', ''];
-        $salidas = $registro && !empty($registro['marcas_salidas']) ? explode('|', $registro['marcas_salidas']) : ['', '', ''];
+        // NUEVO: Bloqueo estricto si el registro ya pertenece a una planilla procesada
+        if ($registro && !empty($registro['id_nomina_pago'])) {
+            throw new RuntimeException("No se puede editar: Las horas de este día ya fueron congeladas en una planilla.");
+        }
 
-        $ingresos = array_pad($ingresos, 3, '');
-        $salidas = array_pad($salidas, 3, '');
+        $ingresos = $registro && !empty($registro['marcas_ingresos']) ? explode('|', $registro['marcas_ingresos']) : ['', '', '', ''];
+        $salidas = $registro && !empty($registro['marcas_salidas']) ? explode('|', $registro['marcas_salidas']) : ['', '', '', ''];
+
+        $ingresos = array_pad($ingresos, 4, '');
+        $salidas = array_pad($salidas, 4, '');
 
         $valorDb = $valor !== '' ? $fecha . ' ' . $valor . ':00' : '';
-        
+
         switch ($campo) {
             case 't1_in': $ingresos[0] = $valorDb; break;
             case 't1_out': $salidas[0] = $valorDb; break;
@@ -463,10 +465,12 @@ class AsistenciaModel extends Modelo
             case 't2_out': $salidas[1] = $valorDb; break;
             case 't3_in': $ingresos[2] = $valorDb; break;
             case 't3_out': $salidas[2] = $valorDb; break;
+            case 't4_in': $ingresos[3] = $valorDb; break;
+            case 't4_out': $salidas[3] = $valorDb; break;
         }
 
         $todasLasMarcas = [];
-        for ($i = 0; $i < 3; $i++) {
+        for ($i = 0; $i < 4; $i++) {
             if ($ingresos[$i] !== '' && $ingresos[$i] !== 'null') $todasLasMarcas[] = $ingresos[$i];
             if ($salidas[$i] !== '' && $salidas[$i] !== 'null') $todasLasMarcas[] = $salidas[$i];
         }
@@ -502,9 +506,6 @@ class AsistenciaModel extends Modelo
             $badgeClass = 'bg-info-subtle text-info-emphasis';
         }
 
-        // ========================================================
-        // NUEVO: Calcular el total del día redondeado para el JS
-        // ========================================================
         $totalDiaDecimal = (float)$resumenMotor['horas_trabajadas'] + (float)$resumenMotor['horas_extras'];
         $diaH = floor($totalDiaDecimal);
         $diaM = round(($totalDiaDecimal - $diaH) * 60);
@@ -517,7 +518,7 @@ class AsistenciaModel extends Modelo
         return [
             'nuevo_estado_label' => $estadoStr,
             'badge_class' => $badgeClass,
-            'total_dia_formateado' => $strTotalDia // <-- ESTO SOBRESCRIBIRÁ EL CÁLCULO DEL JS
+            'total_dia_formateado' => $strTotalDia 
         ];
     }
 
@@ -527,6 +528,11 @@ class AsistenciaModel extends Modelo
         $stmt = $this->db()->prepare($sql);
         $stmt->execute(['id_tercero' => $idTercero, 'fecha' => $fecha]);
         $registro = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // NUEVO: Bloqueo estricto para justificaciones en planillas cerradas
+        if ($registro && !empty($registro['id_nomina_pago'])) {
+            throw new RuntimeException("No se puede justificar: Este día ya fue congelado en una planilla.");
+        }
 
         $obsNueva = '[Justificado]: ' . $observacion;
 
@@ -663,8 +669,8 @@ class AsistenciaModel extends Modelo
             'turno' => [ 'id' => 0, 'nombre' => 'Horario Dinámico', 'es_excepcion' => 0, 'tolerancia_minutos' => 0 ],
             'tramos_esperados' => [],
             'tramos_activos' => count($ingresos) > 0 ? count($ingresos) : 1,
-            'ingresos_reales' => array_slice($ingresos, 0, 3),
-            'salidas_reales' => array_slice($salidas, 0, 3),
+            'ingresos_reales' => array_slice($ingresos, 0, 4),
+            'salidas_reales' => array_slice($salidas, 0, 4),
         ];
     }
 

@@ -182,7 +182,7 @@ class PlanillasModel extends Modelo
             if (!empty($ar['marcas_salidas'])) $marcasDia = array_merge($marcasDia, explode('|', (string)$ar['marcas_salidas']));
             elseif (!empty($ar['hora_salida'])) $marcasDia[] = (string)$ar['hora_salida'];
 
-            $marcasDia = array_values(array_filter(array_map(static fn($m) => trim((string)$m), $marcasDia), static fn($m) => $m !== ''));
+            $marcasDia = array_values(array_filter(array_map(static fn($m) => trim((string)$m), $marcasDia), static fn($m) => $m !== '' && strtolower($m) !== 'null'));
             sort($marcasDia);
 
             if (!empty($marcasDia)) {
@@ -194,9 +194,17 @@ class PlanillasModel extends Modelo
             }
             
             $estado = strtoupper((string)$ar['estado_asistencia']);
-            $ingresos = !empty($ar['marcas_ingresos']) ? explode('|', $ar['marcas_ingresos']) : (!empty($ar['hora_ingreso']) ? [$ar['hora_ingreso']] : []);
-            $salidas = !empty($ar['marcas_salidas']) ? explode('|', $ar['marcas_salidas']) : (!empty($ar['hora_salida']) ? [$ar['hora_salida']] : []);
-            
+            $ingresosRaw = !empty($ar['marcas_ingresos']) ? explode('|', $ar['marcas_ingresos']) : (!empty($ar['hora_ingreso']) ? [$ar['hora_ingreso']] : []);
+            $salidasRaw = !empty($ar['marcas_salidas']) ? explode('|', $ar['marcas_salidas']) : (!empty($ar['hora_salida']) ? [$ar['hora_salida']] : []);
+
+            // Filtro estricto: removemos vacíos y variables corruptas ('null')
+            $ingresos = array_values(array_filter(array_map('trim', $ingresosRaw), fn($h) => $h !== '' && strtolower($h) !== 'null'));
+            $salidas = array_values(array_filter(array_map('trim', $salidasRaw), fn($h) => $h !== '' && strtolower($h) !== 'null'));
+
+            // Limitamos a 4 tramos (descarta toques extraños del biométrico)
+            $ingresos = array_slice($ingresos, 0, 4);
+            $salidas = array_slice($salidas, 0, 4);
+
             $diaValido = (count($ingresos) === count($salidas)) && (count($ingresos) > 0);
             $esJustificada = in_array($estado, ['FALTA JUSTIFICADA', 'PERMISO', 'VACACIONES', 'DESCANSO MEDICO', 'TARDANZA JUSTIFICADA', 'OLVIDO MARCACION', 'DESCANSO', 'DÍA FERIADO / LIBRE']);
 
@@ -561,11 +569,6 @@ class PlanillasModel extends Modelo
             $stmtMarcarAsistencia = $db->prepare("UPDATE asistencia_registros 
                 SET id_nomina_pago = :id_lote 
                 WHERE id_tercero = :id_tercero AND fecha BETWEEN :desde AND :hasta AND id_nomina_pago IS NULL");
-                  
-            $stmtPagarAdelanto = $db->prepare("UPDATE rrhh_adelantos 
-                SET saldo_pendiente = saldo_pendiente - :descuento,
-                    estado = IF(saldo_pendiente - :descuento_estado <= 0, 'PAGADO', 'PENDIENTE')
-                WHERE id = :id_adelanto");
 
             $loteBruto = 0; $loteDeducciones = 0; $loteNeto = 0;
             $idsValidos = []; 
@@ -603,13 +606,7 @@ class PlanillasModel extends Modelo
                     $adelantos = json_decode($calc['adelantos_aplicados'], true);
                     if (is_array($adelantos)) {
                         foreach ($adelantos as $ad) {
-                            $stmtPagarAdelanto->execute([
-                                'descuento' => $ad['monto'],
-                                'descuento_estado' => $ad['monto'],
-                                'id_adelanto' => $ad['id'],
-                            ]);
-                            
-                            // Ya no creamos el concepto si fue manual, porque el modal de JS ya lo insertó en BD.
+                            // SI ES AUTOMÁTICO SE GUARDA COMO CONCEPTO, PERO NO SE DESCUENTA DE LA DEUDA TODAVÍA
                             if (empty($ad['es_manual'])) {
                                 $stmtConceptoAdelanto->execute([
                                     'id_det' => $calc['id'],
@@ -758,52 +755,152 @@ class PlanillasModel extends Modelo
             $this->asegurarEsquemaMovimientosPlanilla($db);
             $db->beginTransaction();
 
-            $idCuenta = (int) ($datos['id_cuenta'] ?? 0);
-            if ($idCuenta <= 0) throw new Exception("Cuenta de tesorería inválida.");
-
             $lote = $this->obtenerLotePorId($idLote);
             if (!$lote || strtoupper(trim((string)$lote['estado'])) !== 'APROBADO') {
                 throw new Exception("El lote no está aprobado o ya fue pagado.");
             }
 
-            $stmtCta = $db->prepare("SELECT tipo, moneda FROM tesoreria_cuentas WHERE id = ? FOR UPDATE");
-            $stmtCta->execute([$idCuenta]);
-            $cuentaInfo = $stmtCta->fetch(PDO::FETCH_ASSOC);
-            if (!$cuentaInfo) throw new Exception("La cuenta seleccionada no existe.");
-            
-            $idMetodoPago = $this->obtenerMetodoPagoPlanilla($db, (string) $cuentaInfo['tipo']);
-            
+            $idsCuentas = isset($datos['id_cuenta']) ? (array) $datos['id_cuenta'] : [];
+            $montosCuentas = isset($datos['monto_cuenta']) ? (array) $datos['monto_cuenta'] : [];
+
+            if (empty($idsCuentas) || empty($montosCuentas)) {
+                throw new Exception("Debe especificar al menos una cuenta origen para el pago.");
+            }
+
+            $cuentasDisponibles = [];
+            $totalDistribuido = 0;
+            $stmtCta = $db->prepare("SELECT id, tipo, moneda FROM tesoreria_cuentas WHERE id = ? FOR UPDATE");
+
+            foreach ($idsCuentas as $index => $idCuentaInput) {
+                $idCuenta = (int) $idCuentaInput;
+                $montoAsignado = (float) ($montosCuentas[$index] ?? 0);
+
+                if ($montoAsignado <= 0) continue;
+
+                $stmtCta->execute([$idCuenta]);
+                $cuentaInfo = $stmtCta->fetch(PDO::FETCH_ASSOC);
+
+                if (!$cuentaInfo) {
+                    throw new Exception("Una de las cuentas seleccionadas no existe (ID: {$idCuenta}).");
+                }
+
+                $cuentasDisponibles[] = [
+                    'id' => $idCuenta,
+                    'moneda' => $cuentaInfo['moneda'],
+                    'id_metodo_pago' => $this->obtenerMetodoPagoPlanilla($db, (string) $cuentaInfo['tipo']),
+                    'monto_restante' => $montoAsignado 
+                ];
+                
+                $totalDistribuido += $montoAsignado;
+            }
+
+            if (empty($cuentasDisponibles)) {
+                throw new Exception("Los montos distribuidos deben ser mayores a cero.");
+            }
+
             $detalles = $this->obtenerDetallesLote($idLote);
-            $totalAPagar = 0;
+            $totalPlanilla = 0;
+            
+            foreach ($detalles as $det) {
+                $totalPlanilla += (float) $det['neto_a_pagar'];
+            }
+
+            if (abs($totalDistribuido - $totalPlanilla) > 0.1) {
+                throw new Exception("El total distribuido (S/ {$totalDistribuido}) no coincide con el total neto de la planilla (S/ {$totalPlanilla}).");
+            }
+
             $sqlInsertMovimiento = "INSERT INTO tesoreria_movimientos
                 (id_cuenta, id_metodo_pago, id_tercero, tipo, origen, id_origen, moneda, monto, observaciones, fecha, estado, created_by, updated_by, created_at, updated_at)
                 VALUES (:cta, :met, :tercero, 'PAGO', 'PLANILLA', :origen, :mon, :monto, :obs, CURDATE(), 'CONFIRMADO', :created_by, :updated_by, NOW(), NOW())";
             $stmtMov = $db->prepare($sqlInsertMovimiento);
 
+            $indiceCuentaActual = 0;
+
             foreach ($detalles as $det) {
-                $monto = (float) $det['neto_a_pagar'];
-                if ($monto > 0) {
-                    $totalAPagar += $monto;
-                    $obs = "Pago de Planilla ({$lote['referencia']}) - Lote ID: {$idLote}";
-                    
-                    $stmtMov->execute([
-                        'cta' => $idCuenta,
-                        'met' => $idMetodoPago,
-                        'tercero' => $det['id_tercero'],
-                        'origen' => $idLote,
-                        'mon' => $cuentaInfo['moneda'],
-                        'monto' => $monto,
-                        'obs' => $obs,
-                        'created_by' => $userId,
-                        'updated_by' => $userId,
-                    ]);
+                $montoAPagarEmpleado = (float) $det['neto_a_pagar'];
+
+                if ($montoAPagarEmpleado <= 0) continue;
+
+                while ($montoAPagarEmpleado > 0.005) { 
+                    if (!isset($cuentasDisponibles[$indiceCuentaActual])) {
+                        throw new Exception("Los fondos distribuidos son insuficientes para cubrir a todos los empleados.");
+                    }
+
+                    $cuentaActual = &$cuentasDisponibles[$indiceCuentaActual];
+                    $montoDeEstaCuenta = min($montoAPagarEmpleado, $cuentaActual['monto_restante']);
+
+                    if ($montoDeEstaCuenta > 0) {
+                        $obs = "Pago de Planilla ({$lote['referencia']}) - Lote ID: {$idLote}";
+                        
+                        $stmtMov->execute([
+                            'cta' => $cuentaActual['id'],
+                            'met' => $cuentaActual['id_metodo_pago'],
+                            'tercero' => $det['id_tercero'],
+                            'origen' => $idLote,
+                            'mon' => $cuentaActual['moneda'],
+                            'monto' => $montoDeEstaCuenta,
+                            'obs' => $obs,
+                            'created_by' => $userId,
+                            'updated_by' => $userId,
+                        ]);
+
+                        $montoAPagarEmpleado -= $montoDeEstaCuenta;
+                        $cuentaActual['monto_restante'] -= $montoDeEstaCuenta;
+                    }
+
+                    if ($cuentaActual['monto_restante'] <= 0.005) {
+                        $indiceCuentaActual++;
+                    }
                 }
             }
 
+            // --- AHORA SÍ: DESCONTAR LOS ADELANTOS DE TESORERÍA AL PAGAR LA PLANILLA ---
+            $sqlDescuentosAdelantos = "
+                SELECT nd.id_tercero, SUM(nc.monto) as total_descontado
+                FROM rrhh_nominas_conceptos nc
+                INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
+                WHERE nd.id_nomina = ? AND nc.categoria = 'Adelanto de Sueldo'
+                GROUP BY nd.id_tercero
+            ";
+            $stmtDesc = $db->prepare($sqlDescuentosAdelantos);
+            $stmtDesc->execute([$idLote]);
+            $descuentosPlanilla = $stmtDesc->fetchAll(PDO::FETCH_ASSOC);
+
+            if (!empty($descuentosPlanilla)) {
+                $stmtPrestamos = $db->prepare("SELECT id, saldo_pendiente FROM rrhh_adelantos WHERE id_tercero = ? AND estado = 'PENDIENTE' AND saldo_pendiente > 0 ORDER BY fecha ASC");
+                $stmtPagarAdelanto = $db->prepare("UPDATE rrhh_adelantos SET saldo_pendiente = saldo_pendiente - :descuento, estado = IF(saldo_pendiente - :descuento_estado <= 0.01, 'PAGADO', 'PENDIENTE') WHERE id = :id_adelanto");
+
+                foreach ($descuentosPlanilla as $desc) {
+                    $idTerceroDesc = (int)$desc['id_tercero'];
+                    $saldoParaDistribuir = (float)$desc['total_descontado'];
+                    
+                    if ($saldoParaDistribuir > 0) {
+                        $stmtPrestamos->execute([$idTerceroDesc]);
+                        $prestamos = $stmtPrestamos->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        foreach ($prestamos as $prestamo) {
+                            if ($saldoParaDistribuir <= 0.01) break; // Terminar si ya cubrió lo descontado
+                            
+                            $aDescontar = min($saldoParaDistribuir, (float)$prestamo['saldo_pendiente']);
+                            
+                            $stmtPagarAdelanto->execute([
+                                'descuento' => $aDescontar,
+                                'descuento_estado' => $aDescontar,
+                                'id_adelanto' => $prestamo['id']
+                            ]);
+                            
+                            $saldoParaDistribuir -= $aDescontar;
+                        }
+                    }
+                }
+            }
+
+            // Finalmente, cerramos el lote
             $db->prepare("UPDATE rrhh_nominas SET estado = 'PAGADO', fecha_pago = CURDATE() WHERE id = ?")->execute([$idLote]);
 
             $db->commit();
             return true;
+            
         } catch (Exception $e) {
             if ($db->inTransaction()) $db->rollBack();
             $this->ultimoError = $e->getMessage();
@@ -889,47 +986,23 @@ class PlanillasModel extends Modelo
                 throw new Exception("El lote no está aprobado o ya fue pagado. No se puede reabrir.");
             }
 
-            // 2. Revertir saldo de Préstamos / Adelantos descontados en esta planilla
-            // Buscamos todos los conceptos (automáticos o manuales) que hayan descontado una deuda
-            $sqlAdelantos = "SELECT nc.id_adelanto_ref, nc.monto 
-                             FROM rrhh_nominas_conceptos nc
-                             INNER JOIN rrhh_nominas_detalles nd ON nd.id = nc.id_detalle_nomina
-                             WHERE nd.id_nomina = ? AND nc.id_adelanto_ref IS NOT NULL";
-            $stmtAd = $db->prepare($sqlAdelantos);
-            $stmtAd->execute([$idLote]);
-            $adelantosDescontados = $stmtAd->fetchAll(PDO::FETCH_ASSOC);
-
-            if (!empty($adelantosDescontados)) {
-                $stmtRevertirAdelanto = $db->prepare("UPDATE rrhh_adelantos 
-                    SET saldo_pendiente = saldo_pendiente + :monto,
-                        estado = 'PENDIENTE'
-                    WHERE id = :id_adelanto");
-                
-                foreach ($adelantosDescontados as $ad) {
-                    $stmtRevertirAdelanto->execute([
-                        'monto' => (float)$ad['monto'],
-                        'id_adelanto' => (int)$ad['id_adelanto_ref']
-                    ]);
-                }
-            }
-
-            // 3. Liberar las marcas de asistencia para que puedan ser editadas de nuevo
+            // 2. Liberar las marcas de asistencia para que puedan ser editadas de nuevo
             $db->prepare("UPDATE asistencia_registros SET id_nomina_pago = NULL WHERE id_nomina_pago = ?")
                ->execute([$idLote]);
 
-            // 4. Eliminar SOLO los conceptos automáticos generados al cerrar. 
+            // 3. Eliminar SOLO los conceptos automáticos generados al cerrar. 
             // Los manuales (es_automatico = 0) se conservan intactos.
             $db->prepare("DELETE FROM rrhh_nominas_conceptos 
                           WHERE es_automatico = 1 AND id_detalle_nomina IN (SELECT id FROM rrhh_nominas_detalles WHERE id_nomina = ?)")
                ->execute([$idLote]);
 
-            // 5. Limpiar valores financieros calculados en los detalles
+            // 4. Limpiar valores financieros calculados en los detalles
             $db->prepare("UPDATE rrhh_nominas_detalles 
                           SET dias_pagados = 0, sueldo_base_calculado = 0, total_percepciones = 0, total_deducciones = 0, neto_a_pagar = 0 
                           WHERE id_nomina = ?")
                ->execute([$idLote]);
 
-            // 6. Cambiar estado del lote a BORRADOR y encerar métricas totales
+            // 5. Cambiar estado del lote a BORRADOR y encerar métricas totales
             $db->prepare("UPDATE rrhh_nominas 
                           SET estado = 'BORRADOR', total_bruto = 0, total_deducciones = 0, total_neto = 0 
                           WHERE id = ?")

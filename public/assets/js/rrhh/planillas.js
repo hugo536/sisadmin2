@@ -209,7 +209,6 @@
         const formAjustar = document.querySelector('#modalAjustarNomina form');
         if (formAjustar) {
             formAjustar.addEventListener('submit', function (e) {
-                // 1. Evitar siempre la recarga tradicional de la página
                 e.preventDefault(); 
 
                 if (!validarDuplicadosMovimientos()) {
@@ -225,20 +224,18 @@
                 if (this.checkValidity()) {
                     bloquearBotonSubmit(this, "Guardando...");
 
-                    // 2. Crear el FormData y enviarlo por Fetch (AJAX)
                     const formData = new FormData(this);
 
                     fetch(this.action, {
                         method: 'POST',
                         body: formData,
                         headers: {
-                            'X-Requested-With': 'XMLHttpRequest' // Importante para que PHP sepa que es AJAX
+                            'X-Requested-With': 'XMLHttpRequest'
                         }
                     })
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'error') {
-                            // 3. Si hay error, restauramos el botón y mostramos la alerta (EL MODAL NO SE CIERRA)
                             restaurarBotonSubmit(this);
                             if (typeof Swal !== 'undefined') {
                                 Swal.fire({
@@ -251,7 +248,6 @@
                                 alert(data.message);
                             }
                         } else if (data.status === 'success') {
-                            // 4. Si es éxito, mostramos mensaje y recargamos para ver los cambios
                             if (typeof Swal !== 'undefined') {
                                 Swal.fire({
                                     icon: 'success',
@@ -290,7 +286,6 @@
         const ayudaFrecuenciaLote = document.getElementById('ayudaFrecuenciaLote');
         const inputNombreGenerado = document.getElementById('nombreGeneradoLote');
 
-        // Elementos para la selección por semana
         const divRangoNormal = document.getElementById('rangoFechasNormal');
         const divRangoSemanal = document.getElementById('rangoFechasSemanal');
         const inputSemana = document.getElementById('semanaLoteInput');
@@ -602,12 +597,12 @@
                         text: "El lote volverá a estado BORRADOR. Podrás modificar asistencias, agregar bonos y registrar descuentos manualmente nuevamente.",
                         icon: 'warning',
                         showCancelButton: true,
-                        confirmButtonColor: '#ffc107', // Color warning de Bootstrap
+                        confirmButtonColor: '#ffc107',
                         cancelButtonColor: '#6c757d',
                         confirmButtonText: '<i class="bi bi-arrow-counterclockwise me-1"></i> Sí, reabrir borrador',
                         cancelButtonText: 'Cancelar',
                         customClass: {
-                            confirmButton: 'text-dark fw-bold shadow-sm' // Texto oscuro para contrastar con el fondo amarillo
+                            confirmButton: 'text-dark fw-bold shadow-sm'
                         }
                     }).then((result) => {
                         if (result.isConfirmed) {
@@ -632,21 +627,17 @@
                     try {
                         const data = JSON.parse(dataRaw);
                         
-                        // Actualizar Textos
                         document.getElementById('infoEmpNombre').textContent = data.nombre;
                         document.getElementById('infoEmpCargo').textContent = `${data.cargo} | Pago: ${data.frecuencia}`;
-                        
                         document.getElementById('infoEmpDias').textContent = data.dias;
                         document.getElementById('infoEmpHoras').textContent = `${data.horas_normales}h`;
                         document.getElementById('infoEmpExtras').textContent = `${data.horas_extras}h`;
-                        
                         document.getElementById('infoEmpSueldoBase').textContent = `S/ ${data.sueldo_base.toFixed(2)}`;
                         document.getElementById('infoEmpPagoExtras').textContent = `S/ ${data.pago_extras.toFixed(2)}`;
                         document.getElementById('infoEmpPercepciones').textContent = `S/ ${data.percepciones.toFixed(2)}`;
                         document.getElementById('infoEmpDeducciones').textContent = `S/ ${data.deducciones.toFixed(2)}`;
                         document.getElementById('infoEmpNeto').textContent = `S/ ${data.neto.toFixed(2)}`;
                         
-                        // Actualizar el botón de impresión de Boleta
                         const btnBoleta = document.getElementById('btnImprimirBoletaModal');
                         if (btnBoleta && data.id_detalle) {
                             const baseUrl = window.location.origin + window.location.pathname;
@@ -660,15 +651,185 @@
             });
         }
 
+        // ==============================================================
+        // LÓGICA PARA EL MODAL DE PAGO MASIVO (MÚLTIPLES CUENTAS)
+        // ==============================================================
         const formPagarLote = document.getElementById('formPagarLote');
-        if (formPagarLote) {
-            formPagarLote.addEventListener('submit', function (e) {
-                if (this.checkValidity()) {
-                    bloquearBotonSubmit(this, "Emitiendo Pagos...");
+        const btnAgregarCuentaPlanilla = document.getElementById('btnAgregarCuentaPlanilla');
+        const contenedorCuentasPlanilla = document.getElementById('contenedorCuentasPlanilla');
+        const totalPagadoPlanilla = document.getElementById('totalPagadoPlanilla');
+        const inputTotalNetoLote = document.getElementById('inputTotalNetoLote');
+        const templateFilaPagoPlanilla = document.getElementById('templateFilaPagoPlanilla');
+        const modalPagarPlanilla = document.getElementById('modalPagarPlanilla');
+
+        function recalcularTotalPagoPlanilla() {
+            if (!contenedorCuentasPlanilla || !totalPagadoPlanilla || !inputTotalNetoLote) return;
+            
+            let total = 0;
+            const inputsMonto = contenedorCuentasPlanilla.querySelectorAll('.input-monto-planilla');
+            
+            inputsMonto.forEach(input => {
+                total += parseFloat(input.value) || 0;
+            });
+            
+            totalPagadoPlanilla.textContent = `S/ ${total.toFixed(2)}`;
+            
+            const montoNeto = parseFloat(inputTotalNetoLote.value) || 0;
+            
+            if (total === montoNeto) {
+                totalPagadoPlanilla.classList.remove('text-dark', 'text-danger');
+                totalPagadoPlanilla.classList.add('text-success');
+            } else {
+                totalPagadoPlanilla.classList.remove('text-success', 'text-dark');
+                totalPagadoPlanilla.classList.add('text-danger');
+            }
+        }
+
+        function agregarFilaPagoPlanilla(montoInicial = '') {
+            if (!templateFilaPagoPlanilla || !contenedorCuentasPlanilla) return;
+            
+            const clone = templateFilaPagoPlanilla.content.cloneNode(true);
+            
+            if (montoInicial !== '') {
+                const inputMonto = clone.querySelector('.input-monto-planilla');
+                if (inputMonto) inputMonto.value = montoInicial;
+            }
+
+            contenedorCuentasPlanilla.appendChild(clone);
+            recalcularTotalPagoPlanilla();
+        }
+
+        if (modalPagarPlanilla) {
+            modalPagarPlanilla.addEventListener('shown.bs.modal', function () {
+                if (contenedorCuentasPlanilla && contenedorCuentasPlanilla.children.length === 0) {
+                    const montoNeto = parseFloat(inputTotalNetoLote?.value || 0).toFixed(2);
+                    agregarFilaPagoPlanilla(montoNeto > 0 ? montoNeto : '');
+                }
+            });
+
+            modalPagarPlanilla.addEventListener('hidden.bs.modal', function () {
+                if (contenedorCuentasPlanilla) {
+                    contenedorCuentasPlanilla.innerHTML = '';
+                    recalcularTotalPagoPlanilla();
                 }
             });
         }
-    }
+
+        if (btnAgregarCuentaPlanilla) {
+            btnAgregarCuentaPlanilla.addEventListener('click', (e) => {
+                e.preventDefault();
+                agregarFilaPagoPlanilla();
+            });
+        }
+
+        if (contenedorCuentasPlanilla) {
+            contenedorCuentasPlanilla.addEventListener('input', (e) => {
+                if (e.target.classList.contains('input-monto-planilla')) {
+                    recalcularTotalPagoPlanilla();
+                }
+            });
+
+            contenedorCuentasPlanilla.addEventListener('click', (e) => {
+                const btnEliminar = e.target.closest('.btn-quitar-pago');
+                if (btnEliminar) {
+                    e.preventDefault();
+                    if (contenedorCuentasPlanilla.querySelectorAll('.fila-pago-planilla').length > 1) {
+                        btnEliminar.closest('.fila-pago-planilla').remove();
+                        recalcularTotalPagoPlanilla();
+                    } else {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire('Atención', 'Debe mantener al menos una cuenta para el pago.', 'warning');
+                        }
+                    }
+                }
+            });
+        }
+
+        if (formPagarLote) {
+            formPagarLote.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const montoNeto = parseFloat(inputTotalNetoLote?.value || 0).toFixed(2);
+                let totalDistribuido = 0;
+                let selectVacios = false;
+                
+                this.querySelectorAll('.input-monto-planilla').forEach(input => {
+                    totalDistribuido += parseFloat(input.value) || 0;
+                });
+                
+                this.querySelectorAll('.pago-cuenta').forEach(select => {
+                    if (!select.value) selectVacios = true;
+                });
+
+                totalDistribuido = totalDistribuido.toFixed(2);
+
+                if (selectVacios) {
+                    if(typeof Swal !== 'undefined') {
+                        Swal.fire('Atención', 'Debe seleccionar una cuenta de origen en todas las filas.', 'warning');
+                    }
+                    return;
+                }
+
+                if (montoNeto !== totalDistribuido) {
+                    if(typeof Swal !== 'undefined') {
+                        Swal.fire('Error de cuadre', `El total distribuido (S/ ${totalDistribuido}) debe ser exactamente igual al monto a pagar (S/ ${montoNeto}).`, 'error');
+                    }
+                    return; 
+                }
+
+                if (this.checkValidity()) {
+                    bloquearBotonSubmit(this, "Emitiendo Pagos...");
+                    HTMLFormElement.prototype.submit.call(this);
+                } else {
+                    this.reportValidity();
+                }
+            });
+        }
+
+        // ==============================================================
+        // LÓGICA PARA AUTO-SELECCIONAR EMPLEADO AL VENIR DE "CORREGIR"
+        // ==============================================================
+        const urlParams = new URLSearchParams(window.location.search);
+        const idEmpleadoFiltro = urlParams.get('id_empleado');
+        const fechaInicioFiltro = urlParams.get('fecha_inicio');
+
+        // Función matemática para transformar "2026-02-23" a "2026-W09"
+        function convertirFechaASemanaISO(fechaString) {
+            const date = new Date(fechaString + 'T00:00:00'); 
+            const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            return d.getUTCFullYear() + '-W' + weekNo.toString().padStart(2, '0');
+        }
+
+        if (fechaInicioFiltro) {
+            setTimeout(() => {
+                const inputFecha = document.getElementById('inputFechaAsistencia') || document.querySelector('input[type="week"]') || document.querySelector('input[type="date"]');
+                if (inputFecha) {
+                    if (inputFecha.type === 'week') {
+                        inputFecha.value = convertirFechaASemanaISO(fechaInicioFiltro);
+                    } else {
+                        inputFecha.value = fechaInicioFiltro;
+                    }
+                    // Forzamos el evento change para que la cuadrícula reaccione a la nueva fecha
+                    inputFecha.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }, 300); // 300ms de espera asegura que el input ya exista en el DOM
+        }
+
+        if (idEmpleadoFiltro) {
+            setTimeout(() => {
+                const empleadoItem = document.querySelector(`[data-id="${idEmpleadoFiltro}"]`) || document.querySelector(`.empleado-item[data-id="${idEmpleadoFiltro}"]`);
+                if (empleadoItem) {
+                    empleadoItem.click(); // Clic automático
+                    empleadoItem.scrollIntoView({ behavior: 'smooth', block: 'center' }); // Auto-scroll
+                }
+            }, 600); // 600ms de espera asegura que la lista de empleados ya se cargó desde la base de datos
+        }
+
+    } // Fin de la función iniciarModuloPlanillas
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', iniciarModuloPlanillas);
@@ -678,6 +839,9 @@
 
 })();
 
+// ==============================================================
+// FUNCIONES GLOBALES (EXPORTACIÓN)
+// ==============================================================
 window.exportarSiEsValido = function(formato, idLote, esBorrador, tienePagos) {
     if (esBorrador) {
         if (typeof Swal !== 'undefined') {
