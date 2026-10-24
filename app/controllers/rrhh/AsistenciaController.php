@@ -82,15 +82,34 @@ class AsistenciaController extends Controlador
             exit;
         }
 
-        $datos = $this->asistenciaModel->obtenerDatosParaGridExcel($idTercero, $periodo, $_POST);
+        // Riesgo de seguridad corregido: Filtrar $_POST en lugar de pasarlo crudo
+        $filtrosPermitidos = [
+            'semana' => trim((string)($_POST['semana'] ?? '')),
+            'mes' => trim((string)($_POST['mes'] ?? '')),
+            'fecha_inicio' => trim((string)($_POST['fecha_inicio'] ?? '')),
+            'fecha_fin' => trim((string)($_POST['fecha_fin'] ?? ''))
+        ];
+
+        $datos = $this->asistenciaModel->obtenerDatosParaGridExcel($idTercero, $periodo, $filtrosPermitidos);
         
+        // CORRECCIÓN: Formatear las horas a HH:mm para compatibilidad estricta con HTML5
+        if (isset($datos['dias']) && is_array($datos['dias'])) {
+            foreach ($datos['dias'] as &$dia) {
+                foreach (['t1_in', 't1_out', 't2_in', 't2_out', 't3_in', 't3_out'] as $campo) {
+                    if (!empty($dia[$campo])) {
+                        $dia[$campo] = substr((string)$dia[$campo], 0, 5); // Transforma '08:30:00' a '08:30'
+                    }
+                }
+            }
+            unset($dia);
+        }
+
         echo json_encode([
             'ok' => true,
-            // CORRECCIÓN: Enviar las variables que el JS está esperando
             'total_regulares_str' => $datos['total_regulares_str'] ?? '0h',
             'total_extras_str'    => $datos['total_extras_str'] ?? '0h',
-            'rango_label'         => $datos['rango_label'],
-            'dias'                => $datos['dias']
+            'rango_label'         => $datos['rango_label'] ?? '',
+            'dias'                => $datos['dias'] ?? []
         ]);
         exit;
     }
