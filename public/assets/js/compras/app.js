@@ -58,11 +58,86 @@ function arrancarModuloCompras() {
     const btnFiltrarFechas = document.getElementById('btnFiltrarFechas'); 
     if (btnFiltrarFechas) btnFiltrarFechas.addEventListener('click', recargarPagina);
 
-    // Múltiples selectores que recargan automáticamente
-    const filtrosChange = ['filtroEstado', 'filtroOrdenFecha'];
-    filtrosChange.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('change', recargarPagina);
+    // 1. Escuchar el cambio en el selector de orden de fecha
+    const filtroOrdenFecha = document.getElementById('filtroOrdenFecha');
+    if (filtroOrdenFecha) filtroOrdenFecha.addEventListener('change', recargarPagina);
+
+    // 2. Lógica AJAX para las Pestañas (Tabs)
+    const tabsCompras = document.querySelectorAll('.js-tab-compras');
+    const inputVistaGlobal = document.getElementById('inputVistaGlobal');
+    const tituloTabla = document.querySelector('#contenedorTablaCompras h2');
+    
+    // Capturamos los inputs de fecha
+    const inputDesde = document.getElementById('filtroFechaDesde');
+    const inputHasta = document.getElementById('filtroFechaHasta');
+
+    tabsCompras.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // A. Quitar clases activas de todas las pestañas
+            tabsCompras.forEach(t => {
+                t.classList.remove('active', 'text-primary', 'border-primary', 'border-bottom-0', 'bg-white');
+                t.classList.add('text-secondary', 'bg-light', 'border-0');
+            });
+            
+            // B. Poner clases activas a la pestaña seleccionada
+            tab.classList.remove('text-secondary', 'bg-light', 'border-0');
+            tab.classList.add('active', 'text-primary', 'border-primary', 'border-bottom-0', 'bg-white');
+            
+            const vista = tab.dataset.vista;
+            
+            // C. Gestión dinámica de fechas según la pestaña
+            if (vista === 'pendientes') {
+                // Limpiamos las fechas para no ocultar trabajo rezagado
+                if (inputDesde) inputDesde.value = '';
+                if (inputHasta) inputHasta.value = '';
+            } else {
+                // Si pasamos al historial y las fechas están vacías, inyectamos los últimos 30 días
+                if (inputDesde && inputHasta && (!inputDesde.value || !inputHasta.value)) {
+                    const hoy = new Date();
+                    const hace30Dias = new Date();
+                    hace30Dias.setDate(hoy.getDate() - 30);
+                    
+                    const formatoLocal = (fecha) => {
+                        const offset = fecha.getTimezoneOffset() * 60000;
+                        return new Date(fecha.getTime() - offset).toISOString().split('T')[0];
+                    };
+
+                    inputDesde.value = formatoLocal(hace30Dias);
+                    inputHasta.value = formatoLocal(hoy);
+                }
+            }
+            
+            // D. Actualizar el input oculto y FORZAR el evento change para el manager
+            if (inputVistaGlobal) {
+                inputVistaGlobal.value = vista;
+                inputVistaGlobal.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            
+            // E. Actualizar la URL del navegador silenciosamente
+            const url = new URL(window.location);
+            url.searchParams.set('vista', vista);
+            
+            // Reflejamos las fechas en la URL
+            if (inputDesde?.value) url.searchParams.set('fecha_desde', inputDesde.value);
+            else url.searchParams.delete('fecha_desde');
+            
+            if (inputHasta?.value) url.searchParams.set('fecha_hasta', inputHasta.value);
+            else url.searchParams.delete('fecha_hasta');
+
+            window.history.pushState({}, '', url);
+            
+            // F. Cambiar dinámicamente el título de la tabla
+            if (tituloTabla) {
+                if (vista === 'pendientes') tituloTabla.textContent = 'Órdenes Pendientes de Recepción';
+                else if (vista === 'completados') tituloTabla.textContent = 'Órdenes Recepcionadas / Cerradas';
+                else tituloTabla.textContent = 'Todas las Órdenes de Compra';
+            }
+            
+            // G. Disparar la recarga de la tabla vía AJAX
+            recargarPagina();
+        });
     });
 
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');

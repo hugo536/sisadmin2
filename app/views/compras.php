@@ -17,6 +17,9 @@ $centros_costo = $centros_costo ?? [];
 $cuentas = $cuentas ?? []; 
 $metodos = $metodos ?? []; 
 
+// Capturamos la pestaña activa (Por defecto: pendientes)
+$vistaActual = $_GET['vista'] ?? 'pendientes';
+
 // Configuración de Estados (Estilo Subtle alineado con Ventas)
 $estadoLabels = [
     0 => ['texto' => 'Borrador', 'clase' => 'bg-secondary-subtle text-secondary border border-secondary-subtle'],
@@ -78,6 +81,7 @@ $formatearFechaDMY = static function ($fecha): string {
         <div class="card-body p-3">
             <form method="get" action="" class="row g-2 align-items-center" id="formFiltrosCompras">
                 <input type="hidden" name="ruta" value="compras">
+                <input type="hidden" name="vista" id="inputVistaGlobal" class="auto-submit" value="<?= e($vistaActual) ?>">
 
                 <div class="col-12 col-lg-3">
                     <div class="input-group shadow-sm">
@@ -86,31 +90,20 @@ $formatearFechaDMY = static function ($fecha): string {
                     </div>
                 </div>
                 
-                <div class="col-12 col-lg-2">
-                    <select name="estado" class="form-select bg-light border-secondary-subtle shadow-sm text-secondary" id="filtroEstado">
-                        <option value="">Todos los estados</option>
-                        <?php foreach ($estadoLabels as $key => $info): ?>
-                            <option value="<?= (int) $key ?>" <?= ($filtros['estado'] ?? '') === (string) $key ? 'selected' : '' ?>>
-                                <?= e($info['texto']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <div class="col-12 col-lg-2">
-                    <select name="orden_fecha" class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-semibold" id="filtroOrdenFecha">
+                <div class="col-12 col-lg-3">
+                    <select name="orden_fecha" class="form-select bg-light border-secondary-subtle shadow-sm text-secondary fw-semibold auto-submit" id="filtroOrdenFecha">
                         <option value="orden" <?= (($filtros['orden_fecha'] ?? 'orden') === 'orden') ? 'selected' : '' ?>>Fecha: Orden</option>
                         <option value="recepcion" <?= (($filtros['orden_fecha'] ?? '') === 'recepcion') ? 'selected' : '' ?>>Fecha: Recepción</option>
                     </select>
                 </div>
 
-                <div class="col-12 col-md-12 col-lg-5">  
+                <div class="col-12 col-md-12 col-lg-6">  
                     <div class="input-group shadow-sm">
                         <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
-                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle" value="<?= e((string) ($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-30 days')))) ?>">
+                        <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle auto-submit" value="<?= e((string) ($filtros['fecha_desde'] ?? '')) ?>">
                         
                         <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
-                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0 border-secondary-subtle" value="<?= e((string) ($filtros['fecha_hasta'] ?? date('Y-m-d'))) ?>">
+                        <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0 border-secondary-subtle auto-submit" value="<?= e((string) ($filtros['fecha_hasta'] ?? '')) ?>">
                         
                         <button type="button" id="btnFiltrarFechas" class="btn btn-light border text-primary px-3 transition-hover" title="Aplicar filtros" style="z-index: 0;">
                             <i class="bi bi-funnel-fill"></i>
@@ -125,8 +118,39 @@ $formatearFechaDMY = static function ($fecha): string {
         </div>
     </div>
 
-    <!-- TABLA PRINCIPAL DE COMPRAS -->
-    <div class="card border-0 shadow-sm">
+    <ul class="nav nav-tabs border-bottom-1 mb-0 px-2 mt-3" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 js-tab-compras <?= $vistaActual === 'pendientes' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0' ?>" data-vista="pendientes">
+                <i class="bi bi-exclamation-circle me-2"></i>Órdenes Pendientes
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 js-tab-compras <?= $vistaActual === 'completados' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0' ?>" data-vista="completados">
+                <i class="bi bi-check2-all me-2"></i>Recepcionadas / Cerradas
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button type="button" class="nav-link fs-6 fw-semibold py-3 js-tab-compras <?= $vistaActual === 'todos' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0' ?>" data-vista="todos">
+                <i class="bi bi-border-all me-2"></i>Todas las Órdenes
+            </button>
+        </li>
+    </ul>
+
+    <!-- TABLA PRINCIPAL DE COMPRAS (Con el borde superior grueso) -->
+    <div class="card border-0 shadow-sm rounded-top-0 border-top border-primary border-3" id="contenedorTablaCompras">
+        <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center">
+                <h2 class="h6 fw-bold text-dark mb-0">
+                    <?php 
+                        if($vistaActual === 'pendientes') echo "Órdenes Pendientes de Recepción";
+                        elseif($vistaActual === 'completados') echo "Órdenes Recepcionadas / Cerradas";
+                        else echo "Todas las Órdenes de Compra";
+                    ?>
+                </h2>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill ms-3" id="badgeRegistrosCompras"><?= count($ordenes) ?> Registros</span>
+            </div>
+        </div>
+        
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table align-middle mb-0 table-pro" id="tablaCompras"
@@ -134,8 +158,7 @@ $formatearFechaDMY = static function ($fecha): string {
                        data-erp-table="true"
                        data-search-input="#filtroBusqueda"
                        data-pagination-controls="#comprasPaginationControls"
-                       data-pagination-info="#comprasPaginationInfo"
-                       data-erp-filters='[{"el":"#filtroEstado","attr":"data-estado","match":"equals"}]'>
+                       data-pagination-info="#comprasPaginationInfo">
                     <thead>
                         <tr>
                             <th class="ps-4 text-secondary fw-semibold">Código</th>
@@ -152,8 +175,6 @@ $formatearFechaDMY = static function ($fecha): string {
                                 <?php 
                                     $estado = (int) ($orden['estado'] ?? 0); 
                                     if ($estado === 4) { $estado = 3; } // Parche migración
-
-                                    if ($estado === 9 && (!isset($filtros['estado']) || $filtros['estado'] !== '9')) { continue; }
                                     $badge = $estadoLabels[$estado] ?? $estadoLabels[0]; 
                                 ?>
                                 <tr data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-estado="<?= $estado ?>" class="border-bottom" data-search="<?= e(mb_strtolower((string) ($orden['codigo'] ?? '') . ' ' . (string) ($orden['proveedor'] ?? ''))) ?>">
@@ -209,7 +230,7 @@ $formatearFechaDMY = static function ($fecha): string {
                                                 <button type="button" class="btn btn-sm btn-light text-primary border-0 btn-editar rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Editar Orden"><i class="bi bi-pencil-square fs-5"></i></button>
                                                 <button type="button" class="btn btn-sm btn-light text-success border-0 btn-aprobar rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Aprobar Orden"><i class="bi bi-check2-circle fs-5"></i></button>
                                                 <button type="button" class="btn btn-sm btn-light text-danger border-0 btn-anular rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Anular Orden"><i class="bi bi-trash fs-5"></i></button>
-                                            <?php elseif ($estado === 2): ?> 
+                                            <?php elseif ($estado === 1 || $estado === 2): ?> 
                                                 <button type="button" class="btn btn-sm btn-light text-secondary border-0 btn-revertir-borrador rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Revertir a Borrador"><i class="bi bi-arrow-counterclockwise fs-5"></i></button>
                                                 <button type="button" class="btn btn-sm btn-light text-info border-0 btn-recepcionar rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Recepcionar Mercadería"><i class="bi bi-box-seam fs-5"></i></button>
                                                 <button type="button" class="btn btn-sm btn-light text-secondary border-0 btn-editar rounded-circle" data-id="<?= (int) ($orden['id'] ?? 0) ?>" data-bs-toggle="tooltip" title="Ver Detalle"><i class="bi bi-eye fs-5"></i></button>
@@ -224,7 +245,7 @@ $formatearFechaDMY = static function ($fecha): string {
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay órdenes registradas.</td></tr>
+                            <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay órdenes registradas en esta pestaña.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -789,7 +810,7 @@ $formatearFechaDMY = static function ($fecha): string {
                 <option value="">Sin centro de costo</option>
                 <?php foreach ($centros_costo as $centro): ?>
                     <option value="<?= (int) ($centro['id'] ?? 0) ?>">
-                        <?= e((string) ($centro['codigo'] ?? '')) ?> - <?= e((string) ($centro['nombre'] ?? '')) ?>
+                        <?= e((string) ($centro['codigo'] ?? '')) ?> <?= e((string) ($centro['nombre'] ?? '')) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -849,7 +870,7 @@ $formatearFechaDMY = static function ($fecha): string {
                 <option value="">Sin centro de costo</option>
                 <?php foreach ($centros_costo as $centro): ?>
                     <option value="<?= (int) ($centro['id'] ?? 0) ?>">
-                        <?= e((string) ($centro['codigo'] ?? '')) ?> - <?= e((string) ($centro['nombre'] ?? '')) ?>
+                        <?= e((string) ($centro['codigo'] ?? '')) ?> <?= e((string) ($centro['nombre'] ?? '')) ?>
                     </option>
                 <?php endforeach; ?>
             </select>

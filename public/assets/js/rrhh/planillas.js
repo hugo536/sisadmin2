@@ -7,7 +7,51 @@
 (function() {
     'use strict';
 
+    // 1. CAPTURADOR GLOBAL DE ALERTAS PHP (URL)
+    function procesarAlertasUrl() {
+        const url = new URL(window.location.href);
+        const msgOk = url.searchParams.get('ok');
+        const msgError = url.searchParams.get('error');
+
+        if (msgOk || msgError) {
+            const mensaje = msgOk || msgError;
+            const icono = msgOk ? 'success' : 'error';
+            const titulo = msgOk ? 'Éxito' : 'Atención';
+            const color = msgOk ? '#198754' : '#dc3545';
+
+            let intentosSwal = 0;
+            const checkSwal = setInterval(() => {
+                if (typeof Swal !== 'undefined') {
+                    clearInterval(checkSwal);
+                    Swal.fire({
+                        icon: icono,
+                        title: titulo,
+                        text: mensaje,
+                        confirmButtonColor: color
+                    });
+                    
+                    // Limpiar la URL sin recargar
+                    url.searchParams.delete('ok');
+                    url.searchParams.delete('error');
+                    window.history.replaceState(null, '', url.href);
+                } else {
+                    intentosSwal++;
+                    if (intentosSwal > 15) { // Espera máxima de 1.5s
+                        clearInterval(checkSwal);
+                        alert(mensaje);
+                        url.searchParams.delete('ok');
+                        url.searchParams.delete('error');
+                        window.history.replaceState(null, '', url.href);
+                    }
+                }
+            }, 100);
+        }
+    }
+
     function iniciarModuloPlanillas() {
+        // Disparar captura de alertas de PHP inmediatamente
+        procesarAlertasUrl();
+
         const appContenedor = document.getElementById('planillasApp');
         
         if (!appContenedor || appContenedor.dataset.iniciado === '1') return;
@@ -47,25 +91,20 @@
             const inputDescripcion = nodo.querySelector('[data-name="descripcion"]');
             const inputMonto = nodo.querySelector('[data-name="monto"]');
             
-            // 1. DICCIONARIO DE CATEGORÍAS DEPENDIENTES
             const categoriasDisponibles = {
                 'PERCEPCION': ['Mérito / Productividad', 'Movilidad / Viáticos', 'Reintegro de Gastos', 'Bono Extra', 'Otros'],
                 'DEDUCCION': ['Adelanto de Sueldo', 'Penalidad / Multa', 'Falta no justificada', 'Otros']
             };
 
-            // 2. FUNCIÓN PARA ACTUALIZAR SELECT Y COLORES
             const actualizarDependencias = (tipoSeleccionado, categoriaActual) => {
-                // Limpiar categorías
                 inputCategoria.innerHTML = '<option value="" disabled selected>Seleccione categoría...</option>';
                 
-                // Llenar nuevas categorías según el Tipo
                 if (categoriasDisponibles[tipoSeleccionado]) {
                     categoriasDisponibles[tipoSeleccionado].forEach(cat => {
                         inputCategoria.add(new Option(cat, cat));
                     });
                 }
                 
-                // Seleccionar la categoría si ya existía
                 if (categoriaActual && categoriasDisponibles[tipoSeleccionado]?.includes(categoriaActual)) {
                     inputCategoria.value = categoriaActual;
                 } else if (categoriaActual) {
@@ -73,25 +112,22 @@
                     inputCategoria.value = categoriaActual;
                 }
 
-                // Cambiar colores del monto
                 inputMonto.classList.remove('text-primary', 'text-success', 'text-danger', 'text-dark');
                 if (tipoSeleccionado === 'PERCEPCION') {
-                    inputMonto.classList.add('text-primary'); // Azul
+                    inputMonto.classList.add('text-primary'); 
                 } else if (tipoSeleccionado === 'DEDUCCION') {
-                    inputMonto.classList.add('text-danger'); // Rojo
+                    inputMonto.classList.add('text-danger'); 
                 } else {
-                    inputMonto.classList.add('text-dark'); // Gris por defecto
+                    inputMonto.classList.add('text-dark'); 
                 }
             };
 
-            // 3. ESCUCHAR CAMBIOS EN EL SELECT DE TIPO
             if (inputTipo) {
                 inputTipo.addEventListener('change', (e) => {
                     actualizarDependencias(e.target.value, '');
                 });
             }
 
-            // 4. ASIGNAR VALORES INICIALES
             if (inputTipo && (tipo === 'PERCEPCION' || tipo === 'DEDUCCION')) {
                 inputTipo.value = tipo;
                 actualizarDependencias(tipo, categoria);
@@ -223,15 +259,12 @@
 
                 if (this.checkValidity()) {
                     bloquearBotonSubmit(this, "Guardando...");
-
                     const formData = new FormData(this);
 
                     fetch(this.action, {
                         method: 'POST',
                         body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     })
                     .then(response => response.json())
                     .then(data => {
@@ -254,9 +287,7 @@
                                     title: 'Éxito',
                                     text: data.message,
                                     confirmButtonColor: '#198754'
-                                }).then(() => {
-                                    window.location.reload(); 
-                                });
+                                }).then(() => { window.location.reload(); });
                             } else {
                                 alert(data.message);
                                 window.location.reload();
@@ -601,9 +632,7 @@
                         cancelButtonColor: '#6c757d',
                         confirmButtonText: '<i class="bi bi-arrow-counterclockwise me-1"></i> Sí, reabrir borrador',
                         cancelButtonText: 'Cancelar',
-                        customClass: {
-                            confirmButton: 'text-dark fw-bold shadow-sm'
-                        }
+                        customClass: { confirmButton: 'text-dark fw-bold shadow-sm' }
                     }).then((result) => {
                         if (result.isConfirmed) {
                             bloquearBotonSubmit(formReabrir, "Reabriendo...");
@@ -643,7 +672,6 @@
                             const baseUrl = window.location.origin + window.location.pathname;
                             btnBoleta.href = `${baseUrl}?ruta=planillas/imprimir_boleta&id=${data.id_detalle}`;
                         }
-                        
                     } catch (e) {
                         console.error('Error parseando datos del empleado:', e);
                     }
@@ -793,7 +821,6 @@
         const idEmpleadoFiltro = urlParams.get('id_empleado');
         const fechaInicioFiltro = urlParams.get('fecha_inicio');
 
-        // Función matemática para transformar "2026-02-23" a "2026-W09"
         function convertirFechaASemanaISO(fechaString) {
             const date = new Date(fechaString + 'T00:00:00'); 
             const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -813,27 +840,33 @@
                     } else {
                         inputFecha.value = fechaInicioFiltro;
                     }
-                    // Forzamos el evento change para que la cuadrícula reaccione a la nueva fecha
                     inputFecha.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-            }, 300); // 300ms de espera asegura que el input ya exista en el DOM
+            }, 300);
         }
 
         if (idEmpleadoFiltro) {
             setTimeout(() => {
                 const empleadoItem = document.querySelector(`[data-id="${idEmpleadoFiltro}"]`) || document.querySelector(`.empleado-item[data-id="${idEmpleadoFiltro}"]`);
                 if (empleadoItem) {
-                    empleadoItem.click(); // Clic automático
-                    empleadoItem.scrollIntoView({ behavior: 'smooth', block: 'center' }); // Auto-scroll
+                    empleadoItem.click();
+                    empleadoItem.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
                 }
-            }, 600); // 600ms de espera asegura que la lista de empleados ya se cargó desde la base de datos
+            }, 600);
         }
 
     } // Fin de la función iniciarModuloPlanillas
 
-    if (document.readyState === 'loading') {
+    // ==============================================================
+    // INICIALIZACIÓN COMPATIBLE CON TURBO/SPA Y ANTI-DUPLICADOS
+    // ==============================================================
+    if (!window._planillasModuloIniciado) {
+        document.addEventListener('turbo:load', iniciarModuloPlanillas);
         document.addEventListener('DOMContentLoaded', iniciarModuloPlanillas);
-    } else {
+        window._planillasModuloIniciado = true;
+    }
+    
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
         iniciarModuloPlanillas();
     }
 

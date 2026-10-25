@@ -19,32 +19,6 @@ if (!empty($_GET['error'])) {
 <!-- Turbo Frame principal -->
 <turbo-frame id="planillasApp" class="d-block">
 
-    <!-- 2. DISPARAR SWEETALERT SI HAY MENSAJE -->
-    <?php if ($swalMsg !== ''): ?>
-    <script>
-        setTimeout(() => {
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: '<?php echo $swalIcon; ?>',
-                    title: '<?php echo $swalIcon === "error" ? "Atención" : "Éxito"; ?>',
-                    text: '<?php echo htmlspecialchars($swalMsg, ENT_QUOTES); ?>',
-                    confirmButtonColor: '<?php echo $swalIcon === "error" ? "#dc3545" : "#198754"; ?>'
-                });
-            } else {
-                alert('<?php echo htmlspecialchars($swalMsg, ENT_QUOTES); ?>');
-            }
-            
-            // MAGIA: Limpiar la URL para evitar que la alerta se repita al presionar F5
-            if (window.history.replaceState) {
-                const url = new URL(window.location.href);
-                url.searchParams.delete('ok');
-                url.searchParams.delete('error');
-                window.history.replaceState({ path: url.href }, '', url.href);
-            }
-        }, 150);
-    </script>
-    <?php endif; ?>
-
     <div class="container-fluid p-4 fade-in">
         
         <!-- ========================================== -->

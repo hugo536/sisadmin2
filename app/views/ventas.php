@@ -1,8 +1,11 @@
-    <?php
+<?php
     $ventas = $ventas ?? [];
     $filtros = $filtros ?? [];
     $almacenes = $almacenes ?? [];
     $puedeDespachar = tiene_algun_permiso(['ventas.despachar', 'ventas.aprobar']);
+    
+    // CAPTURAR LA PESTAÑA ACTIVA (Por defecto: pendientes)
+    $vistaActual = $_GET['vista'] ?? 'pendientes';
 
     // Configuración de Estados Optimizada
     $estadoLabels = [
@@ -11,7 +14,7 @@
         3 => ['texto' => 'Cerrado/Entregado', 'clase' => 'bg-success-subtle text-success border border-success-subtle'],
         4 => ['texto' => 'Devuelto Total', 'clase' => 'bg-danger-subtle text-danger border border-danger-subtle'],
         5 => ['texto' => 'Dev. Parcial', 'clase' => 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'], 
-        6 => ['texto' => 'Despacho Parcial', 'clase' => 'bg-info-subtle text-info-emphasis border border-info-subtle'], // <-- NUEVO ESTADO
+        6 => ['texto' => 'Despacho Parcial', 'clase' => 'bg-info-subtle text-info-emphasis border border-info-subtle'],
         9 => ['texto' => 'Anulado', 'clase' => 'bg-dark-subtle text-dark border border-dark-subtle'],
     ];
 
@@ -60,6 +63,7 @@
             <div class="card-body p-3">
                 <form method="get" action="" class="row g-2 align-items-center" id="formFiltrosVentas">
                     <input type="hidden" name="ruta" value="ventas/index"> 
+                    <input type="hidden" name="vista" id="inputVistaGlobal" class="auto-submit" value="<?php echo e($vistaActual); ?>">
                     
                     <div class="col-12 col-lg-3">
                         <div class="input-group shadow-sm">
@@ -67,33 +71,22 @@
                             <input type="search" name="q" class="form-control bg-light border-secondary-subtle border-start-0 ps-0" id="filtroBusqueda" placeholder="Buscar código, cliente..." value="<?php echo e((string) ($filtros['q'] ?? '')); ?>">
                         </div>
                     </div>
-                    
-                    <div class="col-12 col-lg-2">
-                        <select name="estado" class="form-select bg-light border-secondary-subtle shadow-sm text-secondary" id="filtroEstado">
-                            <option value="">Todos los estados</option>
-                            <?php foreach ($estadoLabels as $key => $info): ?>
-                                <option value="<?php echo (int) $key; ?>" <?php echo ($filtros['estado'] ?? '') === (string) $key ? 'selected' : ''; ?>>
-                                    <?php echo e($info['texto']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
 
-                    <div class="col-12 col-lg-2">
-                        <select class="form-select text-secondary fw-semibold border-secondary-subtle" id="filtroOrdenFecha" style="min-width: 140px;">
+                    <div class="col-12 col-lg-3">
+                        <select class="form-select text-secondary fw-semibold border-secondary-subtle shadow-sm auto-submit" name="orden_fecha" id="filtroOrdenFecha">
                             <option value="emision" <?php echo ($filtros['orden_fecha'] ?? 'emision') === 'emision' ? 'selected' : ''; ?>>Fecha: Emisión</option>
                             <option value="registro" <?php echo ($filtros['orden_fecha'] ?? '') === 'registro' ? 'selected' : ''; ?>>Fecha: Registro</option>
                             <option value="despacho" <?php echo ($filtros['orden_fecha'] ?? '') === 'despacho' ? 'selected' : ''; ?>>Fecha: Despacho</option>
                         </select>
                     </div>
                     
-                    <div class="col-12 col-md-12 col-lg-5">  
+                    <div class="col-12 col-md-12 col-lg-6">  
                         <div class="input-group shadow-sm">
                             <span class="input-group-text bg-white text-muted border-end-0">Desde</span>
-                            <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle" value="<?php echo e($filtros['fecha_desde'] ?? date('Y-m-d', strtotime('-30 days'))); ?>">
+                            <input type="date" name="fecha_desde" id="filtroFechaDesde" class="form-control bg-light border-start-0 border-end-0 border-secondary-subtle auto-submit" value="<?php echo e($filtros['fecha_desde'] ?? ''); ?>">
                             
                             <span class="input-group-text bg-white text-muted border-start-0 border-end-0">Hasta</span>
-                            <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0 border-secondary-subtle" value="<?php echo e($filtros['fecha_hasta'] ?? date('Y-m-d')); ?>">
+                            <input type="date" name="fecha_hasta" id="filtroFechaHasta" class="form-control bg-light border-start-0 border-secondary-subtle auto-submit" value="<?php echo e($filtros['fecha_hasta'] ?? ''); ?>">
                             
                             <button type="button" id="btnFiltrarFechas" class="btn btn-light border text-primary px-3 transition-hover" title="Aplicar filtros" style="z-index: 0;">
                                 <i class="bi bi-funnel-fill"></i>
@@ -108,7 +101,38 @@
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm">
+        <ul class="nav nav-tabs border-bottom-1 mb-0 px-2 mt-3" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button type="button" class="nav-link fs-6 fw-semibold py-3 js-tab-ventas <?php echo $vistaActual === 'pendientes' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" data-vista="pendientes">
+                    <i class="bi bi-exclamation-circle me-2"></i>Pendientes de Atención
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button type="button" class="nav-link fs-6 fw-semibold py-3 js-tab-ventas <?php echo $vistaActual === 'completados' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" data-vista="completados">
+                    <i class="bi bi-check2-all me-2"></i>Despachados / Cerrados
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button type="button" class="nav-link fs-6 fw-semibold py-3 js-tab-ventas <?php echo $vistaActual === 'todos' ? 'active text-primary border-primary border-bottom-0 bg-white' : 'text-secondary bg-light border-0'; ?>" data-vista="todos">
+                    <i class="bi bi-border-all me-2"></i>Todos los Pedidos
+                </button>
+            </li>
+        </ul>
+
+        <div class="card border-0 shadow-sm rounded-top-0 border-top border-primary border-3" id="contenedorTablaVentas">
+            <div class="card-header bg-white border-bottom pt-4 pb-3 ps-4 pe-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center">
+                    <h2 class="h6 fw-bold text-dark mb-0">
+                        <?php 
+                            if($vistaActual === 'pendientes') echo "Pedidos Pendientes de Atención";
+                            elseif($vistaActual === 'completados') echo "Pedidos Despachados / Cerrados";
+                            else echo "Todos los Pedidos";
+                        ?>
+                    </h2>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill ms-3" id="badgeRegistrosVentas"><?php echo count($ventas); ?> Registros</span>
+                </div>
+            </div>
+            
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table align-middle mb-0 table-pro" id="tablaVentas"
@@ -116,8 +140,7 @@
                         data-erp-table="true"
                         data-search-input="#filtroBusqueda"
                         data-pagination-controls="#ventasPaginationControls"
-                        data-pagination-info="#ventasPaginationInfo"
-                        data-erp-filters='[{"el":"#filtroEstado","attr":"data-estado","match":"equals"}]'>
+                        data-pagination-info="#ventasPaginationInfo">
                         <thead>
                             <tr>
                                 <th class="ps-4 text-secondary fw-semibold">Código</th>
@@ -229,7 +252,7 @@
                                     </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
-                                <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay pedidos registrados.</td></tr>
+                                <tr class="empty-msg-row"><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i>No hay pedidos registrados en esta pestaña.</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -1046,7 +1069,7 @@
                 <?php endforeach; ?>
             </select>
             
-            <!-- Select de Métodos (AHORA VACÍO PARA FILTRADO DINÁMICO) -->
+            <!-- Select de Métodos -->
             <select class="form-select form-select-sm shadow-none pago-metodo border-success-subtle select-metodo-inmediato" required disabled>
                 <option value="" selected disabled>Método...</option>
             </select>

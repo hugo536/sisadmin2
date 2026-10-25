@@ -37,20 +37,32 @@ class ComprasController extends Controlador
         $fechaHastaDef = date('Y-m-d');
         $fechaDesdeDef = date('Y-m-d', strtotime('-30 days'));
 
-        $esVistaInicial = empty($_GET['q']) && !isset($_GET['estado']) && empty($_GET['fecha_desde']) && empty($_GET['fecha_hasta']);
+        // 1. Capturamos la pestaña activa con blindaje contra strings vacíos
+        $vistaActual = isset($_GET['vista']) && $_GET['vista'] !== '' ? (string) $_GET['vista'] : 'pendientes';
 
+        // 2. Lógica inteligente de fechas
+        $fechaDesde = trim((string) ($_GET['fecha_desde'] ?? ''));
+        $fechaHasta = trim((string) ($_GET['fecha_hasta'] ?? ''));
+        $esVistaInicial = empty($_GET['q']) && empty($_GET['vista']) && empty($_GET['fecha_desde']) && empty($_GET['fecha_hasta']);
+
+        if ($vistaActual === 'pendientes') {
+            // En 'Pendientes' NUNCA filtramos por fecha para evitar dejar trámites olvidados
+            $fechaDesde = '';
+            $fechaHasta = '';
+        } elseif ($esVistaInicial) {
+            // Si carga 'Completados' o 'Todos' por primera vez, limitamos a 30 días para no saturar
+            $fechaDesde = $fechaDesdeDef;
+            $fechaHasta = $fechaHastaDef;
+        }
+
+        // 3. Construimos los filtros para el Modelo
         $filtros = [
             'q'           => trim((string) ($_GET['q'] ?? '')),
-            'estado'      => isset($_GET['estado']) && $_GET['estado'] !== '' ? (string) $_GET['estado'] : null,
-            'fecha_desde' => $esVistaInicial ? $fechaDesdeDef : trim((string) ($_GET['fecha_desde'] ?? '')),
-            'fecha_hasta' => $esVistaInicial ? $fechaHastaDef : trim((string) ($_GET['fecha_hasta'] ?? '')),
+            'vista'       => $vistaActual,
+            'fecha_desde' => $fechaDesde,
+            'fecha_hasta' => $fechaHasta,
             'orden_fecha' => trim((string) ($_GET['orden_fecha'] ?? 'orden')),
         ];
-
-        // Ocultamos las anuladas por defecto
-        if ($filtros['estado'] === null) {
-            $filtros['excluir_estado'] = 9; 
-        }
 
         if (es_ajax() && (string) ($_GET['accion'] ?? '') === 'listar') {
             json_response(['ok' => true, 'data' => $this->ordenModel->listar($filtros)]);
@@ -156,7 +168,6 @@ class ComprasController extends Controlador
             'almacenes'     => $this->recepcionModel->listarAlmacenesActivos(),
             'centros_costo' => $this->centroCostoModel->listar(),
             'cuentas'       => (new TesoreriaCuentaModel())->listarActivas(), 
-            // 👇 LÍNEA CORREGIDA 👇
             'metodos'       => (new TesoreriaCxcModel())->obtenerMetodosActivos(),
         ]);
     }

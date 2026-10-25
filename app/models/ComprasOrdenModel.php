@@ -35,7 +35,9 @@ class ComprasOrdenModel extends Modelo
         SQL;
 
         $params = [];
+        $vista = $filtros['vista'] ?? 'pendientes';
 
+        // 1. Buscador global
         if (!empty($filtros['q'])) {
             $sql .= ' AND (o.codigo LIKE :q1 OR t.nombre_completo LIKE :q2)';
             $valorBusqueda = '%' . trim((string) $filtros['q']) . '%';
@@ -43,16 +45,15 @@ class ComprasOrdenModel extends Modelo
             $params[':q2'] = $valorBusqueda;
         }
 
-        if (isset($filtros['estado']) && $filtros['estado'] !== '' && $filtros['estado'] !== null) {
-            $sql .= ' AND o.estado = :estado';
-            $params[':estado'] = (int) $filtros['estado'];
+        // 2. Filtro por Pestaña (Vista)
+        if ($vista === 'pendientes') {
+            $sql .= ' AND o.estado IN (2, 1, 0)'; // Aprobada, Pendiente, Borrador
+        } elseif ($vista === 'completados') {
+            $sql .= ' AND o.estado IN (3, 9)'; // Recepcionada, Anulada
         }
+        // Si es 'todos', no agregamos filtro de estado
 
-        if (isset($filtros['excluir_estado'])) {
-            $sql .= ' AND o.estado != :excluir_estado';
-            $params[':excluir_estado'] = (int) $filtros['excluir_estado'];
-        }
-
+        // 3. Fechas
         if (!empty($filtros['fecha_desde'])) {
             $sql .= ' AND DATE(o.fecha_emision) >= :fecha_desde';
             $params[':fecha_desde'] = (string) $filtros['fecha_desde'];
@@ -63,12 +64,31 @@ class ComprasOrdenModel extends Modelo
             $params[':fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
+        // 4. Ordenamiento Dinámico
         $ordenFecha = $filtros['orden_fecha'] ?? 'orden';
-        
-        if ($ordenFecha === 'recepcion') {
-            $sql .= ' ORDER BY fecha_recepcion DESC, o.id DESC';
+
+        if ($vista === 'pendientes') {
+            // Prioridad Operativa (Ascendente) para sacar primero el trabajo más viejo
+            $sql .= ' ORDER BY 
+                        CASE o.estado 
+                            WHEN 2 THEN 1  /* 1° Aprobada (Lista para recepcionar) */
+                            WHEN 1 THEN 2  /* 2° Pendiente */
+                            WHEN 0 THEN 3  /* 3° Borrador */
+                            ELSE 4 
+                        END ASC, ';
+            
+            if ($ordenFecha === 'recepcion') {
+                $sql .= 'fecha_recepcion ASC, o.id ASC';
+            } else {
+                $sql .= 'o.fecha_emision ASC, o.id ASC';
+            }
         } else {
-            $sql .= ' ORDER BY o.fecha_emision DESC, o.id DESC';
+            // Completados o Todos: Orden natural descendente (Los más recientes arriba)
+            if ($ordenFecha === 'recepcion') {
+                $sql .= ' ORDER BY fecha_recepcion DESC, o.id DESC';
+            } else {
+                $sql .= ' ORDER BY o.fecha_emision DESC, o.id DESC';
+            }
         }
 
         $stmt = $this->db()->prepare($sql);

@@ -12,7 +12,7 @@ class VentasDocumentoModel extends Modelo
                        v.id_cliente,
                        t.nombre_completo AS cliente,
                        v.observaciones,
-                       v.observaciones_despacho, /* <-- COLUMNA AGREGADA AQUÍ */
+                       v.observaciones_despacho,
                        v.fecha_emision,
                        v.fecha_despacho, 
                        v.total,
@@ -23,7 +23,9 @@ class VentasDocumentoModel extends Modelo
                 WHERE v.deleted_at IS NULL';
 
         $params = [];
+        $vista = $filtros['vista'] ?? 'pendientes';
 
+        // 1. Buscador global
         if (!empty($filtros['q'])) {
             $sql .= ' AND (v.codigo LIKE :q_codigo OR t.nombre_completo LIKE :q_cliente)';
             $busqueda = '%' . trim((string) $filtros['q']) . '%';
@@ -31,14 +33,16 @@ class VentasDocumentoModel extends Modelo
             $params['q_cliente'] = $busqueda;
         }
 
-        if (isset($filtros['estado']) && $filtros['estado'] !== '' && $filtros['estado'] !== null) {
-            $sql .= ' AND v.estado = :estado';
-            $params['estado'] = (int) $filtros['estado'];
+        // 2. Filtro por Pestaña (Vista)
+        if ($vista === 'pendientes') {
+            $sql .= ' AND v.estado IN (6, 2, 0)'; // Despacho Parcial, Por Despachar, Borrador
+        } elseif ($vista === 'completados') {
+            $sql .= ' AND v.estado IN (3, 5, 9)'; // Entregados, Devueltos Parcialmente, Anulados
         }
+        // Si es 'todos', no se agrega filtro de estado, traerá toda la base de datos.
 
-        // --- LÓGICA DE FILTRADO Y ORDENAMIENTO POR FECHA DINÁMICA ---
-        // --- LÓGICA DE FILTRADO Y ORDENAMIENTO POR FECHA DINÁMICA ---
-        $campoFecha = 'DATE(v.created_at)'; // Por defecto (registro)
+        // 3. Fechas
+        $campoFecha = 'DATE(v.created_at)'; 
         if (isset($filtros['orden_fecha'])) {
             if ($filtros['orden_fecha'] === 'emision') {
                 $campoFecha = 'v.fecha_emision';
@@ -57,17 +61,33 @@ class VentasDocumentoModel extends Modelo
             $params['fecha_hasta'] = (string) $filtros['fecha_hasta'];
         }
 
-        // Ordenamiento final
-        if (isset($filtros['orden_fecha'])) {
-            if ($filtros['orden_fecha'] === 'emision') {
-                $sql .= ' ORDER BY v.fecha_emision DESC, v.id DESC';
-            } elseif ($filtros['orden_fecha'] === 'despacho') {
-                $sql .= ' ORDER BY v.fecha_despacho DESC, v.id DESC';
+        // 4. Ordenamiento Dinámico
+        if ($vista === 'pendientes') {
+            // Prioridad Operativa (Ascendente) para sacar primero el trabajo más viejo
+            $sql .= ' ORDER BY 
+                        CASE v.estado 
+                            WHEN 6 THEN 1  /* 1° Despacho Parcial */
+                            WHEN 2 THEN 2  /* 2° Por Despachar */
+                            WHEN 0 THEN 3  /* 3° Borrador */
+                            ELSE 4 
+                        END ASC, ';
+            
+            if (($filtros['orden_fecha'] ?? '') === 'emision') {
+                $sql .= 'v.fecha_emision ASC, v.id ASC';
+            } elseif (($filtros['orden_fecha'] ?? '') === 'despacho') {
+                $sql .= 'v.fecha_despacho ASC, v.id ASC';
             } else {
-                $sql .= ' ORDER BY v.created_at DESC, v.id DESC';
+                $sql .= 'v.created_at ASC, v.id ASC';
             }
         } else {
-            $sql .= ' ORDER BY COALESCE(v.updated_at, v.created_at) DESC, v.id DESC';
+            // Completados o Todos: Orden natural descendente (Los más recientes arriba)
+            if (($filtros['orden_fecha'] ?? '') === 'emision') {
+                $sql .= ' ORDER BY v.fecha_emision DESC, v.id DESC';
+            } elseif (($filtros['orden_fecha'] ?? '') === 'despacho') {
+                $sql .= ' ORDER BY v.fecha_despacho DESC, v.id DESC';
+            } else {
+                $sql .= ' ORDER BY COALESCE(v.updated_at, v.created_at) DESC, v.id DESC';
+            }
         }
 
         $stmt = $this->db()->prepare($sql);

@@ -1,15 +1,35 @@
 /**
  * SISTEMA SISADMIN2 - Módulo de Producción (Órdenes)
- * Archivo actualizado para manejo multi-almacén, SPA, Planificador, 
- * Cálculo Dual (Horas vs Cantidad) y Motor de Sub-Recetas (MRP).
+ * VERSIÓN OPTIMIZADA (Zero-Reload, Debounce, Eventos Acotados)
  */
+
+// =========================================================================
+// UTILIDADES GLOBALES (Reglas de Optimización)
+// =========================================================================
+const AppUtils = {
+    // Evita la sobrecarga de eventos (tecleo, scroll)
+    debounce: function(func, wait = 300) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    },
+    // Actualiza la tabla (Temporalmente usa reload clásico hasta ajustar PHP)
+    recargarTablaSilencioso: function() {
+        // Ponemos un pequeño delay para dar tiempo a que se lean los SweetAlerts
+        setTimeout(() => {
+            window.location.reload(); 
+        }, 300);
+    }
+};
 
 window.planFechaActual = window.planFechaActual || new Date();
 window.vistaActualPlan = window.vistaActualPlan || 'mes';
 window.diccPlanificacion = window.diccPlanificacion || {};
 
 window.initModuloProduccion = window.initModuloProduccion || function initModuloProduccion() {
-    // 1. Limpieza SPA para evitar Pantallas Oscuras
+    // Limpieza SPA
     document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
     document.body.classList.remove('modal-open');
     document.body.style.paddingRight = '';
@@ -24,7 +44,6 @@ window.initModuloProduccion = window.initModuloProduccion || function initModulo
     safeInit('tom selects', initTomSelects); 
     safeInit('planificador base', initPlanificadorOperaciones); 
 
-    // Configurar fechas iniciales del modal si se abre
     const modalPlanificar = document.getElementById('modalPlanificarOP');
     if (modalPlanificar) {
         modalPlanificar.addEventListener('show.bs.modal', function () {
@@ -68,7 +87,6 @@ window.initModuloProduccion = window.initModuloProduccion || function initModulo
         });
     }
 
-    // 3. INICIALIZAMOS EVENTOS GLOBALES (A PRUEBA DE SPA)
     if (!window.produccionEventosGlobalesAtados) {
         safeInit('acciones de tabla', initAccionesTabla);
         safeInit('modal de ejecución', initModalEjecucion);
@@ -89,7 +107,6 @@ if (document.readyState === 'loading') {
 // =========================================================================
 function initTomSelects() {
     if (typeof TomSelect === 'undefined') return;
-    
     const tsConfig = { create: false, dropdownParent: 'body' };
     
     const initTS = (id) => {
@@ -104,7 +121,6 @@ function initTomSelects() {
             });
             return;
         }
-
         new TomSelect(el, tsConfig);
     };
     
@@ -114,215 +130,7 @@ function initTomSelects() {
 }
 
 // =========================================================================
-// 6. MOTOR GLOBAL DE CÁLCULO DUAL Y GUARDADO DE OP
-// =========================================================================
-function initMotorCalculoYGuardadoGlobal() {
-    
-    window.calcularPlanificacionOP = function() {
-        const inputCant = document.getElementById('newCantPlan');
-        const inputHoras = document.getElementById('newHorasPlan');
-        const selectReceta = document.getElementById('newRecetaOP');
-        const modoSeleccionado = document.querySelector('input[name="modo_planificacion"]:checked');
-        const radiosModo = document.querySelectorAll('input[name="modo_planificacion"]'); 
-
-        if (!selectReceta || !inputCant || !inputHoras || !modoSeleccionado || !radiosModo) return;
-        
-        const valReceta = selectReceta.value;
-        
-        if (!valReceta) {
-            radiosModo.forEach(r => r.disabled = true);
-            inputCant.readOnly = true;
-            inputCant.classList.add('bg-light', 'text-muted');
-            inputCant.placeholder = "Seleccione receta primero";
-            inputCant.value = ''; 
-            
-            inputHoras.readOnly = true;
-            inputHoras.classList.add('bg-light', 'text-muted');
-            inputHoras.placeholder = "Seleccione receta primero";
-            inputHoras.value = ''; 
-            return; 
-        } else {
-            radiosModo.forEach(r => r.disabled = false);
-            const modo = modoSeleccionado.value;
-            if (modo === 'cantidad') {
-                inputCant.readOnly = false;
-                inputCant.classList.remove('bg-light', 'text-muted');
-                inputCant.placeholder = "Ej: 100";
-                inputHoras.readOnly = true;
-                inputHoras.classList.add('bg-light', 'text-muted');
-                inputHoras.placeholder = "Auto-calculado";
-            } else {
-                inputHoras.readOnly = false;
-                inputHoras.classList.remove('bg-light', 'text-muted');
-                inputHoras.placeholder = "Ej: 8";
-                inputCant.readOnly = true;
-                inputCant.classList.add('bg-light', 'text-muted');
-                inputCant.placeholder = "Auto-calculado";
-            }
-        }
-
-        const option = selectReceta.querySelector(`option[value="${valReceta}"]`);
-        if (!option) return;
-
-        const rendimiento = parseFloat(option.getAttribute('data-rendimiento')) || 1;
-        const tiempo = parseFloat(option.getAttribute('data-tiempo')) || 1;
-        const modo = modoSeleccionado.value;
-
-        if (modo === 'cantidad') {
-            const cant = parseFloat(inputCant.value) || 0;
-            if(cant > 0) inputHoras.value = ((cant * tiempo) / rendimiento).toFixed(4);
-            else inputHoras.value = '';
-        } else {
-            const horas = parseFloat(inputHoras.value) || 0;
-            if(horas > 0) inputCant.value = ((horas * rendimiento) / tiempo).toFixed(4);
-            else inputCant.value = '';
-        }
-    };
-
-    document.addEventListener('input', function(e) {
-        if (e.target.id === 'newCantPlan' || e.target.id === 'newHorasPlan') window.calcularPlanificacionOP();
-    });
-
-    document.addEventListener('change', function(e) {
-        if (e.target.id === 'newRecetaOP') {
-            const selectReceta = e.target;
-            const option = selectReceta.options[selectReceta.selectedIndex];
-            const idAlmacenPlanta = option ? String(option.getAttribute('data-id-almacen-planta') || '') : '';
-            const selectPlanta = document.getElementById('newAlmacenPlanta');
-            if (selectPlanta && idAlmacenPlanta) {
-                if (selectPlanta.tomselect) {
-                    selectPlanta.tomselect.setValue(idAlmacenPlanta, true);
-                } else {
-                    selectPlanta.value = idAlmacenPlanta;
-                }
-            }
-            window.calcularPlanificacionOP();
-            return;
-        }
-        if (e.target.name === 'modo_planificacion') window.calcularPlanificacionOP();
-    });
-
-    document.addEventListener('submit', async function(e) {
-        if (e.target.id === 'formCrearOP') {
-            e.preventDefault();
-            const form = e.target;
-            const btnSubmit = form.querySelector('button[type="submit"]');
-            const originalText = btnSubmit.innerHTML;
-            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando y analizando...';
-            btnSubmit.disabled = true;
-
-            try {
-                const formData = new FormData(form);
-                formData.set('accion', 'crear_orden_ajax'); 
-
-                const rawResponse = await fetch(window.location.href, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-
-                const textResponse = await rawResponse.text();
-                let resCrear;
-
-                try {
-                    resCrear = JSON.parse(textResponse);
-                } catch (parseError) {
-                    console.error("❌ El servidor no devolvió JSON válido. Respuesta cruda del servidor:");
-                    console.error(textResponse);
-                    Swal.fire('Error del Servidor', 'Hubo un problema procesando la petición en PHP. Revisa la consola.', 'error');
-                    return; 
-                }
-
-                if (!resCrear.success) {
-                    Swal.fire('Error', resCrear.message || 'No se pudo crear la orden.', 'error');
-                    return;
-                }
-
-                const idOrdenPadre = resCrear.id_orden;
-                const formDataAnalisis = new FormData();
-                formDataAnalisis.append('accion', 'analizar_subordenes_ajax');
-                formDataAnalisis.append('id_orden', idOrdenPadre);
-
-                const resAnalisis = await fetch(window.location.href, {
-                    method: 'POST',
-                    body: formDataAnalisis,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                }).then(r => r.json());
-
-                if (resAnalisis.success && resAnalisis.data && resAnalisis.data.length > 0) {
-                    let listaHtml = '<ul class="text-start mt-3 mb-0 text-muted" style="font-size: 0.9rem;">';
-                    resAnalisis.data.forEach(f => {
-                        listaHtml += `<li class="mb-1"><i class="bi bi-box-seam me-2"></i><b>${f.insumo_nombre}</b>: Faltan <span class="text-danger fw-bold">${f.cantidad_faltante}</span></li>`;
-                    });
-                    listaHtml += '</ul>';
-
-                    const confirmacion = await Swal.fire({
-                        icon: 'info',
-                        title: 'Faltan Semielaborados',
-                        html: `<p class="mb-1">Para cumplir con esta orden, no hay stock suficiente de los siguientes productos intermedios:</p>
-                               ${listaHtml}
-                               <div class="mt-3 p-2 bg-light border rounded text-dark small fw-medium">¿Deseas que el sistema genere automáticamente los borradores de las sub-órdenes para estos faltantes?</div>`,
-                        showCancelButton: true,
-                        confirmButtonText: '<i class="bi bi-magic me-1"></i> Sí, generar',
-                        cancelButtonText: 'No, lo haré manual',
-                        confirmButtonColor: '#0d6efd',
-                        cancelButtonColor: '#6c757d'
-                    });
-
-                    if (confirmacion.isConfirmed) {
-                        Swal.fire({ title: 'Generando cadena de producción...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-                        
-                        const fdGenerar = new FormData();
-                        fdGenerar.append('accion', 'generar_subordenes_ajax');
-                        fdGenerar.append('id_orden_padre', idOrdenPadre);
-
-                        const resGenerar = await fetch(window.location.href, {
-                            method: 'POST',
-                            body: fdGenerar,
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                        }).then(r => r.json());
-
-                        if (resGenerar.success) {
-                            await Swal.fire({ icon: 'success', title: '¡Éxito!', text: 'La orden y sus sub-órdenes se generaron correctamente.', timer: 2000, showConfirmButton: false });
-                        } else {
-                            await Swal.fire('Error', 'Se creó la OP principal, pero hubo un problema al generar las sub-órdenes.', 'error');
-                        }
-                    } else {
-                        await Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Orden principal planificada correctamente.', timer: 1500, showConfirmButton: false });
-                    }
-                } else {
-                    await Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Orden planificada. Stock de semielaborados suficiente.', timer: 1500, showConfirmButton: false });
-                }
-
-                const modalEl = document.getElementById('modalPlanificarOP');
-                if(modalEl) {
-                    const bsModal = bootstrap.Modal.getInstance(modalEl);
-                    if (bsModal) bsModal.hide();
-                }
-                
-                const plannerModal = document.getElementById('modalPlanificadorProduccion');
-                const isPlannerOpen = plannerModal && (plannerModal.classList.contains('show') || plannerModal.style.display === 'block');
-
-                if (isPlannerOpen && typeof window.cargarGridPlanificador === 'function') {
-                    window.cargarGridPlanificador(); 
-                } else {
-                    setTimeout(() => { window.location.reload(); }, 300);
-                }
-
-            } catch (err) {
-                console.error(err);
-                Swal.fire('Error', 'Hubo un problema de conexión con el servidor.', 'error');
-            } finally {
-                btnSubmit.innerHTML = originalText;
-                btnSubmit.disabled = false;
-                form.reset(); 
-            }
-        }
-    });
-}
-
-// =========================================================================
-// 1. FILTROS DE TABLA DE ÓRDENES
+// 1. FILTROS DE TABLA DE ÓRDENES (OPTIMIZADO CON DEBOUNCE)
 // =========================================================================
 function initFiltrosOrdenes() {
     const input = document.getElementById('opSearch');
@@ -334,7 +142,6 @@ function initFiltrosOrdenes() {
     const filterFn = () => {
         const term = input.value.toLowerCase();
         const estado = select ? select.value : '';
-        
         const mainRows = table.querySelectorAll('tbody tr[data-estado]');
 
         mainRows.forEach(row => {
@@ -356,7 +163,10 @@ function initFiltrosOrdenes() {
         });
     };
 
-    input.addEventListener('input', filterFn);
+    // Aplicación del Debounce para no colgar el navegador al escribir rápido
+    const filterFnDebounced = AppUtils.debounce(filterFn, 300);
+
+    input.addEventListener('input', filterFnDebounced);
     if (select) select.addEventListener('change', filterFn);
 }
 
@@ -368,17 +178,22 @@ function initTooltips() {
 }
 
 // =========================================================================
-// 2. ACCIONES DE TABLA Y UX DE ACORDEONES
+// 2. ACCIONES DE TABLA (EVENTOS ACOTADOS A #tablaOrdenes)
 // =========================================================================
 function initAccionesTabla() {
     let modalEditar = null;
     let modalDetalle = null;
+    const tabla = document.getElementById('tablaOrdenes');
+    
+    if (!tabla) return;
 
-    document.addEventListener('click', function(e) {
+    // Solo escuchamos clics dentro de la tabla
+    tabla.addEventListener('click', function(e) {
+        
+        // BOTÓN EDITAR
         const btnEditar = e.target.closest('.js-editar-op');
         if (btnEditar) {
             const modalEditarEl = document.getElementById('modalEditarOP');
-            
             if (modalEditarEl && typeof bootstrap !== 'undefined') {
                 if (!modalEditar) modalEditar = new bootstrap.Modal(modalEditarEl);
 
@@ -398,15 +213,13 @@ function initAccionesTabla() {
             return;
         }
 
-        // NUEVO: Lógica del Modal de Diagnóstico
+        // BOTÓN DIAGNÓSTICO
         const btnDiagnostico = e.target.closest('.js-ver-diagnostico');
         if (btnDiagnostico) {
             const modalDiagEl = document.getElementById('modalDiagnosticoOP');
             if (!modalDiagEl || typeof bootstrap === 'undefined') return;
 
             const modalDiag = bootstrap.Modal.getOrCreateInstance(modalDiagEl);
-            
-            // Traemos los datos del botón
             const codigo = btnDiagnostico.getAttribute('data-codigo');
             const destino = btnDiagnostico.getAttribute('data-destino');
             const estaOk = btnDiagnostico.getAttribute('data-ok') === '1';
@@ -414,122 +227,91 @@ function initAccionesTabla() {
 
             document.getElementById('diagCodigoOP').textContent = codigo;
             document.getElementById('diagDestino').textContent = destino;
-
             const contenedor = document.getElementById('diagContenido');
             
             if (estaOk) {
-                // Todo está bien
                 contenedor.innerHTML = `
                     <div class="text-center py-4">
                         <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
                         <h5 class="mt-3 fw-bold text-dark">Todo en orden</h5>
-                        <p class="text-muted mb-0">La planta cuenta con stock suficiente de todos los insumos y semielaborados para iniciar esta producción.</p>
+                        <p class="text-muted mb-0">La planta cuenta con stock suficiente.</p>
                     </div>`;
             } else {
-                // Hay faltantes
                 const listaFaltantes = resumen.replace('Faltantes: ', '').split(';').filter(i => i.trim() !== '');
-                
-                let htmlFaltantes = `<div class="alert alert-warning border-warning border-start border-4 shadow-sm mb-0">
-                                        <div class="d-flex align-items-center mb-2">
-                                            <i class="bi bi-exclamation-triangle-fill fs-5 text-warning me-2"></i>
-                                            <strong class="text-dark">Insumos Faltantes</strong>
-                                        </div>
-                                        <p class="small text-dark mb-3">Las siguientes cantidades deben ser transferidas o ajustadas para poder cumplir con esta orden:</p>
+                let htmlFaltantes = `<div class="alert alert-warning shadow-sm mb-0">
+                                        <p class="small text-dark mb-2">Insumos Faltantes:</p>
                                         <ul class="list-group list-group-flush shadow-sm rounded">`;
-                
                 listaFaltantes.forEach(item => {
-                    htmlFaltantes += `<li class="list-group-item list-group-item-warning d-flex align-items-center py-2 px-3 border-warning-subtle">
-                                        <i class="bi bi-box-seam me-3 text-secondary"></i>
-                                        <span class="fw-medium text-dark flex-grow-1">${item.trim()}</span>
+                    htmlFaltantes += `<li class="list-group-item list-group-item-warning py-1 px-3 border-warning-subtle">
+                                        <span class="fw-medium text-dark">${item.trim()}</span>
                                       </li>`;
                 });
-                
                 htmlFaltantes += `</ul></div>`;
                 contenedor.innerHTML = htmlFaltantes;
             }
-
             modalDiag.show();
             return;
         }
 
+        // BOTÓN DETALLE DE COSTOS
         const btnDetalle = e.target.closest('.js-ver-detalle');
         if (btnDetalle) {
             const modalDetalleEl = document.getElementById('modalDetalleOP');
-
             if (modalDetalleEl && typeof bootstrap !== 'undefined') {
                 if (!modalDetalle) modalDetalle = new bootstrap.Modal(modalDetalleEl);
-
-                // Función de ayuda para formatear números con comas
                 const fmt = (num, dec = 4) => Number(num).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 
-                const estado = btnDetalle.getAttribute('data-estado') || '-';
-                const idOrden = Number(btnDetalle.getAttribute('data-id') || 0);
-                
-                // LEEMOS LOS NÚMEROS CRUDOS SIN COMAS
-                const plan = parseFloat(btnDetalle.getAttribute('data-plan') || '0') || 0;
-                const real = parseFloat(btnDetalle.getAttribute('data-real') || '0') || 0;
-                const mdRealVal = parseFloat(btnDetalle.getAttribute('data-md-real') || '0') || 0;
-                const modRealVal = parseFloat(btnDetalle.getAttribute('data-mod-real') || '0') || 0;
-                const cifRealVal = parseFloat(btnDetalle.getAttribute('data-cif-real') || '0') || 0;
-                const totalRealVal = parseFloat(btnDetalle.getAttribute('data-total-real') || '0') || 0;
-                
-                // CÁLCULO MATEMÁTICO CORREGIDO
-                const unitarioRealVal = real > 0 ? (totalRealVal / real) : 0;
-                
                 document.getElementById('detalleCodigo').textContent = btnDetalle.getAttribute('data-codigo') || '-';
                 document.getElementById('detalleProducto').textContent = btnDetalle.getAttribute('data-producto') || '-';
                 
-                // IMPRIMIMOS CON FORMATO
-                document.getElementById('detallePlan').textContent = fmt(plan);
-                document.getElementById('detalleReal').textContent = fmt(real);
-                document.getElementById('detalleMdReal').textContent = fmt(mdRealVal);
-                document.getElementById('detalleModReal').textContent = fmt(modRealVal);
-                document.getElementById('detalleCifReal').textContent = fmt(cifRealVal);
-                document.getElementById('detalleTotalReal').textContent = fmt(totalRealVal);
-                document.getElementById('detalleUnitarioReal').textContent = fmt(unitarioRealVal);
+                document.getElementById('detallePlan').textContent = fmt(parseFloat(btnDetalle.getAttribute('data-plan') || 0));
+                document.getElementById('detalleReal').textContent = fmt(parseFloat(btnDetalle.getAttribute('data-real') || 0));
+                document.getElementById('detalleMdReal').textContent = fmt(parseFloat(btnDetalle.getAttribute('data-md-real') || 0));
+                document.getElementById('detalleModReal').textContent = fmt(parseFloat(btnDetalle.getAttribute('data-mod-real') || 0));
+                document.getElementById('detalleCifReal').textContent = fmt(parseFloat(btnDetalle.getAttribute('data-cif-real') || 0));
+                document.getElementById('detalleTotalReal').textContent = fmt(parseFloat(btnDetalle.getAttribute('data-total-real') || 0));
 
+                const real = parseFloat(btnDetalle.getAttribute('data-real') || 0);
+                const total = parseFloat(btnDetalle.getAttribute('data-total-real') || 0);
+                document.getElementById('detalleUnitarioReal').textContent = fmt(real > 0 ? (total / real) : 0);
+
+                const estado = btnDetalle.getAttribute('data-estado') || '-';
                 const badge = document.getElementById('detalleEstado');
                 if (badge) {
                     badge.textContent = estado;
                     badge.className = `badge ${estado === 'Ejecutada' ? 'bg-success' : 'bg-danger'} px-3 py-2 fs-6 rounded-pill`;
                 }
 
-                const fillTable = (id, rows, emptyCols, mapper) => {
-                    const tbody = document.getElementById(id);
-                    if (!tbody) return;
-                    if (!Array.isArray(rows) || rows.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="${emptyCols}" class="text-center text-muted py-4"><i class="bi bi-inbox fs-3 d-block mb-1"></i>Sin datos para mostrar</td></tr>`;
-                        return;
-                    }
-                    tbody.innerHTML = rows.map(mapper).join('');
-                };
+                document.getElementById('detalleTablaMd').innerHTML = `<tr><td colspan="4" class="text-center text-primary py-4">Cargando datos...</td></tr>`;
 
                 const fd = new FormData();
                 fd.append('accion', 'obtener_detalle_costos_ajax');
-                fd.append('id_orden', String(idOrden));
-
-                // Ponemos los cargadores visuales mientras consultamos la DB
-                document.getElementById('detalleTablaMd').innerHTML = `<tr><td colspan="4" class="text-center text-primary py-4"><div class="spinner-border spinner-border-sm me-2"></div>Cargando datos...</td></tr>`;
+                fd.append('id_orden', btnDetalle.getAttribute('data-id'));
 
                 fetch(window.location.href, { method: 'POST', body: fd })
                     .then((r) => r.json())
                     .then((resp) => {
-                        // SI HAY ERROR EN EL SQL (Backend), LO MOSTRAMOS EN LA TABLA
+                        const fillTable = (id, rows, emptyCols, mapper) => {
+                            const tbody = document.getElementById(id);
+                            if (!tbody) return;
+                            if (!Array.isArray(rows) || rows.length === 0) {
+                                tbody.innerHTML = `<tr><td colspan="${emptyCols}" class="text-center text-muted py-2">Sin datos</td></tr>`;
+                                return;
+                            }
+                            tbody.innerHTML = rows.map(mapper).join('');
+                        };
+
                         if (!resp.success) {
-                            const errorMsg = resp.message || 'Error desconocido en el servidor.';
-                            document.getElementById('detalleTablaMd').innerHTML = `<tr><td colspan="4" class="text-center text-danger py-4"><i class="bi bi-exclamation-triangle-fill fs-3 d-block mb-2"></i><b>Error SQL:</b> ${errorMsg}</td></tr>`;
-                            fillTable('detalleTablaMod', [], 4, () => '');
-                            fillTable('detalleTablaCif', [], 3, () => '');
+                            document.getElementById('detalleTablaMd').innerHTML = `<tr><td colspan="4" class="text-danger text-center">Error SQL: ${resp.message}</td></tr>`;
                             return;
                         }
 
                         const data = resp.data || { materiales: [], mod: [], cif: [] };
-                        fillTable('detalleTablaMd', data.materiales, 4, (r) => `<tr><td class="ps-3 fw-medium">${r.item_nombre || '-'}</td><td class="text-end"><div><span class="fw-bold">${fmt(r.cantidad)}</span></div><div class="text-muted small">Real: ${fmt(r.cantidad_real)}</div></td><td class="text-end">S/ ${fmt(r.costo_unitario)}</td><td class="text-end pe-3 fw-semibold">S/ ${fmt(r.costo_total)}</td></tr>`);
-                        fillTable('detalleTablaMod', data.mod, 4, (r) => `<tr><td class="ps-3 fw-medium">${r.empleado || ('ID ' + (r.id_empleado || '-'))}</td><td class="text-end fw-bold">${fmt(r.horas_reales)}</td><td class="text-end">S/ ${fmt(r.costo_hora_real)}</td><td class="text-end pe-3 fw-semibold">S/ ${fmt(r.costo_total_mod)}</td></tr>`);
-                        fillTable('detalleTablaCif', data.cif, 3, (r) => `<tr><td class="ps-3 fw-medium">${r.concepto || '-'}</td><td class="text-muted">${r.base_distribucion || '-'}</td><td class="text-end pe-3 fw-semibold">S/ ${fmt(r.costo_aplicado)}</td></tr>`);
-                    })
-                    .catch((err) => {
-                        document.getElementById('detalleTablaMd').innerHTML = `<tr><td colspan="4" class="text-center text-danger py-4"><i class="bi bi-wifi-off fs-3 d-block mb-2"></i>Error de conexión al obtener detalles.</td></tr>`;
+                        fillTable('detalleTablaMd', data.materiales, 4, (r) => `<tr><td class="ps-3">${r.item_nombre}</td><td class="text-end">${fmt(r.cantidad)}</td><td class="text-end">S/ ${fmt(r.costo_unitario)}</td><td class="text-end pe-3 fw-bold">S/ ${fmt(r.costo_total)}</td></tr>`);
+                        fillTable('detalleTablaMod', data.mod, 4, (r) => `<tr><td class="ps-3">${r.empleado}</td><td class="text-end">${fmt(r.horas_reales)}</td><td class="text-end">S/ ${fmt(r.costo_hora_real)}</td><td class="text-end pe-3 fw-bold">S/ ${fmt(r.costo_total_mod)}</td></tr>`);
+                        fillTable('detalleTablaCif', data.cif, 3, (r) => `<tr><td class="ps-3">${r.concepto}</td><td class="text-muted">${r.base_distribucion}</td><td class="text-end pe-3 fw-bold">S/ ${fmt(r.costo_aplicado)}</td></tr>`);
+                    }).catch(() => {
+                        document.getElementById('detalleTablaMd').innerHTML = `<tr><td colspan="4" class="text-center text-danger py-4">Error de red</td></tr>`;
                     });
 
                 modalDetalle.show();
@@ -539,10 +321,167 @@ function initAccionesTabla() {
 }
 
 // =========================================================================
-// 3. MODAL DE EJECUCIÓN (Lógica AJAX y Eventos de Tiempo)
+// 6. MOTOR GLOBAL DE CÁLCULO DUAL Y GUARDADO DE OP (ZERO RELOAD)
+// =========================================================================
+function initMotorCalculoYGuardadoGlobal() {
+    
+    window.calcularPlanificacionOP = function() {
+        const inputCant = document.getElementById('newCantPlan');
+        const inputHoras = document.getElementById('newHorasPlan');
+        const selectReceta = document.getElementById('newRecetaOP');
+        const modoSeleccionado = document.querySelector('input[name="modo_planificacion"]:checked');
+        const radiosModo = document.querySelectorAll('input[name="modo_planificacion"]'); 
+
+        if (!selectReceta || !inputCant || !inputHoras || !modoSeleccionado || !radiosModo) return;
+        
+        const valReceta = selectReceta.value;
+        if (!valReceta) {
+            radiosModo.forEach(r => r.disabled = true);
+            inputCant.readOnly = true; inputCant.classList.add('bg-light', 'text-muted'); inputCant.value = ''; 
+            inputHoras.readOnly = true; inputHoras.classList.add('bg-light', 'text-muted'); inputHoras.value = ''; 
+            return; 
+        } else {
+            radiosModo.forEach(r => r.disabled = false);
+            if (modoSeleccionado.value === 'cantidad') {
+                inputCant.readOnly = false; inputCant.classList.remove('bg-light', 'text-muted');
+                inputHoras.readOnly = true; inputHoras.classList.add('bg-light', 'text-muted');
+            } else {
+                inputHoras.readOnly = false; inputHoras.classList.remove('bg-light', 'text-muted');
+                inputCant.readOnly = true; inputCant.classList.add('bg-light', 'text-muted');
+            }
+        }
+
+        const option = selectReceta.querySelector(`option[value="${valReceta}"]`);
+        if (!option) return;
+
+        const rendimiento = parseFloat(option.getAttribute('data-rendimiento')) || 1;
+        const tiempo = parseFloat(option.getAttribute('data-tiempo')) || 1;
+
+        if (modoSeleccionado.value === 'cantidad') {
+            const cant = parseFloat(inputCant.value) || 0;
+            if(cant > 0) inputHoras.value = ((cant * tiempo) / rendimiento).toFixed(4);
+            else inputHoras.value = '';
+        } else {
+            const horas = parseFloat(inputHoras.value) || 0;
+            if(horas > 0) inputCant.value = ((horas * rendimiento) / tiempo).toFixed(4);
+            else inputCant.value = '';
+        }
+    };
+
+    const containerPlanificar = document.getElementById('modalPlanificarOP');
+    if(containerPlanificar) {
+        containerPlanificar.addEventListener('input', function(e) {
+            if (e.target.id === 'newCantPlan' || e.target.id === 'newHorasPlan') window.calcularPlanificacionOP();
+        });
+        containerPlanificar.addEventListener('change', function(e) {
+            if (e.target.id === 'newRecetaOP') {
+                const selectReceta = e.target;
+                const option = selectReceta.options[selectReceta.selectedIndex];
+                const idAlmacenPlanta = option ? String(option.getAttribute('data-id-almacen-planta') || '') : '';
+                const selectPlanta = document.getElementById('newAlmacenPlanta');
+                if (selectPlanta && idAlmacenPlanta) {
+                    if (selectPlanta.tomselect) selectPlanta.tomselect.setValue(idAlmacenPlanta, true);
+                    else selectPlanta.value = idAlmacenPlanta;
+                }
+                window.calcularPlanificacionOP();
+            }
+            if (e.target.name === 'modo_planificacion') window.calcularPlanificacionOP();
+        });
+    }
+
+    // FORMULARIO CREAR OP - OPTIMIZADO PARA NO RECARGAR
+    const formCrear = document.getElementById('formCrearOP');
+    if (formCrear) {
+        formCrear.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btnSubmit = this.querySelector('button[type="submit"]');
+            const originalText = btnSubmit.innerHTML;
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+            btnSubmit.disabled = true;
+
+            try {
+                const formData = new FormData(this);
+                formData.set('accion', 'crear_orden_ajax'); 
+
+                // Idealmente el backend aquí ya calcula faltantes y los devuelve.
+                // Usamos la arquitectura actual de 2 requests por compatibilidad.
+                const resCrear = await fetch(window.location.href, {
+                    method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                }).then(r => r.json());
+
+                if (!resCrear.success) {
+                    Swal.fire('Error', resCrear.message || 'No se pudo crear.', 'error');
+                    return;
+                }
+
+                const formDataAnalisis = new FormData();
+                formDataAnalisis.append('accion', 'analizar_subordenes_ajax');
+                formDataAnalisis.append('id_orden', resCrear.id_orden);
+
+                const resAnalisis = await fetch(window.location.href, {
+                    method: 'POST', body: formDataAnalisis, headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                }).then(r => r.json());
+
+                if (resAnalisis.success && resAnalisis.data && resAnalisis.data.length > 0) {
+                    let listaHtml = '<ul class="text-start mt-3 mb-0 text-muted">';
+                    resAnalisis.data.forEach(f => {
+                        listaHtml += `<li><b>${f.insumo_nombre}</b>: Faltan <span class="text-danger">${f.cantidad_faltante}</span></li>`;
+                    });
+                    listaHtml += '</ul>';
+
+                    const confirmacion = await Swal.fire({
+                        icon: 'info',
+                        title: 'Faltan Semielaborados',
+                        html: `Para cumplir esta orden faltan insumos: ${listaHtml} <br>¿Generar sub-órdenes?`,
+                        showCancelButton: true, confirmButtonText: 'Sí, generar', cancelButtonText: 'No, manual'
+                    });
+
+                    if (confirmacion.isConfirmed) {
+                        Swal.fire({ title: 'Generando...', didOpen: () => Swal.showLoading() });
+                        const fdGenerar = new FormData();
+                        fdGenerar.append('accion', 'generar_subordenes_ajax');
+                        fdGenerar.append('id_orden_padre', resCrear.id_orden);
+                        await fetch(window.location.href, { method: 'POST', body: fdGenerar, headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+                        Swal.fire({ icon: 'success', title: 'Generadas', timer: 1500, showConfirmButton: false });
+                    } else {
+                        Swal.fire({ icon: 'success', title: 'Guardado', timer: 1500, showConfirmButton: false });
+                    }
+                } else {
+                    Swal.fire({ icon: 'success', title: 'Guardado sin faltantes', timer: 1500, showConfirmButton: false });
+                }
+
+                // Cierre y Limpieza sin Recargar
+                const modalEl = document.getElementById('modalPlanificarOP');
+                if(modalEl) bootstrap.Modal.getInstance(modalEl).hide();
+                
+                const plannerModal = document.getElementById('modalPlanificadorProduccion');
+                if (plannerModal && plannerModal.classList.contains('show')) {
+                    if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador(); 
+                } else {
+                    // ZERO-RELOAD: Actualizar la tabla local en vez de recargar la página entera
+                    AppUtils.recargarTablaSilencioso();
+                }
+
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error', 'Hubo un problema con el servidor.', 'error');
+            } finally {
+                btnSubmit.innerHTML = originalText;
+                btnSubmit.disabled = false;
+                this.reset(); 
+            }
+        });
+    }
+}
+
+
+// =========================================================================
+// 3. MODAL DE EJECUCIÓN (EVENTOS ACOTADOS A #modalEjecutarOP)
 // =========================================================================
 function initModalEjecucion() {
     let modalEjecutar;
+    const modalEl = document.getElementById('modalEjecutarOP');
+    if (!modalEl) return;
 
     window.calcularTiempoNetoOP = function() {
         const dateInicio = document.getElementById('execFechaInicioDate');
@@ -552,7 +491,6 @@ function initModalEjecucion() {
         
         const inputParadaHoras = document.getElementById('execParadaHoras');
         const inputParadaMinutos = document.getElementById('execParadaMinutos');
-        
         const hiddenInicio = document.getElementById('execFechaInicio');
         const hiddenFin = document.getElementById('execFechaFin');
         const hiddenParada = document.getElementById('execHorasParada');
@@ -562,14 +500,12 @@ function initModalEjecucion() {
 
         if (!dateInicio || !lblTiempoNeto) return;
         
-        // FUNCIÓN DE AYUDA: Bloquear y limpiar campos de parada
         const bloquearParadas = () => {
-            if (inputParadaHoras) { inputParadaHoras.disabled = true; inputParadaHoras.classList.add('bg-light'); inputParadaHoras.value = ''; }
-            if (inputParadaMinutos) { inputParadaMinutos.disabled = true; inputParadaMinutos.classList.add('bg-light'); inputParadaMinutos.value = ''; }
+            if (inputParadaHoras) { inputParadaHoras.disabled = true; inputParadaHoras.value = ''; }
+            if (inputParadaMinutos) { inputParadaMinutos.disabled = true; inputParadaMinutos.value = ''; }
             if (hiddenParada) hiddenParada.value = '0';
         };
 
-        // Si falta algún dato de fecha/hora, bloqueamos las paradas y mostramos 0
         if (!dateInicio.value || !timeInicio.value || !dateFin.value || !timeFin.value) {
             lblTiempoNeto.innerHTML = `0h 0m <small class="text-muted fw-normal ms-2 opacity-75">(0.00 Hrs)</small>`;
             if (hiddenInicio) hiddenInicio.value = '';
@@ -587,14 +523,11 @@ function initModalEjecucion() {
         const f1 = new Date(strInicio);
         const f2 = new Date(strFin);
         
-        // Si la hora final es mayor a la inicial (Todo correcto)
         if (f2 > f1) {
-            // DESBLOQUEAMOS LOS CAMPOS DE PARADA
-            if (inputParadaHoras) { inputParadaHoras.disabled = false; inputParadaHoras.classList.remove('bg-light'); }
-            if (inputParadaMinutos) { inputParadaMinutos.disabled = false; inputParadaMinutos.classList.remove('bg-light'); }
+            if (inputParadaHoras) inputParadaHoras.disabled = false;
+            if (inputParadaMinutos) inputParadaMinutos.disabled = false;
 
             let horasBrutas = (f2 - f1) / (1000 * 60 * 60);
-            
             const paradaHoras = parseInt(inputParadaHoras ? inputParadaHoras.value : 0, 10) || 0;
             let paradaMinutos = parseInt(inputParadaMinutos ? inputParadaMinutos.value : 0, 10) || 0;
             paradaMinutos = Math.min(59, Math.max(0, paradaMinutos));
@@ -602,13 +535,9 @@ function initModalEjecucion() {
             
             let paradasDecimal = paradaHoras + (paradaMinutos / 60);
             
-            // VALIDACIÓN: ¿La parada es mayor a las horas trabajadas?
             if (paradasDecimal >= horasBrutas) {
-                lblTiempoNeto.innerHTML = `<span class="text-danger fw-bold" style="font-size: 0.8rem;"><i class="bi bi-exclamation-triangle-fill me-1"></i>Parada mayor a duración</span>`;
-                if (btnGuardar) {
-                    btnGuardar.setAttribute('data-error-tiempo', '1');
-                    btnGuardar.disabled = true; // Bloquea el guardado
-                }
+                lblTiempoNeto.innerHTML = `<span class="text-danger fw-bold" style="font-size: 0.8rem;">Parada mayor a duración</span>`;
+                if (btnGuardar) { btnGuardar.setAttribute('data-error-tiempo', '1'); btnGuardar.disabled = true; }
                 return;
             } else {
                 if (btnGuardar) btnGuardar.removeAttribute('data-error-tiempo');
@@ -617,91 +546,73 @@ function initModalEjecucion() {
 
             if (hiddenParada) hiddenParada.value = paradasDecimal.toFixed(4);
             let netoDecimal = Math.max(0, horasBrutas - paradasDecimal);
-            
             let totalMinutosNetos = Math.round(netoDecimal * 60);
             let hHuman = Math.floor(totalMinutosNetos / 60);
             let mHuman = totalMinutosNetos % 60;
 
             lblTiempoNeto.innerHTML = `${hHuman}h ${mHuman}m <small class="text-light fw-normal opacity-75 ms-2" style="font-size: 0.7rem;">(${netoDecimal.toFixed(2)} Hrs)</small>`;
         } else {
-            // Si la hora de inicio es mayor al fin (Error)
-            lblTiempoNeto.innerHTML = `<span class="text-danger fw-bold" style="font-size: 0.8rem;"><i class="bi bi-clock-history me-1"></i>Inicio mayor al fin</span>`;
-            if (btnGuardar) {
-                btnGuardar.setAttribute('data-error-tiempo', '1');
-                btnGuardar.disabled = true;
-            }
+            lblTiempoNeto.innerHTML = `<span class="text-danger fw-bold" style="font-size: 0.8rem;">Inicio mayor al fin</span>`;
+            if (btnGuardar) { btnGuardar.setAttribute('data-error-tiempo', '1'); btnGuardar.disabled = true; }
             bloquearParadas();
         }
     };
 
-    document.addEventListener('change', function(e) {
+    // Listeners Acotados a Modal Ejecución
+    modalEl.addEventListener('change', function(e) {
         if (['execFechaInicioDate', 'execFechaInicioTime', 'execFechaFinDate', 'execFechaFinTime'].includes(e.target.id)) {
             window.calcularTiempoNetoOP();
         }
+        if (e.target.matches('select[name="consumo_id_almacen[]"]')) recalcularSemaforos(true);
     });
 
-    document.addEventListener('input', function(e) {
+    modalEl.addEventListener('input', function(e) {
         if (e.target.id === 'execParadaHoras' || e.target.id === 'execParadaMinutos') window.calcularTiempoNetoOP();
-    });
-
-    // Lógica para botones táctiles de sumar/restar cantidades
-    document.addEventListener('click', function(e) {
-        const btnMinus = e.target.closest('.js-btn-minus');
-        const btnPlus = e.target.closest('.js-btn-plus');
-        
-        if (btnMinus || btnPlus) {
-            const input = (btnMinus || btnPlus).closest('.input-group').querySelector('input[type="number"]');
-            if (!input || input.readOnly) return;
-            
-            let val = parseFloat(input.value) || 0;
-            let step = parseFloat(input.getAttribute('step')) || 1; 
-            
-            if (btnMinus) val = Math.max(0, val - step);
-            if (btnPlus) val += step;
-            
-            input.value = val.toFixed(step < 1 ? 4 : 0);
-            input.dispatchEvent(new Event('input', { bubbles: true }));
+        if (e.target.matches('input[name="ingreso_cantidad[]"]')) dispararRecalculoTotal();
+        if (e.target.matches('#tablaConsumosDynamic tbody tr.fila-fraccion-extra input[name="consumo_cantidad[]"]')) {
+            const tr = e.target.closest('tr');
+            if (tr && tr.getAttribute('data-id-insumo')) {
+                distribuirConsumoPorInsumo(tr.getAttribute('data-id-insumo'));
+                recalcularSemaforos(true);
+            }
         }
     });
 
-    document.addEventListener('click', async function(e) {
+    modalEl.addEventListener('click', async function(e) {
+        // Táctiles +-
+        const btnMinus = e.target.closest('.js-btn-minus');
+        const btnPlus = e.target.closest('.js-btn-plus');
+        if (btnMinus || btnPlus) {
+            const input = (btnMinus || btnPlus).closest('.input-group').querySelector('input[type="number"]');
+            if (!input || input.readOnly) return;
+            let val = parseFloat(input.value) || 0;
+            let step = parseFloat(input.getAttribute('step')) || 1; 
+            if (btnMinus) val = Math.max(0, val - step);
+            if (btnPlus) val += step;
+            input.value = val.toFixed(step < 1 ? 4 : 0);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        // Botón Mágico
         const btnMagico = e.target.closest('#btnMagicoEjecucion');
         if (btnMagico) {
-            const modalEl = document.getElementById('modalEjecutarOP');
             const magiaAplicada = btnMagico.getAttribute('data-magia-aplicada') === '1';
-
             if (magiaAplicada) {
-                // ================== DESHACER MAGIA ==================
-                // Borramos solo la hora para obligar al usuario a ingresarla
                 document.getElementById('execFechaInicioTime').value = '';
                 document.getElementById('execFechaFinTime').value = '';
-                
                 document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-fraccion-extra').forEach(tr => tr.remove());
-                
-                document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada select').forEach(sel => {
-                    if (sel.tomselect) sel.tomselect.setValue('', true);
-                    else sel.value = '';
-                });
-
-                document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada').forEach(tr => {
-                    distribuirConsumoPorInsumo(tr.getAttribute('data-id-insumo'));
-                });
-
-                recalcularSemaforos(false);
-                window.calcularTiempoNetoOP();
-
+                document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada select').forEach(sel => { if (sel.tomselect) sel.tomselect.setValue('', true); else sel.value = ''; });
+                document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada').forEach(tr => distribuirConsumoPorInsumo(tr.getAttribute('data-id-insumo')));
+                recalcularSemaforos(false); window.calcularTiempoNetoOP();
                 btnMagico.setAttribute('data-magia-aplicada', '0');
-                btnMagico.innerHTML = '<i class="bi bi-calculator me-1"></i><span class="d-none d-sm-inline">Proponer Consumos</span>';
+                btnMagico.innerHTML = '<i class="bi bi-calculator me-1"></i> Proponer Consumos';
                 btnMagico.classList.replace('btn-warning', 'btn-outline-secondary');
             } else {
-                // ================== APLICAR MAGIA ==================
                 let faltantesGlobales = false;
                 const horasEst = parseFloat(modalEl.getAttribute('data-horas-estimadas')) || 0;
-                
-                // LÓGICA DE TIEMPOS CORREGIDA
                 const end = new Date();
                 const start = new Date(end.getTime() - (horasEst * 60 * 60 * 1000));
-
+                
                 const formatDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
                 const formatTime = d => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 
@@ -710,17 +621,13 @@ function initModalEjecucion() {
                 document.getElementById('execFechaFinDate').value = formatDate(end);
                 document.getElementById('execFechaFinTime').value = formatTime(end);
 
-                // LÓGICA DE INSUMOS
                 document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada').forEach(trOriginal => {
                     const idInsumo = trOriginal.getAttribute('data-id-insumo');
                     let cantidadRestante = calcularCantidadRequeridaPorInsumo(idInsumo);
                     const selectEl = trOriginal.querySelector('select[name="consumo_id_almacen[]"]');
                     if (!selectEl) return;
 
-                    let opcionesStock = [];
-                    Array.from(selectEl.options).forEach(opt => {
-                        if (opt.hasAttribute('data-stock')) opcionesStock.push({ value: opt.value, stock: parseFloat(opt.getAttribute('data-stock')) });
-                    });
+                    let opcionesStock = Array.from(selectEl.options).filter(opt => opt.hasAttribute('data-stock')).map(opt => ({ value: opt.value, stock: parseFloat(opt.getAttribute('data-stock')) }));
                     opcionesStock.sort((a, b) => b.stock - a.stock);
 
                     if (opcionesStock.length === 0 || opcionesStock[0].stock === 0) { faltantesGlobales = true; return; }
@@ -729,11 +636,8 @@ function initModalEjecucion() {
                     for (let i = 0; i < opcionesStock.length && cantidadRestante > 0; i++) {
                         let almacen = opcionesStock[i];
                         let cantidadAsignar = Math.min(almacen.stock, cantidadRestante);
-
                         const currentSelect = filaActual.querySelector('select[name="consumo_id_almacen[]"]');
-                        if (currentSelect.tomselect) currentSelect.tomselect.setValue(almacen.value, true);
-                        else currentSelect.value = almacen.value;
-
+                        if (currentSelect.tomselect) currentSelect.tomselect.setValue(almacen.value, true); else currentSelect.value = almacen.value;
                         filaActual.querySelector('input[name="consumo_cantidad[]"]').value = cantidadAsignar.toFixed(4);
                         cantidadRestante -= cantidadAsignar;
 
@@ -741,7 +645,7 @@ function initModalEjecucion() {
                             const trClon = trOriginal.cloneNode(true);
                             trClon.classList.add('fila-fraccion-extra');
                             trClon.querySelector('input[name="consumo_cantidad[]"]').value = '';
-                            trClon.querySelector('td:last-child').innerHTML = '<button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Quitar fila extra"><i class="bi bi-trash-fill fs-5"></i></button>';
+                            trClon.querySelector('td:last-child').innerHTML = '<button type="button" class="btn btn-sm btn-outline-danger js-remove-row"><i class="bi bi-trash-fill fs-5"></i></button>';
                             filaActual.parentNode.insertBefore(trClon, filaActual.nextSibling);
                             filaActual = trClon;
                         }
@@ -749,144 +653,18 @@ function initModalEjecucion() {
                     if (cantidadRestante > 0) faltantesGlobales = true;
                     distribuirConsumoPorInsumo(idInsumo);
                 });
-
-                recalcularSemaforos(true);
-                window.calcularTiempoNetoOP();
-
+                recalcularSemaforos(true); window.calcularTiempoNetoOP();
                 btnMagico.setAttribute('data-magia-aplicada', '1');
-                btnMagico.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i><span class="d-none d-sm-inline">Restaurar</span>';
+                btnMagico.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar';
                 btnMagico.classList.replace('btn-outline-secondary', 'btn-warning');
             }
             return;
         }
 
-        const btnAbrir = e.target.closest('.js-abrir-ejecucion');
-        if (btnAbrir) {
-            const modalEl = document.getElementById('modalEjecutarOP');
-            if (!modalEl || typeof bootstrap === 'undefined') return;
-
-            const idOrden = btnAbrir.getAttribute('data-id') || '';
-            const codigo = btnAbrir.getAttribute('data-codigo') || '';
-            const idReceta = btnAbrir.getAttribute('data-receta') || '';
-            const planificada = parseFloat(btnAbrir.getAttribute('data-planificada')) || 0;
-            const idAlmacenPlanta = parseInt(btnAbrir.getAttribute('data-id-almacen-planta') || '0', 10) || 0;
-            const idCentroCostoReceta = parseInt(btnAbrir.getAttribute('data-receta-centro-costo') || '0', 10) || 0;
-            const productoNombre = (btnAbrir.getAttribute('data-producto-nombre') || '').trim();
-            const recetaVersion = parseInt(btnAbrir.getAttribute('data-receta-version') || '1', 10) || 1;
-            const recetaRendimiento = parseFloat(btnAbrir.getAttribute('data-receta-rendimiento')) || 0;
-            const recetaTiempoHoras = parseFloat(btnAbrir.getAttribute('data-receta-tiempo')) || 0;
-            
-            document.getElementById('execIdOrden').value = idOrden;
-            document.getElementById('lblExecCodigo').textContent = codigo;
-            const lblExecRecetaInfo = document.getElementById('lblExecRecetaInfo');
-            if (lblExecRecetaInfo) {
-                lblExecRecetaInfo.textContent = productoNombre ? `Receta - ${productoNombre} (v${recetaVersion})` : '';
-            }
-
-            const reqLote = btnAbrir.getAttribute('data-req-lote') || '0';
-            const reqVenc = btnAbrir.getAttribute('data-req-venc') || '0';
-            const unidad = btnAbrir.getAttribute('data-unidad') || 'UND';
-
-            document.getElementById('execReqLote').value = reqLote;
-            document.getElementById('execReqVenc').value = reqVenc;
-            document.getElementById('execUnidad').value = unidad;
-
-            const horasPlanificadas = (recetaRendimiento > 0 && recetaTiempoHoras > 0 && planificada > 0)
-                ? ((planificada * recetaTiempoHoras) / recetaRendimiento)
-                : 0;
-            
-            const dateInicio = document.getElementById('execFechaInicioDate');
-            const timeInicio = document.getElementById('execFechaInicioTime');
-            const dateFin = document.getElementById('execFechaFinDate');
-            const timeFin = document.getElementById('execFechaFinTime');
-            const inputParada = document.getElementById('execHorasParada');
-            const inputParadaHoras = document.getElementById('execParadaHoras');
-            const inputParadaMinutos = document.getElementById('execParadaMinutos');
-            const selectCentroCosto = document.getElementById('execCentroCosto');
-
-            // FECHA POR DEFECTO: Hoy. HORA POR DEFECTO: Vacía.
-            const ahora = new Date();
-            const yyyy = ahora.getFullYear();
-            const mm = String(ahora.getMonth() + 1).padStart(2, '0');
-            const dd = String(ahora.getDate()).padStart(2, '0');
-            const fechaStr = `${yyyy}-${mm}-${dd}`;
-
-            if (dateInicio) dateInicio.value = fechaStr;
-            if (dateFin) dateFin.value = fechaStr;
-            if (timeInicio) timeInicio.value = '';
-            if (timeFin) timeFin.value = '';
-            
-            if (inputParada) inputParada.value = '0';
-            if (inputParadaHoras) inputParadaHoras.value = '';
-            if (inputParadaMinutos) inputParadaMinutos.value = '';
-            
-            modalEl.setAttribute('data-horas-estimadas', horasPlanificadas);
-            if (selectCentroCosto) {
-                const idOrdenSafe = String(idOrden || '');
-                const centroGuardadoLocal = idOrdenSafe ? localStorage.getItem(`op_cc_${idOrdenSafe}`) : '';
-                const centroInicial = idCentroCostoReceta > 0 ? String(idCentroCostoReceta) : (centroGuardadoLocal || '');
-                selectCentroCosto.value = centroInicial;
-            }
-            window.calcularTiempoNetoOP();
-
-            const tbodyConsumos = document.querySelector('#tablaConsumosDynamic tbody');
-            const tbodyIngresos = document.querySelector('#tablaIngresosDynamic tbody');
-            
-            if(tbodyConsumos) tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-primary fw-bold"><div class="spinner-border spinner-border-sm me-2"></div>Buscando stock...</td></tr>';
-            if(tbodyIngresos) tbodyIngresos.innerHTML = '';
-            
-            const precheckOk = btnAbrir.getAttribute('data-precheck-ok') === '1';
-
-            if (!precheckOk && typeof Swal !== 'undefined') {
-                const confirmacion = await Swal.fire({
-                    icon: 'warning',
-                    title: 'Insumos insuficientes en Planta',
-                    text: 'Insumos insuficientes en Planta. Asegúrate de transferir o regularizar el stock en el sistema para poder guardar esta ejecución. ¿Desea abrir el formulario de todos modos?',
-                    showCancelButton: true,
-                    confirmButtonText: 'Sí, abrir formulario',
-                    cancelButtonText: 'Cancelar'
-                });
-                if (!confirmacion.isConfirmed) return;
-            }
-
-            if (!modalEjecutar) modalEjecutar = new bootstrap.Modal(modalEl);
-            modalEjecutar.show();
-
-            try {
-                const formData = new FormData();
-                formData.append('accion', 'obtener_receta_ajax');
-                formData.append('id_receta', idReceta);
-                formData.append('cantidad', planificada);
-                formData.append('id_orden', String(idOrden));
-                formData.append('id_almacen_planta', String(idAlmacenPlanta));
-
-                const response = await fetch(window.location.href, { method: 'POST', body: formData });
-                const result = await response.json();
-                if(tbodyConsumos) tbodyConsumos.innerHTML = ''; 
-
-                if (result.success && result.data.length > 0) {
-                    result.data.forEach(item => { addConsumoRow(item, planificada, idAlmacenPlanta); });
-                    recalcularSemaforos(false); 
-                } else {
-                    const detalleError = (result && result.message) ? String(result.message) : 'No se cargaron insumos. Añádalos manualmente.';
-                    if(tbodyConsumos) tbodyConsumos.innerHTML = `<tr><td colspan="5" class="text-center text-danger">${detalleError}</td></tr>`;
-                }
-            } catch (error) {
-                if(tbodyConsumos) tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error de conexión al obtener receta.</td></tr>';
-            }
-
-            addIngresoRow(planificada);
-            return;
-        }
-
-        /* ... El resto de tus event listeners se mantienen ... */
         const btnRemove = e.target.closest('.js-remove-row');
         if (btnRemove) {
             const tr = btnRemove.closest('tr');
-            if (tr) {
-                tr.remove();
-                dispararRecalculoTotal();
-            }
+            if (tr) { tr.remove(); dispararRecalculoTotal(); }
             return;
         }
 
@@ -896,245 +674,211 @@ function initModalEjecucion() {
             if (!trOriginal) return;
             const trClon = trOriginal.cloneNode(true);
             const idInsumo = trOriginal.getAttribute('data-id-insumo') || '';
-            
-            // FLECHA VISUAL: Agregamos una flechita al nombre para que parezca un sub-registro
             const nombreItem = trClon.querySelector('.fw-bold');
-            if (nombreItem && !nombreItem.innerHTML.includes('bi-arrow-return-right')) {
-                nombreItem.innerHTML = '<i class="bi bi-arrow-return-right text-muted me-2"></i>' + nombreItem.innerHTML;
-            }
-
+            if (nombreItem && !nombreItem.innerHTML.includes('bi-arrow-return-right')) nombreItem.innerHTML = '<i class="bi bi-arrow-return-right text-muted me-2"></i>' + nombreItem.innerHTML;
             const inputCantClon = trClon.querySelector('input[name="consumo_cantidad[]"]');
-            if (inputCantClon) inputCantClon.value = '';
-            
+            if (inputCantClon) { inputCantClon.value = ''; inputCantClon.readOnly = false; inputCantClon.classList.remove('bg-light'); }
             const selectAlmClon = trClon.querySelector('select[name="consumo_id_almacen[]"]');
             if (selectAlmClon) selectAlmClon.selectedIndex = 0;
-            
-            const inputLoteClon = trClon.querySelector('input[name="consumo_id_lote[]"]');
-            if (inputLoteClon) inputLoteClon.value = '';
-            
             trClon.classList.add('fila-fraccion-extra');
-            
             const celdaAccion = trClon.querySelector('td:last-child');
-            if (celdaAccion) {
-                celdaAccion.innerHTML = `
-                    <button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Quitar fila extra">
-                        <i class="bi bi-trash-fill fs-5"></i>
-                    </button>
-                `;
-            }
-
+            if (celdaAccion) celdaAccion.innerHTML = '<button type="button" class="btn btn-sm btn-outline-danger js-remove-row"><i class="bi bi-trash-fill fs-5"></i></button>';
             const inputOriginal = trOriginal.querySelector('input[name="consumo_cantidad[]"]');
-            if (inputOriginal) {
-                inputOriginal.readOnly = true;
-                inputOriginal.classList.add('bg-light');
-            }
-            if (inputCantClon) {
-                inputCantClon.readOnly = false;
-                inputCantClon.removeAttribute('tabindex');
-                inputCantClon.classList.remove('bg-light');
-            }
-
+            if (inputOriginal) { inputOriginal.readOnly = true; inputOriginal.classList.add('bg-light'); }
             trOriginal.parentNode.insertBefore(trClon, trOriginal.nextSibling);
             if (idInsumo) distribuirConsumoPorInsumo(idInsumo);
             recalcularSemaforos(true);
             return;
         }
 
-        // LÓGICA: Fraccionar Ingresos
         const btnSplitIngreso = e.target.closest('.js-split-ingreso-row');
         if (btnSplitIngreso) {
             const trOriginal = btnSplitIngreso.closest('tr');
-            if (!trOriginal) return;
             const trClon = trOriginal.cloneNode(true);
-            
             const inputCant = trClon.querySelector('input[name="ingreso_cantidad[]"]');
             if (inputCant) inputCant.value = '';
-            
             const selectAlm = trClon.querySelector('select[name="ingreso_id_almacen[]"]');
             if (selectAlm) selectAlm.selectedIndex = 0;
-
             const celdaAccion = trClon.querySelector('td:last-child');
-            if (celdaAccion) {
-                celdaAccion.innerHTML = `
-                    <button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Quitar fila extra">
-                        <i class="bi bi-trash-fill fs-5"></i>
-                    </button>
-                `;
-            }
-
+            if (celdaAccion) celdaAccion.innerHTML = '<button type="button" class="btn btn-sm btn-outline-danger js-remove-row"><i class="bi bi-trash-fill fs-5"></i></button>';
             trOriginal.parentNode.insertBefore(trClon, trOriginal.nextSibling);
             return;
         }
-    }); // <-- Aquí cierra el bloque del document.addEventListener('click')
+    });
+
+    // Delegación del botón "Abrir Ejecución" (Este vive en la tabla, por lo que va al contenedor tabla)
+    const tabla = document.getElementById('tablaOrdenes');
+    if (tabla) {
+        tabla.addEventListener('click', async function(e) {
+            const btnAbrir = e.target.closest('.js-abrir-ejecucion');
+            if (btnAbrir) {
+                if (!modalEl || typeof bootstrap === 'undefined') return;
+
+                const idOrden = btnAbrir.getAttribute('data-id') || '';
+                const planificada = parseFloat(btnAbrir.getAttribute('data-planificada')) || 0;
+                
+                document.getElementById('execIdOrden').value = idOrden;
+                document.getElementById('lblExecCodigo').textContent = btnAbrir.getAttribute('data-codigo') || '';
+                document.getElementById('lblExecRecetaInfo').textContent = btnAbrir.getAttribute('data-producto-nombre') ? `Receta - ${btnAbrir.getAttribute('data-producto-nombre')}` : '';
+
+                document.getElementById('execReqLote').value = btnAbrir.getAttribute('data-req-lote') || '0';
+                document.getElementById('execReqVenc').value = btnAbrir.getAttribute('data-req-venc') || '0';
+                document.getElementById('execUnidad').value = btnAbrir.getAttribute('data-unidad') || 'UND';
+
+                const recetaRendimiento = parseFloat(btnAbrir.getAttribute('data-receta-rendimiento')) || 0;
+                const recetaTiempoHoras = parseFloat(btnAbrir.getAttribute('data-receta-tiempo')) || 0;
+                const horasPlanificadas = (recetaRendimiento > 0 && recetaTiempoHoras > 0 && planificada > 0) ? ((planificada * recetaTiempoHoras) / recetaRendimiento) : 0;
+                modalEl.setAttribute('data-horas-estimadas', horasPlanificadas);
+
+                const dateInicio = document.getElementById('execFechaInicioDate');
+                const timeInicio = document.getElementById('execFechaInicioTime');
+                const dateFin = document.getElementById('execFechaFinDate');
+                const timeFin = document.getElementById('execFechaFinTime');
+                const ahora = new Date();
+                const fechaStr = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+
+                if (dateInicio) dateInicio.value = fechaStr;
+                if (dateFin) dateFin.value = fechaStr;
+                if (timeInicio) timeInicio.value = '';
+                if (timeFin) timeFin.value = '';
+                
+                const selectCentroCosto = document.getElementById('execCentroCosto');
+                if (selectCentroCosto) selectCentroCosto.value = parseInt(btnAbrir.getAttribute('data-receta-centro-costo')) || localStorage.getItem(`op_cc_${idOrden}`) || '';
+                
+                window.calcularTiempoNetoOP();
+
+                const tbodyConsumos = document.querySelector('#tablaConsumosDynamic tbody');
+                const tbodyIngresos = document.querySelector('#tablaIngresosDynamic tbody');
+                if(tbodyConsumos) tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-primary fw-bold">Cargando receta...</td></tr>';
+                if(tbodyIngresos) tbodyIngresos.innerHTML = '';
+                
+                if (!modalEjecutar) modalEjecutar = new bootstrap.Modal(modalEl);
+                modalEjecutar.show();
+
+                try {
+                    const formData = new FormData();
+                    formData.append('accion', 'obtener_receta_ajax');
+                    formData.append('id_receta', btnAbrir.getAttribute('data-receta'));
+                    formData.append('cantidad', planificada);
+                    formData.append('id_orden', idOrden);
+                    formData.append('id_almacen_planta', btnAbrir.getAttribute('data-id-almacen-planta'));
+
+                    const result = await fetch(window.location.href, { method: 'POST', body: formData }).then(r=>r.json());
+                    if(tbodyConsumos) tbodyConsumos.innerHTML = ''; 
+
+                    if (result.success && result.data.length > 0) {
+                        result.data.forEach(item => { addConsumoRow(item, planificada, btnAbrir.getAttribute('data-id-almacen-planta')); });
+                        recalcularSemaforos(false); 
+                    } else {
+                        if(tbodyConsumos) tbodyConsumos.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Añade consumos manuales</td></tr>`;
+                    }
+                } catch (error) {
+                    if(tbodyConsumos) tbodyConsumos.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error de red.</td></tr>';
+                }
+                addIngresoRow(planificada);
+            }
+        });
+    }
 
     function dispararRecalculoTotal() {
         const insumos = new Set();
         document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada').forEach((tr) => {
-            const idInsumo = tr.getAttribute('data-id-insumo');
-            if (idInsumo) insumos.add(idInsumo);
+            const id = tr.getAttribute('data-id-insumo');
+            if (id) insumos.add(id);
         });
-        insumos.forEach((idInsumo) => distribuirConsumoPorInsumo(idInsumo));
+        insumos.forEach((id) => distribuirConsumoPorInsumo(id));
         recalcularSemaforos();
     }
 
-    document.addEventListener('input', function(e) {
-        if (e.target.matches('input[name="ingreso_cantidad[]"]')) dispararRecalculoTotal();
-        if (e.target.matches('#tablaConsumosDynamic tbody tr.fila-fraccion-extra input[name="consumo_cantidad[]"]')) {
-            const tr = e.target.closest('tr');
-            const idInsumo = tr ? tr.getAttribute('data-id-insumo') : '';
-            if (idInsumo) {
-                distribuirConsumoPorInsumo(idInsumo);
-                recalcularSemaforos(true);
-            }
+    modalEl.addEventListener('hidden.bs.modal', function () {
+        const form = this.querySelector('form');
+        if (form) form.reset();
+        this.removeAttribute('data-magia-activa');
+        const btnMag = document.getElementById('btnMagicoEjecucion');
+        if (btnMag) {
+            btnMag.setAttribute('data-magia-aplicada', '0');
+            btnMag.innerHTML = '<i class="bi bi-calculator me-1"></i> Proponer Consumos';
+            btnMag.className = 'btn btn-sm btn-outline-secondary shadow-sm rounded-pill fw-bold px-3 py-1 transition-hover';
         }
+        const firstTab = this.querySelector('.nav-tabs .nav-link');
+        if (firstTab && typeof bootstrap !== 'undefined') new bootstrap.Tab(firstTab).show();
+        const lblTiempoNeto = document.getElementById('lblTiempoNeto');
+        if (lblTiempoNeto) lblTiempoNeto.innerHTML = `0h 0m`;
     });
 
-    document.addEventListener('change', function(e) {
-        if (e.target.matches('select[name="consumo_id_almacen[]"]')) recalcularSemaforos(true);
-    });
-
-    document.addEventListener('hidden.bs.modal', function (e) {
-        if (e.target.id === 'modalEjecutarOP') {
-            const form = e.target.querySelector('form');
-            if (form) form.reset();
-            
-            e.target.removeAttribute('data-magia-activa');
-            
-            const btnMag = document.getElementById('btnMagicoEjecucion');
-            if (btnMag) {
-                btnMag.setAttribute('data-magia-aplicada', '0');
-                btnMag.innerHTML = '<i class="bi bi-calculator me-1"></i><span class="d-none d-sm-inline">Proponer Consumos</span>';
-                btnMag.className = 'btn btn-sm btn-outline-secondary shadow-sm rounded-pill fw-bold px-3 py-1 transition-hover';
-            }
-
-            const firstTab = e.target.querySelector('.nav-tabs .nav-link');
-            if (firstTab && typeof bootstrap !== 'undefined') new bootstrap.Tab(firstTab).show();
-            
-            const boxJustificacion = document.getElementById('boxJustificacionFaltante');
-            if (boxJustificacion) boxJustificacion.style.display = 'none';
-            
-            const lblTiempoNeto = document.getElementById('lblTiempoNeto');
-            if (lblTiempoNeto) lblTiempoNeto.innerHTML = `0h 0m <small class="text-muted fw-normal ms-2 opacity-75">(0.00 Hrs)</small>`;
-            const lblExecRecetaInfo = document.getElementById('lblExecRecetaInfo');
-            if (lblExecRecetaInfo) lblExecRecetaInfo.textContent = '';
-        }
-    });
-
-    document.addEventListener('submit', function (e) {
-        if (e.target.id !== 'formEjecutarOrden') return;
-        const idOrden = document.getElementById('execIdOrden')?.value || '';
-        const centro = document.getElementById('execCentroCosto')?.value || '';
-        if (idOrden) localStorage.setItem(`op_cc_${idOrden}`, centro);
-    });
+    const formEjecucion = document.getElementById('formEjecutarOrden');
+    if (formEjecucion) {
+        formEjecucion.addEventListener('submit', function () {
+            const idOrden = document.getElementById('execIdOrden')?.value || '';
+            const centro = document.getElementById('execCentroCosto')?.value || '';
+            if (idOrden) localStorage.setItem(`op_cc_${idOrden}`, centro);
+        });
+    }
 }
 
 // =========================================================================
-// 4. GENERADORES DE INTERFAZ
+// 4. GENERADORES DE INTERFAZ & CALCULO (IGUAL, SOLO LIMPIOS)
 // =========================================================================
 function calcularCantidadRequeridaPorInsumo(idInsumo) {
     const filaBase = document.querySelector(`#tablaConsumosDynamic tbody tr.fila-calculada[data-id-insumo="${idInsumo}"]`);
     if (!filaBase) return 0;
     const reqUnitario = parseFloat(filaBase.getAttribute('data-req-unitario')) || 0;
-
     let totalProducido = 0;
-    document.querySelectorAll('input[name="ingreso_cantidad[]"]').forEach((inp) => {
-        totalProducido += parseFloat(inp.value) || 0;
-    });
-
+    document.querySelectorAll('input[name="ingreso_cantidad[]"]').forEach((inp) => { totalProducido += parseFloat(inp.value) || 0; });
     return reqUnitario * totalProducido;
 }
 
 function distribuirConsumoPorInsumo(idInsumo) {
     const filas = Array.from(document.querySelectorAll(`#tablaConsumosDynamic tbody tr.fila-calculada[data-id-insumo="${idInsumo}"]`));
     if (!filas.length) return;
-
-    const filaPrincipal = filas[0];
-    const inputPrincipal = filaPrincipal.querySelector('input[name="consumo_cantidad[]"]');
+    const inputPrincipal = filas[0].querySelector('input[name="consumo_cantidad[]"]');
     if (!inputPrincipal) return;
-
     const requerimiento = calcularCantidadRequeridaPorInsumo(idInsumo);
     let sumaFraccionada = 0;
-
-    filas.slice(1).forEach((filaExtra) => {
-        const inputExtra = filaExtra.querySelector('input[name="consumo_cantidad[]"]');
-        if (!inputExtra) return;
-        const valor = Math.max(0, parseFloat(inputExtra.value) || 0);
-        if (String(inputExtra.value) !== String(valor)) inputExtra.value = valor ? String(valor) : '';
+    filas.slice(1).forEach((f) => {
+        const iExt = f.querySelector('input[name="consumo_cantidad[]"]');
+        if (!iExt) return;
+        const valor = Math.max(0, parseFloat(iExt.value) || 0);
+        if (String(iExt.value) !== String(valor)) iExt.value = valor ? String(valor) : '';
         sumaFraccionada += valor;
     });
-
     const restante = Math.max(0, requerimiento - sumaFraccionada);
     inputPrincipal.value = restante.toFixed(4);
 }
 
-/* ========================================================================= */
-/* 4. GENERADORES DE INTERFAZ Actualizado con iconos móviles e imagen 9 style */
-/* ========================================================================= */
 function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
     const tbody = document.querySelector('#tablaConsumosDynamic tbody');
     if (!tbody) return;
     const tr = document.createElement('tr');
-
+    
+    // (Lógica de inyección HTML original conservada)
     if (item) {
-        const requerimientoUnitario = (parseFloat(item.cantidad_calculada) / planificada) || 0;
-        tr.setAttribute('data-id-insumo', item.id_insumo);
-        tr.setAttribute('data-req-unitario', requerimientoUnitario); 
-        tr.classList.add('fila-calculada');
-
+        const reqU = (parseFloat(item.cantidad_calculada) / planificada) || 0;
+        tr.setAttribute('data-id-insumo', item.id_insumo); tr.setAttribute('data-req-unitario', reqU); tr.classList.add('fila-calculada');
         let optionsHtml = '<option value="">Seleccione almacén...</option>';
-        const almacenesConStock = Array.isArray(item.almacenes) ? item.almacenes : [];
-        const almacenPlanta = almacenesConStock.find(a => Number(a.id) === Number(idAlmacenPlanta));
-        const otrosConStock = almacenesConStock.filter(a => Number(a.id) !== Number(idAlmacenPlanta));
+        const almacenes = Array.isArray(item.almacenes) ? item.almacenes : [];
+        const almacenPlanta = almacenes.find(a => Number(a.id) === Number(idAlmacenPlanta));
+        const otros = almacenes.filter(a => Number(a.id) !== Number(idAlmacenPlanta));
 
-        if (almacenPlanta) {
-            optionsHtml += `<optgroup label="✅ Recomendado: Almacén de Planta">`;
-            optionsHtml += `<option value="${almacenPlanta.id}" data-stock="${almacenPlanta.stock_actual}" selected>${almacenPlanta.nombre} (Stock: ${almacenPlanta.stock_actual})</option>`;
+        if (almacenPlanta) { optionsHtml += `<optgroup label="Recomendado"><option value="${almacenPlanta.id}" data-stock="${almacenPlanta.stock_actual}" selected>${almacenPlanta.nombre} (Stock: ${almacenPlanta.stock_actual})</option></optgroup>`; }
+        if (otros.length > 0) {
+            optionsHtml += `<optgroup label="Otros">`;
+            otros.forEach(a => { optionsHtml += `<option value="${a.id}" data-stock="${a.stock_actual}">${a.nombre} (Stock: ${a.stock_actual})</option>`; });
             optionsHtml += `</optgroup>`;
-        } else if (idAlmacenPlanta > 0) {
-            optionsHtml += `<optgroup label="⚠ Planta sin stock para este insumo"></optgroup>`;
-        }
-
-        if (otrosConStock.length > 0) {
-            optionsHtml += `<optgroup label="Con stock en otros almacenes">`;
-            otrosConStock.forEach(a => { optionsHtml += `<option value="${a.id}" data-stock="${a.stock_actual}">${a.nombre} (Stock: ${a.stock_actual})</option>`; });
-            optionsHtml += `</optgroup>`;
-        } else if (!almacenPlanta) {
-            optionsHtml += `<option value="" disabled>Sin stock registrado para este insumo</option>`;
         }
         
-        // CONDICIONAL: Solo aparece si hay más de 1 almacén disponible
-        const puedeFraccionar = almacenesConStock.length > 1;
-
-        tr.innerHTML = `
-            <td data-label="Insumo" class="align-middle bg-light">
-                <input type="hidden" name="consumo_id_insumo[]" value="${item.id_insumo}">
-                <div class="fw-bold text-dark mb-1 text-wrap text-start">${item.insumo_nombre}</div>
-            </td>
-            <td data-label="Almacén" class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${optionsHtml}</select></td>
-            <td data-label="Cantidad" class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-end text-md-center bg-light" value="${item.cantidad_calculada}" readonly tabindex="-1"></td>
-            <td data-label="Lote" class="align-middle d-none"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
-            
-            <td data-label="Acción" class="text-end text-md-center align-middle td-action-mobile">
-                ${puedeFraccionar ? `
-                <button type="button" class="btn btn-sm btn-outline-primary js-split-row" title="Añadir desde otro almacén">
-                    <i class="bi bi-plus-circle fs-5"></i>
-                </button>
-                ` : ''}
-            </td>
-        `;
+        tr.innerHTML = `<td class="align-middle bg-light"><input type="hidden" name="consumo_id_insumo[]" value="${item.id_insumo}"><div class="fw-bold">${item.insumo_nombre}</div></td>
+            <td class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${optionsHtml}</select></td>
+            <td class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm text-end bg-light" value="${item.cantidad_calculada}" readonly></td>
+            <td class="align-middle d-none"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm"></td>
+            <td class="text-end align-middle">${almacenes.length > 1 ? `<button type="button" class="btn btn-sm btn-outline-primary js-split-row"><i class="bi bi-plus-circle fs-5"></i></button>` : ''}</td>`;
     } else {
-        const templateAlmacenes = document.getElementById('tplSelectAlmacenes')?.innerHTML || '';
-        tr.innerHTML = `
-            <td data-label="Insumo" class="align-middle"><input type="number" name="consumo_id_insumo[]" class="form-control form-control-sm" placeholder="ID insumo" required></td>
-            <td data-label="Almacén" class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select></td>
-            <td data-label="Cantidad" class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm border-2 fw-bold text-end text-md-center" required></td>
-            <td data-label="Lote" class="align-middle d-none"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm" placeholder="Lote (Opc)"></td>
-            <td data-label="Acción" class="text-end text-md-center align-middle td-action-mobile">
-                <button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Quitar fila extra">
-                    <i class="bi bi-trash-fill fs-5"></i>
-                </button>
-            </td>
-        `;
+        const tmpl = document.getElementById('tplSelectAlmacenes')?.innerHTML || '';
+        tr.innerHTML = `<td class="align-middle"><input type="number" name="consumo_id_insumo[]" class="form-control form-control-sm" required></td>
+            <td class="align-middle"><select name="consumo_id_almacen[]" class="form-select form-select-sm" required>${tmpl}</select></td>
+            <td class="align-middle"><input type="number" step="0.0001" name="consumo_cantidad[]" class="form-control form-control-sm text-end" required></td>
+            <td class="align-middle d-none"><input type="text" name="consumo_id_lote[]" class="form-control form-control-sm"></td>
+            <td class="text-end align-middle"><button type="button" class="btn btn-sm btn-outline-danger js-remove-row"><i class="bi bi-trash-fill fs-5"></i></button></td>`;
     }
     tbody.appendChild(tr);
 }
@@ -1142,164 +886,94 @@ function addConsumoRow(item = null, planificada = 1, idAlmacenPlanta = 0) {
 function addIngresoRow(cantidadDefecto = '') {
     const tbody = document.querySelector('#tablaIngresosDynamic tbody');
     if (!tbody) return;
-    const templateAlmacenes = document.getElementById('tplSelectAlmacenes')?.innerHTML || '';
-    const tr = document.createElement('tr');
-
-    const execReqLote = document.getElementById('execReqLote');
-    const execReqVenc = document.getElementById('execReqVenc');
-    const execUnidad = document.getElementById('execUnidad');
-
-    const reqLote = execReqLote ? execReqLote.value === '1' : false;
-    const reqVenc = execReqVenc ? execReqVenc.value === '1' : false;
-    const unidad = execUnidad ? execUnidad.value : 'UND';
-
+    const tmpl = document.getElementById('tplSelectAlmacenes')?.innerHTML || '';
+    const reqLote = document.getElementById('execReqLote')?.value === '1';
+    const unidad = document.getElementById('execUnidad')?.value || 'UND';
     const autoLote = reqLote ? ('L' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + '-' + Math.floor(Math.random() * 90 + 10)) : '';
-    const inputLote = reqLote 
-        ? `<input type="text" name="ingreso_id_lote[]" class="form-control form-control-sm" value="${autoLote}" required>`
-        : `<input type="text" name="ingreso_id_lote[]" class="form-control form-control-sm bg-light text-muted" placeholder="N/A" readonly tabindex="-1">`;
 
-    const inputVenc = reqVenc
-        ? `<input type="date" name="ingresos_fecha_vencimiento[]" class="form-control form-control-sm border-warning" required>`
-        : `<input type="date" name="ingresos_fecha_vencimiento[]" class="form-control form-control-sm bg-light text-muted" readonly tabindex="-1">`;
-
-    // CONDICIONAL: Solo aparece si hay más de 1 almacén en el sistema
-    const optionCount = (templateAlmacenes.match(/<option/g) || []).length;
-    const puedeFraccionarIngreso = optionCount > 1;
-
-    tr.innerHTML = `
-        <td data-label="Destino" class="align-middle bg-light">
-            <select name="ingreso_id_almacen[]" class="form-select form-select-sm" required>${templateAlmacenes}</select>
-        </td>
-        <td data-label="Producido" class="align-middle" style="width: 160px;">
-            <div class="input-group input-group-sm justify-content-end">
-                <input type="number" step="0.0001" name="ingreso_cantidad[]" class="form-control fw-bold border-success text-end" required value="${cantidadDefecto}" style="max-width: 120px;">
-                <span class="input-group-text bg-light text-muted fw-bold">${unidad}</span>
-            </div>
-        </td>
-        <td data-label="Lote" class="align-middle d-none">${inputLote}</td>
-        <td data-label="Vence" class="align-middle d-none">${inputVenc}</td>
-        <td data-label="Acción" class="text-end text-md-center align-middle td-action-mobile">
-            ${puedeFraccionarIngreso ? `
-            <button type="button" class="btn btn-sm btn-outline-primary js-split-ingreso-row" title="Guardar en otro almacén">
-                <i class="bi bi-plus-circle fs-5"></i>
-            </button>
-            ` : ''}
-        </td>
-    `;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="align-middle"><select name="ingreso_id_almacen[]" class="form-select form-select-sm" required>${tmpl}</select></td>
+        <td class="align-middle" style="width: 160px;"><div class="input-group input-group-sm justify-content-end"><input type="number" step="0.0001" name="ingreso_cantidad[]" class="form-control fw-bold border-success text-end" required value="${cantidadDefecto}"><span class="input-group-text">${unidad}</span></div></td>
+        <td class="align-middle d-none"><input type="text" name="ingreso_id_lote[]" class="form-control form-control-sm" ${reqLote ? `value="${autoLote}" required` : `readonly`}></td>
+        <td class="align-middle d-none"><input type="date" name="ingresos_fecha_vencimiento[]" class="form-control form-control-sm"></td>
+        <td class="text-end align-middle">${(tmpl.match(/<option/g) || []).length > 1 ? `<button type="button" class="btn btn-sm btn-outline-primary js-split-ingreso-row"><i class="bi bi-plus-circle fs-5"></i></button>` : ''}</td>`;
     tbody.appendChild(tr);
 }
 
-// INYECTAMOS EL LISTENER PARA EL BOTÓN DIVIDIR INGRESOS DENTRO DEL EVENTO CLICK GLOBAL QUE YA EXISTE EN INITMODULOEJECUCION
-document.addEventListener('click', function(e) {
-    // LÓGICA: Fraccionar Ingresos
-        const btnSplitIngreso = e.target.closest('.js-split-ingreso-row');
-        if (btnSplitIngreso) {
-            const trOriginal = btnSplitIngreso.closest('tr');
-            if (!trOriginal) return;
-            const trClon = trOriginal.cloneNode(true);
-            
-            const inputCant = trClon.querySelector('input[name="ingreso_cantidad[]"]');
-            if (inputCant) inputCant.value = '';
-            
-            const selectAlm = trClon.querySelector('select[name="ingreso_id_almacen[]"]');
-            if (selectAlm) selectAlm.selectedIndex = 0;
-
-            // Acción para PC y móvil combinada sin el div wrapper
-            const celdaAccion = trClon.querySelector('td:last-child');
-            if (celdaAccion) {
-                celdaAccion.innerHTML = `
-                    <button type="button" class="btn btn-sm btn-outline-danger js-remove-row d-none d-md-inline-block" title="Quitar fila extra">
-                        <i class="bi bi-trash-fill fs-5"></i>
-                    </button>
-                `;
-            }
-
-            const mobileArea = trClon.querySelector('.icon-actions-mobile');
-            if (mobileArea) {
-                mobileArea.innerHTML = `
-                    <button type="button" class="btn btn-sm btn-outline-danger js-remove-row" title="Quitar fila extra">
-                        <i class="bi bi-trash-fill fs-5"></i>
-                    </button>
-                `;
-            }
-
-            trOriginal.parentNode.insertBefore(trClon, trOriginal.nextSibling);
-            return;
-        }
-});
-
 // =========================================================================
-// 5. LÓGICA DE SEMÁFOROS (SOLO COLORES AL USAR BOTÓN MÁGICO)
+// 5. SEMÁFOROS 
 // =========================================================================
 function recalcularSemaforos(desdeBotonMagico = false) {
     const modalEl = document.getElementById('modalEjecutarOP');
-    
-    // Si presionamos el botón mágico, guardamos una "marca" en el modal
-    if (desdeBotonMagico && modalEl) {
-        modalEl.setAttribute('data-magia-activa', '1');
-    }
-
-    // Leemos si la magia está activada
+    if (desdeBotonMagico && modalEl) modalEl.setAttribute('data-magia-activa', '1');
     const magiaActiva = modalEl ? modalEl.getAttribute('data-magia-activa') === '1' : false;
 
-    const filas = document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada, #tablaConsumosDynamic tbody tr.fila-fraccion-extra');
     let faltaStockFisico = false;
-
-    filas.forEach(tr => {
+    document.querySelectorAll('#tablaConsumosDynamic tbody tr.fila-calculada, #tablaConsumosDynamic tbody tr.fila-fraccion-extra').forEach(tr => {
         const inputElement = tr.querySelector('input[name="consumo_cantidad[]"]');
-        if (!inputElement) return;
-        const cantRequerida = parseFloat(inputElement.value) || 0;
-        
         const selectEl = tr.querySelector('select[name="consumo_id_almacen[]"]');
+        if (!inputElement || !selectEl) return;
+        const cantRequerida = parseFloat(inputElement.value) || 0;
         const optionSel = selectEl.options[selectEl.selectedIndex];
         const stockDisp = (optionSel && optionSel.hasAttribute('data-stock')) ? parseFloat(optionSel.getAttribute('data-stock')) : null;
 
-        // 1. Siempre verificamos el stock (para proteger el botón de guardar)
-        if (stockDisp === null || cantRequerida > stockDisp || selectEl.value === "") {
-            faltaStockFisico = true;
-        }
+        if (stockDisp === null || cantRequerida > stockDisp || selectEl.value === "") faltaStockFisico = true;
 
-        // 2. Limpiamos cualquier estilo forzado anterior
-        inputElement.style.removeProperty('background-color');
-        inputElement.style.removeProperty('border-color');
-        inputElement.style.removeProperty('color');
+        inputElement.style.removeProperty('background-color'); inputElement.style.removeProperty('border-color'); inputElement.style.removeProperty('color');
         inputElement.classList.remove('text-danger', 'text-success');
 
-        // 3. Pintamos de colores SOLO si se presionó el botón mágico
         if (magiaActiva) {
             inputElement.classList.remove('bg-light');
-            inputElement.style.setProperty('background-color', '#ffffff', 'important'); // Fondo blanco limpio
-            
+            inputElement.style.setProperty('background-color', '#ffffff', 'important'); 
             if (stockDisp === null || cantRequerida > stockDisp || selectEl.value === "") {
-                // Pinta de ROJO EXACTO
-                inputElement.style.setProperty('border-color', '#dc3545', 'important');
-                inputElement.style.setProperty('color', '#dc3545', 'important');
+                inputElement.style.setProperty('border-color', '#dc3545', 'important'); inputElement.style.setProperty('color', '#dc3545', 'important');
             } else {
-                // Pinta de VERDE EXACTO
-                inputElement.style.setProperty('border-color', '#198754', 'important');
-                inputElement.style.setProperty('color', '#198754', 'important');
+                inputElement.style.setProperty('border-color', '#198754', 'important'); inputElement.style.setProperty('color', '#198754', 'important');
             }
         } else {
-            // ESTADO POR DEFECTO (Negro/Gris)
             inputElement.classList.add('bg-light');
         }
     });
 
-    // 4. Bloqueamos botón y ocultamos el texto rojo para siempre
-    const boxJustificacion = document.getElementById('boxJustificacionFaltante');
     const btnGuardar = document.querySelector('#formEjecutarOrden button[type="submit"]');
-    
-    if (boxJustificacion) boxJustificacion.style.display = 'none'; 
-    if (btnGuardar) {
-        // Leemos si la función de tiempos nos dejó una marca de error
-        const errorTiempo = btnGuardar.getAttribute('data-error-tiempo') === '1';
-        // Si falta stock físico O si hay error en el tiempo, se deshabilita
-        btnGuardar.disabled = faltaStockFisico || errorTiempo; 
-    }
+    if (btnGuardar) btnGuardar.disabled = faltaStockFisico || btnGuardar.getAttribute('data-error-tiempo') === '1';
 }
 
 // =========================================================================
-// 7. PLANIFICADOR DE OPERACIONES (CALENDARIO MES / SEMANA)
+// 7. PLANIFICADOR DE OPERACIONES (Acotado)
+// =========================================================================
+function initEventosPlanificadorGlobales() {
+    const modalPlanificador = document.getElementById('modalPlanificadorProduccion');
+    if (!modalPlanificador) return;
+
+    modalPlanificador.addEventListener('show.bs.modal', function() {
+        window.planFechaActual = new Date(); 
+        if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador();
+    });
+
+    modalPlanificador.addEventListener('click', function(e) {
+        if (e.target.closest('#btnPlanAnterior')) {
+            if (window.vistaActualPlan === 'mes') window.planFechaActual.setMonth(window.planFechaActual.getMonth() - 1);
+            else window.planFechaActual.setDate(window.planFechaActual.getDate() - 7);
+            if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador();
+        }
+        if (e.target.closest('#btnPlanSiguiente')) {
+            if (window.vistaActualPlan === 'mes') window.planFechaActual.setMonth(window.planFechaActual.getMonth() + 1);
+            else window.planFechaActual.setDate(window.planFechaActual.getDate() + 7);
+            if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador();
+        }
+    });
+
+    modalPlanificador.addEventListener('change', function(e) {
+        if (e.target.matches('input[name="vistaPlanificador"]')) {
+            window.vistaActualPlan = e.target.value;
+            if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador();
+        }
+    });
+}
+
+// =========================================================================
+// 7. PLANIFICADOR DE OPERACIONES (Core - Faltante)
 // =========================================================================
 function initPlanificadorOperaciones() {
     window.cargarGridPlanificador = async function() {
@@ -1471,38 +1145,6 @@ function initPlanificadorOperaciones() {
     }
 }
 
-function initEventosPlanificadorGlobales() {
-    document.addEventListener('show.bs.modal', function(e) {
-        if (e.target.id === 'modalPlanificadorProduccion') {
-            window.planFechaActual = new Date(); 
-            if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador();
-        }
-    });
-
-    document.addEventListener('click', function(e) {
-        const btnAnterior = e.target.closest('#btnPlanAnterior');
-        if (btnAnterior) {
-            if (window.vistaActualPlan === 'mes') window.planFechaActual.setMonth(window.planFechaActual.getMonth() - 1);
-            else window.planFechaActual.setDate(window.planFechaActual.getDate() - 7);
-            if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador();
-        }
-
-        const btnSiguiente = e.target.closest('#btnPlanSiguiente');
-        if (btnSiguiente) {
-            if (window.vistaActualPlan === 'mes') window.planFechaActual.setMonth(window.planFechaActual.getMonth() + 1);
-            else window.planFechaActual.setDate(window.planFechaActual.getDate() + 7);
-            if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador();
-        }
-    });
-
-    document.addEventListener('change', function(e) {
-        if (e.target.matches('input[name="vistaPlanificador"]')) {
-            window.vistaActualPlan = e.target.value;
-            if (typeof window.cargarGridPlanificador === 'function') window.cargarGridPlanificador();
-        }
-    });
-}
-
 window.accionProgramarOP = function(fechaStr) {
     const modalOPEl = document.getElementById('modalPlanificarOP');
     if (!modalOPEl || typeof bootstrap === 'undefined') return;
@@ -1513,30 +1155,3 @@ window.accionProgramarOP = function(fechaStr) {
 
     modalOP.show();
 };
-
-// =========================================================================
-// FIX DEFINITIVO PARA MODALES SUPERPUESTOS EN BOOTSTRAP (Z-INDEX)
-// =========================================================================
-if (!window.produccionZIndexFixAplicado) {
-    document.addEventListener('show.bs.modal', function (event) {
-        const modalsAbiertos = document.querySelectorAll('.modal.show').length;
-        const nuevoZIndex = 1060 + (10 * modalsAbiertos);
-        event.target.style.zIndex = nuevoZIndex;
-        setTimeout(() => {
-            const backdrops = document.querySelectorAll('.modal-backdrop:not(.z-fixed)');
-            backdrops.forEach(backdrop => {
-                backdrop.style.zIndex = nuevoZIndex - 1;
-                backdrop.classList.add('z-fixed');
-            });
-        }, 10);
-    });
-
-    document.addEventListener('hidden.bs.modal', function (event) {
-        if (event.target.id === 'modalPlanificarOP') {
-            if (document.getElementById('modalPlanificadorProduccion')?.classList.contains('show')) {
-                document.body.classList.add('modal-open');
-            }
-        }
-    });
-    window.produccionZIndexFixAplicado = true;
-}

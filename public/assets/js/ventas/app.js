@@ -98,10 +98,81 @@ function arrancarModuloVentas() {
     const btnFiltrarFechas = document.getElementById('btnFiltrarFechas');
     if (btnFiltrarFechas) btnFiltrarFechas.addEventListener('click', recargarTabla);
 
-    const filtrosChange = ['filtroEstado', 'filtroOrdenFecha'];
-    filtrosChange.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('change', recargarTabla);
+// 1. Escuchar el cambio en el selector de orden de fecha
+    const filtroOrdenFecha = document.getElementById('filtroOrdenFecha');
+    if (filtroOrdenFecha) filtroOrdenFecha.addEventListener('change', recargarTabla);
+
+    // 2. Lógica AJAX para las Pestañas (Tabs)
+    const tabsVentas = document.querySelectorAll('.js-tab-ventas');
+    const inputVistaGlobal = document.getElementById('inputVistaGlobal');
+    const tituloTabla = document.querySelector('#contenedorTablaVentas h2');
+    
+    // Capturamos los inputs de fecha
+    const inputDesde = document.getElementById('filtroFechaDesde');
+    const inputHasta = document.getElementById('filtroFechaHasta');
+
+    tabsVentas.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            tabsVentas.forEach(t => {
+                t.classList.remove('active', 'text-primary', 'border-primary', 'border-bottom-0', 'bg-white');
+                t.classList.add('text-secondary', 'bg-light', 'border-0');
+            });
+            
+            tab.classList.remove('text-secondary', 'bg-light', 'border-0');
+            tab.classList.add('active', 'text-primary', 'border-primary', 'border-bottom-0', 'bg-white');
+            
+            const vista = tab.dataset.vista;
+            
+            // --- MAGIA UX: Gestión dinámica de fechas según la pestaña ---
+            if (vista === 'pendientes') {
+                // Limpiamos las fechas para no ocultar trabajo rezagado
+                if (inputDesde) inputDesde.value = '';
+                if (inputHasta) inputHasta.value = '';
+            } else {
+                // Si pasamos al historial y las fechas están vacías, inyectamos los últimos 30 días
+                if (inputDesde && inputHasta && (!inputDesde.value || !inputHasta.value)) {
+                    const hoy = new Date();
+                    const hace30Dias = new Date();
+                    hace30Dias.setDate(hoy.getDate() - 30);
+                    
+                    // Ajuste de zona horaria local a formato YYYY-MM-DD
+                    const formatoLocal = (fecha) => {
+                        const offset = fecha.getTimezoneOffset() * 60000;
+                        return new Date(fecha.getTime() - offset).toISOString().split('T')[0];
+                    };
+
+                    inputDesde.value = formatoLocal(hace30Dias);
+                    inputHasta.value = formatoLocal(hoy);
+                }
+            }
+            
+            if (inputVistaGlobal) {
+                inputVistaGlobal.value = vista;
+                inputVistaGlobal.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            
+            const url = new URL(window.location);
+            url.searchParams.set('vista', vista);
+            
+            // Reflejamos las fechas en la URL para que no se pierdan si se recarga la página
+            if (inputDesde?.value) url.searchParams.set('fecha_desde', inputDesde.value);
+            else url.searchParams.delete('fecha_desde');
+            
+            if (inputHasta?.value) url.searchParams.set('fecha_hasta', inputHasta.value);
+            else url.searchParams.delete('fecha_hasta');
+
+            window.history.pushState({}, '', url);
+            
+            if (tituloTabla) {
+                if (vista === 'pendientes') tituloTabla.textContent = 'Pedidos Pendientes de Atención';
+                else if (vista === 'completados') tituloTabla.textContent = 'Pedidos Despachados / Cerrados';
+                else tituloTabla.textContent = 'Todos los Pedidos';
+            }
+            
+            recargarTabla();
+        });
     });
 
     const filtroFechaDesde = document.getElementById('filtroFechaDesde');
